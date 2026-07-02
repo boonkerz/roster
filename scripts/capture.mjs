@@ -1,6 +1,10 @@
 // Captures README screenshots against a local demo instance.
-// Usage: node scripts/capture.mjs <base-url> <out-dir>
-import { chromium } from "playwright";
+// Usage (run from the web/ directory so playwright resolves): node ../scripts/capture.mjs <base-url> <out-dir>
+import { createRequire } from "module";
+// Resolve playwright from the current working directory (web/node_modules),
+// not from this file's location (scripts/), which has no node_modules.
+const require = createRequire(process.cwd() + "/");
+const { chromium } = require("playwright");
 const BASE = process.argv[2] || "http://127.0.0.1:18080";
 const OUT = process.argv[3] || "docs/screenshots";
 
