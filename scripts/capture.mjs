@@ -45,14 +45,20 @@ for (const lang of ["de", "en"]) {
   await openDevice(); await shot(`devices-${lang}`);
   try {
     await p.click('button.tab-group:has-text("Übersicht"),button.tab-group:has-text("Overview")'); await wait(300);
-    await p.click('button.tab:has-text("Auslastung"),button.tab:has-text("Utilization")'); await wait(4000);
+    await p.click('button.tab:has-text("Auslastung"),button.tab:has-text("Utilization")');
+    // wait until the live metrics have actually loaded (bars rendered), then a
+    // couple more seconds so a second sample fills the network rate.
+    await p.waitForSelector(".metric-fill", { timeout: 30000 });
+    await wait(3000);
     await shot(`live-${lang}`);
-  } catch {}
+  } catch (e) { console.log("live capture:", e.message); }
   try {
     await p.click('button.tab-group:has-text("System")'); await wait(300);
-    await p.click('button.tab:has-text("Dienste"),button.tab:has-text("Services")'); await wait(3500);
+    await p.click('button.tab:has-text("Dienste"),button.tab:has-text("Services")');
+    await p.waitForSelector("table tbody tr", { timeout: 30000 });
+    await wait(800);
     await shot(`services-${lang}`);
-  } catch {}
+  } catch (e) { console.log("services capture:", e.message); }
 }
 await b.close();
 console.log("done");
