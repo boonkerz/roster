@@ -29,6 +29,7 @@ func startVNCServer(_ context.Context, password string, consent bool, log *slog.
 	if err != nil {
 		return "", nil, err
 	}
+	log.Info("vnc-server-kommandozeile", "cmd", cmdLine)
 
 	stopProc, err := startInUserSession(cmdLine, log)
 	if err != nil {
