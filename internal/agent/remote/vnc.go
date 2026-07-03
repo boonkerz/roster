@@ -30,7 +30,33 @@ func vncServerPath(name string) (string, error) {
 			return cand, nil
 		}
 	}
+	for _, cand := range wellKnownVNCPaths(exe) {
+		if st, serr := os.Stat(cand); serr == nil && !st.IsDir() {
+			return cand, nil
+		}
+	}
 	return exec.LookPath(exe)
+}
+
+// wellKnownVNCPaths listet übliche Installationsorte des VNC-Servers je Plattform.
+func wellKnownVNCPaths(exe string) []string {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+	pf := os.Getenv("ProgramFiles")
+	pf86 := os.Getenv("ProgramFiles(x86)")
+	var out []string
+	for _, base := range []string{pf, pf86} {
+		if base == "" {
+			continue
+		}
+		out = append(out,
+			filepath.Join(base, "uvnc bvba", "UltraVNC", exe),
+			filepath.Join(base, "UltraVNC", exe),
+			filepath.Join(base, "TightVNC", exe),
+		)
+	}
+	return out
 }
 
 // handleVNC bedient eine Fernsteuerungs-Sitzung: es startet on-demand einen
