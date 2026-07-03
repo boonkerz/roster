@@ -199,6 +199,71 @@ func TestAlertChannelScopeAndSeverity(t *testing.T) {
 	}
 }
 
+func TestRemediation(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	fix := &model.Script{ID: store.NewID(), Name: "Restart svc", Shell: "shell", Content: "echo fix"}
+	if err := st.CreateScript(ctx, fix); err != nil {
+		t.Fatalf("CreateScript: %v", err)
+	}
+	pol := &model.Policy{ID: store.NewID(), Name: "p"}
+	if err := st.CreatePolicy(ctx, pol); err != nil {
+		t.Fatalf("CreatePolicy: %v", err)
+	}
+	// Check ohne Remediation -> kein Skript.
+	plain := &model.PolicyCheck{ID: store.NewID(), PolicyID: pol.ID, Name: "plain", Type: "disk", Severity: "critical"}
+	if err := st.AddCheck(ctx, plain); err != nil {
+		t.Fatalf("AddCheck plain: %v", err)
+	}
+	if _, err := st.RemediationScript(ctx, plain.ID); err != store.ErrNotFound {
+		t.Fatalf("erwartet ErrNotFound, bekam: %v", err)
+	}
+	// Check mit Remediation -> Skript wird geliefert und in checksOf zurückgegeben.
+	chk := &model.PolicyCheck{ID: store.NewID(), PolicyID: pol.ID, Name: "c", Type: "disk", Severity: "critical", RemediationScriptID: &fix.ID}
+	if err := st.AddCheck(ctx, chk); err != nil {
+		t.Fatalf("AddCheck: %v", err)
+	}
+	sc, err := st.RemediationScript(ctx, chk.ID)
+	if err != nil || sc.ID != fix.ID || sc.Content != "echo fix" {
+		t.Fatalf("RemediationScript: %+v / %v", sc, err)
+	}
+	got, err := st.ListPolicies(ctx)
+	if err != nil || len(got) != 1 || len(got[0].Checks) != 2 {
+		t.Fatalf("ListPolicies: %v / %+v", err, got)
+	}
+	var found bool
+	for _, c := range got[0].Checks {
+		if c.ID == chk.ID {
+			if c.RemediationScriptID == nil || *c.RemediationScriptID != fix.ID {
+				t.Fatalf("RemediationScriptID nicht durchgereicht: %+v", c)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("Check nicht in ListPolicies gefunden")
+	}
+	// Cooldown: erst fällig, nach Markierung nicht mehr, nach Ablauf wieder.
+	dev := "dev1"
+	if !st.RemediationDue(ctx, dev, chk.ID, time.Hour) {
+		t.Fatalf("erste Remediation sollte fällig sein")
+	}
+	if err := st.MarkRemediation(ctx, dev, chk.ID, time.Now()); err != nil {
+		t.Fatalf("MarkRemediation: %v", err)
+	}
+	if st.RemediationDue(ctx, dev, chk.ID, time.Hour) {
+		t.Fatalf("innerhalb Cooldown sollte nicht fällig sein")
+	}
+	if !st.RemediationDue(ctx, dev, chk.ID, time.Nanosecond) {
+		t.Fatalf("nach Ablauf sollte wieder fällig sein")
+	}
+	// Upsert: erneutes Markieren aktualisiert nur (kein Fehler).
+	if err := st.MarkRemediation(ctx, dev, chk.ID, time.Now()); err != nil {
+		t.Fatalf("MarkRemediation upsert: %v", err)
+	}
+}
+
 func TestCustomFieldsAndCollector(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

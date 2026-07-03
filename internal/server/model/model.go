@@ -209,6 +209,8 @@ type PolicyCheck struct {
 	ScriptID  *string        `json:"script_id,omitempty"`
 	Severity  string         `json:"severity"`  // warning | critical (Standard critical)
 	Frequency string         `json:"frequency"` // "" = jeden Checkin, sonst Preset
+	// RemediationScriptID: bei „failing" automatisch ausgeführtes Skript (Self-Healing).
+	RemediationScriptID *string `json:"remediation_script_id,omitempty"`
 }
 
 // PolicyTask ist ein geplanter Skript-Task innerhalb einer Policy.

@@ -8,9 +8,10 @@ nächste Features – noch nichts davon ist gebaut.
 
 ### Top-Empfehlungen (größter Mehrwert, bauen auf vorhandener Infrastruktur auf)
 
-- [ ] **Automatisierung / Self-Healing** – „wenn Check X fehlschlägt, führe automatisch
-  Skript Y aus" (Remediation); geplante Auto-Aufgaben (nächtlicher Neustart, wöchentlicher
-  Cleanup). Nutzt Checks + Command-Queue + Skripte. *Das* prägende RMM-Feature, das noch fehlt.
+- [x] **Automatisierung / Self-Healing** – Remediation-Skript je Check: wechselt ein Check
+  auf „failing", führt der Server automatisch das hinterlegte Skript auf dem Gerät aus
+  (Cooldown 30 min gegen Flapping, Audit-Eintrag). Konfiguration im Policy-Check-Formular.
+  (Geplante Auto-Aufgaben gibt es bereits über Tasks.)
 - [ ] **Metrik-Historie + Verlaufsgraphen** – Zeitreihen für CPU/RAM/Disk/Netz speichern und
   als Charts (24 h / 7 d / 30 d) zeigen (aktuell nur Live). Basis für Trend-/Kapazitätsalarme.
 - [ ] **Software-Verteilung** – Pakete/Installer gezielt ausrollen (Windows winget/choco,

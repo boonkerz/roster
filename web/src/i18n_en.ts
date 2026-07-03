@@ -488,4 +488,7 @@ export const EN: Record<string, string> = {
   "nie": "never",
   "Neuer Client": "New client",
   "zuletzt": "last seen",
+  "— keine Remediation —": "— no remediation —",
+  "Remediation: Skript bei Fehler automatisch ausführen": "Remediation: run script automatically on failure",
+  "Bei Fehler automatisch ausführen": "Runs automatically on failure",
 };

@@ -107,7 +107,7 @@ func (s *Store) loadPolicyChildren(ctx context.Context, p *model.Policy) error {
 
 func (s *Store) checksOf(ctx context.Context, policyID string) ([]model.PolicyCheck, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT id, name, type, config, script_id, severity, frequency FROM policy_checks WHERE policy_id=? ORDER BY name`), policyID)
+		SELECT id, name, type, config, script_id, severity, frequency, remediation_script_id FROM policy_checks WHERE policy_id=? ORDER BY name`), policyID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +116,8 @@ func (s *Store) checksOf(ctx context.Context, policyID string) ([]model.PolicyCh
 	for rows.Next() {
 		var c model.PolicyCheck
 		var cfg string
-		var scriptID sql.NullString
-		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &cfg, &scriptID, &c.Severity, &c.Frequency); err != nil {
+		var scriptID, remScriptID sql.NullString
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &cfg, &scriptID, &c.Severity, &c.Frequency, &remScriptID); err != nil {
 			return nil, err
 		}
 		c.PolicyID = policyID
@@ -125,6 +125,10 @@ func (s *Store) checksOf(ctx context.Context, policyID string) ([]model.PolicyCh
 		if scriptID.Valid {
 			v := scriptID.String
 			c.ScriptID = &v
+		}
+		if remScriptID.Valid && remScriptID.String != "" {
+			v := remScriptID.String
+			c.RemediationScriptID = &v
 		}
 		out = append(out, c)
 	}
@@ -198,13 +202,62 @@ func (s *Store) AddCheck(ctx context.Context, c *model.PolicyCheck) error {
 	if c.ScriptID != nil {
 		scriptID = *c.ScriptID
 	}
+	var remID any
+	if c.RemediationScriptID != nil && *c.RemediationScriptID != "" {
+		remID = *c.RemediationScriptID
+	}
 	severity := c.Severity
 	if severity != "warning" {
 		severity = "critical"
 	}
 	_, err := s.db.ExecContext(ctx, s.rebind(`
-		INSERT INTO policy_checks (id, policy_id, name, type, config, script_id, severity, frequency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-		c.ID, c.PolicyID, c.Name, c.Type, string(cfg), scriptID, severity, c.Frequency)
+		INSERT INTO policy_checks (id, policy_id, name, type, config, script_id, severity, frequency, remediation_script_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		c.ID, c.PolicyID, c.Name, c.Type, string(cfg), scriptID, severity, c.Frequency, remID)
+	return err
+}
+
+// RemediationScript liefert das Remediation-Skript eines Checks (self-healing),
+// oder ErrNotFound, wenn keines konfiguriert ist.
+func (s *Store) RemediationScript(ctx context.Context, checkID string) (*model.Script, error) {
+	var sc model.Script
+	var plat string
+	err := s.db.QueryRowContext(ctx, s.rebind(`
+		SELECT sr.id, sr.name, sr.shell, sr.platforms, sr.content
+		FROM policy_checks pc JOIN scripts sr ON sr.id = pc.remediation_script_id
+		WHERE pc.id = ?`), checkID).Scan(&sc.ID, &sc.Name, &sc.Shell, &plat, &sc.Content)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sc.Platforms = []string{}
+	_ = json.Unmarshal([]byte(plat), &sc.Platforms)
+	return &sc, nil
+}
+
+// RemediationDue meldet, ob für Gerät+Check seit `cooldown` keine Remediation lief.
+func (s *Store) RemediationDue(ctx context.Context, deviceID, checkID string, cooldown time.Duration) bool {
+	var last time.Time
+	err := s.db.QueryRowContext(ctx, s.rebind(
+		`SELECT last_run FROM remediation_runs WHERE device_id=? AND check_id=?`), deviceID, checkID).Scan(&last)
+	if err != nil {
+		return true // noch nie gelaufen
+	}
+	return time.Since(last) >= cooldown
+}
+
+// MarkRemediation vermerkt den Zeitpunkt der letzten Remediation (Upsert).
+func (s *Store) MarkRemediation(ctx context.Context, deviceID, checkID string, at time.Time) error {
+	res, err := s.db.ExecContext(ctx, s.rebind(
+		`UPDATE remediation_runs SET last_run=? WHERE device_id=? AND check_id=?`), at.UTC(), deviceID, checkID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		_, err = s.db.ExecContext(ctx, s.rebind(
+			`INSERT INTO remediation_runs (device_id, check_id, last_run) VALUES (?, ?, ?)`), deviceID, checkID, at.UTC())
+	}
 	return err
 }
 

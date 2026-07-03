@@ -122,12 +122,13 @@ func (s *Server) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 type checkRequest struct {
-	Name      string         `json:"name"`
-	Type      string         `json:"type"`
-	Config    map[string]any `json:"config"`
-	ScriptID  *string        `json:"script_id"`
-	Severity  string         `json:"severity"`
-	Frequency string         `json:"frequency"`
+	Name                string         `json:"name"`
+	Type                string         `json:"type"`
+	Config              map[string]any `json:"config"`
+	ScriptID            *string        `json:"script_id"`
+	Severity            string         `json:"severity"`
+	Frequency           string         `json:"frequency"`
+	RemediationScriptID *string        `json:"remediation_script_id"`
 }
 
 func (s *Server) handleAddCheck(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +139,7 @@ func (s *Server) handleAddCheck(w http.ResponseWriter, r *http.Request) {
 	c := &model.PolicyCheck{
 		ID: store.NewID(), PolicyID: chi.URLParam(r, "id"),
 		Name: req.Name, Type: req.Type, Config: req.Config, ScriptID: req.ScriptID, Severity: req.Severity,
-		Frequency: req.Frequency,
+		Frequency: req.Frequency, RemediationScriptID: req.RemediationScriptID,
 	}
 	if err := s.store.AddCheck(r.Context(), c); err != nil {
 		s.mapStoreErr(w, err)

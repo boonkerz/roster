@@ -76,6 +76,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 			s.log.Error("check-ergebnisse speichern", "err", err)
 		} else if len(events) > 0 {
 			s.alertTransitions(r.Context(), device, events)
+			s.runRemediations(r.Context(), device, events)
 		}
 	}
 	if len(req.TaskResults) > 0 {
@@ -190,6 +191,46 @@ func eventLabel(status string) string {
 // Wiederherstellung (→ passing). Nur an die für das Gerät geltenden Kanäle und nur,
 // wenn der Schweregrad den Mindest-Schweregrad des Kanals erreicht. Versendete
 // Ereignisse werden im Verlauf als „benachrichtigt" markiert.
+// remediationCooldown verhindert wiederholte Auto-Remediation bei flappenden Checks.
+const remediationCooldown = 30 * time.Minute
+
+// runRemediations führt bei Checks, die neu auf „failing" wechseln, ein hinterlegtes
+// Remediation-Skript automatisch aus (Self-Healing) – mit Cooldown je Gerät/Check.
+func (s *Server) runRemediations(ctx context.Context, device *model.Device, events []model.CheckEvent) {
+	for _, ev := range events {
+		if ev.NewStatus != "failing" {
+			continue
+		}
+		sc, err := s.store.RemediationScript(ctx, ev.CheckID)
+		if err != nil {
+			continue // kein Remediation-Skript konfiguriert
+		}
+		if !s.store.RemediationDue(ctx, device.ID, ev.CheckID, remediationCooldown) {
+			continue // Cooldown noch aktiv
+		}
+		content := sc.Content
+		if agent, client, site, ferr := s.store.FieldMapsForDevice(ctx, device.ID); ferr == nil {
+			content = store.SubstituteFields(content, agent, client, site)
+		}
+		name := ev.CheckName
+		if name == "" {
+			name = ev.CheckID
+		}
+		payload := map[string]any{"shell": sc.Shell, "script": content, "platforms": sc.Platforms}
+		if _, err := s.queueCommand(ctx, device.ID, "run_script", "Auto-Remediation: "+name, payload); err != nil {
+			s.log.Warn("remediation einreihen", "check", ev.CheckID, "err", err)
+			continue
+		}
+		_ = s.store.MarkRemediation(ctx, device.ID, ev.CheckID, time.Now())
+		_ = s.store.InsertAudit(ctx, model.AuditEntry{
+			TS: time.Now().UTC(), Username: "system",
+			Action: "Auto-Remediation ausgelöst (" + name + ")", Method: "AUTO",
+			Path: "/devices/" + device.ID, Status: 200,
+		})
+		s.log.Info("auto-remediation ausgelöst", "device", device.Hostname, "check", name, "script", sc.Name)
+	}
+}
+
 // alertSoftwareChanges benachrichtigt über seit `since` erfasste Software-Änderungen,
 // sofern in den Alarm-Einstellungen aktiviert. Behandelt als Warnung (informativ).
 func (s *Server) alertSoftwareChanges(ctx context.Context, device *model.Device, since time.Time) {

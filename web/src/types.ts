@@ -79,6 +79,7 @@ export interface PolicyCheck {
   type: string;
   config: Record<string, number | string>;
   script_id?: string;
+  remediation_script_id?: string | null;
   severity?: "warning" | "critical";
   frequency?: string;
 }

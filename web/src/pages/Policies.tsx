@@ -141,6 +141,7 @@ function PolicyEditor({
   const [cPort, setCPort] = useState("");   // TCP-Check: Port
   const [cUrl, setCUrl] = useState("");     // HTTP-Check: URL
   const [cExpected, setCExpected] = useState(""); // HTTP: erwarteter Status
+  const [cRemediation, setCRemediation] = useState(""); // Self-Healing: Skript bei Fehler
   const addCheck = useMutation({
     mutationFn: () => {
       let config: Record<string, number | string> = { threshold: cThreshold };
@@ -170,9 +171,10 @@ function PolicyEditor({
       return api.post(`/policies/${policy.id}/checks`, {
         name: cName, type: cType, severity, frequency: cFreq, config,
         script_id: cType === "script" ? cScript || null : null,
+        remediation_script_id: cRemediation || null,
       });
     },
-    onSuccess: () => { onChange(); setCName(""); setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); },
+    onSuccess: () => { onChange(); setCName(""); setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCRemediation(""); },
   });
   const delCheck = useMutation({ mutationFn: (id: string) => api.del(`/checks/${id}`), onSuccess: onChange });
 
@@ -233,8 +235,9 @@ function PolicyEditor({
                 : c.type === "tcp" ? `TCP: ${c.config?.host ?? ""}:${c.config?.port ?? ""}`
                 : c.type === "ping" ? `Ping: ${c.config?.host ?? ""}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
-              {" · "}{c.severity === "warning" ? "Warnung" : "Kritisch"}
+              {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
+              {c.remediation_script_id && <> {" · "}<span title={t("Bei Fehler automatisch ausführen")}>🔧 {scriptName(c.remediation_script_id)}</span></>}
             </span>
             <button className="btn ghost sm" onClick={() => delCheck.mutate(c.id)}>×</button>
           </div>
@@ -289,6 +292,10 @@ function PolicyEditor({
           <select value={cFreq} onChange={(e) => setCFreq(e.target.value)} title={t("Häufigkeit")}>
             <option value="">{t("Jeden Checkin")}</option>
             {FREQ.map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
+          </select>
+          <select value={cRemediation} onChange={(e) => setCRemediation(e.target.value)} title={t("Remediation: Skript bei Fehler automatisch ausführen")}>
+            <option value="">{t("— keine Remediation —")}</option>
+            {scripts.map((s) => <option key={s.id} value={s.id}>🔧 {s.name}</option>)}
           </select>
           <button className="btn primary" type="submit">+ {t("Check")}</button>
         </form>
