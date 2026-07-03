@@ -496,4 +496,7 @@ export const EN: Record<string, string> = {
   "Verbindung verloren": "Connection lost",
   "Authentifizierung fehlgeschlagen": "Authentication failed",
   "Startet on-demand einen VNC-Server am Gerät (nur während der Sitzung, nur lokal). Bei Nutzer-PCs muss die Verbindung ggf. am Gerät bestätigt werden.": "Starts a VNC server on the device on demand (only during the session, loopback only). On user PCs the connection may need to be confirmed on the device.",
+  "Schnell: in einer PowerShell als Administrator ausführen:": "Quick: run in an elevated PowerShell (Administrator):",
+  "Schnell: mit Root-Rechten ausführen:": "Quick: run with root privileges:",
+  "Oder das vollständige Skript:": "Or the full script:",
 };

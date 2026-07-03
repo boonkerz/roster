@@ -58,6 +58,14 @@ sudo /usr/local/bin/pc-inventory-agent -config /etc/pc-inventory/agent.yaml inst
 sudo /usr/local/bin/pc-inventory-agent -config /etc/pc-inventory/agent.yaml start`;
 }
 
+// buildOneLiner liefert den One-Liner, der das Install-Skript direkt vom Server holt
+// und ausführt (kein Datei-Speichern/-Kopieren nötig).
+function buildOneLiner(os: OS, server: string, token: string): string {
+  if (os === "windows") return `irm ${server}/i/w/${token} | iex`;
+  const p = os === "mac" ? "m" : "l";
+  return `curl -fsSL ${server}/i/${p}/${token} | sudo bash`;
+}
+
 export function AddComputerDialog({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const [clientID, setClientID] = useState("");
@@ -90,10 +98,17 @@ export function AddComputerDialog({ onClose }: { onClose: () => void }) {
   };
 
   const script = token ? buildScript(os, window.location.origin, token) : "";
+  const oneLiner = token ? buildOneLiner(os, window.location.origin, token) : "";
+  const [copiedLine, setCopiedLine] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(script);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+  const copyLine = () => {
+    navigator.clipboard.writeText(oneLiner);
+    setCopiedLine(true);
+    setTimeout(() => setCopiedLine(false), 1500);
   };
 
   return (
@@ -143,6 +158,18 @@ export function AddComputerDialog({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
+            <label className="muted small" style={{ display: "block", marginBottom: 4 }}>
+              {os === "windows"
+                ? t("Schnell: in einer PowerShell als Administrator ausführen:")
+                : t("Schnell: mit Root-Rechten ausführen:")}
+            </label>
+            <div className="code-block">
+              <button className="btn ghost sm copy-btn" onClick={copyLine}>{copiedLine ? t("Kopiert ✓") : t("Kopieren")}</button>
+              <pre className="one-liner">{oneLiner}</pre>
+            </div>
+            <label className="muted small" style={{ display: "block", margin: "10px 0 4px" }}>
+              {t("Oder das vollständige Skript:")}
+            </label>
             <div className="code-block">
               <button className="btn ghost sm copy-btn" onClick={copy}>{copied ? t("Kopiert ✓") : t("Kopieren")}</button>
               <pre>{script}</pre>

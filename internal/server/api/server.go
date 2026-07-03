@@ -205,6 +205,9 @@ func (s *Server) routes() http.Handler {
 		})
 	})
 
+	// Kurze öffentliche Install-URL für den One-Liner (irm .../i/w/<token> | iex).
+	r.Get("/i/{plat}/{token}", s.handleInstallScript)
+
 	// Frontend (SPA) ausliefern, falls eingebettet.
 	if s.webFS != nil {
 		r.NotFound(s.serveSPA)
