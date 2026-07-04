@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"unsafe"
 
 	"log/slog"
@@ -45,25 +46,49 @@ func inSession0() bool {
 	return r != 0 && sid == 0
 }
 
-// RunCaptureHelper ist der __capture-Modus: läuft in der Nutzer-Session, nimmt den
-// Bildschirm per GDI auf und liefert Frames über stdin/stdout an den Dienst.
-// Protokoll: 8-Byte-Header (w,h little-endian), dann je 1 Anfrage-Byte auf stdin
-// ein Vollbild (w*h*4 Bytes) auf stdout.
+// RunCaptureHelper ist der __capture-Modus: läuft als SYSTEM in der aktiven Session,
+// FOLGT dem aktiven Eingabe-Desktop (Anmeldebildschirm/Winlogon, Sperre, UAC-Sicherer-
+// Desktop, normaler Desktop) und liefert Frames über stdin/stdout an den Dienst.
+// Protokoll: 8-Byte-Header (w,h LE), dann je Kommando (capture/pointer/key).
 func RunCaptureHelper() {
+	// Desktop-Zuordnung gilt pro Thread → an einen OS-Thread binden.
+	runtime.LockOSThread()
 	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
-	src, err := newCaptureSource(discard)
-	if err != nil {
+
+	var df desktopFollower
+	defer df.close()
+	var src screenSource
+	defer func() {
+		if src != nil {
+			src.Close()
+		}
+	}()
+	// ensure erzeugt die Quelle (neu) auf dem aktuellen Eingabe-Desktop.
+	ensure := func() {
+		if _, changed := df.follow(); changed || src == nil {
+			if src != nil {
+				src.Close()
+				src = nil
+			}
+			if s, e := newCaptureSource(discard); e == nil {
+				src = s
+			}
+		}
+	}
+	ensure()
+	if src == nil {
 		os.Exit(2)
 	}
-	defer src.Close()
-	in, _ := src.(inputSink)
 	w, h := src.Bounds()
+	out := make([]byte, w*h*4) // feste Ausgabegröße (Framebuffer ist fix; schwarz = Platzhalter)
+
 	hdr := make([]byte, 8)
 	binary.LittleEndian.PutUint32(hdr[0:], uint32(w))
 	binary.LittleEndian.PutUint32(hdr[4:], uint32(h))
 	if _, err := os.Stdout.Write(hdr); err != nil {
 		return
 	}
+
 	cmd := make([]byte, 1)
 	arg := make([]byte, 5)
 	for {
@@ -72,25 +97,31 @@ func RunCaptureHelper() {
 		}
 		switch cmd[0] {
 		case cmdCapture:
-			px, err := src.Capture()
-			if err != nil {
-				return
+			ensure() // Desktop-Wechsel (Login/Sperre/UAC) verfolgen
+			px := out
+			if src != nil {
+				if p, e := src.Capture(); e == nil && len(p) == len(out) {
+					px = p
+				} else if e != nil {
+					src.Close()
+					src = nil
+				}
 			}
-			if _, err := os.Stdout.Write(px[:w*h*4]); err != nil {
+			if _, err := os.Stdout.Write(px); err != nil {
 				return
 			}
 		case cmdPointer: // mask(1) + x(2 LE) + y(2 LE)
 			if _, err := io.ReadFull(os.Stdin, arg); err != nil {
 				return
 			}
-			if in != nil {
+			if in, ok := src.(inputSink); ok {
 				in.Pointer(int(arg[0]), int(binary.LittleEndian.Uint16(arg[1:])), int(binary.LittleEndian.Uint16(arg[3:])))
 			}
 		case cmdKey: // down(1) + keysym(4 LE)
 			if _, err := io.ReadFull(os.Stdin, arg); err != nil {
 				return
 			}
-			if in != nil {
+			if in, ok := src.(inputSink); ok {
 				in.Key(arg[0] != 0, binary.LittleEndian.Uint32(arg[1:]))
 			}
 		default:
@@ -120,9 +151,13 @@ func startCaptureHelper(log *slog.Logger) (screenSource, error) {
 	if sess == 0xFFFFFFFF {
 		return nil, fmt.Errorf("keine aktive konsolen-sitzung")
 	}
-	var token windows.Token
-	if err := windows.WTSQueryUserToken(sess, &token); err != nil {
-		return nil, fmt.Errorf("WTSQueryUserToken (Agent muss SYSTEM-Dienst sein): %w", err)
+	// SYSTEM-Token in der aktiven Session: deckt auch Anmeldebildschirm, Sperre und
+	// UAC (sicherer Desktop) ab. Fallback: Token des angemeldeten Nutzers.
+	token, err := systemSessionToken(sess)
+	if err != nil {
+		if e2 := windows.WTSQueryUserToken(sess, &token); e2 != nil {
+			return nil, fmt.Errorf("kein session-token (SYSTEM: %v): %w", err, e2)
+		}
 	}
 
 	sa := &windows.SecurityAttributes{InheritHandle: 1}
