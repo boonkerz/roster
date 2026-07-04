@@ -64,7 +64,7 @@ type gdiSource struct {
 	bmi    bitmapInfo
 }
 
-func newScreenSource(log *slog.Logger) (screenSource, error) {
+func newGDISource(log *slog.Logger) (screenSource, error) {
 	w, _, _ := procGetSystemMetrics.Call(smCXScreen)
 	h, _, _ := procGetSystemMetrics.Call(smCYScreen)
 	if w == 0 || h == 0 {

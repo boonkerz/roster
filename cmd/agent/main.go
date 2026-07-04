@@ -42,6 +42,12 @@ func main() {
 		fmt.Println(version)
 		return
 	}
+	// Versteckter Aufnahme-Helfer für die Fernsteuerung: läuft in der Nutzer-Session
+	// (vom Dienst per CreateProcessAsUser gestartet) und umgeht die Session-0-Isolation.
+	if flag.Arg(0) == "__capture" {
+		remote.RunCaptureHelper()
+		return
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 

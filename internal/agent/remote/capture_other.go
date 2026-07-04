@@ -9,3 +9,6 @@ import "log/slog"
 func newScreenSource(_ *slog.Logger) (screenSource, error) {
 	return newSyntheticSource(), nil
 }
+
+// RunCaptureHelper existiert nur unter Windows (Session-0-Umgehung); anderswo No-op.
+func RunCaptureHelper() {}
