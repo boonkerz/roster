@@ -4,6 +4,8 @@ package remote
 
 import (
 	"context"
+	"crypto/des"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +14,8 @@ import (
 	"log/slog"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/thomaspeterson/pc-inventory/internal/agent/transport"
 )
 
 // startVNCServer startet on-demand einen VNC-Server unter Windows, gebunden an
@@ -24,8 +28,8 @@ import (
 // installiertes UltraVNC/TightVNC) oder das gebündelte winvnc.exe. Die RFB-Auth
 // ist optional: Zugriff ist nur über den authentifizierten Tunnel + Loopback
 // möglich; die Passwort-Verschlüsselung am Server (UltraVNC-ini) folgt als Härtung.
-func startVNCServer(_ context.Context, password string, consent bool, log *slog.Logger) (string, func(), error) {
-	cmdLine, cleanup, err := vncCommandLine(password, consent)
+func startVNCServer(ctx context.Context, client *transport.Client, agentToken, password string, consent bool, log *slog.Logger) (string, func(), error) {
+	cmdLine, cleanup, err := vncCommandLine(ctx, client, agentToken, password, consent, log)
 	if err != nil {
 		return "", nil, err
 	}
@@ -51,16 +55,22 @@ func startVNCServer(_ context.Context, password string, consent bool, log *slog.
 
 // vncCommandLine liefert die zu startende Kommandozeile und einen Aufräum-Callback
 // für temporäre Dateien.
-func vncCommandLine(_ string, consent bool) (string, func(), error) {
+func vncCommandLine(ctx context.Context, client *transport.Client, agentToken, password string, consent bool, log *slog.Logger) (string, func(), error) {
 	if custom := os.Getenv("PCINV_VNC_CMD"); custom != "" {
 		return custom, nil, nil
 	}
-	bin, err := vncServerPath("winvnc")
+	// Bevorzugt das mitgelieferte Bundle (on-demand geladen); Fallback: ein
+	// installiertes UltraVNC/TightVNC (Standardpfade / PATH).
+	bin, err := ensureVNCServer(ctx, client, agentToken, "windows-amd64", "winvnc.exe", log)
 	if err != nil {
-		return "", nil, fmt.Errorf("winvnc.exe nicht gefunden (siehe VNC-Bundling) oder PCINV_VNC_CMD setzen: %w", err)
+		if p, lerr := vncServerPath("winvnc"); lerr == nil {
+			bin = p
+		} else {
+			return "", nil, fmt.Errorf("winvnc.exe weder im Bundle noch installiert gefunden: %w", err)
+		}
 	}
-	// Minimale ultravnc.ini: nur Loopback, keine Passwort-Abfrage (Tunnel sichert),
-	// optional Nachfrage beim Nutzer.
+	// ultravnc.ini: nur Loopback, Einmalpasswort (RFB-Auth wie von noVNC erwartet),
+	// optional Nachfrage beim angemeldeten Nutzer.
 	ini, err := os.CreateTemp("", "pcinv-ultravnc-*.ini")
 	if err != nil {
 		return "", nil, err
@@ -69,11 +79,37 @@ func vncCommandLine(_ string, consent bool) (string, func(), error) {
 	if consent {
 		query = 1
 	}
-	fmt.Fprintf(ini, "[ultravnc]\nPortNumber=5900\nAllowLoopback=1\nLoopbackOnly=1\nAuthRequired=0\nQuerySetting=%d\nQueryTimeout=30\n", query)
+	fmt.Fprintf(ini, "[ultravnc]\nPortNumber=5900\nAllowLoopback=1\nLoopbackOnly=1\npasswd=%s\nQuerySetting=%d\nQueryTimeout=30\n",
+		ultraVNCPasswd(password), query)
 	_ = ini.Close()
 	cleanup := func() { _ = os.Remove(ini.Name()) }
 	cmd := fmt.Sprintf(`"%s" -run -config "%s"`, bin, ini.Name())
 	return cmd, cleanup, nil
+}
+
+// ultraVNCPasswd verschlüsselt das Klartext-Passwort im klassischen VNC-Format
+// (DES-ECB mit festem, bit-gespiegeltem Schlüssel; max. 8 Zeichen) und liefert es
+// als Hex – so speichert UltraVNC das Passwort in der ini (passwd=).
+func ultraVNCPasswd(plain string) string {
+	fixed := []byte{23, 82, 107, 6, 35, 78, 88, 7}
+	key := make([]byte, 8)
+	for i, b := range fixed {
+		var r byte
+		for j := 0; j < 8; j++ {
+			r = (r << 1) | (b & 1)
+			b >>= 1
+		}
+		key[i] = r
+	}
+	block, err := des.NewCipher(key)
+	if err != nil {
+		return ""
+	}
+	pw := make([]byte, 8) // mit Nullen aufgefüllt / abgeschnitten
+	copy(pw, []byte(plain))
+	out := make([]byte, 8)
+	block.Encrypt(out, pw)
+	return hex.EncodeToString(out)
 }
 
 // startInUserSession startet die Kommandozeile im Kontext des an der Konsole

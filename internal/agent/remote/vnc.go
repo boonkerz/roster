@@ -64,7 +64,7 @@ func wellKnownVNCPaths(exe string) []string {
 // relayed die rohen RFB-Bytes bidirektional zwischen WS und lokalem VNC-Server.
 // Der VNC-Server läuft nur während der Sitzung und wird danach beendet.
 func handleVNC(ctx context.Context, client *transport.Client, agentToken, session, password string, consent bool, log *slog.Logger) {
-	addr, stop, err := startVNCServer(ctx, password, consent, log)
+	addr, stop, err := startVNCServer(ctx, client, agentToken, password, consent, log)
 	if err != nil {
 		log.Warn("vnc-server start fehlgeschlagen", "err", err)
 		return

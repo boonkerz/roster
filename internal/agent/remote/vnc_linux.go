@@ -9,13 +9,15 @@ import (
 	"os/exec"
 
 	"log/slog"
+
+	"github.com/thomaspeterson/pc-inventory/internal/agent/transport"
 )
 
 // startVNCServer startet on-demand x11vnc gegen die aktive X-Session, gebunden an
 // 127.0.0.1:5900, mit Einmalpasswort. -once beendet den Server nach dem Trennen des
 // (einzigen) Clients; stop() räumt zusätzlich auf. Bei consent zeigt x11vnc dem
 // angemeldeten Nutzer einen Bestätigungsdialog.
-func startVNCServer(ctx context.Context, password string, consent bool, log *slog.Logger) (string, func(), error) {
+func startVNCServer(ctx context.Context, client *transport.Client, agentToken, password string, consent bool, log *slog.Logger) (string, func(), error) {
 	pw, err := os.CreateTemp("", "pcinv-vnc-*.pw")
 	if err != nil {
 		return "", nil, err
@@ -31,10 +33,14 @@ func startVNCServer(ctx context.Context, password string, consent bool, log *slo
 		cmd = exec.Command("sh", "-c", custom)
 		cmd.Env = append(os.Environ(), "VNC_PASSWORD="+password, "VNC_PASSWORD_FILE="+pw.Name())
 	} else {
-		bin, lerr := vncServerPath("x11vnc")
-		if lerr != nil {
-			_ = os.Remove(pw.Name())
-			return "", nil, fmt.Errorf("x11vnc nicht gefunden: %w", lerr)
+		// Bevorzugt das mitgelieferte Bundle (on-demand geladen); Fallback: PATH.
+		bin, berr := ensureVNCServer(ctx, client, agentToken, "linux-amd64", "x11vnc", log)
+		if berr != nil {
+			bin, err = vncServerPath("x11vnc")
+			if err != nil {
+				_ = os.Remove(pw.Name())
+				return "", nil, fmt.Errorf("x11vnc weder im Bundle noch installiert: %w", berr)
+			}
 		}
 		args := []string{
 			"-localhost", "-rfbport", "5900",

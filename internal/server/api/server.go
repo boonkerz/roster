@@ -72,6 +72,7 @@ func (s *Server) routes() http.Handler {
 				r.Post("/agent/command-progress", s.handleCommandProgress)
 				r.Post("/agent/file-upload", s.handleAgentFileUpload)
 				r.Get("/agent/file-download", s.handleAgentFileDownload)
+				r.Get("/agent/vnc/{platform}", s.handleVNCBundle)
 			})
 
 			// --- Agent-Download (öffentlich, für Install-Skripte) ---

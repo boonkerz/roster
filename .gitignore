@@ -5,6 +5,8 @@
 /web/node_modules/
 # Eingebettete Agent-Binaries (werden per "make agents-embed" cross-kompiliert)
 /internal/server/agentdist/bin/agent-*
+# Eingebettete VNC-Server-Bundles (werden per "make vnc-embed" beschafft)
+/internal/server/vncdist/bin/*.zip
 
 # Lokale Daten / Konfiguration
 *.db

@@ -7,8 +7,9 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOFLAGS := CGO_ENABLED=0
 BIN := bin
 AGENT_EMBED := internal/server/agentdist/bin
+VNC_EMBED := internal/server/vncdist/bin
 
-.PHONY: help web server agent agents-embed build test vet tidy clean run-server cross
+.PHONY: help web server agent agents-embed vnc-embed build test vet tidy clean run-server cross
 
 help: ## Diese Hilfe anzeigen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -26,6 +27,26 @@ agents-embed: ## Agent-Binaries für alle Plattformen ins Server-Embed cross-kom
 
 server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Downloads)
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/server ./cmd/server
+
+# VNC-Server-Bundles für die Web-Fernsteuerung ins Server-Embed packen. Die
+# nativen VNC-Server (GPL) werden NICHT im Repo mitgeliefert; einmalig bereitstellen:
+#   Windows: UltraVNC winvnc.exe + zugehörige DLLs in einen Ordner legen, dann
+#            VNC_WIN_DIR=<ordner> make vnc-embed  -> erzeugt vnc-windows-amd64.zip
+#   Linux:   statischer x11vnc als VNC_LINUX_BIN=<pfad> make vnc-embed
+# Danach `make server` einbetten. Ohne Bundle fällt der Agent auf ein installiertes
+# UltraVNC/x11vnc zurück.
+vnc-embed: ## VNC-Server-Bundles ins Server-Embed packen (VNC_WIN_DIR=... / VNC_LINUX_BIN=...)
+	mkdir -p $(VNC_EMBED)
+	@if [ -n "$(VNC_WIN_DIR)" ]; then \
+		echo "packe Windows-Bundle aus $(VNC_WIN_DIR)"; \
+		(cd "$(VNC_WIN_DIR)" && zip -qr - .) > $(VNC_EMBED)/vnc-windows-amd64.zip; \
+	fi
+	@if [ -n "$(VNC_LINUX_BIN)" ]; then \
+		echo "packe Linux-Bundle aus $(VNC_LINUX_BIN)"; \
+		tmp=$$(mktemp -d); cp "$(VNC_LINUX_BIN)" $$tmp/x11vnc; \
+		(cd $$tmp && zip -qr - .) > $(VNC_EMBED)/vnc-linux-amd64.zip; rm -rf $$tmp; \
+	fi
+	@echo "fertig. Vorhandene Bundles:"; ls -1 $(VNC_EMBED)/*.zip 2>/dev/null || echo "(keine)"
 
 agent: ## Agent-Binary für die aktuelle Plattform bauen
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent ./cmd/agent
