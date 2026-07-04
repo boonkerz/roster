@@ -26,9 +26,9 @@ func newScreenSource(log *slog.Logger) (screenSource, error) {
 	if s, err := startCaptureHelper(log); err == nil {
 		return s, nil
 	} else {
-		log.Info("nutzer-session-helfer nicht verfügbar – direkte GDI-Aufnahme", "err", err)
+		log.Info("nutzer-session-helfer nicht verfügbar – direkte Aufnahme", "err", err)
 	}
-	return newGDISource(log)
+	return newCaptureSource(log)
 }
 
 // RunCaptureHelper ist der __capture-Modus: läuft in der Nutzer-Session, nimmt den
@@ -37,7 +37,7 @@ func newScreenSource(log *slog.Logger) (screenSource, error) {
 // ein Vollbild (w*h*4 Bytes) auf stdout.
 func RunCaptureHelper() {
 	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
-	src, err := newGDISource(discard)
+	src, err := newCaptureSource(discard)
 	if err != nil {
 		os.Exit(2)
 	}
