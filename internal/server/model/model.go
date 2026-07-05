@@ -405,6 +405,20 @@ type TaskResult struct {
 }
 
 // EnrollmentToken wird von Admins erzeugt und per GPO verteilt.
+// Vulnerability ist eine für ein Gerät erkannte Schwachstelle (CVE/OSV).
+type Vulnerability struct {
+	DeviceID   string    `json:"device_id,omitempty"`
+	Hostname   string    `json:"hostname,omitempty"`
+	Package    string    `json:"package"`
+	Version    string    `json:"version"`
+	VulnID     string    `json:"vuln_id"`
+	Severity   string    `json:"severity"` // CRITICAL | HIGH | MEDIUM | LOW | ""
+	Summary    string    `json:"summary"`
+	Fixed      string    `json:"fixed"`
+	URL        string    `json:"url"`
+	DetectedAt time.Time `json:"detected_at"`
+}
+
 // DeployPackage ist ein verteilbares Software-Paket mit Kennung je Paketmanager.
 type DeployPackage struct {
 	ID     string `json:"id"`

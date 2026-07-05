@@ -15,10 +15,11 @@ import { EventLog } from "./EventLog";
 import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
+import { Vulnerabilities } from "./Vulnerabilities";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "events" | "files" | "software" | "updates" | "network" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -116,6 +117,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     storage: { label: "Speicher", icon: "💾" },
     system: { label: "Dienste/Prozesse", icon: "⚙" },
     security: { label: "Sicherheit", icon: "🛡" },
+    vulns: { label: "Schwachstellen", icon: "🐞" },
     events: { label: "Ereignisse", icon: "📃" },
     software: { label: "Software", icon: "📦" },
     updates: { label: "Patches", icon: "⬇" },
@@ -130,7 +132,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     { name: "Übersicht", icon: "🖥", tabs: ["summary", "live"] },
     { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "history"] },
     { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", "fields"] },
-    { name: "System", icon: "⚙", tabs: ["system", "security", "events"] },
+    { name: "System", icon: "⚙", tabs: ["system", "security", "vulns", "events"] },
   ];
   if (canOperate) tabGroups.push({ name: "Zugriff", icon: "❯_", tabs: ["files", "run", "terminal", "remote"] });
 
@@ -440,6 +442,8 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
             </section>
           </>
         )}
+
+        {tab === "vulns" && <Vulnerabilities deviceId={id} />}
 
         {tab === "security" && (
           <SecurityPanel deviceId={id} />

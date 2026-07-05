@@ -8,8 +8,9 @@ import { Groups } from "../pages/Groups";
 import { Settings } from "../pages/Settings";
 import { Account } from "../pages/Account";
 import { BulkActions } from "./BulkActions";
+import { FleetVulnerabilities } from "./FleetVulnerabilities";
 
-type ModalKey = "groups" | "settings" | "account" | "bulk";
+type ModalKey = "groups" | "settings" | "account" | "bulk" | "vulns";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {isAdmin && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
           {isAdmin && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
           <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>
+          <button className="navbtn" onClick={() => setModal("vulns")}>{t("Schwachstellen")}</button>
           {canOperate && <button className="navbtn" onClick={() => setModal("bulk")}>{t("Sammelaktion")}</button>}
           {isAdmin && <button className="navbtn" onClick={() => setModal("settings")}>{t("Einstellungen")}</button>}
         </nav>
@@ -50,6 +52,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {modal === "settings" && <Modal onClose={() => setModal(null)}><Settings /></Modal>}
       {modal === "account" && <Modal onClose={() => setModal(null)}><Account /></Modal>}
       {modal === "bulk" && <Modal onClose={() => setModal(null)}><BulkActions /></Modal>}
+      {modal === "vulns" && <Modal onClose={() => setModal(null)}><FleetVulnerabilities /></Modal>}
     </div>
   );
 }

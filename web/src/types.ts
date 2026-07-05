@@ -347,6 +347,19 @@ export interface SoftwareEvent {
   created_at: string;
 }
 
+export interface Vulnerability {
+  device_id?: string;
+  hostname?: string;
+  package: string;
+  version: string;
+  vuln_id: string;
+  severity: string;
+  summary: string;
+  fixed: string;
+  url: string;
+  detected_at: string;
+}
+
 export interface DeployPackage {
   id: string;
   name: string;
