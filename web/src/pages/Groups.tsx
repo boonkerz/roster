@@ -112,11 +112,12 @@ export function Groups() {
 
       {isAdmin && (
         <form className="card" onSubmit={submit}>
-          <div className="inline-form">
+          <div className="inline-form" style={{ alignItems: "center" }}>
             <input placeholder={t("Tag-Name")} value={name} onChange={(e) => setName(e.target.value)} />
             <input placeholder={t("Beschreibung (optional)")} value={description} onChange={(e) => setDescription(e.target.value)} />
-            <label className="inline-form" style={{ gap: 4 }}>
-              <input type="checkbox" checked={smart} onChange={(e) => setSmart(e.target.checked)} /> {t("Smart Group")}
+            <label className="check-inline">
+              <input type="checkbox" checked={smart} onChange={(e) => setSmart(e.target.checked)} />
+              <span>{t("Smart Group")}</span>
             </label>
             <button className="btn primary" type="submit" disabled={create.isPending}>{t("Anlegen")}</button>
           </div>
