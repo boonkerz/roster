@@ -28,6 +28,7 @@ export interface Group {
   description: string;
   parent_id?: string;
   device_count?: number;
+  rule: string; // JSON-Regel einer Smart Group (leer = statische Gruppe)
 }
 
 export interface SoftwarePackage {

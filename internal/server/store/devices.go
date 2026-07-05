@@ -529,7 +529,7 @@ func (s *Store) InventoryHistory(ctx context.Context, deviceID string, limit int
 
 // DevicesForTarget liefert die IDs aller (nicht widerrufenen) Geräte eines Ziels
 // für Sammelaktionen: device | site | client | group | all.
-func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID string) ([]string, error) {
+func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID string, offlineCutoff time.Time) ([]string, error) {
 	var query string
 	var args []any
 	switch targetType {
@@ -540,7 +540,17 @@ func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID strin
 	case "client":
 		query, args = `SELECT d.id FROM devices d JOIN sites s ON s.id=d.site_id WHERE s.client_id=? AND d.revoked=0`, []any{targetID}
 	case "group":
-		query, args = `SELECT dg.device_id FROM device_groups dg JOIN devices d ON d.id=dg.device_id WHERE dg.group_id=? AND d.revoked=0`, []any{targetID}
+		// Smart Group (Regel gesetzt) -> dynamisch auflösen; sonst statische Zuordnung.
+		var rule string
+		if err := s.db.QueryRowContext(ctx, s.rebind(`SELECT rule FROM groups WHERE id=?`), targetID).Scan(&rule); err != nil {
+			return nil, err
+		}
+		if where, wargs, ok := smartWhere(rule, offlineCutoff); ok {
+			query = `SELECT d.id FROM devices d WHERE d.revoked=0 AND ` + where
+			args = wargs
+		} else {
+			query, args = `SELECT dg.device_id FROM device_groups dg JOIN devices d ON d.id=dg.device_id WHERE dg.group_id=? AND d.revoked=0`, []any{targetID}
+		}
 	case "all":
 		query, args = `SELECT id FROM devices WHERE revoked=0`, nil
 	default:

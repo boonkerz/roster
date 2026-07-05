@@ -596,12 +596,20 @@ func TestDevicesForTarget(t *testing.T) {
 	st.CreateGroup(ctx, g)
 	st.SetDeviceGroups(ctx, d1.ID, []string{g.ID})
 
-	count := func(tt, id string) int { ids, err := st.DevicesForTarget(ctx, tt, id); if err != nil { t.Fatal(err) }; return len(ids) }
+	count := func(tt, id string) int { ids, err := st.DevicesForTarget(ctx, tt, id, time.Now().Add(-5*time.Minute)); if err != nil { t.Fatal(err) }; return len(ids) }
 	if count("device", d1.ID) != 1 { t.Fatal("device") }
 	if count("site", site.ID) != 2 { t.Fatal("site") }
 	if count("client", cl.ID) != 2 { t.Fatal("client") }
 	if count("group", g.ID) != 1 { t.Fatal("group") }
 	if count("all", "") != 2 { t.Fatal("all") }
+
+	// Smart Group: Regel os=linux matcht beide, os=windows keins.
+	sg := &model.Group{ID: store.NewID(), Name: "linux", Rule: `{"match":"all","conditions":[{"field":"os","op":"eq","value":"linux"}]}`}
+	st.CreateGroup(ctx, sg)
+	if count("group", sg.ID) != 2 { t.Fatal("smart group linux") }
+	sg.Rule = `{"match":"all","conditions":[{"field":"os","op":"eq","value":"windows"}]}`
+	st.UpdateGroup(ctx, sg)
+	if count("group", sg.ID) != 0 { t.Fatal("smart group windows") }
 }
 
 func TestSearchDevices(t *testing.T) {

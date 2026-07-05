@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/thomaspeterson/pc-inventory/internal/server/model"
 	"github.com/thomaspeterson/pc-inventory/internal/server/store"
@@ -20,7 +21,7 @@ func (s *Server) resolveBulkDevices(w http.ResponseWriter, r *http.Request, req 
 		s.writeErr(w, http.StatusBadRequest, "target_id fehlt")
 		return nil, false
 	}
-	ids, err := s.store.DevicesForTarget(r.Context(), req.TargetType, req.TargetID)
+	ids, err := s.store.DevicesForTarget(r.Context(), req.TargetType, req.TargetID, time.Now().Add(-s.cfg.OfflineAfter))
 	if err != nil {
 		s.writeErr(w, http.StatusBadRequest, "ungültiges Ziel")
 		return nil, false

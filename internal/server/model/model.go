@@ -176,6 +176,8 @@ type Group struct {
 	Description string  `json:"description"`
 	ParentID    *string `json:"parent_id,omitempty"`
 	DeviceCount int     `json:"device_count,omitempty"`
+	// Rule ist die JSON-Regel einer Smart Group (leer = statische Gruppe).
+	Rule string `json:"rule"`
 }
 
 // Script ist ein wiederverwendbares Skript (für Script-Checks und Tasks).

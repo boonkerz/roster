@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func (s *Server) handleListGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := s.store.ListGroups(r.Context())
+	groups, err := s.store.ListGroups(r.Context(), time.Now().Add(-s.cfg.OfflineAfter))
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
@@ -22,6 +23,7 @@ type groupRequest struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	ParentID    *string `json:"parent_id"`
+	Rule        string  `json:"rule"`
 }
 
 func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +35,7 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusBadRequest, "name erforderlich")
 		return
 	}
-	g := &model.Group{ID: store.NewID(), Name: req.Name, Description: req.Description, ParentID: req.ParentID}
+	g := &model.Group{ID: store.NewID(), Name: req.Name, Description: req.Description, ParentID: req.ParentID, Rule: req.Rule}
 	if err := s.store.CreateGroup(r.Context(), g); err != nil {
 		s.mapStoreErr(w, err)
 		return
@@ -46,7 +48,7 @@ func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	g := &model.Group{ID: chi.URLParam(r, "id"), Name: req.Name, Description: req.Description, ParentID: req.ParentID}
+	g := &model.Group{ID: chi.URLParam(r, "id"), Name: req.Name, Description: req.Description, ParentID: req.ParentID, Rule: req.Rule}
 	if err := s.store.UpdateGroup(r.Context(), g); err != nil {
 		s.mapStoreErr(w, err)
 		return
