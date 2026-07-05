@@ -16,6 +16,7 @@ export function DeviceRemote({ id, os, fill, autoStart }: {
   const isAdmin = user?.role === "admin";
   const [status, setStatus] = useState("");
   const [connected, setConnected] = useState(false);
+  const [monitor, setMonitor] = useState(1); // 1=primär, 0=alle, N=Monitor N
   const [session, setSession] = useState(autoStart ? 1 : 0); // hochzählen = (neu) verbinden
   const hostRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
@@ -47,7 +48,7 @@ export function DeviceRemote({ id, os, fill, autoStart }: {
     (async () => {
       let start: { session: string; password: string };
       try {
-        start = await api.post<{ session: string; password: string }>(`/devices/${id}/remote/start`, {});
+        start = await api.post<{ session: string; password: string }>(`/devices/${id}/remote/start`, { monitor });
       } catch (e) {
         if (!cancelled) setStatus(t("Fernsteuerung konnte nicht gestartet werden."));
         return;
@@ -87,6 +88,13 @@ export function DeviceRemote({ id, os, fill, autoStart }: {
       <div className="remote-bar">
         <span className={`badge ${connected ? "badge-online" : "badge-unknown"}`}>{status || t("getrennt")}</span>
         <div className="spacer" />
+        <select value={monitor} title={t("Monitor")}
+          onChange={(e) => { setMonitor(Number(e.target.value)); if (session > 0) setSession((n) => n + 1); }}>
+          <option value={1}>{t("Primär")}</option>
+          <option value={0}>{t("Alle Monitore")}</option>
+          <option value={2}>{t("Monitor 2")}</option>
+          <option value={3}>{t("Monitor 3")}</option>
+        </select>
         {connected && (
           <>
             <button className="btn ghost sm" onClick={() => rfbRef.current?.sendCtrlAltDel()}>Ctrl+Alt+Entf</button>

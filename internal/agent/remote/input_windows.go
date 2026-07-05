@@ -18,15 +18,16 @@ const (
 	inputKeyboard = 1
 	inputSize     = 40 // sizeof(INPUT) auf amd64
 
-	meMove       = 0x0001
-	meLeftDown   = 0x0002
-	meLeftUp     = 0x0004
-	meRightDown  = 0x0008
-	meRightUp    = 0x0010
-	meMiddleDown = 0x0020
-	meMiddleUp   = 0x0040
-	meWheel      = 0x0800
-	meAbsolute   = 0x8000
+	meMove        = 0x0001
+	meLeftDown    = 0x0002
+	meLeftUp      = 0x0004
+	meRightDown   = 0x0008
+	meRightUp     = 0x0010
+	meMiddleDown  = 0x0020
+	meMiddleUp    = 0x0040
+	meWheel       = 0x0800
+	meAbsolute    = 0x8000
+	meVirtualDesk = 0x4000
 
 	keDown    = 0x0000
 	keKeyUp   = 0x0002
@@ -64,15 +65,20 @@ func keyInput(vk, scan uint16, flags uint32) [inputSize]byte {
 
 // pointerEvent verarbeitet einen RFB-PointerEvent: absolute Mausbewegung + Tasten +
 // Mausrad. buttonMask-Bits: 0=links, 1=mitte, 2=rechts, 3=Rad hoch, 4=Rad runter.
-func pointerEvent(prev *int, mask, x, y, sw, sh int) {
+func pointerEvent(prev *int, mask, x, y, srcX, srcY int) {
+	// Framebuffer-Koordinate -> Bildschirmkoordinate -> absolute Position auf dem
+	// gesamten virtuellen Desktop (funktioniert auch für Nicht-Primär-Monitore).
+	sx, sy := srcX+x, srcY+y
+	vl, vt := sysMetric(smXVirtualScreen), sysMetric(smYVirtualScreen)
+	vw, vh := sysMetric(smCXVirtualScreen), sysMetric(smCYVirtualScreen)
 	var ax, ay int32
-	if sw > 1 {
-		ax = int32(x * 65535 / (sw - 1))
+	if vw > 1 {
+		ax = int32((sx - vl) * 65535 / (vw - 1))
 	}
-	if sh > 1 {
-		ay = int32(y * 65535 / (sh - 1))
+	if vh > 1 {
+		ay = int32((sy - vt) * 65535 / (vh - 1))
 	}
-	mv := mouseInput(ax, ay, 0, meMove|meAbsolute)
+	mv := mouseInput(ax, ay, 0, meMove|meAbsolute|meVirtualDesk)
 	sendInput(&mv)
 
 	type btn struct {
@@ -181,5 +187,5 @@ var specialVK = map[uint32]uint16{
 }
 
 // gdiSource setzt Eingaben direkt um (Agent läuft in der Nutzer-Session).
-func (s *gdiSource) Pointer(mask, x, y int)       { pointerEvent(&s.prevMask, mask, x, y, s.w, s.h) }
+func (s *gdiSource) Pointer(mask, x, y int)       { pointerEvent(&s.prevMask, mask, x, y, s.srcX, s.srcY) }
 func (s *gdiSource) Key(down bool, keysym uint32) { keyEvent(down, keysym) }

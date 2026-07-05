@@ -97,7 +97,11 @@ type dxgiSource struct {
 	winClipboard
 }
 
-func newDXGISource(log *slog.Logger) (screenSource, error) {
+func newDXGISource(log *slog.Logger, monitor int) (screenSource, error) {
+	if monitor != 1 {
+		// DXGI dupliziert je Output; Multi-Monitor/virtueller Desktop läuft über GDI.
+		return nil, fmt.Errorf("dxgi nur für primären monitor")
+	}
 	var device, context uintptr
 	var fl uint32
 	hr, _, _ := procD3D11CreateDevice.Call(
@@ -197,12 +201,12 @@ func (s *dxgiSource) Capture() ([]byte, error) {
 		comRelease(texture)
 	}
 	comRelease(resource)
-	comCall(s.dupl, 14) // ReleaseFrame
-	drawCursor(s.memDC) // Cursor in den DIB-Speicher (= s.buf) einzeichnen
+	comCall(s.dupl, 14)       // ReleaseFrame
+	drawCursor(s.memDC, 0, 0) // Cursor in den DIB-Speicher (= s.buf) einzeichnen
 	return s.buf, nil
 }
 
-func (s *dxgiSource) Pointer(mask, x, y int)       { pointerEvent(&s.prevMask, mask, x, y, s.w, s.h) }
+func (s *dxgiSource) Pointer(mask, x, y int)       { pointerEvent(&s.prevMask, mask, x, y, 0, 0) }
 func (s *dxgiSource) Key(down bool, keysym uint32) { keyEvent(down, keysym) }
 
 func (s *dxgiSource) Close() error {
@@ -220,11 +224,11 @@ func (s *dxgiSource) Close() error {
 }
 
 // newCaptureSource bevorzugt DXGI (GPU) und fällt auf GDI zurück.
-func newCaptureSource(log *slog.Logger) (screenSource, error) {
-	if s, err := newDXGISource(log); err == nil {
+func newCaptureSource(log *slog.Logger, monitor int) (screenSource, error) {
+	if s, err := newDXGISource(log, monitor); err == nil {
 		return s, nil
 	} else {
 		log.Info("dxgi nicht verfügbar – GDI-Aufnahme", "err", err)
 	}
-	return newGDISource(log)
+	return newGDISource(log, monitor)
 }

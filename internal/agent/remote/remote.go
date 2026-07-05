@@ -64,7 +64,7 @@ func Run(ctx context.Context, client *transport.Client, agentToken string, log *
 						log.Error("vnc-session abgebrochen (panic abgefangen)", "session", s.Session, "err", r)
 					}
 				}()
-				handleVNC(ctx, client, agentToken, s.Session, s.Password, s.Consent, log)
+				handleVNC(ctx, client, agentToken, s.Session, s.Password, s.Consent, s.Monitor, log)
 			}(wr)
 		}
 	}

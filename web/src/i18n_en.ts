@@ -505,4 +505,9 @@ export const EN: Record<string, string> = {
   "unbeaufsichtigt": "unattended",
   "— nachfragen verlangt eine Bestätigung am Gerät (für Nutzer-PCs), unbeaufsichtigt für Server.": "— ask requires confirmation on the device (for user PCs), unattended for servers.",
   "Lokale Zwischenablage zum Gerät senden": "Send local clipboard to the device",
+  "Monitor": "Monitor",
+  "Primär": "Primary",
+  "Alle Monitore": "All monitors",
+  "Monitor 2": "Monitor 2",
+  "Monitor 3": "Monitor 3",
 };

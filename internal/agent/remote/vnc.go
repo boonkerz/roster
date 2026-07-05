@@ -15,7 +15,7 @@ import (
 // Er verbindet sich per WebSocket mit dem Server und fährt darauf den eingebauten
 // RFB-Server (rfb.go), der den Bildschirm aufnimmt und Eingaben umsetzt. Keine
 // Fremdsoftware.
-func handleVNC(ctx context.Context, client *transport.Client, agentToken, session, _ string, consent bool, log *slog.Logger) {
+func handleVNC(ctx context.Context, client *transport.Client, agentToken, session, _ string, consent bool, monitor int, log *slog.Logger) {
 	conn, err := client.DialTerminal(ctx, agentToken, session)
 	if err != nil {
 		log.Warn("vnc-websocket fehlgeschlagen", "err", err)
@@ -30,7 +30,7 @@ func handleVNC(ctx context.Context, client *transport.Client, agentToken, sessio
 		return
 	}
 
-	src, err := newResilientSource(log)
+	src, err := newResilientSource(log, monitor)
 	if err != nil {
 		log.Warn("bildschirmaufnahme nicht verfügbar", "err", err)
 		conn.Close(websocket.StatusInternalError, "keine aufnahme")

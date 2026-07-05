@@ -51,7 +51,9 @@ type iconInfo struct {
 }
 
 // drawCursor komponiert den (von BitBlt nicht erfassten) Mauszeiger in den memDC.
-func drawCursor(memDC uintptr) {
+// offX/offY = Ursprung des aufgenommenen Bereichs (für Nicht-Primär-Monitore /
+// virtuellen Desktop), damit der Zeiger an der richtigen Stelle landet.
+func drawCursor(memDC uintptr, offX, offY int) {
 	var ci cursorInfo
 	ci.cbSize = uint32(unsafe.Sizeof(ci))
 	if r, _, _ := procGetCursorInfo.Call(uintptr(unsafe.Pointer(&ci))); r == 0 || ci.flags != cursorShowing {
@@ -62,8 +64,8 @@ func drawCursor(memDC uintptr) {
 		return
 	}
 	procDrawIconEx.Call(memDC,
-		uintptr(ci.ptScreenPos.x-int32(ii.xHotspot)),
-		uintptr(ci.ptScreenPos.y-int32(ii.yHotspot)),
+		uintptr(ci.ptScreenPos.x-int32(ii.xHotspot)-int32(offX)),
+		uintptr(ci.ptScreenPos.y-int32(ii.yHotspot)-int32(offY)),
 		ci.hCursor, 0, 0, 0, 0, diNormal)
 	if ii.hbmMask != 0 {
 		procDeleteObject.Call(ii.hbmMask)
@@ -102,19 +104,19 @@ type bitmapInfo struct {
 // den Desktop des angemeldeten Nutzers (Session-0-Isolation) – dann ist die
 // Aufnahme schwarz. Interaktiv/in der Nutzer-Session liefert sie den Bildschirm.
 type gdiSource struct {
-	w, h     int
-	screen   uintptr
-	memDC    uintptr
-	bitmap   uintptr
-	buf      []byte
-	bmi      bitmapInfo
-	prevMask int // zuletzt gesehene Maustasten-Maske (für Down/Up-Erkennung)
+	w, h       int
+	srcX, srcY int // Ursprung des aufgenommenen Bereichs (Monitor-Auswahl)
+	screen     uintptr
+	memDC      uintptr
+	bitmap     uintptr
+	buf        []byte
+	bmi        bitmapInfo
+	prevMask   int // zuletzt gesehene Maustasten-Maske (für Down/Up-Erkennung)
 	winClipboard
 }
 
-func newGDISource(log *slog.Logger) (screenSource, error) {
-	w, _, _ := procGetSystemMetrics.Call(smCXScreen)
-	h, _, _ := procGetSystemMetrics.Call(smCYScreen)
+func newGDISource(log *slog.Logger, monitor int) (screenSource, error) {
+	x, y, w, h := captureRect(monitor)
 	if w == 0 || h == 0 {
 		return nil, fmt.Errorf("bildschirmgröße unbekannt")
 	}
@@ -123,9 +125,9 @@ func newGDISource(log *slog.Logger) (screenSource, error) {
 		return nil, fmt.Errorf("GetDC fehlgeschlagen")
 	}
 	memDC, _, _ := procCreateCompatDC.Call(screen)
-	bitmap, _, _ := procCreateCompatBmp.Call(screen, w, h)
+	bitmap, _, _ := procCreateCompatBmp.Call(screen, uintptr(w), uintptr(h))
 
-	s := &gdiSource{w: int(w), h: int(h), screen: screen, memDC: memDC, bitmap: bitmap}
+	s := &gdiSource{w: w, h: h, srcX: x, srcY: y, screen: screen, memDC: memDC, bitmap: bitmap}
 	s.buf = make([]byte, s.w*s.h*4)
 	s.bmi.Header = bitmapInfoHeader{
 		Size:        uint32(unsafe.Sizeof(bitmapInfoHeader{})),
@@ -144,8 +146,8 @@ func (s *gdiSource) Bounds() (int, int) { return s.w, s.h }
 func (s *gdiSource) Capture() ([]byte, error) {
 	// Bitmap für den BitBlt selektieren …
 	old, _, _ := procSelectObject.Call(s.memDC, s.bitmap)
-	r, _, _ := procBitBlt.Call(s.memDC, 0, 0, uintptr(s.w), uintptr(s.h), s.screen, 0, 0, srcCopy)
-	drawCursor(s.memDC) // Mauszeiger einzeichnen (solange die Bitmap selektiert ist)
+	r, _, _ := procBitBlt.Call(s.memDC, 0, 0, uintptr(s.w), uintptr(s.h), s.screen, uintptr(s.srcX), uintptr(s.srcY), srcCopy)
+	drawCursor(s.memDC, s.srcX, s.srcY) // Mauszeiger einzeichnen (solange die Bitmap selektiert ist)
 	// … und VOR GetDIBits wieder deselektieren (sonst liefert GetDIBits schwarz).
 	procSelectObject.Call(s.memDC, old)
 	if r == 0 {

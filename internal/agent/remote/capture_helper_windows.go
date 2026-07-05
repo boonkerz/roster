@@ -23,8 +23,8 @@ import (
 // newScreenSource bevorzugt den Nutzer-Session-Helfer (funktioniert als Dienst,
 // ohne Zutun des Nutzers); Fallback ist die direkte GDI-Aufnahme (z.B. wenn der
 // Agent bereits interaktiv in der Sitzung läuft).
-func newScreenSource(log *slog.Logger) (screenSource, error) {
-	if s, err := startCaptureHelper(log); err == nil {
+func newScreenSource(log *slog.Logger, monitor int) (screenSource, error) {
+	if s, err := startCaptureHelper(log, monitor); err == nil {
 		return s, nil
 	} else if inSession0() {
 		// Dienst ohne aufnehmbare Nutzer-Session (z.B. niemand angemeldet /
@@ -34,7 +34,7 @@ func newScreenSource(log *slog.Logger) (screenSource, error) {
 	} else {
 		log.Info("nutzer-session-helfer nicht verfügbar – direkte Aufnahme", "err", err)
 	}
-	return newCaptureSource(log)
+	return newCaptureSource(log, monitor)
 }
 
 var procProcessIdToSessionId = modKernel32.NewProc("ProcessIdToSessionId")
@@ -50,7 +50,7 @@ func inSession0() bool {
 // FOLGT dem aktiven Eingabe-Desktop (Anmeldebildschirm/Winlogon, Sperre, UAC-Sicherer-
 // Desktop, normaler Desktop) und liefert Frames über stdin/stdout an den Dienst.
 // Protokoll: 8-Byte-Header (w,h LE), dann je Kommando (capture/pointer/key).
-func RunCaptureHelper() {
+func RunCaptureHelper(monitor int) {
 	// Desktop-Zuordnung gilt pro Thread → an einen OS-Thread binden.
 	runtime.LockOSThread()
 	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -70,7 +70,7 @@ func RunCaptureHelper() {
 				src.Close()
 				src = nil
 			}
-			if s, e := newCaptureSource(discard); e == nil {
+			if s, e := newCaptureSource(discard, monitor); e == nil {
 				src = s
 			}
 		}
@@ -177,7 +177,7 @@ type helperSource struct {
 	buf     []byte
 }
 
-func startCaptureHelper(log *slog.Logger) (screenSource, error) {
+func startCaptureHelper(log *slog.Logger, monitor int) (screenSource, error) {
 	sess := windows.WTSGetActiveConsoleSessionId()
 	if sess == 0xFFFFFFFF {
 		return nil, fmt.Errorf("keine aktive konsolen-sitzung")
@@ -223,7 +223,7 @@ func startCaptureHelper(log *slog.Logger) (screenSource, error) {
 	var env *uint16
 	_ = windows.CreateEnvironmentBlock(&env, token, false)
 
-	cmdline, _ := windows.UTF16PtrFromString(fmt.Sprintf(`"%s" __capture`, exe))
+	cmdline, _ := windows.UTF16PtrFromString(fmt.Sprintf(`"%s" __capture %d`, exe, monitor))
 	desktop, _ := windows.UTF16PtrFromString(`winsta0\default`)
 	si := windows.StartupInfo{
 		Desktop:   desktop,

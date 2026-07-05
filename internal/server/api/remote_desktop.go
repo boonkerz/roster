@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -50,6 +51,16 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 	sessID := newSessionID()
 	pass := vncPassword()
 
+	// Monitor-Auswahl (Default 1 = primär; 0 = alle/virtueller Desktop).
+	monitor := 1
+	var body struct {
+		Monitor *int `json:"monitor"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Monitor != nil && *body.Monitor >= 0 {
+		monitor = *body.Monitor
+	}
+
 	sess := &termSession{
 		deviceID:  deviceID,
 		agentConn: make(chan *websocket.Conn, 1),
@@ -68,7 +79,7 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 
 	consent := s.resolveRemoteConsent(r.Context(), deviceID)
 	s.term.requestWake(deviceID, shared.WaitResponse{
-		Type: "open_vnc", Session: sessID, Password: pass, Consent: consent,
+		Type: "open_vnc", Session: sessID, Password: pass, Consent: consent, Monitor: monitor,
 	})
 
 	var uname string

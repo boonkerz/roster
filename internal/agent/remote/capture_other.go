@@ -6,9 +6,9 @@ import "log/slog"
 
 // newScreenSource: echte Bildschirmaufnahme unter Linux/macOS folgt; vorerst ein
 // Testbild (Übertragung/Tunnel sind damit verifizierbar).
-func newScreenSource(_ *slog.Logger) (screenSource, error) {
+func newScreenSource(_ *slog.Logger, _ int) (screenSource, error) {
 	return newSyntheticSource(), nil
 }
 
 // RunCaptureHelper existiert nur unter Windows (Session-0-Umgehung); anderswo No-op.
-func RunCaptureHelper() {}
+func RunCaptureHelper(_ int) {}

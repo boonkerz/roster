@@ -45,7 +45,11 @@ func main() {
 	// Versteckter Aufnahme-Helfer für die Fernsteuerung: läuft in der Nutzer-Session
 	// (vom Dienst per CreateProcessAsUser gestartet) und umgeht die Session-0-Isolation.
 	if flag.Arg(0) == "__capture" {
-		remote.RunCaptureHelper()
+		mon := 1
+		if v, err := strconv.Atoi(flag.Arg(1)); err == nil {
+			mon = v
+		}
+		remote.RunCaptureHelper(mon)
 		return
 	}
 

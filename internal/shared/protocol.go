@@ -206,6 +206,9 @@ type WaitResponse struct {
 	// angemeldete Nutzer die Verbindung am Gerät bestätigen muss (Zustimmung).
 	Password string `json:"password,omitempty"`
 	Consent  bool   `json:"consent,omitempty"`
+	// Monitor-Auswahl: 0 = alle (virtueller Desktop), 1..N = einzelner Monitor
+	// (Default 1 = primär).
+	Monitor int `json:"monitor,omitempty"`
 }
 
 // TermControl ist ein Steuer-Frame der Terminal-Daten-WS (als Text/JSON gesendet);

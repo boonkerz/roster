@@ -12,25 +12,26 @@ import (
 // Sitzung da ist. Die Framebuffer-Größe bleibt fix (Auflösungswechsel: später via
 // DesktopSize-Pseudo-Encoding).
 type resilientSource struct {
-	log   *slog.Logger
-	inner screenSource
-	w, h  int
+	log     *slog.Logger
+	monitor int
+	inner   screenSource
+	w, h    int
 }
 
-func newResilientSource(log *slog.Logger) (*resilientSource, error) {
-	s, err := newScreenSource(log)
+func newResilientSource(log *slog.Logger, monitor int) (*resilientSource, error) {
+	s, err := newScreenSource(log, monitor)
 	if err != nil {
 		return nil, err
 	}
 	w, h := s.Bounds()
-	return &resilientSource{log: log, inner: s, w: w, h: h}, nil
+	return &resilientSource{log: log, monitor: monitor, inner: s, w: w, h: h}, nil
 }
 
 func (r *resilientSource) Bounds() (int, int) { return r.w, r.h }
 
 func (r *resilientSource) Capture() ([]byte, error) {
 	if r.inner == nil {
-		s, err := newScreenSource(r.log)
+		s, err := newScreenSource(r.log, r.monitor)
 		if err != nil {
 			return nil, err // noch keine Sitzung -> Aufrufer sendet leeres Update
 		}
