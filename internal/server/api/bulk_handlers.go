@@ -85,3 +85,23 @@ func (s *Server) handleBulkScanUpdates(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued})
 }
+
+// handleBulkInstallUpdates reiht das Installieren aller Updates für alle Geräte
+// eines Ziels ein (apt: full-upgrade).
+func (s *Server) handleBulkInstallUpdates(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	ids, ok := s.resolveBulkDevices(w, r, req)
+	if !ok {
+		return
+	}
+	queued := 0
+	for _, dev := range ids {
+		if _, err := s.queueCommand(r.Context(), dev, "install_updates", "Updates installieren", map[string]any{"full": true}); err == nil {
+			queued++
+		}
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued})
+}

@@ -517,4 +517,6 @@ export const EN: Record<string, string> = {
   "Fernsteuerung öffnen": "Open remote control",
   "Zu den Checks springen": "Jump to checks",
   "Zu den Tasks springen": "Jump to tasks",
+  "Updates durchführen": "Install updates",
+  "Updates auf allen Geräten des Ziels installieren? Das kann Neustarts auslösen.": "Install updates on all devices of the target? This may trigger reboots.",
 };

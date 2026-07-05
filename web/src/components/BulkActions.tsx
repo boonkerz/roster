@@ -15,7 +15,7 @@ export function BulkActions() {
 
   const [tType, setTType] = useState<TargetType>("client");
   const [target, setTarget] = useState("");
-  const [action, setAction] = useState<"script" | "scan">("script");
+  const [action, setAction] = useState<"script" | "scan" | "install">("script");
   const [scriptId, setScriptId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -28,7 +28,10 @@ export function BulkActions() {
   const run = useMutation({
     mutationFn: () => {
       const body = { target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId };
-      return api.post<{ queued: number }>(action === "script" ? "/bulk/run-script" : "/bulk/scan-updates", body);
+      const url = action === "script" ? "/bulk/run-script"
+        : action === "install" ? "/bulk/install-updates"
+        : "/bulk/scan-updates";
+      return api.post<{ queued: number }>(url, body);
     },
     onSuccess: (d) => setMsg({ ok: true, text: t("Auf {n} Gerät(en) eingereiht. Ergebnisse erscheinen je Gerät unter „Ausführen“ bzw. „Patches“.", { n: d.queued }) }),
     onError: (e) => setMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") }),
@@ -39,6 +42,7 @@ export function BulkActions() {
     setMsg(null);
     if (tType !== "all" && !target) { setMsg({ ok: false, text: t("Bitte ein Ziel wählen.") }); return; }
     if (action === "script" && !scriptId) { setMsg({ ok: false, text: t("Bitte ein Skript wählen.") }); return; }
+    if (action === "install" && !window.confirm(t("Updates auf allen Geräten des Ziels installieren? Das kann Neustarts auslösen."))) return;
     run.mutate();
   };
 
@@ -67,9 +71,10 @@ export function BulkActions() {
           </label>
           <label className="field">
             <span>{t("Aktion")}</span>
-            <select value={action} onChange={(e) => setAction(e.target.value as "script" | "scan")}>
+            <select value={action} onChange={(e) => setAction(e.target.value as "script" | "scan" | "install")}>
               <option value="script">{t("Skript ausführen")}</option>
               <option value="scan">{t("Updates prüfen")}</option>
+              <option value="install">{t("Updates durchführen")}</option>
             </select>
           </label>
           {action === "script" && (

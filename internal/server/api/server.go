@@ -135,6 +135,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/wake", s.handleWake)
 						r.Post("/bulk/run-script", s.handleBulkRunScript)
 						r.Post("/bulk/scan-updates", s.handleBulkScanUpdates)
+						r.Post("/bulk/install-updates", s.handleBulkInstallUpdates)
 						r.Post("/devices/{id}/scan-updates", s.handleScanUpdates)
 						r.Post("/devices/{id}/install-updates", s.handleInstallUpdates)
 						r.Put("/devices/{id}/patches/approve", s.handleApprovePatch)
