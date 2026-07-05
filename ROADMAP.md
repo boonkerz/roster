@@ -12,8 +12,9 @@ nächste Features – noch nichts davon ist gebaut.
   auf „failing", führt der Server automatisch das hinterlegte Skript auf dem Gerät aus
   (Cooldown 30 min gegen Flapping, Audit-Eintrag). Konfiguration im Policy-Check-Formular.
   (Geplante Auto-Aufgaben gibt es bereits über Tasks.)
-- [ ] **Metrik-Historie + Verlaufsgraphen** – Zeitreihen für CPU/RAM/Disk/Netz speichern und
-  als Charts (24 h / 7 d / 30 d) zeigen (aktuell nur Live). Basis für Trend-/Kapazitätsalarme.
+- [x] **Metrik-Historie + Verlaufsgraphen** – leichtes CPU/RAM/Disk-Sample je Checkin
+  (`metrics_samples`), gebucketete Historie und SVG-Verlaufschart im Auslastung-Tab
+  (24 h / 7 d / 30 d). Aufbewahrung 90 Tage.
 - [ ] **Software-Verteilung** – Pakete/Installer gezielt ausrollen (Windows winget/choco,
   Linux apt/dnf): „installiere Firefox auf allen Geräten dieses Standorts". Ergänzt
   Patch-Management um Drittsoftware.
