@@ -346,6 +346,16 @@ export interface SoftwareEvent {
   created_at: string;
 }
 
+export interface DeployPackage {
+  id: string;
+  name: string;
+  winget: string;
+  choco: string;
+  apt: string;
+  dnf: string;
+  brew: string;
+}
+
 export interface EnrollmentToken {
   id: string;
   label: string;

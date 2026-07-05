@@ -403,6 +403,17 @@ type TaskResult struct {
 }
 
 // EnrollmentToken wird von Admins erzeugt und per GPO verteilt.
+// DeployPackage ist ein verteilbares Software-Paket mit Kennung je Paketmanager.
+type DeployPackage struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Winget string `json:"winget"`
+	Choco  string `json:"choco"`
+	Apt    string `json:"apt"`
+	Dnf    string `json:"dnf"`
+	Brew   string `json:"brew"`
+}
+
 type EnrollmentToken struct {
 	ID        string     `json:"id"`
 	Label     string     `json:"label"`

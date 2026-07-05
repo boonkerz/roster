@@ -523,4 +523,11 @@ export const EN: Record<string, string> = {
   "7 Tage": "7 days",
   "30 Tage": "30 days",
   "Noch keine Verlaufsdaten (werden je Checkin gesammelt).": "No history yet (collected on each check-in).",
+  "Software installieren": "Install software",
+  "Bitte ein Paket wählen.": "Please choose a package.",
+  "Paket": "Package",
+  "— Paket wählen —": "— choose package —",
+  "Erst unter Einstellungen → Software-Pakete anlegen.": "Create packages first under Settings → Software packages.",
+  "Software-Pakete": "Software packages",
+  "Verteilbare Pakete – je Paketmanager eine Kennung. Ausrollen über „Sammelaktion → Software installieren“. Der Agent nutzt den auf dem Gerät verfügbaren Manager.": "Distributable packages – one identifier per package manager. Roll out via „Bulk action → Install software“. The agent uses whichever manager is available on the device.",
 };

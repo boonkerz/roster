@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
-import type { ClientTree, Group, Script } from "../types";
+import type { ClientTree, Group, Script, DeployPackage } from "../types";
 
 type TargetType = "all" | "client" | "site" | "group";
 
@@ -12,11 +12,13 @@ export function BulkActions() {
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
   const { data: groups } = useQuery({ queryKey: ["groups"], queryFn: () => api.get<Group[]>("/groups") });
   const { data: scripts } = useQuery({ queryKey: ["scripts"], queryFn: () => api.get<Script[]>("/scripts") });
+  const { data: packages } = useQuery({ queryKey: ["software-packages"], queryFn: () => api.get<DeployPackage[]>("/software-packages") });
 
   const [tType, setTType] = useState<TargetType>("client");
   const [target, setTarget] = useState("");
-  const [action, setAction] = useState<"script" | "scan" | "install">("script");
+  const [action, setAction] = useState<"script" | "scan" | "install" | "package">("script");
   const [scriptId, setScriptId] = useState("");
+  const [packageId, setPackageId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const targets =
@@ -27,9 +29,10 @@ export function BulkActions() {
 
   const run = useMutation({
     mutationFn: () => {
-      const body = { target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId };
+      const body = { target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId, package_id: packageId };
       const url = action === "script" ? "/bulk/run-script"
         : action === "install" ? "/bulk/install-updates"
+        : action === "package" ? "/bulk/install-package"
         : "/bulk/scan-updates";
       return api.post<{ queued: number }>(url, body);
     },
@@ -42,6 +45,7 @@ export function BulkActions() {
     setMsg(null);
     if (tType !== "all" && !target) { setMsg({ ok: false, text: t("Bitte ein Ziel wählen.") }); return; }
     if (action === "script" && !scriptId) { setMsg({ ok: false, text: t("Bitte ein Skript wählen.") }); return; }
+    if (action === "package" && !packageId) { setMsg({ ok: false, text: t("Bitte ein Paket wählen.") }); return; }
     if (action === "install" && !window.confirm(t("Updates auf allen Geräten des Ziels installieren? Das kann Neustarts auslösen."))) return;
     run.mutate();
   };
@@ -71,10 +75,11 @@ export function BulkActions() {
           </label>
           <label className="field">
             <span>{t("Aktion")}</span>
-            <select value={action} onChange={(e) => setAction(e.target.value as "script" | "scan" | "install")}>
+            <select value={action} onChange={(e) => setAction(e.target.value as "script" | "scan" | "install" | "package")}>
               <option value="script">{t("Skript ausführen")}</option>
               <option value="scan">{t("Updates prüfen")}</option>
               <option value="install">{t("Updates durchführen")}</option>
+              <option value="package">{t("Software installieren")}</option>
             </select>
           </label>
           {action === "script" && (
@@ -84,6 +89,16 @@ export function BulkActions() {
                 <option value="">{t("— Skript wählen —")}</option>
                 {(scripts ?? []).filter((s) => !s.check_only).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.shell})</option>)}
               </select>
+            </label>
+          )}
+          {action === "package" && (
+            <label className="field">
+              <span>{t("Paket")}</span>
+              <select value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+                <option value="">{t("— Paket wählen —")}</option>
+                {(packages ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              {(packages ?? []).length === 0 && <span className="muted small">{t("Erst unter Einstellungen → Software-Pakete anlegen.")}</span>}
             </label>
           )}
           {msg && <p className={msg.ok ? "form-ok" : "form-err"}>{msg.text}</p>}

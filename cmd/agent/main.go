@@ -324,6 +324,16 @@ func (p *program) runPolicy(ctx context.Context) {
 			go p.installUpdates(ctx, cmd.ID, stringList(cmd.Payload["packages"]), full)
 			p.log.Info("update-installation gestartet", "command", cmd.ID, "full", full)
 			continue
+		case "install_package":
+			ids := map[string]string{}
+			for _, k := range []string{"winget", "choco", "apt", "dnf", "brew"} {
+				if v, ok := cmd.Payload[k].(string); ok {
+					ids[k] = v
+				}
+			}
+			go p.installPackage(ctx, cmd.ID, ids)
+			p.log.Info("software-installation gestartet", "command", cmd.ID)
+			continue
 		case "dir_usage":
 			// Verzeichnis-Scan kann lange dauern -> asynchron mit Timeout.
 			path, _ := cmd.Payload["path"].(string)
@@ -540,6 +550,18 @@ func (p *program) writeFile(ctx context.Context, xfer, path string) (int, string
 		return 1, "Schreiben fehlgeschlagen: " + err.Error()
 	}
 	return 0, fmt.Sprintf("%d Bytes geschrieben nach %s", len(data), path)
+}
+
+// installPackage installiert ein Paket über den Paketmanager und meldet das Ergebnis.
+func (p *program) installPackage(ctx context.Context, cmdID string, ids map[string]string) {
+	exit, output := collect.InstallPackage(ctx, ids)
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
+	p.log.Info("software-installation abgeschlossen", "command", cmdID, "exit", exit)
+	p.requestCheckin()
 }
 
 func (p *program) installUpdates(ctx context.Context, cmdID string, names []string, full bool) {

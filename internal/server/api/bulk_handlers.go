@@ -10,7 +10,8 @@ import (
 type bulkRequest struct {
 	TargetType string `json:"target_type"` // device | site | client | group | all
 	TargetID   string `json:"target_id"`
-	ScriptID   string `json:"script_id"` // nur bei run-script
+	ScriptID   string `json:"script_id"`  // nur bei run-script
+	PackageID  string `json:"package_id"` // nur bei install-package
 }
 
 // resolveBulkDevices löst die Zielgeräte auf oder schreibt eine Fehlerantwort.

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, Device, EnrollmentToken, MaintenanceWindow, ReportSchedule, User } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, DeployPackage, Device, EnrollmentToken, MaintenanceWindow, ReportSchedule, User } from "../types";
 
 export function Settings() {
   const { t } = useI18n();
@@ -15,10 +15,66 @@ export function Settings() {
       <Maintenance />
       <Reports />
       <CustomFields />
+      <SoftwarePackages />
       <Tokens />
       <Users />
       <AuditLog />
     </div>
+  );
+}
+
+// SoftwarePackages verwaltet den Katalog verteilbarer Pakete (Software-Verteilung).
+function SoftwarePackages() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["software-packages"], queryFn: () => api.get<DeployPackage[]>("/software-packages") });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["software-packages"] });
+  const empty: DeployPackage = { id: "", name: "", winget: "", choco: "", apt: "", dnf: "", brew: "" };
+  const [form, setForm] = useState<DeployPackage>(empty);
+
+  const save = useMutation({
+    mutationFn: () => form.id ? api.put(`/software-packages/${form.id}`, form) : api.post("/software-packages", form),
+    onSuccess: () => { invalidate(); setForm(empty); },
+  });
+  const del = useMutation({ mutationFn: (id: string) => api.del(`/software-packages/${id}`), onSuccess: invalidate });
+  const set = (k: keyof DeployPackage, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  return (
+    <section className="card">
+      <h2>{t("Software-Pakete")}</h2>
+      <p className="muted small">{t("Verteilbare Pakete – je Paketmanager eine Kennung. Ausrollen über „Sammelaktion → Software installieren“. Der Agent nutzt den auf dem Gerät verfügbaren Manager.")}</p>
+      {(data ?? []).length > 0 && (
+        <table className="table">
+          <thead><tr><th>{t("Name")}</th><th>winget</th><th>choco</th><th>apt</th><th>dnf</th><th>brew</th><th></th></tr></thead>
+          <tbody>
+            {(data ?? []).map((p) => (
+              <tr key={p.id}>
+                <td className="link-strong">{p.name}</td>
+                <td className="muted mono small">{p.winget || "—"}</td>
+                <td className="muted mono small">{p.choco || "—"}</td>
+                <td className="muted mono small">{p.apt || "—"}</td>
+                <td className="muted mono small">{p.dnf || "—"}</td>
+                <td className="muted mono small">{p.brew || "—"}</td>
+                <td>
+                  <button className="btn ghost sm" onClick={() => setForm(p)}>{t("Bearbeiten")}</button>
+                  <button className="btn ghost sm" onClick={() => del.mutate(p.id)}>{t("Löschen")}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <form className="inline-form" style={{ marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (form.name) save.mutate(); }}>
+        <input placeholder={t("Name")} value={form.name} onChange={(e) => set("name", e.target.value)} />
+        <input placeholder="winget-ID (Mozilla.Firefox)" value={form.winget} onChange={(e) => set("winget", e.target.value)} />
+        <input placeholder="choco (firefox)" value={form.choco} onChange={(e) => set("choco", e.target.value)} />
+        <input placeholder="apt (firefox)" value={form.apt} onChange={(e) => set("apt", e.target.value)} />
+        <input placeholder="dnf" value={form.dnf} onChange={(e) => set("dnf", e.target.value)} />
+        <input placeholder="brew" value={form.brew} onChange={(e) => set("brew", e.target.value)} />
+        <button className="btn primary" type="submit">{form.id ? t("Speichern") : t("Anlegen")}</button>
+        {form.id && <button className="btn ghost" type="button" onClick={() => setForm(empty)}>{t("Abbrechen")}</button>}
+      </form>
+    </section>
   );
 }
 
