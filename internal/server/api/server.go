@@ -145,6 +145,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/scan-updates", s.handleScanUpdates)
 						r.Post("/devices/{id}/scan-cve", s.handleScanCVE)
 						r.Post("/network-scan", s.handleStartNetworkScan)
+						r.Post("/snmp-printer", s.handleSNMPPrinter)
 						r.Post("/network-assets/{id}/adopt", s.handleAdoptAsset)
 						r.Post("/sites/{id}/assets/adopt-all", s.handleAdoptAllAssets)
 						r.Put("/network-assets/{id}/note", s.handleSetAssetNote)

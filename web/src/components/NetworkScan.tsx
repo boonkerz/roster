@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { Device, ClientTree, Command, NetworkAsset } from "../types";
+import type { Device, ClientTree, Command, NetworkAsset, PrinterInfo } from "../types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -88,6 +88,26 @@ export function NetworkScan() {
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
 
+  // SNMP-Druckerabfrage (über den gewählten Agenten bzw. den Server).
+  const [printer, setPrinter] = useState<PrinterInfo | null>(null);
+  const [pBusy, setPBusy] = useState("");
+  const queryPrinter = async (ip: string) => {
+    setPBusy(ip); setPrinter(null);
+    try {
+      const resp = await api.post<{ command_id?: string } & Partial<PrinterInfo>>("/snmp-printer", { device_id: deviceId || "server", ip });
+      if (!resp.command_id) { setPrinter(resp as PrinterInfo); return; }
+      for (let i = 0; i < 20; i++) {
+        await sleep(2000);
+        const cmd = await api.get<Command>(`/commands/${resp.command_id}`);
+        if (cmd.status === "done") {
+          if (cmd.exit_code === 0) setPrinter(JSON.parse(cmd.output || "{}") as PrinterInfo);
+          else setMsg(t("SNMP fehlgeschlagen (Community/Firewall?)."));
+          break;
+        }
+      }
+    } catch { setMsg(t("SNMP fehlgeschlagen (Community/Firewall?).")); } finally { setPBusy(""); }
+  };
+
   const del = async (id: string) => { await api.del(`/network-assets/${id}`); qc.invalidateQueries({ queryKey: ["site-assets", siteId] }); };
   const adopt = async (id: string) => { await api.post(`/network-assets/${id}/adopt`, {}); qc.invalidateQueries({ queryKey: ["site-assets", siteId] }); qc.invalidateQueries({ queryKey: ["devices"] }); };
   const adoptAll = async () => {
@@ -151,6 +171,7 @@ export function NetworkScan() {
                     <td className="mono muted small">{a.ports || "—"}</td>
                     <td>{a.managed ? <span className="badge badge-online">{t("verwaltet")}</span> : <span className="muted">—</span>}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
+                      {guessType(a.ports).includes("Drucker") && <button className="btn ghost sm" disabled={pBusy === a.ip} onClick={() => queryPrinter(a.ip)} title={t("Drucker per SNMP abfragen")}>{pBusy === a.ip ? "…" : "🖨"}</button>}
                       {!a.managed && <button className="btn ghost sm" onClick={() => adopt(a.id)} title={t("Als nicht verwaltetes Gerät aufnehmen")}>{t("Übernehmen")}</button>}
                       <button className="btn ghost sm" onClick={() => del(a.id)}>{t("Löschen")}</button>
                     </td>
@@ -158,6 +179,38 @@ export function NetworkScan() {
                 ))}
               </tbody>
             </table>
+          )}
+        </section>
+      )}
+
+      {printer && (
+        <section className="card">
+          <div className="inline-form" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0 }}>🖨 {t("Drucker")} {printer.ip}</h3>
+            <button className="btn ghost sm" onClick={() => setPrinter(null)}>{t("Schließen")}</button>
+          </div>
+          <div className="kv-grid" style={{ marginTop: 8 }}>
+            <div><span className="muted">{t("Modell")}</span><div>{printer.model || printer.description || "—"}</div></div>
+            <div><span className="muted">{t("Seriennummer")}</span><div className="mono">{printer.serial || "—"}</div></div>
+            <div><span className="muted">Firmware</span><div>{printer.firmware || <span className="muted" title={t("Firmware ist meist Teil der Beschreibung; ein „Update verfügbar“ liefert kein Standard-SNMP.")}>{t("in Beschreibung")}</span>}</div></div>
+            <div><span className="muted">{t("Status")}</span><div>{printer.status || "—"}</div></div>
+            <div><span className="muted">{t("Seitenzähler")}</span><div>{printer.page_count ? printer.page_count.toLocaleString() : "—"}</div></div>
+            <div><span className="muted">{t("Beschreibung")}</span><div className="small">{printer.description || "—"}</div></div>
+          </div>
+          {printer.supplies && printer.supplies.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div className="muted small" style={{ marginBottom: 4 }}>{t("Verbrauchsmaterial")}</div>
+              {printer.supplies.map((s, i) => {
+                const pct = s.max > 0 && s.level >= 0 ? Math.round((s.level / s.max) * 100) : -1;
+                return (
+                  <div key={i} className="supply-row">
+                    <span className="supply-name">{s.name || `#${i + 1}`}</span>
+                    <span className="supply-bar"><span style={{ width: `${pct < 0 ? 0 : pct}%` }} /></span>
+                    <span className="supply-pct muted small">{pct < 0 ? "?" : `${pct}%`}</span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </section>
       )}

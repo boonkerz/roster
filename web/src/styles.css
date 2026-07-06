@@ -416,3 +416,12 @@ label input, label select { color: var(--text); }
 .btn.active { border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
 
 .badge-unmanaged { color: #a78bfa; background: color-mix(in srgb, #a78bfa 16%, transparent); }
+
+/* SNMP-Drucker: Key/Value-Grid + Toner-Balken */
+.kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.kv-grid > div > span { display: block; font-size: 11px; }
+.supply-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.supply-name { min-width: 160px; font-size: 12px; }
+.supply-bar { flex: 1; height: 10px; background: var(--surface-2, #1a2030); border-radius: 5px; overflow: hidden; }
+.supply-bar > span { display: block; height: 100%; background: var(--accent, #6366f1); }
+.supply-pct { min-width: 38px; text-align: right; }

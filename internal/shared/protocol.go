@@ -203,6 +203,25 @@ type Command struct {
 	Payload map[string]any `json:"payload,omitempty"`
 }
 
+// PrinterInfo sind per SNMP ausgelesene Druckerdaten.
+type PrinterInfo struct {
+	IP          string          `json:"ip"`
+	Description string          `json:"description"`
+	Model       string          `json:"model"`
+	Serial      string          `json:"serial"`
+	Firmware    string          `json:"firmware,omitempty"`
+	PageCount   int             `json:"page_count"`
+	Status      string          `json:"status"`
+	Supplies    []PrinterSupply `json:"supplies,omitempty"`
+}
+
+// PrinterSupply ist ein Verbrauchsmaterial (Toner/Trommel) mit Füllstand.
+type PrinterSupply struct {
+	Name  string `json:"name"`
+	Level int    `json:"level"` // -2 = unbekannt, -3 = „vorhanden"
+	Max   int    `json:"max"`
+}
+
 // NetworkHost ist ein beim Netzwerk-Scan gefundener Host.
 type NetworkHost struct {
 	IP       string `json:"ip"`

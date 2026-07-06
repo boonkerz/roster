@@ -351,6 +351,18 @@ export interface SoftwareEvent {
   created_at: string;
 }
 
+export interface PrinterSupply { name: string; level: number; max: number; }
+export interface PrinterInfo {
+  ip: string;
+  description: string;
+  model: string;
+  serial: string;
+  firmware?: string;
+  page_count: number;
+  status: string;
+  supplies?: PrinterSupply[];
+}
+
 export interface NetworkAsset {
   id: string;
   site_id: string;

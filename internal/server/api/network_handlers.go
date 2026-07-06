@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/thomaspeterson/pc-inventory/internal/netscan"
+	"github.com/thomaspeterson/pc-inventory/internal/snmp"
 
 	"github.com/thomaspeterson/pc-inventory/internal/server/model"
 	"github.com/thomaspeterson/pc-inventory/internal/shared"
@@ -52,6 +53,45 @@ func (s *Server) handleStartNetworkScan(w http.ResponseWriter, r *http.Request) 
 	}
 	id, err := s.queueCommand(r.Context(), req.DeviceID, "network_scan", "Netzwerk-Scan "+req.CIDR,
 		map[string]any{"cidr": req.CIDR, "site_id": req.SiteID})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
+// handleSNMPPrinter liest einen Drucker per SNMP aus – entweder lokal (Server im
+// Segment) oder über einen Agenten (dann Rückgabe einer command_id zum Pollen).
+func (s *Server) handleSNMPPrinter(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DeviceID  string `json:"device_id"`
+		IP        string `json:"ip"`
+		Community string `json:"community"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	if req.IP == "" {
+		s.writeErr(w, http.StatusBadRequest, "ip erforderlich")
+		return
+	}
+	if req.DeviceID == "server" {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		info, err := snmp.Query(ctx, req.IP, req.Community)
+		if err != nil {
+			s.writeErr(w, http.StatusBadGateway, "SNMP fehlgeschlagen: "+err.Error())
+			return
+		}
+		s.writeJSON(w, http.StatusOK, info)
+		return
+	}
+	if req.DeviceID == "" {
+		s.writeErr(w, http.StatusBadRequest, "device_id erforderlich")
+		return
+	}
+	id, err := s.queueCommand(r.Context(), req.DeviceID, "snmp_query", "SNMP-Abfrage "+req.IP,
+		map[string]any{"ip": req.IP, "community": req.Community})
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return

@@ -588,4 +588,10 @@ export const EN: Record<string, string> = {
   "Als nicht verwaltetes Gerät aufnehmen": "Add as unmanaged device",
   "Alle nicht verwalteten als Geräte aufnehmen": "Add all unmanaged as devices",
   "{n} als nicht verwaltete Geräte übernommen.": "{n} adopted as unmanaged devices.",
+  "Drucker per SNMP abfragen": "Query printer via SNMP",
+  "SNMP fehlgeschlagen (Community/Firewall?).": "SNMP failed (community/firewall?).",
+  "in Beschreibung": "in description",
+  "Firmware ist meist Teil der Beschreibung; ein „Update verfügbar“ liefert kein Standard-SNMP.": "Firmware is usually part of the description; „update available“ is not provided by standard SNMP.",
+  "Seitenzähler": "Page count",
+  "Verbrauchsmaterial": "Supplies",
 };

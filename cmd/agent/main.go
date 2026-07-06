@@ -21,6 +21,7 @@ import (
 
 	"github.com/thomaspeterson/pc-inventory/internal/agent/collect"
 	"github.com/thomaspeterson/pc-inventory/internal/netscan"
+	"github.com/thomaspeterson/pc-inventory/internal/snmp"
 	agentcfg "github.com/thomaspeterson/pc-inventory/internal/agent/config"
 	"github.com/thomaspeterson/pc-inventory/internal/agent/policy"
 	"github.com/thomaspeterson/pc-inventory/internal/agent/remote"
@@ -340,6 +341,11 @@ func (p *program) runPolicy(ctx context.Context) {
 			go p.networkScan(ctx, cmd.ID, cidr)
 			p.log.Info("netzwerk-scan gestartet", "command", cmd.ID, "cidr", cidr)
 			continue
+		case "snmp_query":
+			ip, _ := cmd.Payload["ip"].(string)
+			community, _ := cmd.Payload["community"].(string)
+			go p.snmpQuery(ctx, cmd.ID, ip, community)
+			continue
 		case "dir_usage":
 			// Verzeichnis-Scan kann lange dauern -> asynchron mit Timeout.
 			path, _ := cmd.Payload["path"].(string)
@@ -574,6 +580,24 @@ func (p *program) networkScan(ctx context.Context, cmdID, cidr string) {
 	})
 	p.mu.Unlock()
 	p.log.Info("netzwerk-scan abgeschlossen", "command", cmdID, "hosts", len(hosts))
+	p.requestCheckin()
+}
+
+// snmpQuery liest einen Drucker per SNMP aus und meldet die Daten als JSON.
+func (p *program) snmpQuery(ctx context.Context, cmdID, ip, community string) {
+	exit, output := 0, ""
+	info, err := snmp.Query(ctx, ip, community)
+	if err != nil {
+		exit, output = 1, "SNMP fehlgeschlagen: "+err.Error()
+	} else {
+		b, _ := json.Marshal(info)
+		output = string(b)
+	}
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
 	p.requestCheckin()
 }
 
