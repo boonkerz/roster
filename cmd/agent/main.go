@@ -20,6 +20,7 @@ import (
 	"github.com/kardianos/service"
 
 	"github.com/thomaspeterson/pc-inventory/internal/agent/collect"
+	"github.com/thomaspeterson/pc-inventory/internal/netscan"
 	agentcfg "github.com/thomaspeterson/pc-inventory/internal/agent/config"
 	"github.com/thomaspeterson/pc-inventory/internal/agent/policy"
 	"github.com/thomaspeterson/pc-inventory/internal/agent/remote"
@@ -560,7 +561,7 @@ func (p *program) writeFile(ctx context.Context, xfer, path string) (int, string
 // networkScan tastet den CIDR-Bereich ab und meldet die Funde als JSON (Output).
 func (p *program) networkScan(ctx context.Context, cmdID, cidr string) {
 	exit, output := 0, ""
-	hosts, err := collect.NetworkScan(ctx, cidr)
+	hosts, err := netscan.Scan(ctx, cidr)
 	if err != nil {
 		exit, output = 1, "Scan fehlgeschlagen: "+err.Error()
 	} else {

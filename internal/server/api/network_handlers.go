@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/thomaspeterson/pc-inventory/internal/netscan"
 
 	"github.com/thomaspeterson/pc-inventory/internal/server/model"
 	"github.com/thomaspeterson/pc-inventory/internal/shared"
@@ -22,8 +25,29 @@ func (s *Server) handleStartNetworkScan(w http.ResponseWriter, r *http.Request) 
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	if req.DeviceID == "" || req.CIDR == "" || req.SiteID == "" {
-		s.writeErr(w, http.StatusBadRequest, "device_id, cidr und site_id erforderlich")
+	if req.CIDR == "" || req.SiteID == "" {
+		s.writeErr(w, http.StatusBadRequest, "cidr und site_id erforderlich")
+		return
+	}
+	// "server" = der Inventory-Server scannt selbst (wenn er im Segment hängt).
+	if req.DeviceID == "server" {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		hosts, err := netscan.Scan(ctx, req.CIDR)
+		if err != nil {
+			s.writeErr(w, http.StatusBadRequest, "Scan fehlgeschlagen: "+err.Error())
+			return
+		}
+		n, err := s.store.UpsertNetworkAssets(r.Context(), req.SiteID, hosts)
+		if err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, map[string]int{"imported": n})
+		return
+	}
+	if req.DeviceID == "" {
+		s.writeErr(w, http.StatusBadRequest, "device_id erforderlich")
 		return
 	}
 	id, err := s.queueCommand(r.Context(), req.DeviceID, "network_scan", "Netzwerk-Scan "+req.CIDR,

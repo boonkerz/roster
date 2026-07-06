@@ -1,4 +1,4 @@
-package collect
+package netscan
 
 import (
 	"context"
@@ -23,9 +23,9 @@ const (
 	scanWorkers  = 256
 )
 
-// NetworkScan tastet die Hosts eines CIDR-Bereichs per TCP an (kein Raw-Socket nötig),
+// Scan tastet die Hosts eines CIDR-Bereichs per TCP an (kein Raw-Socket nötig),
 // ergänzt MAC (ARP) und Hostname (Reverse-DNS). Liefert die erreichbaren Hosts.
-func NetworkScan(ctx context.Context, cidr string) ([]shared.NetworkHost, error) {
+func Scan(ctx context.Context, cidr string) ([]shared.NetworkHost, error) {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err

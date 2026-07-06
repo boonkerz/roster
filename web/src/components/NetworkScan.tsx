@@ -56,14 +56,20 @@ export function NetworkScan() {
     if (!deviceId || !cidr || !siteId) { setMsg(t("Bitte Agent, Bereich und Site wählen.")); return; }
     setBusy(true); setMsg(t("Scan läuft… (kann eine Minute dauern)"));
     try {
-      const { command_id } = await api.post<{ command_id: string }>("/network-scan", { device_id: deviceId, cidr, site_id: siteId });
-      for (let i = 0; i < 90; i++) {
-        await sleep(2500);
-        const cmd = await api.get<Command>(`/commands/${command_id}`);
-        if (cmd.status === "done") {
-          setMsg(cmd.exit_code === 0 ? t("Scan fertig – Funde importiert.") : t("Scan fehlgeschlagen: {o}", { o: cmd.output || "" }));
-          qc.invalidateQueries({ queryKey: ["site-assets", siteId] });
-          break;
+      const resp = await api.post<{ command_id?: string; imported?: number }>("/network-scan", { device_id: deviceId, cidr, site_id: siteId });
+      if (!resp.command_id) {
+        // Server-Scan: synchron erledigt.
+        setMsg(t("Scan fertig – Funde importiert."));
+        qc.invalidateQueries({ queryKey: ["site-assets", siteId] });
+      } else {
+        for (let i = 0; i < 90; i++) {
+          await sleep(2500);
+          const cmd = await api.get<Command>(`/commands/${resp.command_id}`);
+          if (cmd.status === "done") {
+            setMsg(cmd.exit_code === 0 ? t("Scan fertig – Funde importiert.") : t("Scan fehlgeschlagen: {o}", { o: cmd.output || "" }));
+            qc.invalidateQueries({ queryKey: ["site-assets", siteId] });
+            break;
+          }
         }
       }
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
@@ -85,6 +91,7 @@ export function NetworkScan() {
           <label className="field"><span>{t("Scan-Agent (online)")}</span>
             <select value={deviceId} onChange={(e) => pickDevice(e.target.value)}>
               <option value="">{t("— wählen —")}</option>
+              <option value="server">{t("Dieser Server (dieses Netz)")}</option>
               {online.map((d) => <option key={d.id} value={d.id}>{d.hostname || d.id} ({primaryIP(d) || "?"})</option>)}
             </select>
           </label>

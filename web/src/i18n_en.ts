@@ -581,4 +581,5 @@ export const EN: Record<string, string> = {
   "Ports": "Ports",
   "Verwaltet": "Managed",
   "verwaltet": "managed",
+  "Dieser Server (dieses Netz)": "This server (this network)",
 };
