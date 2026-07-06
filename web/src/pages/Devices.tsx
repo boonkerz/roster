@@ -8,6 +8,7 @@ import { ClientTree, OrgFilter } from "../components/ClientTree";
 import { AddComputerDialog } from "../components/AddComputerDialog";
 import { DevicePanel } from "../components/DevicePanel";
 import { CopyText } from "../components/CopyText";
+import { DeviceFilter, evalFilter, DFilter } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
@@ -109,7 +110,12 @@ export function Devices() {
   };
   const clearHealth = () => { const p = new URLSearchParams(params); p.delete("filter"); setParams(p, { replace: true }); };
 
-  const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d));
+  // Eigener, benannter Filter (clientseitig, Bedingungen mit UND/ODER).
+  const [filter, setFilter] = useState<DFilter>({ match: "all", conditions: [] });
+  const [showFilter, setShowFilter] = useState(false);
+  const filterActive = filter.conditions.length > 0;
+
+  const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d) && evalFilter(d, filter));
 
   const online = devices.filter((d) => d.status === "online").length;
 
@@ -132,13 +138,21 @@ export function Devices() {
                   {healthLabel[health]} ✕
                 </button>
               )}
+              {filterActive && (
+                <button className="filter-chip" onClick={() => setFilter({ match: "all", conditions: [] })} title={t("Filter entfernen")}>
+                  {t("{n} Filterbedingung(en)", { n: filter.conditions.length })} ✕
+                </button>
+              )}
             </p>
           </div>
           <div className="head-actions">
             <input className="search" placeholder={t("Suche: Hostname, IP, OS, Software, Custom Fields…")} value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 280 }} />
+            <button className={`btn ghost${filterActive ? " active" : ""}`} onClick={() => setShowFilter((v) => !v)}>⛃ {t("Filter")}</button>
             {isAdmin && <button className="btn primary" onClick={() => setShowAdd(true)}>{t("+ Neuer Computer")}</button>}
           </div>
         </header>
+
+        {showFilter && <DeviceFilter value={filter} onChange={setFilter} />}
 
         {showAdd && <AddComputerDialog onClose={() => setShowAdd(false)} />}
         {isLoading && <div className="muted">{t("Lädt…")}</div>}

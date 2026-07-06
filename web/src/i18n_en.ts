@@ -560,4 +560,10 @@ export const EN: Record<string, string> = {
   "Nur Geräte mit fehlerhaften Tasks": "Only devices with failing tasks",
   "Nur Geräte mit Schwachstellen": "Only devices with vulnerabilities",
   "Filter entfernen": "Remove filter",
+  "Filter": "Filter",
+  "{n} Filterbedingung(en)": "{n} filter condition(s)",
+  "Gespeicherten Filter laden…": "Load saved filter…",
+  "Filtername": "Filter name",
+  "Zurücksetzen": "Reset",
+  "Gespeichert:": "Saved:",
 };

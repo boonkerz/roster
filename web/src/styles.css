@@ -409,3 +409,8 @@ label input, label select { color: var(--text); }
   background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent); color: var(--accent, #6366f1);
   font-size: 12px; font-weight: 600; cursor: pointer; }
 .filter-chip:hover { background: color-mix(in srgb, var(--accent, #6366f1) 28%, transparent); }
+
+/* Eigener Filter-Builder */
+.filter-builder { margin-bottom: 12px; }
+.filter-builder select, .filter-builder input { min-width: 90px; }
+.btn.active { border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
