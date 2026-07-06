@@ -251,7 +251,8 @@ export interface Device {
   last_seen?: string;
   enrolled_at: string;
   revoked: boolean;
-  status: "online" | "offline" | "unknown";
+  status: "online" | "offline" | "unknown" | "unmanaged";
+  managed?: boolean;
   site_id?: string | null;
   site_name?: string;
   client_id?: string;

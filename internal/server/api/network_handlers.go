@@ -85,6 +85,26 @@ func (s *Server) handleSetAssetNote(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
 }
 
+// handleAdoptAsset übernimmt ein Asset als nicht verwaltetes Gerät.
+func (s *Server) handleAdoptAsset(w http.ResponseWriter, r *http.Request) {
+	id, err := s.store.AdoptNetworkAsset(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"device_id": id})
+}
+
+// handleAdoptAllAssets übernimmt alle noch nicht verwalteten Assets einer Site.
+func (s *Server) handleAdoptAllAssets(w http.ResponseWriter, r *http.Request) {
+	n, err := s.store.AdoptAllForSite(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int{"adopted": n})
+}
+
 func (s *Server) handleDeleteAsset(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteNetworkAsset(r.Context(), chi.URLParam(r, "id")); err != nil {
 		s.mapStoreErr(w, err)

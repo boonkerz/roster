@@ -414,3 +414,5 @@ label input, label select { color: var(--text); }
 .filter-builder { margin-bottom: 12px; }
 .filter-builder select, .filter-builder input { min-width: 90px; }
 .btn.active { border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
+
+.badge-unmanaged { color: #a78bfa; background: color-mix(in srgb, #a78bfa 16%, transparent); }

@@ -150,7 +150,8 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 	(SELECT COUNT(*) FROM task_results tr WHERE tr.device_id=d.id AND tr.exit_code <> 0
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
-	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id)`
+	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
+	d.managed`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -538,13 +539,14 @@ func (s *Store) InventoryHistory(ctx context.Context, deviceID string, limit int
 func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID string, offlineCutoff time.Time) ([]string, error) {
 	var query string
 	var args []any
+	// Nicht verwaltete Geräte (ohne Agent) sind nie Ziel einer Sammelaktion.
 	switch targetType {
 	case "device":
-		query, args = `SELECT id FROM devices WHERE id=? AND revoked=0`, []any{targetID}
+		query, args = `SELECT id FROM devices WHERE id=? AND revoked=0 AND managed=1`, []any{targetID}
 	case "site":
-		query, args = `SELECT id FROM devices WHERE site_id=? AND revoked=0`, []any{targetID}
+		query, args = `SELECT id FROM devices WHERE site_id=? AND revoked=0 AND managed=1`, []any{targetID}
 	case "client":
-		query, args = `SELECT d.id FROM devices d JOIN sites s ON s.id=d.site_id WHERE s.client_id=? AND d.revoked=0`, []any{targetID}
+		query, args = `SELECT d.id FROM devices d JOIN sites s ON s.id=d.site_id WHERE s.client_id=? AND d.revoked=0 AND d.managed=1`, []any{targetID}
 	case "group":
 		// Smart Group (Regel gesetzt) -> dynamisch auflösen; sonst statische Zuordnung.
 		var rule string
@@ -552,13 +554,13 @@ func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID strin
 			return nil, err
 		}
 		if where, wargs, ok := smartWhere(rule, offlineCutoff); ok {
-			query = `SELECT d.id FROM devices d WHERE d.revoked=0 AND ` + where
+			query = `SELECT d.id FROM devices d WHERE d.revoked=0 AND d.managed=1 AND ` + where
 			args = wargs
 		} else {
-			query, args = `SELECT dg.device_id FROM device_groups dg JOIN devices d ON d.id=dg.device_id WHERE dg.group_id=? AND d.revoked=0`, []any{targetID}
+			query, args = `SELECT dg.device_id FROM device_groups dg JOIN devices d ON d.id=dg.device_id WHERE dg.group_id=? AND d.revoked=0 AND d.managed=1`, []any{targetID}
 		}
 	case "all":
-		query, args = `SELECT id FROM devices WHERE revoked=0`, nil
+		query, args = `SELECT id FROM devices WHERE revoked=0 AND managed=1`, nil
 	default:
 		return nil, ErrNotFound
 	}
@@ -635,7 +637,7 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
-		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount)
+		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed)
 	if err != nil {
 		return nil, err
 	}

@@ -582,4 +582,10 @@ export const EN: Record<string, string> = {
   "Verwaltet": "Managed",
   "verwaltet": "managed",
   "Dieser Server (dieses Netz)": "This server (this network)",
+  "Nicht verwaltet": "Unmanaged",
+  "Übernehmen": "Adopt",
+  "Alle übernehmen": "Adopt all",
+  "Als nicht verwaltetes Gerät aufnehmen": "Add as unmanaged device",
+  "Alle nicht verwalteten als Geräte aufnehmen": "Add all unmanaged as devices",
+  "{n} als nicht verwaltete Geräte übernommen.": "{n} adopted as unmanaged devices.",
 };

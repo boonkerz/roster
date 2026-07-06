@@ -13,6 +13,9 @@ import (
 
 // computeStatus leitet online/offline aus last_seen und der Offline-Schwelle ab.
 func (s *Server) computeStatus(d *model.Device) string {
+	if !d.Managed {
+		return "unmanaged"
+	}
 	if d.LastSeen == nil {
 		return "unknown"
 	}

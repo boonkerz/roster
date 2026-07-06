@@ -82,3 +82,88 @@ func (s *Store) SetNetworkAssetNote(ctx context.Context, id, note string) error 
 func (s *Store) DeleteNetworkAsset(ctx context.Context, id string) error {
 	return s.affect(s.db.ExecContext(ctx, s.rebind(`DELETE FROM network_assets WHERE id=?`), id))
 }
+
+// kindFromPorts rät den Gerätetyp aus den (CSV-)Ports (für nicht verwaltete Geräte).
+func kindFromPorts(csv string) string {
+	has := func(ps ...string) bool {
+		set := strings.Split(csv, ",")
+		for _, p := range ps {
+			for _, x := range set {
+				if strings.TrimSpace(x) == p {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	switch {
+	case has("9100", "631", "515"):
+		return "Drucker"
+	case has("3389", "445", "139", "135"):
+		return "Windows"
+	case has("5900"):
+		return "VNC"
+	case has("22"):
+		return "Linux/SSH"
+	case has("80", "443", "8080"):
+		return "Web/Gerät"
+	}
+	return ""
+}
+
+// AdoptNetworkAsset übernimmt ein Asset als nicht verwaltetes Gerät (ohne Agent) und
+// entfernt es aus der Asset-Liste. Liefert die neue Geräte-ID.
+func (s *Store) AdoptNetworkAsset(ctx context.Context, assetID string) (string, error) {
+	var siteID, ip, mac, hostname, ports string
+	err := s.db.QueryRowContext(ctx, s.rebind(
+		`SELECT site_id, ip, mac, hostname, ports FROM network_assets WHERE id=?`), assetID).
+		Scan(&siteID, &ip, &mac, &hostname, &ports)
+	if err != nil {
+		return "", err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	devID := newID()
+	now := time.Now().UTC()
+	hn := hostname
+	if hn == "" {
+		hn = ip
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`
+		INSERT INTO devices (id, hostname, os, os_version, first_seen, enrolled_at, agent_token_hash, revoked, site_id, managed)
+		VALUES (?, ?, ?, '', ?, ?, '', 0, ?, 0)`),
+		devID, hn, kindFromPorts(ports), now, now, siteID); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`
+		INSERT INTO interfaces (device_id, name, mac, ipv4, ipv6) VALUES (?, '', ?, ?, '')`),
+		devID, mac, ip); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM network_assets WHERE id=?`), assetID); err != nil {
+		return "", err
+	}
+	return devID, tx.Commit()
+}
+
+// AdoptAllForSite übernimmt alle noch nicht verwalteten Assets einer Site als Geräte.
+func (s *Store) AdoptAllForSite(ctx context.Context, siteID string) (int, error) {
+	assets, err := s.NetworkAssetsForSite(ctx, siteID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, a := range assets {
+		if a.Managed {
+			continue
+		}
+		if _, err := s.AdoptNetworkAsset(ctx, a.ID); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}

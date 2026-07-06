@@ -5,6 +5,7 @@ const LABEL: Record<Device["status"], string> = {
   online: "Online",
   offline: "Offline",
   unknown: "Unbekannt",
+  unmanaged: "Nicht verwaltet",
 };
 
 export function StatusBadge({ status }: { status: Device["status"] }) {

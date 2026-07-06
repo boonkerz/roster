@@ -89,6 +89,12 @@ export function NetworkScan() {
   };
 
   const del = async (id: string) => { await api.del(`/network-assets/${id}`); qc.invalidateQueries({ queryKey: ["site-assets", siteId] }); };
+  const adopt = async (id: string) => { await api.post(`/network-assets/${id}/adopt`, {}); qc.invalidateQueries({ queryKey: ["site-assets", siteId] }); qc.invalidateQueries({ queryKey: ["devices"] }); };
+  const adoptAll = async () => {
+    const r = await api.post<{ adopted: number }>(`/sites/${siteId}/assets/adopt-all`, {});
+    setMsg(t("{n} als nicht verwaltete Geräte übernommen.", { n: r.adopted }));
+    qc.invalidateQueries({ queryKey: ["site-assets", siteId] }); qc.invalidateQueries({ queryKey: ["devices"] });
+  };
 
   return (
     <div className="page">
@@ -124,7 +130,12 @@ export function NetworkScan() {
 
       {siteId && (
         <section className="card">
-          <h3 style={{ marginTop: 0 }}>{t("Assets in dieser Site")} {assets && <span className="muted">({assets.length})</span>}</h3>
+          <div className="inline-form" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0 }}>{t("Assets in dieser Site")} {assets && <span className="muted">({assets.length})</span>}</h3>
+            {assets && assets.some((a) => !a.managed) && (
+              <button className="btn ghost sm" onClick={adoptAll} title={t("Alle nicht verwalteten als Geräte aufnehmen")}>{t("Alle übernehmen")}</button>
+            )}
+          </div>
           {(!assets || assets.length === 0) ? (
             <p className="muted">{t("Noch keine Assets. Starte einen Scan.")}</p>
           ) : (
@@ -139,7 +150,10 @@ export function NetworkScan() {
                     <td className="mono muted">{a.mac || "—"}</td>
                     <td className="mono muted small">{a.ports || "—"}</td>
                     <td>{a.managed ? <span className="badge badge-online">{t("verwaltet")}</span> : <span className="muted">—</span>}</td>
-                    <td><button className="btn ghost sm" onClick={() => del(a.id)}>{t("Löschen")}</button></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {!a.managed && <button className="btn ghost sm" onClick={() => adopt(a.id)} title={t("Als nicht verwaltetes Gerät aufnehmen")}>{t("Übernehmen")}</button>}
+                      <button className="btn ghost sm" onClick={() => del(a.id)}>{t("Löschen")}</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -61,7 +61,8 @@ type Device struct {
 	LastSeen     *time.Time `json:"last_seen,omitempty"`
 	EnrolledAt   time.Time  `json:"enrolled_at"`
 	Revoked      bool       `json:"revoked"`
-	Status       string     `json:"status"` // berechnet: online/offline (nicht persistiert)
+	Managed      bool       `json:"managed"` // false = ohne Agent (z. B. aus Netzwerk-Scan)
+	Status       string     `json:"status"` // berechnet: online/offline/unmanaged (nicht persistiert)
 
 	// Freitext-Notizen zum Gerät (Doku).
 	Notes string `json:"notes"`
