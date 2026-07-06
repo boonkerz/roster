@@ -556,4 +556,8 @@ export const EN: Record<string, string> = {
   "Über OSV.dev erkannte Schwachstellen. Scan je Gerät im Tab „Schwachstellen“.": "Vulnerabilities detected via OSV.dev. Scan per device in the „Vulnerabilities“ tab.",
   "CVE": "CVE",
   "Zu den Schwachstellen springen": "Jump to vulnerabilities",
+  "Nur Geräte mit fehlerhaften Checks": "Only devices with failing checks",
+  "Nur Geräte mit fehlerhaften Tasks": "Only devices with failing tasks",
+  "Nur Geräte mit Schwachstellen": "Only devices with vulnerabilities",
+  "Filter entfernen": "Remove filter",
 };

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { Device, ClientTree as Tree } from "../types";
@@ -90,7 +91,25 @@ export function Devices() {
   });
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<Tree>("/clients") });
 
-  const devices = (data ?? []).filter((d) => matchesOrg(d, org));
+  // Zustands-Filter über die URL (z. B. Klick auf eine Dashboard-Kachel).
+  const [params, setParams] = useSearchParams();
+  const health = params.get("filter") || "";
+  const matchesHealth = (d: Device) => {
+    switch (health) {
+      case "failing-checks": return (d.checks_failing ?? 0) > 0;
+      case "failing-tasks": return (d.tasks_failing ?? 0) > 0;
+      case "vulns": return (d.vuln_count ?? 0) > 0;
+      default: return true;
+    }
+  };
+  const healthLabel: Record<string, string> = {
+    "failing-checks": t("Nur Geräte mit fehlerhaften Checks"),
+    "failing-tasks": t("Nur Geräte mit fehlerhaften Tasks"),
+    "vulns": t("Nur Geräte mit Schwachstellen"),
+  };
+  const clearHealth = () => { const p = new URLSearchParams(params); p.delete("filter"); setParams(p, { replace: true }); };
+
+  const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d));
 
   const online = devices.filter((d) => d.status === "online").length;
 
@@ -106,7 +125,14 @@ export function Devices() {
         <header className="page-head">
           <div>
             <h1>{t("Geräte")}</h1>
-            <p className="muted">{t("{n} angezeigt · {online} online", { n: devices.length, online })}</p>
+            <p className="muted">
+              {t("{n} angezeigt · {online} online", { n: devices.length, online })}
+              {health && healthLabel[health] && (
+                <button className="filter-chip" onClick={clearHealth} title={t("Filter entfernen")}>
+                  {healthLabel[health]} ✕
+                </button>
+              )}
+            </p>
           </div>
           <div className="head-actions">
             <input className="search" placeholder={t("Suche: Hostname, IP, OS, Software, Custom Fields…")} value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 280 }} />
