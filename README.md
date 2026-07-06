@@ -38,7 +38,11 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
   **Ping / TCP-port / HTTP-status** checks. Per-check frequency, severity, output
   comparison, platform targeting.
 - **Tasks** – scheduled scripts with frequency; last run per task + full run history.
-- **Live utilization** – on-demand CPU (per core) / RAM / disk / network graphs.
+- **Live utilization + history** – on-demand CPU (per core) / RAM / disk / network graphs,
+  plus stored CPU/RAM/disk **time series** with 24 h / 7 d / 30 d charts.
+- **Remote desktop** – built-in **browser** remote control (own RFB/VNC server, no third-party
+  software) through the same tunnel: screen + mouse/keyboard, login screen / UAC, clipboard
+  sync, monitor selection, drag-&-drop file transfer.
 - **Remote terminal** – interactive shell over an on-demand WebSocket (+ pop-out window).
 - **File browser & transfer** – browse the agent's filesystem, download / upload (≤ 32 MB).
 - **Services & processes** – list + start/stop/restart services, kill processes.
@@ -47,12 +51,25 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
   escrow), SMART disk health, Windows Event Log / journald viewer.
 - **Patch management** – scan, approve, install (apt `upgrade` vs `dist-upgrade`
   selectable), reboot.
+- **Self-healing** – automatic remediation: run a script/service-restart when a check fails.
+- **Software distribution** – catalog of deployable packages (winget / choco / apt / dnf /
+  brew); roll out to a device / client / site / tag.
+- **Vulnerability scan (CVE)** – match installed software against **OSV.dev**; per-device
+  tab + fleet overview + daily background scan (best coverage for Linux packages).
+- **Network discovery** – an agent (or the server itself) scans a CIDR (TCP / ARP / DNS),
+  imports hosts as **assets** into a site; adopt them as **unmanaged devices**; **SNMP**
+  printer info (model / serial / firmware / page count / toner).
 - **Alerting** – modular channels (email / webhook / Pushover / Telegram / ntfy),
   scoped to client/site/device, severity filter, **recovery notifications**,
   **maintenance windows**, optional software-change alerts.
 - **Custom fields** – TRMM-style custom fields on client/site/device, JSON collector
   tasks, Twig-like placeholders with filters (`{{ agent.domains | first }}`).
-- **Bulk actions** – run a script or update-scan across a whole client / site / tag.
+- **Bulk actions** – run a script, update-scan/install, or install software across a whole
+  client / site / tag.
+- **Tags & Smart Groups** – free labels plus **rule-based** dynamic groups
+  (e.g. `OS contains windows AND updates > 0`).
+- **Saved filters** – build custom device-list filters (any field, AND/OR) and save them.
+- **Install one-liner** – short-URL PowerShell/bash installer per platform.
 - **Wake-on-LAN** – wake an offline device via an online neighbor in the same site.
 - **Dashboard** – health summary across all devices (online/offline, failing
   checks/tasks, pending patches) + recent status changes.
@@ -172,7 +189,11 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
   **Ping / TCP-Port / HTTP-Status**-Checks. Frequenz, Schweregrad, Ausgabe-Vergleich,
   Plattform-Targeting je Check.
 - **Tasks** – geplante Skripte mit Frequenz; letzter Lauf je Task + Lauf-Historie.
-- **Live-Auslastung** – on-demand CPU (je Kern) / RAM / Disk / Netzwerk.
+- **Live-Auslastung + Verlauf** – on-demand CPU (je Kern) / RAM / Disk / Netzwerk, plus
+  gespeicherte CPU/RAM/Disk-**Zeitreihen** mit 24 h / 7 d / 30 d-Charts.
+- **Fernsteuerung (Remote Desktop)** – **eingebaute** Web-Fernsteuerung (eigener RFB/VNC-
+  Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur,
+  Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop.
 - **Remote-Terminal** – interaktive Shell über On-demand-WebSocket (+ Popout-Fenster).
 - **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (≤ 32 MB).
 - **Dienste & Prozesse** – auflisten + Start/Stop/Neustart, Prozesse beenden.
@@ -181,12 +202,26 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
   SMART-Festplattengesundheit, Windows-Event-Log / journald.
 - **Patch-Management** – prüfen, genehmigen, installieren (apt `upgrade` vs
   `dist-upgrade` wählbar), Neustart.
+- **Self-Healing** – automatische Behebung: Skript/Dienst-Neustart bei fehlerhaftem Check.
+- **Software-Verteilung** – Katalog verteilbarer Pakete (winget / choco / apt / dnf /
+  brew); Ausrollen auf Gerät / Client / Standort / Tag.
+- **Schwachstellen-Scan (CVE)** – Abgleich installierter Software gegen **OSV.dev**;
+  Tab je Gerät + Flotten-Übersicht + täglicher Hintergrund-Scan (beste Abdeckung: Linux).
+- **Netzwerk-Discovery** – ein Agent (oder der Server selbst) scannt eine CIDR (TCP / ARP /
+  DNS), importiert Hosts als **Assets** in eine Site; als **nicht verwaltete Geräte**
+  übernehmbar; **SNMP**-Druckerinfos (Modell / Seriennr. / Firmware / Seitenzähler / Toner).
 - **Alerting** – modulare Kanäle (E-Mail / Webhook / Pushover / Telegram / ntfy),
   Geltungsbereich Client/Site/Gerät, Schweregrad-Filter, **Recovery-Meldungen**,
   **Wartungsfenster**, optional Software-Änderungs-Alarme.
 - **Custom Fields** – eigene Felder auf Client/Site/Gerät, JSON-Collector-Tasks,
   Twig-artige Platzhalter mit Filtern (`{{ agent.domains | first }}`).
-- **Sammelaktionen** – Skript/Update-Scan auf ganze Clients / Standorte / Tags.
+- **Sammelaktionen** – Skript, Update-Scan/-Installation oder Software-Installation auf
+  ganze Clients / Standorte / Tags.
+- **Tags & Smart Groups** – freie Labels plus **regelbasierte** dynamische Gruppen
+  (z. B. `OS enthält windows UND Updates > 0`).
+- **Eigene Filter** – Geräteliste per Bedingungen (beliebige Felder, UND/ODER) filtern und
+  benannt speichern.
+- **Install-One-Liner** – Kurz-URL-Installer (PowerShell/bash) je Plattform.
 - **Wake-on-LAN** – offline Geräte über einen Nachbarn im selben Standort wecken.
 - **Dashboard** – Health-Übersicht über alle Geräte + letzte Statuswechsel.
 - **Globale Suche** – Hostname, IP/MAC, OS, Seriennr., Software, Custom Fields.
