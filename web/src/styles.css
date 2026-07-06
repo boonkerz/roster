@@ -425,3 +425,16 @@ label input, label select { color: var(--text); }
 .supply-bar { flex: 1; height: 10px; background: var(--surface-2, #1a2030); border-radius: 5px; overflow: hidden; }
 .supply-bar > span { display: block; height: 100%; background: var(--accent, #6366f1); }
 .supply-pct { min-width: 38px; text-align: right; }
+
+/* Panel für nicht verwaltete Geräte (kompakt) */
+.unmanaged-panel { display: flex; flex-direction: column; gap: 12px; }
+.um-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.um-title { display: flex; align-items: center; gap: 12px; }
+.um-icon { font-size: 26px; line-height: 1; }
+.um-name { font-size: 18px; font-weight: 600; }
+.um-sub { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--muted); font-size: 13px; }
+.um-sub .sep { position: relative; padding-left: 10px; }
+.um-sub .sep::before { content: "·"; position: absolute; left: 0; }
+.um-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; margin-top: 14px;
+  padding-top: 14px; border-top: 1px solid var(--border, #26304a); }
+.um-facts > div { display: flex; flex-direction: column; gap: 2px; }

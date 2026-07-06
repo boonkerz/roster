@@ -49,38 +49,41 @@ export function UnmanagedDevicePanel({ device }: { device: Device }) {
   });
 
   return (
-    <div className="page">
-      <header className="page-head">
-        <div>
-          <h2>{isPrinter ? "🖨 " : "🖧 "}{device.hostname || ip}</h2>
-          <div className="muted small">
-            <StatusBadge status="unmanaged" />
-            {device.os && <span style={{ marginLeft: 8 }}>{device.os}</span>}
-            {device.site_name && <span style={{ marginLeft: 8 }}>{device.client_name} › {device.site_name}</span>}
+    <div className="unmanaged-panel">
+      <div className="card">
+        <div className="um-head">
+          <div className="um-title">
+            <span className="um-icon">{isPrinter ? "🖨" : "🖧"}</span>
+            <div>
+              <div className="um-name">{device.hostname || ip}</div>
+              <div className="um-sub">
+                <StatusBadge status="unmanaged" />
+                {device.os && <span className="sep">{device.os}</span>}
+                {device.site_name && <span className="sep">{device.client_name} › {device.site_name}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="head-actions">
+            {isPrinter && <button className="btn primary sm" disabled={busy} onClick={queryPrinter}>{busy ? t("Frage ab…") : t("Per SNMP abfragen")}</button>}
+            {isAdmin && <button className="btn ghost sm" onClick={() => confirm(t("Gerät wirklich löschen?")) && remove.mutate()}>{t("Löschen")}</button>}
           </div>
         </div>
-        <div className="head-actions">
-          {isPrinter && <button className="btn primary sm" disabled={busy} onClick={queryPrinter}>{busy ? t("Frage ab…") : t("Per SNMP abfragen")}</button>}
-          {isAdmin && <button className="btn ghost sm" onClick={() => confirm(t("Gerät wirklich löschen?")) && remove.mutate()}>{t("Löschen")}</button>}
-        </div>
-      </header>
 
-      <section className="card">
-        <p className="muted small">{t("Nicht verwaltetes Gerät (ohne Agent, aus dem Netzwerk-Scan). Keine Fernsteuerung/Checks – nur Bestandsdaten.")}</p>
-        <div className="kv-grid">
-          <div><span className="muted">IP</span><div className="mono">{ip || "—"}</div></div>
-          <div><span className="muted">MAC</span><div className="mono">{mac || "—"}</div></div>
-          <div><span className="muted">Hostname</span><div>{device.hostname || "—"}</div></div>
-          <div><span className="muted">{t("Typ")}</span><div>{device.os || "—"}</div></div>
+        <div className="um-facts">
+          <div><span className="muted small">IP</span><span className="mono">{ip || "—"}</span></div>
+          <div><span className="muted small">MAC</span><span className="mono">{mac || "—"}</span></div>
+          <div><span className="muted small">Hostname</span><span>{device.hostname || "—"}</span></div>
+          <div><span className="muted small">{t("Typ")}</span><span>{device.os || "—"}</span></div>
         </div>
-      </section>
+        <p className="muted small" style={{ margin: "10px 0 0" }}>{t("Nicht verwaltetes Gerät (ohne Agent, aus dem Netzwerk-Scan). Keine Fernsteuerung/Checks – nur Bestandsdaten.")}</p>
+      </div>
 
       {msg && <p className="form-err">{msg}</p>}
       {printer && (
-        <section className="card">
+        <div className="card">
           <h3 style={{ marginTop: 0 }}>🖨 {t("Druckerdaten")} <span className="muted small">(SNMP)</span></h3>
           <PrinterDetails info={printer} />
-        </section>
+        </div>
       )}
     </div>
   );
