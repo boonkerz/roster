@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import type { Device, ClientTree, Command, NetworkAsset, PrinterInfo } from "../types";
+import { PrinterDetails } from "./PrinterDetails";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -189,29 +190,7 @@ export function NetworkScan() {
             <h3 style={{ margin: 0 }}>🖨 {t("Drucker")} {printer.ip}</h3>
             <button className="btn ghost sm" onClick={() => setPrinter(null)}>{t("Schließen")}</button>
           </div>
-          <div className="kv-grid" style={{ marginTop: 8 }}>
-            <div><span className="muted">{t("Modell")}</span><div>{printer.model || printer.description || "—"}</div></div>
-            <div><span className="muted">{t("Seriennummer")}</span><div className="mono">{printer.serial || "—"}</div></div>
-            <div><span className="muted">Firmware</span><div>{printer.firmware || <span className="muted" title={t("Firmware ist meist Teil der Beschreibung; ein „Update verfügbar“ liefert kein Standard-SNMP.")}>{t("in Beschreibung")}</span>}</div></div>
-            <div><span className="muted">{t("Status")}</span><div>{printer.status || "—"}</div></div>
-            <div><span className="muted">{t("Seitenzähler")}</span><div>{printer.page_count ? printer.page_count.toLocaleString() : "—"}</div></div>
-            <div><span className="muted">{t("Beschreibung")}</span><div className="small">{printer.description || "—"}</div></div>
-          </div>
-          {printer.supplies && printer.supplies.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <div className="muted small" style={{ marginBottom: 4 }}>{t("Verbrauchsmaterial")}</div>
-              {printer.supplies.map((s, i) => {
-                const pct = s.max > 0 && s.level >= 0 ? Math.round((s.level / s.max) * 100) : -1;
-                return (
-                  <div key={i} className="supply-row">
-                    <span className="supply-name">{s.name || `#${i + 1}`}</span>
-                    <span className="supply-bar"><span style={{ width: `${pct < 0 ? 0 : pct}%` }} /></span>
-                    <span className="supply-pct muted small">{pct < 0 ? "?" : `${pct}%`}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div style={{ marginTop: 8 }}><PrinterDetails info={printer} /></div>
         </section>
       )}
     </div>

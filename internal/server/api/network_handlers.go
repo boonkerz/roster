@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -97,6 +98,48 @@ func (s *Server) handleSNMPPrinter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
+// handleDeviceSNMP fragt einen (nicht verwalteten) Drucker aus der Geräteliste per
+// SNMP ab – über einen online-Agenten im selben Standort.
+func (s *Server) handleDeviceSNMP(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	d, err := s.store.GetDevice(r.Context(), id)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	var ip string
+	for _, i := range d.Interfaces {
+		if v := strings.TrimSpace(strings.Split(i.IPv4, ",")[0]); v != "" {
+			ip = v
+			break
+		}
+	}
+	if ip == "" {
+		s.writeErr(w, http.StatusBadRequest, "keine IP-Adresse für dieses Gerät bekannt")
+		return
+	}
+	if d.SiteID == nil || *d.SiteID == "" {
+		s.writeErr(w, http.StatusBadRequest, "Gerät hat keinen Standort – SNMP braucht einen Agenten im selben Netz")
+		return
+	}
+	var req struct {
+		Community string `json:"community"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	agentID, err := s.store.OnlineNeighborInSite(r.Context(), *d.SiteID, id, time.Now().Add(-s.cfg.OfflineAfter))
+	if err != nil {
+		s.writeErr(w, http.StatusBadRequest, "kein online-Agent im Standort für die Abfrage")
+		return
+	}
+	cmdID, err := s.queueCommand(r.Context(), agentID, "snmp_query", "SNMP-Abfrage "+ip,
+		map[string]any{"ip": ip, "community": req.Community})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": cmdID})
 }
 
 func (s *Server) handleListSiteAssets(w http.ResponseWriter, r *http.Request) {

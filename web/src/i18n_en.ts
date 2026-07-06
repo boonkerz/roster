@@ -594,4 +594,8 @@ export const EN: Record<string, string> = {
   "Firmware ist meist Teil der Beschreibung; ein „Update verfügbar“ liefert kein Standard-SNMP.": "Firmware is usually part of the description; „update available“ is not provided by standard SNMP.",
   "Seitenzähler": "Page count",
   "Verbrauchsmaterial": "Supplies",
+  "Per SNMP abfragen": "Query via SNMP",
+  "Frage ab…": "Querying…",
+  "Nicht verwaltetes Gerät (ohne Agent, aus dem Netzwerk-Scan). Keine Fernsteuerung/Checks – nur Bestandsdaten.": "Unmanaged device (no agent, from network scan). No remote control/checks – inventory data only.",
+  "Druckerdaten": "Printer data",
 };

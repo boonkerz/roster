@@ -16,6 +16,7 @@ import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
 import { Vulnerabilities } from "./Vulnerabilities";
+import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
@@ -99,6 +100,8 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   });
 
   if (!device) return <div className="muted" style={{ padding: 20 }}>{t("Lädt…")}</div>;
+  // Geräte ohne Agent (z. B. aus dem Netzwerk-Scan) bekommen ein eigenes Panel.
+  if (device.managed === false) return <UnmanagedDevicePanel device={device} />;
 
   const memberIDs = new Set((device.groups ?? []).map((g) => g.id));
   const toggleGroup = (gid: string) => {
