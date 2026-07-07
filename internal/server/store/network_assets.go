@@ -99,12 +99,14 @@ func kindFromPorts(csv string) string {
 	switch {
 	case has("9100", "631", "515"):
 		return "Drucker"
-	case has("3389", "445", "139", "135"):
+	case has("3389"): // RDP ist Windows-spezifisch
 		return "Windows"
+	case has("22"): // vor SMB: Samba-Server haben oft auch SSH
+		return "Linux/SSH"
+	case has("445", "139", "135"): // SMB allein ist kein Windows-Beweis (Samba)
+		return "Dateiserver (SMB)"
 	case has("5900"):
 		return "VNC"
-	case has("22"):
-		return "Linux/SSH"
 	case has("80", "443", "8080"):
 		return "Web/Gerät"
 	}

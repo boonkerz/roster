@@ -25,10 +25,11 @@ function guessType(ports: string): string {
   const p = new Set(ports.split(",").map((x) => x.trim()));
   const has = (...xs: string[]) => xs.some((x) => p.has(x));
   if (has("9100", "631", "515")) return "🖨 Drucker";
-  if (has("3389")) return "🪟 Windows (RDP)";
-  if (has("445", "139", "135")) return "🪟 Windows/SMB";
+  if (has("3389")) return "🪟 Windows (RDP)"; // RDP ist Windows-spezifisch
+  if (has("22")) return "🐧 SSH/Linux"; // vor SMB: Samba-Server haben oft auch 22
+  // 445/139/135 allein ist kein Windows-Beweis (Samba fährt SMB ebenso) → neutral.
+  if (has("445", "139", "135")) return "🗄 Dateiserver (SMB)";
   if (has("5900")) return "🖥 VNC";
-  if (has("22")) return "🐧 SSH/Linux";
   if (has("80", "443", "8080")) return "🌐 Web/Gerät";
   return "—";
 }
