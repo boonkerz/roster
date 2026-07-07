@@ -656,11 +656,14 @@ func (s *Store) ReplaceListenPorts(ctx context.Context, deviceID string, ports [
 	return tx.Commit()
 }
 
-// ListenPortsFor liefert die lauschenden Sockets eines Geräts (öffentliche zuerst).
+// ListenPortsFor liefert die lauschenden Sockets eines Geräts (öffentliche zuerst),
+// angereichert um das Ergebnis des Außen-Checks (LEFT JOIN auf external_ports).
 func (s *Store) ListenPortsFor(ctx context.Context, deviceID string) ([]model.ListenPort, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT proto, address, port, process, pid, public FROM listen_ports
-		WHERE device_id=? ORDER BY public DESC, port, proto`), deviceID)
+		SELECT lp.proto, lp.address, lp.port, lp.process, lp.pid, lp.public, ep.reachable
+		FROM listen_ports lp
+		LEFT JOIN external_ports ep ON ep.device_id = lp.device_id AND ep.port = lp.port
+		WHERE lp.device_id=? ORDER BY lp.public DESC, lp.port, lp.proto`), deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -668,12 +671,44 @@ func (s *Store) ListenPortsFor(ctx context.Context, deviceID string) ([]model.Li
 	var out []model.ListenPort
 	for rows.Next() {
 		var p model.ListenPort
-		if err := rows.Scan(&p.Proto, &p.Address, &p.Port, &p.Process, &p.PID, &p.Public); err != nil {
+		var reachable sql.NullBool
+		if err := rows.Scan(&p.Proto, &p.Address, &p.Port, &p.Process, &p.PID, &p.Public, &reachable); err != nil {
 			return nil, err
+		}
+		if reachable.Valid {
+			p.ExtChecked = true
+			p.ExtReachable = reachable.Bool
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// ExternalPortResult ist ein Außen-Check-Ergebnis für einen Port.
+type ExternalPortResult struct {
+	Port      int
+	Reachable bool
+}
+
+// SaveExternalPortResults ersetzt die Außen-Check-Ergebnisse eines Geräts.
+func (s *Store) SaveExternalPortResults(ctx context.Context, deviceID string, results []ExternalPortResult) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM external_ports WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, r := range results {
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO external_ports (device_id, port, reachable, checked_at) VALUES (?, ?, ?, ?)`),
+			deviceID, r.Port, r.Reachable, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func scanDevice(row scanner) (*model.Device, error) {

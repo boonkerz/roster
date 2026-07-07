@@ -48,6 +48,8 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return tcpCheck(ctx, c)
 	case "http":
 		return httpCheck(ctx, c)
+	case "ports":
+		return portsCheck(ctx, c)
 	default:
 		return shared.CheckResult{CheckID: c.ID, Status: "unknown", Output: "unbekannter Checktyp: " + c.Type}
 	}

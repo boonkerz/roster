@@ -33,6 +33,7 @@ const CHECK_TYPES: Record<string, string> = {
   ping: "Ping (Erreichbarkeit)",
   tcp: "TCP-Port erreichbar",
   http: "HTTP-Status",
+  ports: "Offene Ports (Whitelist)",
 };
 const isNetCheck = (t: string) => t === "ping" || t === "tcp" || t === "http";
 
@@ -142,6 +143,7 @@ function PolicyEditor({
   const [cUrl, setCUrl] = useState("");     // HTTP-Check: URL
   const [cExpected, setCExpected] = useState(""); // HTTP: erwarteter Status
   const [cRemediation, setCRemediation] = useState(""); // Self-Healing: Skript bei Fehler
+  const [cAllowed, setCAllowed] = useState(""); // Ports-Check: erlaubte Ports (Whitelist)
   const addCheck = useMutation({
     mutationFn: () => {
       let config: Record<string, number | string> = { threshold: cThreshold };
@@ -152,6 +154,8 @@ function PolicyEditor({
           if (cWarn !== "") config.warn = Number(cWarn);
           if (cCrit !== "") config.crit = Number(cCrit);
         }
+      } else if (cType === "ports") {
+        config = { allowed: cAllowed.trim() };
       } else if (isNetCheck(cType)) {
         config = {};
         if (cType === "http") {
@@ -174,7 +178,7 @@ function PolicyEditor({
         remediation_script_id: cRemediation || null,
       });
     },
-    onSuccess: () => { onChange(); setCName(""); setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCRemediation(""); },
+    onSuccess: () => { onChange(); setCName(""); setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCRemediation(""); setCAllowed(""); },
   });
   const delCheck = useMutation({ mutationFn: (id: string) => api.del(`/checks/${id}`), onSuccess: onChange });
 
@@ -234,6 +238,7 @@ function PolicyEditor({
                 : c.type === "http" ? `HTTP: ${c.config?.url ?? ""}${c.config?.expected_status ? ` (=${c.config.expected_status})` : ""}`
                 : c.type === "tcp" ? `TCP: ${c.config?.host ?? ""}:${c.config?.port ?? ""}`
                 : c.type === "ping" ? `Ping: ${c.config?.host ?? ""}`
+                : c.type === "ports" ? `${t("Erlaubt")}: ${c.config?.allowed ?? "—"}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
@@ -264,6 +269,10 @@ function PolicyEditor({
                 </>
               )}
             </>
+          ) : cType === "ports" ? (
+            <input placeholder={t("Erlaubte Ports, z.B. 22,80,443")} value={cAllowed}
+              onChange={(e) => setCAllowed(e.target.value)} style={{ minWidth: 200 }}
+              title={t("Öffentlich erreichbare Ports, die nicht in dieser Liste stehen, lösen den Check aus.")} />
           ) : isNetCheck(cType) ? (
             <>
               {cType === "http" ? (

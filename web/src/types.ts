@@ -29,6 +29,8 @@ export interface ListenPort {
   process?: string;
   pid?: number;
   public: boolean;
+  ext_checked?: boolean;
+  ext_reachable?: boolean;
 }
 
 export interface Group {

@@ -167,6 +167,10 @@ type ListenPort struct {
 	Process string `json:"process,omitempty"`
 	PID     int    `json:"pid,omitempty"`
 	Public  bool   `json:"public"`
+	// Außen-Check (nur TCP): ExtChecked=true, wenn der Server die öffentliche IP auf
+	// diesem Port getestet hat; ExtReachable = tatsächlich von außen erreichbar.
+	ExtChecked   bool `json:"ext_checked,omitempty"`
+	ExtReachable bool `json:"ext_reachable,omitempty"`
 }
 
 // Client ist die oberste Organisationsebene (Firma/Kunde). Enthält Sites.
