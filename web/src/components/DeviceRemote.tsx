@@ -30,7 +30,51 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
   const [monitor, setMonitor] = useState(initialMonitor ?? 1); // 1=primär, 0=alle, N=Monitor N
   const [session, setSession] = useState(autoStart ? 1 : 0); // hochzählen = (neu) verbinden
   const hostRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  // Keyboard Lock (Chromium, HTTPS, nur Vollbild) fängt sonst vom Browser/OS
+  // abgefangene Systemtasten ab (Win, Alt+Tab, Esc, F-Tasten, Ctrl+W …).
+  const kbLockSupported = typeof navigator !== "undefined" && !!(navigator as any).keyboard?.lock;
+
+  // Vollbild + Keyboard-Lock umschalten. Im Vollbild erreichen dann fast alle
+  // Tastenkombinationen das entfernte Gerät statt den Browser.
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await fillRef.current?.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch { /* ignore */ }
+  };
+  useEffect(() => {
+    const onFsChange = () => {
+      const active = !!document.fullscreenElement;
+      setFullscreen(active);
+      const kb = (navigator as any).keyboard;
+      if (active) {
+        kb?.lock?.().catch(() => {});
+        rfbRef.current?.focus?.();
+      } else {
+        kb?.unlock?.();
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  // Einzelne Taste bzw. Kombination an das Gerät senden (RFB-Keysyms).
+  const KEY = { win: [0xffeb, "MetaLeft"], alt: [0xffe9, "AltLeft"], tab: [0xff09, "Tab"], esc: [0xff1b, "Escape"] } as const;
+  const tapKey = (k: readonly [number, string]) => rfbRef.current?.sendKey(k[0], k[1]);
+  const sendAltTab = () => {
+    const r = rfbRef.current;
+    if (!r) return;
+    r.sendKey(KEY.alt[0], KEY.alt[1], true);
+    r.sendKey(KEY.tab[0], KEY.tab[1], true);
+    r.sendKey(KEY.tab[0], KEY.tab[1], false);
+    r.sendKey(KEY.alt[0], KEY.alt[1], false);
+  };
 
   // Zustimmungs-Modus (device-level; "" = erben). Nur für Admin steuerbar.
   const [consent, setConsent] = useState<{ effective: string; device: string } | null>(null);
@@ -95,7 +139,7 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
       rfb.background = "#0b0e14";
       rfbRef.current = rfb;
 
-      rfb.addEventListener("connect", () => { setStatus(t("verbunden")); setConnected(true); });
+      rfb.addEventListener("connect", () => { setStatus(t("verbunden")); setConnected(true); try { rfb.focus(); } catch { /* */ } });
       rfb.addEventListener("disconnect", (e: any) => {
         setConnected(false);
         setStatus(e?.detail?.clean ? t("getrennt") : t("Verbindung verloren"));
@@ -150,7 +194,7 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
   }
 
   return (
-    <div className="remote-fill">
+    <div className="remote-fill" ref={fillRef}>
       <div className="remote-bar">
         <span className={`badge ${connected ? "badge-online" : "badge-unknown"}`}>{status || t("getrennt")}</span>
         <div className="spacer" />
@@ -163,6 +207,14 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
         </select>
         {connected && (
           <>
+            <button className={`btn sm ${fullscreen ? "primary" : "ghost"}`} onClick={toggleFullscreen}
+              title={kbLockSupported
+                ? t("Vollbild aktiviert die Tastatur-Erfassung – dann erreichen auch Win, Alt+Tab, Esc, F-Tasten das Gerät.")
+                : t("Vollbild. Hinweis: Vollständige Tastatur-Erfassung (Win/Alt+Tab) unterstützt nur Chrome/Edge über HTTPS.")}>
+              ⛶ {t("Vollbild")}
+            </button>
+            <button className="btn ghost sm" title={t("Windows-Taste")} onClick={() => tapKey(KEY.win)}>⊞ Win</button>
+            <button className="btn ghost sm" onClick={sendAltTab}>Alt+Tab</button>
             <button className="btn ghost sm" onClick={() => rfbRef.current?.sendCtrlAltDel()}>Ctrl+Alt+Entf</button>
             <button className="btn ghost sm" title={t("Lokale Zwischenablage zum Gerät senden")}
               onClick={() => navigator.clipboard?.readText().then((tx) => rfbRef.current?.clipboardPasteFrom(tx)).catch(() => {})}>
@@ -175,6 +227,11 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
         {!connected && <button className="btn primary sm" onClick={() => setSession((n) => n + 1)}>{t("Verbinden")}</button>}
       </div>
       <div ref={hostRef} className="remote-screen" onDragOver={(e) => e.preventDefault()} onDrop={onDrop} />
+      {connected && !fullscreen && (
+        <p className="muted small">⌨️ {kbLockSupported
+          ? t("Tipp: „Vollbild“ für vollständige Tastatur-Erfassung – sonst fängt der Browser Tasten wie Win, Alt+Tab, Esc oder F-Tasten ab.")
+          : t("Tipp: Win/Alt+Tab-Tasten oben nutzen. Vollständige Tastatur-Erfassung gibt es nur in Chrome/Edge über HTTPS.")}</p>
+      )}
       {dropStatus && <p className="muted small">📁 {dropStatus}</p>}
     </div>
   );
