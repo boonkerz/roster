@@ -221,6 +221,11 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
             <button className="btn ghost sm" onClick={startNative}>{t("Startcode erzeugen")}</button>
           </div>
           <p className="muted small">{t("Für Wayland/niri: der native Viewer erfasst alle Tasten (Win+T, Win+Zahlen, Alt+Tab …) und reicht sie ans Gerät durch – der Browser kann das auf Wayland nicht garantieren. Einmalig pcinv-viewer installieren.")}</p>
+          <p className="muted small">
+            <a href="/api/v1/viewer/linux-amd64" download>⭳ {t("Viewer herunterladen (Linux x86-64)")}</a>
+            {" — "}{t("ausführbar machen und in den PATH legen:")}{" "}
+            <code>chmod +x pcinv-viewer &amp;&amp; mv pcinv-viewer ~/.local/bin/</code>
+          </p>
           {nativeStatus && <p className="muted small">{nativeStatus}</p>}
           {nativeCode && (
             <div className="remote-native-cmd">

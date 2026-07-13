@@ -26,3 +26,4 @@ docker/windows/shared/*
 .DS_Store
 /agent
 /server
+/internal/server/viewerdist/bin/pcinv-viewer-*

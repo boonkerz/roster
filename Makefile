@@ -33,6 +33,10 @@ agent: ## Agent-Binary für die aktuelle Plattform bauen
 viewer: ## Nativer Fernsteuerungs-Viewer (Linux, braucht SDL2 + cgo)
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer ./cmd/viewer
 
+viewer-embed: ## Viewer-Binary ins Server-Embed bauen (braucht SDL2+cgo; VOR `make server`)
+	mkdir -p internal/server/viewerdist/bin
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/pcinv-viewer-linux-amd64 ./cmd/viewer
+
 build: server agent ## Server und Agent bauen
 
 test: ## Tests ausführen

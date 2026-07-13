@@ -634,4 +634,6 @@ export const EN: Record<string, string> = {
   "Startcode konnte nicht erzeugt werden.": "Could not generate launch code.",
   "Im Terminal ausführen – gültig ~2 Minuten, danach im Browser neu erzeugen.": "Run in a terminal – valid ~2 minutes, then regenerate in the browser.",
   "Kopiert": "Copied",
+  "Viewer herunterladen (Linux x86-64)": "Download viewer (Linux x86-64)",
+  "ausführbar machen und in den PATH legen:": "make it executable and put it on your PATH:",
 };

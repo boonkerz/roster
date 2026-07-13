@@ -80,6 +80,8 @@ func (s *Server) routes() http.Handler {
 
 			// --- Agent-Download (öffentlich, für Install-Skripte) ---
 			r.Get("/agents/{platform}", s.handleAgentDownload)
+			// --- Nativer Fernsteuerungs-Viewer (öffentlich; enthält keine Geheimnisse) ---
+			r.Get("/viewer/{platform}", s.handleViewerDownload)
 
 			// --- Auth ---
 			r.Post("/auth/login", s.handleLogin)
