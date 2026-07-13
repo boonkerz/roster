@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -26,7 +27,7 @@ import (
 //  3. Der Browser öffnet die noVNC-WS /remote/ws?session=…; der Server paart
 //     Browser- und Agent-WS und relayed die Frames (relay – wiederverwendet).
 
-const remoteSessionTTL = 60 * time.Second // so lange wartet eine Sitzung auf die Browser-WS
+const remoteSessionTTL = 120 * time.Second // so lange wartet eine Sitzung auf die Browser-/Viewer-WS
 
 // vncPassword erzeugt ein 8-Zeichen-Einmalpasswort (RFB-Auth ist auf 8 Zeichen
 // begrenzt) aus einem verwechslungsarmen Alphabet.
@@ -43,6 +44,7 @@ func vncPassword() string {
 type remoteStartResponse struct {
 	Session  string `json:"session"`
 	Password string `json:"password"`
+	Token    string `json:"token"` // für den nativen Viewer (pcinv-viewer)
 }
 
 // handleRemoteStart erzeugt eine Remote-Desktop-Sitzung und weckt den Agent.
@@ -50,6 +52,7 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 	sessID := newSessionID()
 	pass := vncPassword()
+	viewerToken := newSessionID() // 128-bit Capability für die native Viewer-WS
 
 	// Monitor-Auswahl (Default 1 = primär; 0 = alle/virtueller Desktop).
 	monitor := 1
@@ -65,6 +68,7 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 		deviceID:  deviceID,
 		agentConn: make(chan *websocket.Conn, 1),
 		done:      make(chan struct{}),
+		token:     viewerToken,
 	}
 	s.term.addSession(sessID, sess)
 
@@ -90,7 +94,7 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 		TS: time.Now().UTC(), Username: uname, Action: "Fernsteuerung gestartet",
 		Method: r.Method, Path: "/devices/" + deviceID, Status: http.StatusOK,
 	})
-	s.writeJSON(w, http.StatusOK, remoteStartResponse{Session: sessID, Password: pass})
+	s.writeJSON(w, http.StatusOK, remoteStartResponse{Session: sessID, Password: pass, Token: viewerToken})
 }
 
 // resolveRemoteConsent ermittelt, ob der Nutzer am Gerät die Fernsteuerung
@@ -138,7 +142,7 @@ func (s *Server) handleSetRemoteConsent(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleDeviceVNC nimmt die noVNC-WS des Browsers entgegen und relayed sie an die
-// (bereits per /remote/start angeforderte) Agent-Session.
+// (bereits per /remote/start angeforderte) Agent-Session. Auth: Cookie (requireAdmin).
 func (s *Server) handleDeviceVNC(w http.ResponseWriter, r *http.Request) {
 	sessID := r.URL.Query().Get("session")
 	s.term.mu.Lock()
@@ -148,6 +152,36 @@ func (s *Server) handleDeviceVNC(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusNotFound, "unbekannte session")
 		return
 	}
+	s.relayRemote(w, r, sessID, sess)
+}
+
+// handleViewerVNC bedient den nativen Viewer (pcinv-viewer). Es gibt kein
+// Session-Cookie; die Berechtigung wird über das pro-Sitzung erzeugte Viewer-Token
+// nachgewiesen (Bearer-Header oder ?token=), das nur ein Admin via /remote/start
+// erhalten kann.
+func (s *Server) handleViewerVNC(w http.ResponseWriter, r *http.Request) {
+	sessID := r.URL.Query().Get("session")
+	tok := bearerToken(r)
+	if tok == "" {
+		tok = r.URL.Query().Get("token")
+	}
+	s.term.mu.Lock()
+	sess := s.term.session[sessID]
+	s.term.mu.Unlock()
+	if sess == nil || sess.deviceID != chi.URLParam(r, "id") {
+		s.writeErr(w, http.StatusNotFound, "unbekannte session")
+		return
+	}
+	if sess.token == "" || subtle.ConstantTimeCompare([]byte(tok), []byte(sess.token)) != 1 {
+		s.writeErr(w, http.StatusUnauthorized, "viewer-token ungültig")
+		return
+	}
+	s.relayRemote(w, r, sessID, sess)
+}
+
+// relayRemote nimmt die Client-WS (Browser oder nativer Viewer) an und relayed die
+// RFB-Bytes an die bereits gepaarte Agent-Session.
+func (s *Server) relayRemote(w http.ResponseWriter, r *http.Request, sessID string, sess *termSession) {
 	defer s.term.takeSession(sessID)
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{

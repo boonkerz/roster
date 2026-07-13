@@ -58,6 +58,10 @@ func (s *Server) routes() http.Handler {
 				r.Post("/devices/{id}/remote/start", s.handleRemoteStart)
 				r.Get("/devices/{id}/remote/ws", s.handleDeviceVNC)
 			})
+			// Nativer Viewer (pcinv-viewer): keine Cookie-Session, Auth über das
+			// pro-Sitzung erzeugte Viewer-Token (nur ein Admin kann es via
+			// /remote/start erzeugen). Sonst identisch zur Browser-WS.
+			r.Get("/devices/{id}/remote/viewer-ws", s.handleViewerVNC)
 		})
 
 		// --- Übrige API mit 30s-Request-Timeout ---

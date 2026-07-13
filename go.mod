@@ -13,6 +13,7 @@ require (
 	github.com/minio/selfupdate v0.6.0
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/shirou/gopsutil/v4 v4.26.5
+	github.com/veandco/go-sdl2 v0.4.40
 	golang.org/x/crypto v0.53.0
 	golang.org/x/sys v0.46.0
 	gopkg.in/yaml.v3 v3.0.1

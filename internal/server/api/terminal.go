@@ -44,6 +44,7 @@ type termSession struct {
 	deviceID  string
 	agentConn chan *websocket.Conn // Rendezvous: Agent reicht hier seine WS hinein
 	done      chan struct{}        // geschlossen, wenn das Relay endet
+	token     string               // optionales Viewer-Token (native Fernsteuerung ohne Cookie)
 }
 
 func newTermHub() *termHub {

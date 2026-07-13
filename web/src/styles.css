@@ -385,6 +385,12 @@ label input, label select { color: var(--text); }
 .remote-fill:fullscreen { background: var(--bg); padding: 6px; box-sizing: border-box; }
 .remote-fill:fullscreen .remote-bar { padding: 2px 4px; }
 
+.remote-native { margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+.remote-native-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.remote-native-cmd { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.remote-native-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+.remote-native-cmd p { flex-basis: 100%; margin: 0; }
+
 .code-block pre.one-liner { white-space: pre-wrap; word-break: break-all; }
 
 /* Metrik-Verlaufschart */

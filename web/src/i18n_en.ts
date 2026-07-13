@@ -627,4 +627,11 @@ export const EN: Record<string, string> = {
   "Nicht verwaltetes Gerät (ohne Agent, aus dem Netzwerk-Scan). Keine Fernsteuerung/Checks – nur Bestandsdaten.": "Unmanaged device (no agent, from network scan). No remote control/checks – inventory data only.",
   "Druckerdaten": "Printer data",
   "Daran hängen noch {n} Gerät(e). Sie bleiben erhalten, werden aber nicht mehr zugeordnet. Trotzdem löschen?": "{n} device(s) still attached. They are kept but become unassigned. Delete anyway?",
+  "Nativer Viewer (Linux) – volle Tastatur-Erfassung": "Native viewer (Linux) – full keyboard capture",
+  "Startcode erzeugen": "Generate launch code",
+  "Für Wayland/niri: der native Viewer erfasst alle Tasten (Win+T, Win+Zahlen, Alt+Tab …) und reicht sie ans Gerät durch – der Browser kann das auf Wayland nicht garantieren. Einmalig pcinv-viewer installieren.": "For Wayland/niri: the native viewer captures all keys (Win+T, Win+numbers, Alt+Tab …) and passes them to the device – the browser cannot guarantee this on Wayland. Install pcinv-viewer once.",
+  "Startcode wird erzeugt…": "Generating launch code…",
+  "Startcode konnte nicht erzeugt werden.": "Could not generate launch code.",
+  "Im Terminal ausführen – gültig ~2 Minuten, danach im Browser neu erzeugen.": "Run in a terminal – valid ~2 minutes, then regenerate in the browser.",
+  "Kopiert": "Copied",
 };

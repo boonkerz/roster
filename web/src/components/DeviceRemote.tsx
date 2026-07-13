@@ -114,6 +114,31 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
       "width=1280,height=800,menubar=no,toolbar=no,location=no,status=no");
   };
 
+  // Nativer Viewer (Linux/Wayland): erzeugt einen base64-Startcode für pcinv-viewer.
+  // Der Viewer greift die Tastatur per shortcuts-inhibit ab – so erreichen auch Win+T,
+  // Win+Zahlen, Alt+Tab das Gerät, was der Browser auf Wayland/niri nicht garantiert.
+  const [nativeCode, setNativeCode] = useState("");
+  const [nativeStatus, setNativeStatus] = useState("");
+  const [copied, setCopied] = useState(false);
+  const startNative = async () => {
+    setNativeStatus(t("Startcode wird erzeugt…"));
+    setNativeCode("");
+    try {
+      const s = await api.post<{ session: string; password: string; token: string }>(
+        `/devices/${id}/remote/start`, { monitor });
+      const blob = { url: location.origin, device: id, session: s.session, token: s.token, title: `Fernsteuerung ${id}` };
+      setNativeCode(btoa(JSON.stringify(blob)));
+      setNativeStatus("");
+      setCopied(false);
+    } catch {
+      setNativeStatus(t("Startcode konnte nicht erzeugt werden."));
+    }
+  };
+  const nativeCmd = `pcinv-viewer ${nativeCode}`;
+  const copyNative = () => {
+    navigator.clipboard?.writeText(nativeCmd).then(() => { setCopied(true); }).catch(() => {});
+  };
+
   useEffect(() => {
     if (session === 0 || !hostRef.current) return;
     let rfb: any = null;
@@ -189,6 +214,22 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
         </div>
         {consentBox}
         <p className="muted small">{t("Startet on-demand einen VNC-Server am Gerät (nur während der Sitzung, nur lokal). Bei Nutzer-PCs muss die Verbindung ggf. am Gerät bestätigt werden.")} {t("Datei per Drag&Drop auf den Bildschirm ziehen, um sie zum Gerät zu übertragen.")}</p>
+
+        <div className="remote-native">
+          <div className="remote-native-head">
+            <strong>⌨️ {t("Nativer Viewer (Linux) – volle Tastatur-Erfassung")}</strong>
+            <button className="btn ghost sm" onClick={startNative}>{t("Startcode erzeugen")}</button>
+          </div>
+          <p className="muted small">{t("Für Wayland/niri: der native Viewer erfasst alle Tasten (Win+T, Win+Zahlen, Alt+Tab …) und reicht sie ans Gerät durch – der Browser kann das auf Wayland nicht garantieren. Einmalig pcinv-viewer installieren.")}</p>
+          {nativeStatus && <p className="muted small">{nativeStatus}</p>}
+          {nativeCode && (
+            <div className="remote-native-cmd">
+              <code>{nativeCmd}</code>
+              <button className="btn sm" onClick={copyNative}>{copied ? "✓ " + t("Kopiert") : t("Kopieren")}</button>
+              <p className="muted small">{t("Im Terminal ausführen – gültig ~2 Minuten, danach im Browser neu erzeugen.")}</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

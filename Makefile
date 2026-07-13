@@ -8,7 +8,7 @@ GOFLAGS := CGO_ENABLED=0
 BIN := bin
 AGENT_EMBED := internal/server/agentdist/bin
 
-.PHONY: help web server agent agents-embed  build test vet tidy clean run-server cross
+.PHONY: help web server agent agents-embed viewer build test vet tidy clean run-server cross
 
 help: ## Diese Hilfe anzeigen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -29,6 +29,9 @@ server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Download
 
 agent: ## Agent-Binary für die aktuelle Plattform bauen
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent ./cmd/agent
+
+viewer: ## Nativer Fernsteuerungs-Viewer (Linux, braucht SDL2 + cgo)
+	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer ./cmd/viewer
 
 build: server agent ## Server und Agent bauen
 
