@@ -627,7 +627,7 @@ export const EN: Record<string, string> = {
   "Nicht verwaltetes Gerät (ohne Agent, aus dem Netzwerk-Scan). Keine Fernsteuerung/Checks – nur Bestandsdaten.": "Unmanaged device (no agent, from network scan). No remote control/checks – inventory data only.",
   "Druckerdaten": "Printer data",
   "Daran hängen noch {n} Gerät(e). Sie bleiben erhalten, werden aber nicht mehr zugeordnet. Trotzdem löschen?": "{n} device(s) still attached. They are kept but become unassigned. Delete anyway?",
-  "Nativer Viewer (Linux) – volle Tastatur-Erfassung": "Native viewer (Linux) – full keyboard capture",
+  "Nativer Viewer – volle Tastatur-Erfassung": "Native viewer – full keyboard capture",
   "Startcode erzeugen": "Generate launch code",
   "Für Wayland/niri: der native Viewer erfasst alle Tasten (Win+T, Win+Zahlen, Alt+Tab …) und reicht sie ans Gerät durch – der Browser kann das auf Wayland nicht garantieren. Einmalig pcinv-viewer installieren.": "For Wayland/niri: the native viewer captures all keys (Win+T, Win+numbers, Alt+Tab …) and passes them to the device – the browser cannot guarantee this on Wayland. Install pcinv-viewer once.",
   "Startcode wird erzeugt…": "Generating launch code…",
@@ -640,4 +640,6 @@ export const EN: Record<string, string> = {
   "Startet den installierten Viewer direkt (pcinv://). Einmalig: pcinv-viewer --register": "Launches the installed viewer directly (pcinv://). Once: pcinv-viewer --register",
   "Für den „Im Viewer öffnen\"-Button einmalig den Protokoll-Handler registrieren:": "For the \"Open in viewer\" button, register the protocol handler once:",
   "Ohne Startcode gestartet, öffnet pcinv-viewer einen Dialog zum Einfügen.": "Started without a launch code, pcinv-viewer opens a paste dialog.",
+  "Viewer herunterladen (Windows x86-64, .zip)": "Download viewer (Windows x86-64, .zip)",
+  "entpacken (SDL2.dll enthalten); Handler registrieren:": "unzip (SDL2.dll included); register the handler:",
 };

@@ -30,12 +30,41 @@ server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Download
 agent: ## Agent-Binary für die aktuelle Plattform bauen
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent ./cmd/agent
 
-viewer: ## Nativer Fernsteuerungs-Viewer (Linux, braucht SDL2 + cgo)
-	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer ./cmd/viewer
+viewer: ## Nativer Fernsteuerungs-Viewer für die aktuelle Plattform (SDL3, cgo-frei)
+	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer ./cmd/viewer
 
-viewer-embed: ## Viewer-Binary ins Server-Embed bauen (braucht SDL2+cgo; VOR `make server`)
+viewer-embed: ## Linux-Viewer ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
 	mkdir -p internal/server/viewerdist/bin
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/pcinv-viewer-linux-amd64 ./cmd/viewer
+	$(GOFLAGS) GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/pcinv-viewer-linux-amd64 ./cmd/viewer
+
+# SDL3-Laufzeitbibliotheken zum Bündeln für Windows/macOS (der Viewer selbst ist
+# cgo-frei; SDL3 wird zur Laufzeit geladen). Pfade überschreibbar via `make VAR=…`.
+SDL3_WIN_DLL   ?= third_party/sdl3/SDL3.dll
+SDL3_MAC_DYLIB ?= third_party/sdl3/libSDL3.dylib
+SDL3_VERSION   ?= 3.4.12
+
+fetch-sdl3: ## SDL3-Windows-DLL (zum Bündeln) herunterladen und entpacken
+	mkdir -p third_party/sdl3
+	curl -fsSL -o /tmp/sdl3-win.zip "https://github.com/libsdl-org/SDL/releases/download/release-$(SDL3_VERSION)/SDL3-$(SDL3_VERSION)-win32-x64.zip"
+	cd /tmp && bsdtar -xf sdl3-win.zip SDL3.dll
+	mv /tmp/SDL3.dll third_party/sdl3/SDL3.dll
+	rm -f /tmp/sdl3-win.zip
+
+viewer-embed-windows: ## Windows-Viewer (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
+	mkdir -p internal/server/viewerdist/bin
+	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer.exe ./cmd/viewer
+	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
+	cd $(BIN) && rm -f pcinv-viewer-windows-amd64.zip && zip -j pcinv-viewer-windows-amd64.zip pcinv-viewer.exe SDL3.dll
+	mv $(BIN)/pcinv-viewer-windows-amd64.zip internal/server/viewerdist/bin/pcinv-viewer-windows-amd64.zip
+	rm -f $(BIN)/pcinv-viewer.exe $(BIN)/SDL3.dll
+
+viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
+	mkdir -p internal/server/viewerdist/bin
+	$(GOFLAGS) GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/pcinv-viewer ./cmd/viewer
+	cp "$(SDL3_MAC_DYLIB)" $(BIN)/libSDL3.dylib
+	cd $(BIN) && rm -f pcinv-viewer-darwin-arm64.zip && zip -j pcinv-viewer-darwin-arm64.zip pcinv-viewer libSDL3.dylib
+	mv $(BIN)/pcinv-viewer-darwin-arm64.zip internal/server/viewerdist/bin/pcinv-viewer-darwin-arm64.zip
+	rm -f $(BIN)/pcinv-viewer $(BIN)/libSDL3.dylib
 
 build: server agent ## Server und Agent bauen
 

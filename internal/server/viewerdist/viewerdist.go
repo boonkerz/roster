@@ -19,8 +19,16 @@ var binFS embed.FS
 
 // platform-Schlüssel ("<os>-<arch>") -> eingebetteter Dateiname.
 var files = map[string]string{
-	"linux-amd64": "bin/pcinv-viewer-linux-amd64",
-	"linux-arm64": "bin/pcinv-viewer-linux-arm64",
+	"linux-amd64":   "bin/pcinv-viewer-linux-amd64",
+	"linux-arm64":   "bin/pcinv-viewer-linux-arm64",
+	"windows-amd64": "bin/pcinv-viewer-windows-amd64.zip", // .exe + SDL2.dll
+}
+
+// downloadName ist der Dateiname, unter dem der Client speichert.
+var downloadName = map[string]string{
+	"linux-amd64":   "pcinv-viewer",
+	"linux-arm64":   "pcinv-viewer",
+	"windows-amd64": "pcinv-viewer-windows.zip",
 }
 
 // Read liefert das Binary einer Plattform sowie den vorgeschlagenen Dateinamen.
@@ -33,7 +41,7 @@ func Read(platform string) (data []byte, filename string, ok bool) {
 	if err != nil {
 		return nil, "", false
 	}
-	return b, "pcinv-viewer", true
+	return b, downloadName[platform], true
 }
 
 // Available listet die tatsächlich eingebetteten (gebauten) Plattformen, sortiert.

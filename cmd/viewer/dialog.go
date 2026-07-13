@@ -1,11 +1,10 @@
-//go:build linux && cgo
-
 package main
 
 import (
 	"strings"
+	"time"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/jupiterrider/purego-sdl3/sdl"
 )
 
 // connectDialog zeigt ein kleines Fenster zum Verbinden ohne Kommandozeile: der
@@ -16,28 +15,27 @@ import (
 // Rückgabe (nil, nil) = vom Nutzer abgebrochen.
 func connectDialog() (*launchConfig, error) {
 	const w, h = 520, 230
-	win, err := sdl.CreateWindow("PC-Inventory Fernsteuerung",
-		sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED, w, h, sdl.WINDOW_SHOWN)
-	if err != nil {
-		return nil, err
+	window := sdl.CreateWindow("PC-Inventory Fernsteuerung", w, h, 0)
+	if window == nil {
+		return nil, errDialog("fenster")
 	}
-	defer win.Destroy()
-	ren, err := sdl.CreateRenderer(win, -1, sdl.RENDERER_ACCELERATED)
-	if err != nil {
-		return nil, err
+	defer sdl.DestroyWindow(window)
+	renderer := sdl.CreateRenderer(window, "")
+	if renderer == nil {
+		return nil, errDialog("renderer")
 	}
-	defer ren.Destroy()
+	defer sdl.DestroyRenderer(renderer)
 
 	var cfg *launchConfig
 	buf := ""
 	setTitle := func() {
 		switch {
 		case cfg != nil:
-			win.SetTitle("Bereit: " + cfg.Device + " — Enter/Klick zum Verbinden   (Esc = Abbruch)")
+			sdl.SetWindowTitle(window, "Bereit: "+cfg.Device+" — Enter/Klick zum Verbinden   (Esc = Abbruch)")
 		case buf != "":
-			win.SetTitle("Ungültiger Startcode — Strg+V zum Einfügen   (Esc = Abbruch)")
+			sdl.SetWindowTitle(window, "Ungültiger Startcode — Strg+V zum Einfügen   (Esc = Abbruch)")
 		default:
-			win.SetTitle("Startcode einfügen: Strg+V, dann Enter/Klick zum Verbinden   (Esc = Abbruch)")
+			sdl.SetWindowTitle(window, "Startcode einfügen: Strg+V, dann Enter/Klick zum Verbinden   (Esc = Abbruch)")
 		}
 	}
 	tryDecode := func(s string) {
@@ -51,98 +49,95 @@ func connectDialog() (*launchConfig, error) {
 		}
 		setTitle()
 	}
-	if clip, cerr := sdl.GetClipboardText(); cerr == nil {
-		tryDecode(clip) // Browser-„Kopieren" direkt davor → sofort „Bereit"
-	} else {
-		setTitle()
-	}
+	tryDecode(sdl.GetClipboardText()) // Browser-„Kopieren" direkt davor → sofort „Bereit"
 
-	btn := sdl.Rect{X: (w - 220) / 2, Y: 150, W: 220, H: 56}
+	btn := sdl.FRect{X: (w - 220) / 2, Y: 150, W: 220, H: 56}
+	var ev sdl.Event
 	for {
-		for ev := sdl.PollEvent(); ev != nil; ev = sdl.PollEvent() {
-			switch e := ev.(type) {
-			case *sdl.QuitEvent:
+		for sdl.PollEvent(&ev) {
+			switch ev.Type() {
+			case sdl.EventQuit, sdl.EventWindowCloseRequested:
 				return nil, nil
-			case *sdl.WindowEvent:
-				if e.Event == sdl.WINDOWEVENT_CLOSE {
-					return nil, nil
-				}
-			case *sdl.KeyboardEvent:
-				if e.Type != sdl.KEYDOWN {
-					break
-				}
+			case sdl.EventKeyDown:
+				ke := ev.Key()
 				switch {
-				case e.Keysym.Sym == sdl.K_ESCAPE:
+				case ke.Key == sdl.KeycodeEscape:
 					return nil, nil
-				case e.Keysym.Sym == sdl.K_RETURN || e.Keysym.Sym == sdl.K_KP_ENTER:
+				case ke.Key == sdl.KeycodeReturn || ke.Key == sdl.KeycodeKpEnter:
 					if cfg != nil {
 						return cfg, nil
 					}
-				case e.Keysym.Sym == sdl.K_v && e.Keysym.Mod&uint16(sdl.KMOD_CTRL) != 0:
-					if clip, cerr := sdl.GetClipboardText(); cerr == nil {
-						tryDecode(clip)
-					}
+				case ke.Key == sdl.KeycodeV && ke.Mod&sdl.KeymodCtrl != 0:
+					tryDecode(sdl.GetClipboardText())
 				}
-			case *sdl.MouseButtonEvent:
-				if e.Type == sdl.MOUSEBUTTONDOWN && e.Button == sdl.BUTTON_LEFT && cfg != nil &&
-					int32(e.X) >= btn.X && int32(e.X) < btn.X+btn.W &&
-					int32(e.Y) >= btn.Y && int32(e.Y) < btn.Y+btn.H {
+			case sdl.EventMouseButtonDown:
+				b := ev.Button()
+				if b.Button == uint8(sdl.ButtonLeft) && cfg != nil &&
+					b.X >= btn.X && b.X < btn.X+btn.W && b.Y >= btn.Y && b.Y < btn.Y+btn.H {
 					return cfg, nil
 				}
 			}
 		}
 
-		ren.SetDrawColor(0x14, 0x18, 0x20, 0xff)
-		ren.Clear()
+		sdl.SetRenderDrawColor(renderer, 0x14, 0x18, 0x20, 0xff)
+		sdl.RenderClear(renderer)
 		// „Eingabefeld" – füllt sich grün, wenn ein gültiger Code geladen ist.
-		field := sdl.Rect{X: 40, Y: 64, W: w - 80, H: 40}
-		ren.SetDrawColor(0x0b, 0x0e, 0x14, 0xff)
-		ren.FillRect(&field)
-		ren.SetDrawColor(0x33, 0x3a, 0x46, 0xff)
-		ren.DrawRect(&field)
+		field := sdl.FRect{X: 40, Y: 64, W: w - 80, H: 40}
+		sdl.SetRenderDrawColor(renderer, 0x0b, 0x0e, 0x14, 0xff)
+		sdl.RenderFillRect(renderer, &field)
+		sdl.SetRenderDrawColor(renderer, 0x33, 0x3a, 0x46, 0xff)
+		sdl.RenderRect(renderer, &field)
 		if len(buf) > 0 {
-			barW := int32(len(buf))
+			barW := float32(len(buf))
 			if barW > field.W-8 {
 				barW = field.W - 8
 			}
 			if cfg != nil {
-				ren.SetDrawColor(0x2e, 0x7d, 0x32, 0xff)
+				sdl.SetRenderDrawColor(renderer, 0x2e, 0x7d, 0x32, 0xff)
 			} else {
-				ren.SetDrawColor(0x8a, 0x3b, 0x3b, 0xff)
+				sdl.SetRenderDrawColor(renderer, 0x8a, 0x3b, 0x3b, 0xff)
 			}
-			ren.FillRect(&sdl.Rect{X: field.X + 4, Y: field.Y + 12, W: barW, H: 16})
+			sdl.RenderFillRect(renderer, &sdl.FRect{X: field.X + 4, Y: field.Y + 12, W: barW, H: 16})
 		}
 		// Connect-Button (grün = bereit) mit Play-Dreieck.
 		if cfg != nil {
-			ren.SetDrawColor(0x2e, 0x7d, 0x32, 0xff)
+			sdl.SetRenderDrawColor(renderer, 0x2e, 0x7d, 0x32, 0xff)
 		} else {
-			ren.SetDrawColor(0x30, 0x36, 0x40, 0xff)
+			sdl.SetRenderDrawColor(renderer, 0x30, 0x36, 0x40, 0xff)
 		}
-		ren.FillRect(&btn)
-		drawPlay(ren, btn, cfg != nil)
-		ren.Present()
-		sdl.Delay(16)
+		sdl.RenderFillRect(renderer, &btn)
+		drawPlay(renderer, btn, cfg != nil)
+		sdl.RenderPresent(renderer)
+		time.Sleep(16 * time.Millisecond)
 	}
 }
 
 // drawPlay zeichnet ein nach rechts zeigendes Play-Dreieck mittig in r.
-func drawPlay(ren *sdl.Renderer, r sdl.Rect, active bool) {
+func drawPlay(renderer *sdl.Renderer, r sdl.FRect, active bool) {
 	if active {
-		ren.SetDrawColor(0xff, 0xff, 0xff, 0xff)
+		sdl.SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff)
 	} else {
-		ren.SetDrawColor(0x66, 0x6c, 0x78, 0xff)
+		sdl.SetRenderDrawColor(renderer, 0x66, 0x6c, 0x78, 0xff)
 	}
-	const size = int32(16)
+	const size = 16
 	cx, cy := r.X+r.W/2-size/2, r.Y+r.H/2
-	for dy := -size; dy <= size; dy++ {
+	for dy := float32(-size); dy <= size; dy++ {
 		wln := size - abs32(dy)
-		ren.DrawLine(cx, cy+dy, cx+wln, cy+dy)
+		sdl.RenderLine(renderer, cx, cy+dy, cx+wln, cy+dy)
 	}
 }
 
-func abs32(v int32) int32 {
+func abs32(v float32) float32 {
 	if v < 0 {
 		return -v
 	}
 	return v
 }
+
+func errDialog(what string) error {
+	return &dialogError{what + ": " + sdl.GetError()}
+}
+
+type dialogError struct{ msg string }
+
+func (e *dialogError) Error() string { return e.msg }

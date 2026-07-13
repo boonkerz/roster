@@ -227,7 +227,7 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
 
         <div className="remote-native">
           <div className="remote-native-head">
-            <strong>⌨️ {t("Nativer Viewer (Linux) – volle Tastatur-Erfassung")}</strong>
+            <strong>⌨️ {t("Nativer Viewer – volle Tastatur-Erfassung")}</strong>
             <span className="row-gap">
               <button className="btn primary sm" onClick={openInViewer} title={t("Startet den installierten Viewer direkt (pcinv://). Einmalig: pcinv-viewer --register")}>▶ {t("Im Viewer öffnen")}</button>
               <button className="btn ghost sm" onClick={startNative}>{t("Startcode erzeugen")}</button>
@@ -238,6 +238,11 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
             <a href="/api/v1/viewer/linux-amd64" download>⭳ {t("Viewer herunterladen (Linux x86-64)")}</a>
             {" — "}{t("ausführbar machen und in den PATH legen:")}{" "}
             <code>chmod +x pcinv-viewer &amp;&amp; mv pcinv-viewer ~/.local/bin/</code>
+          </p>
+          <p className="muted small">
+            <a href="/api/v1/viewer/windows-amd64" download>⭳ {t("Viewer herunterladen (Windows x86-64, .zip)")}</a>
+            {" — "}{t("entpacken (SDL2.dll enthalten); Handler registrieren:")}{" "}
+            <code>pcinv-viewer.exe --register</code>
           </p>
           <p className="muted small">{t("Für den „Im Viewer öffnen\"-Button einmalig den Protokoll-Handler registrieren:")} <code>pcinv-viewer --register</code>{". "}{t("Ohne Startcode gestartet, öffnet pcinv-viewer einen Dialog zum Einfügen.")}</p>
           {nativeStatus && <p className="muted small">{nativeStatus}</p>}

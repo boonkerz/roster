@@ -1,14 +1,16 @@
-//go:build linux && cgo
-
-// Command pcinv-viewer ist der native Fernsteuerungs-Viewer für Linux-Operator.
-// Er spricht denselben RFB-Tunnel wie die Browser-Ansicht, rendert mit SDL2 und –
-// entscheidend auf Wayland/niri – fordert per SDL-Keyboard-Grab das Protokoll
-// zwptastenkuerzel-inhibit an, sodass der Compositor ALLE Tasten (Win+T, Win+1…,
-// Alt+Tab, Esc …) an das entfernte Gerät durchreicht statt sie lokal abzufangen.
+// Command pcinv-viewer ist der native Fernsteuerungs-Viewer. Er spricht denselben
+// RFB-Tunnel wie die Browser-Ansicht, rendert mit SDL3 (über das cgo-freie
+// purego-Binding) und – entscheidend auf Wayland/niri – fordert per Keyboard-Grab
+// das Protokoll keyboard-shortcuts-inhibit an, sodass der Compositor ALLE Tasten
+// (Win+T, Win+1…, Alt+Tab, Esc …) an das entfernte Gerät durchreicht statt sie
+// lokal abzufangen.
 //
-// Start: der Browser („Nativer Viewer") ruft /remote/start und übergibt einen
-// base64-Startcode: pcinv-viewer <code>. Alternativ per Flags (--url/--device/
-// --session/--token).
+// Cgo-frei (CGO_ENABLED=0): baut für Linux/Windows/macOS ohne Cross-Toolchain; die
+// SDL3-Laufzeitbibliothek wird zur Laufzeit geladen (Linux: libSDL3.so, Windows:
+// SDL3.dll, macOS: libSDL3.dylib).
+//
+// Start: der Browser-Button „Im Viewer öffnen" ruft pcinv://<code>; alternativ
+// „Kopieren" + pcinv-viewer <code>, oder pcinv-viewer ohne Argumente → Dialog.
 package main
 
 import (
@@ -28,11 +30,11 @@ import (
 	"unsafe"
 
 	"github.com/coder/websocket"
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/jupiterrider/purego-sdl3/sdl"
 )
 
 type launchConfig struct {
-	URL      string `json:"url"`   // Server-Basis (https:// oder wss://)
+	URL      string `json:"url"` // Server-Basis (https:// oder wss://)
 	Device   string `json:"device"`
 	Session  string `json:"session"`
 	Token    string `json:"token"`
@@ -51,11 +53,20 @@ func main() {
 	runtime.LockOSThread() // SDL: Video/Events müssen auf dem Main-Thread laufen.
 	log.SetFlags(0)
 	for _, a := range os.Args[1:] {
-		if a == "--register" || a == "-register" {
+		switch a {
+		case "--register", "-register":
 			if err := registerScheme(); err != nil {
 				log.Fatalf("pcinv-viewer: register: %v", err)
 			}
 			log.Println("pcinv://-Handler registriert – der Browser-Button „Im Viewer öffnen\" funktioniert jetzt.")
+			return
+		case "--selftest", "-selftest":
+			// Lädt die SDL3-Laufzeit und initialisiert das Video-Subsystem (kein Fenster).
+			if !sdl.Init(sdl.InitVideo) {
+				log.Fatalf("pcinv-viewer: selftest: sdl init: %s", sdl.GetError())
+			}
+			sdl.Quit()
+			log.Println("selftest ok")
 			return
 		}
 	}
@@ -69,15 +80,22 @@ func main() {
 }
 
 // runApp initialisiert SDL, zeigt bei fehlendem Startcode den Connect-Dialog und
-// startet dann die Fernsteuerungs-Sitzung.
+// startet dann die Fernsteuerungs-Sitzung. Fehler werden zusätzlich als Meldebox
+// angezeigt (wichtig unter Windows, wo der Viewer ohne Konsole läuft).
 func runApp(cfg *launchConfig) error {
-	if err := sdl.Init(sdl.INIT_VIDEO); err != nil {
-		return fmt.Errorf("sdl init: %w", err)
+	if !sdl.Init(sdl.InitVideo) {
+		return fmt.Errorf("sdl init: %s", sdl.GetError())
 	}
 	defer sdl.Quit()
-	// Keyboard-Grab: fordert auf Wayland shortcuts-inhibit an → alle Tasten kommen an.
-	sdl.SetHint(sdl.HINT_GRAB_KEYBOARD, "1")
 
+	err := runAppInner(cfg)
+	if err != nil {
+		_ = sdl.ShowSimpleMessageBox(sdl.MessageBoxError, "PC-Inventory Fernsteuerung", err.Error(), nil)
+	}
+	return err
+}
+
+func runAppInner(cfg *launchConfig) error {
 	if cfg == nil {
 		c, err := connectDialog()
 		if err != nil {
@@ -176,30 +194,29 @@ func runSession(cfg *launchConfig) error {
 	if title == "" {
 		title = "PC-Inventory Fernsteuerung"
 	}
-	window, err := sdl.CreateWindow(title, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
-		int32(winW), int32(winH), sdl.WINDOW_RESIZABLE)
-	if err != nil {
-		return fmt.Errorf("fenster: %w", err)
+	window := sdl.CreateWindow(title, int32(winW), int32(winH), sdl.WindowResizable)
+	if window == nil {
+		return fmt.Errorf("fenster: %s", sdl.GetError())
 	}
-	defer window.Destroy()
-	window.SetKeyboardGrab(true)
+	defer sdl.DestroyWindow(window)
+	// Keyboard-Grab → shortcuts-inhibit auf Wayland → alle Tasten erreichen das Gerät.
+	sdl.SetWindowKeyboardGrab(window, true)
 
-	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED)
-	if err != nil {
-		return fmt.Errorf("renderer: %w", err)
+	renderer := sdl.CreateRenderer(window, "")
+	if renderer == nil {
+		return fmt.Errorf("renderer: %s", sdl.GetError())
 	}
-	defer renderer.Destroy()
-	_ = renderer.SetLogicalSize(int32(rc.W), int32(rc.H))
+	defer sdl.DestroyRenderer(renderer)
+	sdl.SetRenderLogicalPresentation(renderer, int32(rc.W), int32(rc.H), sdl.LogicalPresentationLetterbox)
 
-	texture, err := renderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING,
-		int32(rc.W), int32(rc.H))
-	if err != nil {
-		return fmt.Errorf("texture: %w", err)
+	texture := sdl.CreateTexture(renderer, sdl.PixelFormatARGB8888, sdl.TextureAccessStreaming, int32(rc.W), int32(rc.H))
+	if texture == nil {
+		return fmt.Errorf("texture: %s", sdl.GetError())
 	}
-	defer texture.Destroy()
-	_ = texture.SetBlendMode(sdl.BLENDMODE_NONE)
+	defer sdl.DestroyTexture(texture)
+	sdl.SetTextureBlendMode(texture, sdl.BlendModeNone)
 
-	sdl.StartTextInput()
+	sdl.StartTextInput(window)
 
 	updates := make(chan rectUpdate, 256)
 	cut := make(chan string, 4)
@@ -216,27 +233,27 @@ func runSession(cfg *launchConfig) error {
 
 	v := &viewer{rc: rc}
 	running := true
+	var ev sdl.Event
 	for running {
-		for ev := sdl.PollEvent(); ev != nil; ev = sdl.PollEvent() {
-			switch e := ev.(type) {
-			case *sdl.QuitEvent:
+		for sdl.PollEvent(&ev) {
+			sdl.ConvertEventToRenderCoordinates(renderer, &ev) // Maus-Koords → Logikkoords
+			switch ev.Type() {
+			case sdl.EventQuit, sdl.EventWindowCloseRequested:
 				running = false
-			case *sdl.WindowEvent:
-				if e.Event == sdl.WINDOWEVENT_CLOSE {
-					running = false
-				}
-			case *sdl.KeyboardEvent:
-				v.onKey(e)
-			case *sdl.TextInputEvent:
-				v.onText(e)
-			case *sdl.MouseMotionEvent:
-				v.curMask = int(e.State) & 0x7
-				v.lastX, v.lastY = int(e.X), int(e.Y)
+			case sdl.EventKeyDown, sdl.EventKeyUp:
+				v.onKey(&ev)
+			case sdl.EventTextInput:
+				ti := ev.Text()
+				v.onText(ti.Text())
+			case sdl.EventMouseMotion:
+				m := ev.Motion()
+				v.curMask = int(m.State) & 0x7
+				v.lastX, v.lastY = int(m.X), int(m.Y)
 				_ = rc.pointerEvent(v.curMask, v.lastX, v.lastY)
-			case *sdl.MouseButtonEvent:
-				v.onMouseButton(e)
-			case *sdl.MouseWheelEvent:
-				v.onWheel(e)
+			case sdl.EventMouseButtonDown, sdl.EventMouseButtonUp:
+				v.onMouseButton(&ev)
+			case sdl.EventMouseWheel:
+				v.onWheel(&ev)
 			}
 		}
 
@@ -247,8 +264,9 @@ func runSession(cfg *launchConfig) error {
 			case up := <-updates:
 				applyRect(texture, up)
 				painted = true
-			case txt := <-cut:
-				_ = sdl.SetClipboardText(txt)
+			case <-cut:
+				// Zwischenablage Gerät→Viewer: purego-SDL3 bindet SetClipboardText
+				// derzeit nicht; bewusst verworfen.
 			case err := <-done:
 				if err != nil {
 					log.Printf("verbindung beendet: %v", err)
@@ -260,11 +278,11 @@ func runSession(cfg *launchConfig) error {
 			}
 		}
 		if painted {
-			_ = renderer.Clear()
-			_ = renderer.Copy(texture, nil, nil)
-			renderer.Present()
+			sdl.RenderClear(renderer)
+			sdl.RenderTexture(renderer, texture, nil, nil)
+			sdl.RenderPresent(renderer)
 		}
-		sdl.Delay(3)
+		time.Sleep(3 * time.Millisecond)
 	}
 	return nil
 }
@@ -276,14 +294,15 @@ type viewer struct {
 	lastX, lastY int
 }
 
-func (v *viewer) onKey(e *sdl.KeyboardEvent) {
-	down := e.Type == sdl.KEYDOWN
-	sym := e.Keysym.Sym
+func (v *viewer) onKey(ev *sdl.Event) {
+	down := ev.Type() == sdl.EventKeyDown
+	ke := ev.Key()
+	sym := ke.Key
 	if ks, ok := modifierKeysym[sym]; ok {
 		_ = v.rc.keyEvent(down, ks)
 		return
 	}
-	if sym == sdl.K_RALT || sym == sdl.K_CAPSLOCK {
+	if sym == sdl.KeycodeRAlt || sym == sdl.KeycodeCapsLock {
 		return // AltGr/CapsLock bewusst nicht weiterreichen (siehe keymap.go)
 	}
 	if ks, ok := specialKeysym[sym]; ok {
@@ -292,50 +311,52 @@ func (v *viewer) onKey(e *sdl.KeyboardEvent) {
 	}
 	if sym >= 0x20 && sym <= 0x7e {
 		// Druckbares Zeichen: nur als Kürzel (Strg/Alt/Win) direkt senden, sonst TextInput.
-		if e.Keysym.Mod&shortcutMods != 0 {
+		if ke.Mod&shortcutMods != 0 {
 			_ = v.rc.keyEvent(down, uint32(sym))
 		}
 	}
 }
 
-func (v *viewer) onText(e *sdl.TextInputEvent) {
-	if uint16(sdl.GetModState())&shortcutMods != 0 {
+func (v *viewer) onText(text string) {
+	if sdl.GetModState()&shortcutMods != 0 {
 		return // Kürzel laufen über onKey; kein doppeltes Senden
 	}
-	for _, r := range e.GetText() {
+	for _, r := range text {
 		ks := runeToKeysym(r)
 		_ = v.rc.keyEvent(true, ks)
 		_ = v.rc.keyEvent(false, ks)
 	}
 }
 
-func (v *viewer) onMouseButton(e *sdl.MouseButtonEvent) {
+func (v *viewer) onMouseButton(ev *sdl.Event) {
+	b := ev.Button()
 	bit := -1
-	switch e.Button {
-	case sdl.BUTTON_LEFT:
+	switch b.Button {
+	case uint8(sdl.ButtonLeft):
 		bit = 0
-	case sdl.BUTTON_MIDDLE:
+	case uint8(sdl.ButtonMiddle):
 		bit = 1
-	case sdl.BUTTON_RIGHT:
+	case uint8(sdl.ButtonRight):
 		bit = 2
 	}
 	if bit >= 0 {
-		if e.State == sdl.PRESSED {
+		if b.Down {
 			v.curMask |= 1 << bit
 		} else {
 			v.curMask &^= 1 << bit
 		}
 	}
-	v.lastX, v.lastY = int(e.X), int(e.Y)
+	v.lastX, v.lastY = int(b.X), int(b.Y)
 	_ = v.rc.pointerEvent(v.curMask, v.lastX, v.lastY)
 }
 
-func (v *viewer) onWheel(e *sdl.MouseWheelEvent) {
-	if e.Y == 0 {
+func (v *viewer) onWheel(ev *sdl.Event) {
+	wh := ev.Wheel()
+	if wh.Y == 0 {
 		return
 	}
 	bit := 3 // hoch
-	if e.Y < 0 {
+	if wh.Y < 0 {
 		bit = 4 // runter
 	}
 	_ = v.rc.pointerEvent(v.curMask|1<<bit, v.lastX, v.lastY)
@@ -348,14 +369,14 @@ func applyRect(t *sdl.Texture, up rectUpdate) {
 		return
 	}
 	r := sdl.Rect{X: int32(up.x), Y: int32(up.y), W: int32(up.w), H: int32(up.h)}
-	_ = t.Update(&r, unsafe.Pointer(&up.pix[0]), up.w*4)
+	sdl.UpdateTexture(t, &r, unsafe.Pointer(&up.pix[0]), int32(up.w*4))
 }
 
 // clampWindow verkleinert das Startfenster auf die nutzbare Bildschirmfläche
 // (Seitenverhältnis bleibt; die Renderer-Logikgröße bleibt volle Auflösung).
 func clampWindow(w, h int) (int, int) {
-	b, err := sdl.GetDisplayUsableBounds(0)
-	if err != nil {
+	var b sdl.Rect
+	if !sdl.GetDisplayUsableBounds(sdl.GetPrimaryDisplay(), &b) || b.W == 0 || b.H == 0 {
 		return w, h
 	}
 	maxW, maxH := int(float64(b.W)*0.95), int(float64(b.H)*0.92)

@@ -27,3 +27,5 @@ docker/windows/shared/*
 /agent
 /server
 /internal/server/viewerdist/bin/pcinv-viewer-*
+/third_party/sdl3/*.dll
+/third_party/sdl3/*.dylib
