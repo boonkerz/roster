@@ -17,10 +17,12 @@ import (
 // remote/rfb.go): Security "None", festes Pixelformat BGRX (32bpp), Encodings Raw
 // (0) und Tight-JPEG (7, nur Kontrollbyte 0x90). Kein Fremd-Code.
 
-// rectUpdate ist ein dekodiertes Rechteck im Server-Pixelformat BGRX.
+// rectUpdate ist ein dekodiertes Rechteck im Server-Pixelformat BGRX. Bei resize=true
+// ist es kein Pixel-Update, sondern eine neue Framebuffer-Größe (DesktopSize).
 type rectUpdate struct {
 	x, y, w, h int
 	pix        []byte // len = w*h*4
+	resize     bool
 }
 
 type rfbClient struct {
@@ -201,12 +203,15 @@ func (c *rfbClient) readRect(updates chan<- rectUpdate) error {
 		return nil
 	}
 	switch enc {
+	case -223: // DesktopSize: neue Framebuffer-Größe (Auflösungswechsel am Gerät)
+		c.W, c.H = w, h
+		updates <- rectUpdate{w: w, h: h, resize: true}
 	case 0: // Raw (BGRX)
 		pix := make([]byte, w*h*4)
 		if _, err := io.ReadFull(c.br, pix); err != nil {
 			return err
 		}
-		updates <- rectUpdate{x, y, w, h, pix}
+		updates <- rectUpdate{x: x, y: y, w: w, h: h, pix: pix}
 	case 7: // Tight – der Server sendet ausschließlich JPEG (Kontrollbyte 0x9x).
 		ctrl := make([]byte, 1)
 		if _, err := io.ReadFull(c.br, ctrl); err != nil {
@@ -227,7 +232,7 @@ func (c *rfbClient) readRect(updates chan<- rectUpdate) error {
 		if err != nil {
 			return fmt.Errorf("jpeg: %w", err)
 		}
-		updates <- rectUpdate{x, y, w, h, jpegToBGRX(img, w, h)}
+		updates <- rectUpdate{x: x, y: y, w: w, h: h, pix: jpegToBGRX(img, w, h)}
 	default:
 		return fmt.Errorf("nicht unterstützte Kodierung %d", enc)
 	}

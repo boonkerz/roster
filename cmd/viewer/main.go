@@ -213,7 +213,7 @@ func runSession(cfg *launchConfig) error {
 	if texture == nil {
 		return fmt.Errorf("texture: %s", sdl.GetError())
 	}
-	defer sdl.DestroyTexture(texture)
+	defer func() { sdl.DestroyTexture(texture) }() // texture wird bei Auflösungswechsel neu angelegt
 	sdl.SetTextureBlendMode(texture, sdl.BlendModeNone)
 
 	sdl.StartTextInput(window)
@@ -223,7 +223,7 @@ func runSession(cfg *launchConfig) error {
 	done := make(chan error, 1)
 	go func() { done <- rc.readLoop(updates, cut) }()
 
-	if err := rc.setEncodings(7, 0); err != nil { // Tight bevorzugt, Raw als Fallback
+	if err := rc.setEncodings(7, 0, -223); err != nil { // Tight, Raw, DesktopSize
 		return err
 	}
 	if err := rc.requestUpdate(false); err != nil { // erstes Vollbild
@@ -262,7 +262,21 @@ func runSession(cfg *launchConfig) error {
 		for {
 			select {
 			case up := <-updates:
-				applyRect(texture, up)
+				if up.resize {
+					// Auflösungswechsel am Gerät: Textur + Logikgröße neu anlegen.
+					sdl.DestroyTexture(texture)
+					texture = sdl.CreateTexture(renderer, sdl.PixelFormatARGB8888, sdl.TextureAccessStreaming, int32(up.w), int32(up.h))
+					if texture == nil {
+						log.Printf("resize texture: %s", sdl.GetError())
+						running = false
+						break drain
+					}
+					sdl.SetTextureBlendMode(texture, sdl.BlendModeNone)
+					sdl.SetRenderLogicalPresentation(renderer, int32(up.w), int32(up.h), sdl.LogicalPresentationLetterbox)
+					log.Printf("auflösung geändert: %dx%d", up.w, up.h)
+				} else {
+					applyRect(texture, up)
+				}
 				painted = true
 			case <-cut:
 				// Zwischenablage Gerät→Viewer: purego-SDL3 bindet SetClipboardText

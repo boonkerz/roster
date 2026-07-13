@@ -9,8 +9,8 @@ import (
 // resilientSource kapselt eine screenSource und stellt sie bei Aufnahme-Fehlern neu
 // her – z.B. bei Ab-/Anmelden (Session-Wechsel), wenn der Nutzer-Session-Helfer
 // stirbt. So läuft die Fernsteuerung ohne Neuverbinden weiter, sobald wieder eine
-// Sitzung da ist. Die Framebuffer-Größe bleibt fix (Auflösungswechsel: später via
-// DesktopSize-Pseudo-Encoding).
+// Sitzung da ist. Bei Auflösungswechsel (Re-Init) wird die neue Größe übernommen und
+// vom RFB-Server per DesktopSize-Pseudo-Encoding an den Client gemeldet.
 type resilientSource struct {
 	log     *slog.Logger
 	monitor int
@@ -36,6 +36,12 @@ func (r *resilientSource) Capture() ([]byte, error) {
 			return nil, err // noch keine Sitzung -> Aufrufer sendet leeres Update
 		}
 		r.inner = s
+		// Nach einem Auflösungswechsel (DXGI-Access-Lost -> Neuaufbau) kann sich die
+		// Framebuffer-Größe geändert haben. Bounds() muss die neue Größe melden, damit
+		// der RFB-Server dem Client die neue Größe (DesktopSize) mitteilt.
+		if w, h := s.Bounds(); w > 0 && h > 0 {
+			r.w, r.h = w, h
+		}
 	}
 	px, err := r.inner.Capture()
 	if err != nil {

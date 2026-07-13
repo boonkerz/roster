@@ -151,7 +151,18 @@ func rfbServe(ctx context.Context, conn io.ReadWriter, src screenSource, log *sl
 				time.Sleep(33*time.Millisecond - d)
 			}
 			lastFrame = time.Now()
-			if err := fctx.send(conn, src, w, h, req[0] != 0, tight); err != nil {
+			incremental := req[0] != 0
+			// Auflösungswechsel? Neue Größe an den Client melden (DesktopSize) und ein
+			// frisches Vollbild in der neuen Größe schicken.
+			if nw, nh := src.Bounds(); (nw != w || nh != h) && nw > 0 && nh > 0 {
+				w, h = nw, nh
+				fctx = &frameCtx{}
+				incremental = false
+				if err := writeDesktopSize(conn, w, h); err != nil {
+					return err
+				}
+			}
+			if err := fctx.send(conn, src, w, h, incremental, tight); err != nil {
 				return err
 			}
 			// Zwischenablage Gerät → Browser (gedrosselt pollen).
@@ -220,11 +231,12 @@ type frameCtx struct {
 // des zuletzt als JPEG gesendeten Bereichs (Text wird nach Bewegung wieder scharf).
 func (st *frameCtx) send(conn io.Writer, src screenSource, w, h int, incremental, tight bool) error {
 	cur, err := src.Capture()
-	if err != nil || len(cur) < w*h*4 {
+	if err != nil || len(cur) != w*h*4 {
+		// Fehler oder Größen-Mismatch (Auflösung gerade gewechselt) -> leeres Update;
+		// der Größenwechsel wird im nächsten Request über DesktopSize aufgelöst.
 		_, werr := conn.Write([]byte{0, 0, 0, 0})
 		return werr
 	}
-	cur = cur[:w*h*4]
 
 	x0, y0, x1, y1 := 0, 0, w-1, h-1
 	if incremental && st.prev != nil {
@@ -400,6 +412,22 @@ func diffRect(prev, cur []byte, w, h int) (int, int, int, int) {
 		}
 	}
 	return x0, y0, x1, y1
+}
+
+// writeDesktopSize meldet dem Client eine neue Framebuffer-Größe über das
+// DesktopSize-Pseudo-Encoding (-223): ein FramebufferUpdate mit einem Rechteck
+// (0,0,w,h) und Encoding -223, ohne Pixeldaten. noVNC und der native Viewer
+// passen daraufhin ihre Framebuffer-/Fenstergröße an.
+func writeDesktopSize(conn io.Writer, w, h int) error {
+	msg := []byte{0, 0} // FramebufferUpdate + Padding
+	msg = be16(msg, 1)  // 1 Rechteck
+	msg = be16(msg, 0)  // x
+	msg = be16(msg, 0)  // y
+	msg = be16(msg, w)
+	msg = be16(msg, h)
+	msg = be32(msg, -223) // Encoding DesktopSize
+	_, err := conn.Write(msg)
+	return err
 }
 
 func be16(b []byte, v int) []byte { return append(b, byte(v>>8), byte(v)) }
