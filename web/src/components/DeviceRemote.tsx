@@ -149,6 +149,45 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
     navigator.clipboard?.writeText(nativeCmd).then(() => { setCopied(true); }).catch(() => {});
   };
 
+  // Anzeige/Auflösung – v. a. für VMs (Proxmox VirtIO-GPU/QXL), wo die Auflösung
+  // ohne Gasttreiber ausgegraut ist.
+  const [resModes, setResModes] = useState<{ width: number; height: number }[]>([]);
+  const [curRes, setCurRes] = useState("");
+  const [selRes, setSelRes] = useState("");
+  const [resStatus, setResStatus] = useState("");
+  const [guestStatus, setGuestStatus] = useState("");
+  const loadResolutions = async () => {
+    setResStatus(t("Frage ab…"));
+    try {
+      const { command_id } = await api.post<{ command_id: string }>(`/devices/${id}/resolutions`, {});
+      const cmd = await pollCmd(command_id);
+      const data = JSON.parse(cmd.output || "{}");
+      const modes = data.modes ?? [];
+      setResModes(modes);
+      if (data.current) { const c = `${data.current.width}x${data.current.height}`; setCurRes(c); setSelRes(c); }
+      setResStatus(modes.length <= 1
+        ? t("Nur eine Auflösung verfügbar – im Gast fehlt der Anzeigetreiber. Gast-Treiber installieren und in Proxmox Display auf VirtIO-GPU/QXL stellen.")
+        : "");
+    } catch { setResStatus(t("Konnte Auflösungen nicht abfragen.")); }
+  };
+  const applyResolution = async () => {
+    const [ws, hs] = selRes.split("x");
+    const width = Number(ws), height = Number(hs);
+    if (!width || !height) return;
+    setResStatus(t("Setze Auflösung…"));
+    try {
+      const { command_id } = await api.post<{ command_id: string }>(`/devices/${id}/resolution`, { width, height });
+      const cmd = await pollCmd(command_id);
+      setResStatus((cmd.exit_code === 0 ? "✓ " : "⚠ ") + (cmd.output || "") + " — " + t("Viewer neu verbinden."));
+      if (cmd.exit_code === 0) setCurRes(selRes);
+    } catch { setResStatus(t("Setzen fehlgeschlagen.")); }
+  };
+  const installGuestTools = async () => {
+    setGuestStatus(t("Installation gestartet – kann einige Minuten dauern, ggf. Neustart am Gerät."));
+    try { await api.post(`/devices/${id}/install-guest-tools`, {}); }
+    catch { setGuestStatus(t("Konnte Installation nicht starten.")); }
+  };
+
   useEffect(() => {
     if (session === 0 || !hostRef.current) return;
     let rfb: any = null;
@@ -241,7 +280,7 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
           </p>
           <p className="muted small">
             <a href="/api/v1/viewer/windows-amd64" download>⭳ {t("Viewer herunterladen (Windows x86-64, .zip)")}</a>
-            {" — "}{t("entpacken (SDL2.dll enthalten); Handler registrieren:")}{" "}
+            {" — "}{t("entpacken (SDL3.dll enthalten); Handler registrieren:")}{" "}
             <code>pcinv-viewer.exe --register</code>
           </p>
           <p className="muted small">{t("Für den „Im Viewer öffnen\"-Button einmalig den Protokoll-Handler registrieren:")} <code>pcinv-viewer --register</code>{". "}{t("Ohne Startcode gestartet, öffnet pcinv-viewer einen Dialog zum Einfügen.")}</p>
@@ -254,6 +293,32 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
             </div>
           )}
         </div>
+
+        {/win/i.test(os) && (
+          <div className="remote-native">
+            <div className="remote-native-head">
+              <strong>🖥️ {t("Anzeige / Auflösung")}</strong>
+              <button className="btn ghost sm" onClick={loadResolutions}>{t("Auflösungen laden")}</button>
+            </div>
+            {resModes.length > 0 && (
+              <div className="inline-form">
+                <select value={selRes} onChange={(e) => setSelRes(e.target.value)}>
+                  {resModes.map((m) => {
+                    const v = `${m.width}x${m.height}`;
+                    return <option key={v} value={v}>{m.width}×{m.height}{v === curRes ? ` (${t("aktuell")})` : ""}</option>;
+                  })}
+                </select>
+                <button className="btn sm" onClick={applyResolution}>{t("Anwenden")}</button>
+              </div>
+            )}
+            {resStatus && <p className="muted small">{resStatus}</p>}
+            <p className="muted small">
+              <button className="btn ghost sm" onClick={installGuestTools}>{t("Gast-Grafiktreiber installieren (VM: VirtIO/SPICE)")}</button>
+              {" "}{t("Für Proxmox/VMs mit ausgegrauter Auflösung: installiert die VirtIO-Gasttools. Zusätzlich in Proxmox das Display auf VirtIO-GPU oder SPICE (qxl) stellen.")}
+            </p>
+            {guestStatus && <p className="muted small">{guestStatus}</p>}
+          </div>
+        )}
       </div>
     );
   }

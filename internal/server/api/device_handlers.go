@@ -189,6 +189,63 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
 }
 
+// handleListResolutions reiht das Auflisten der verfügbaren Bildschirmauflösungen ein.
+func (s *Server) handleListResolutions(w http.ResponseWriter, r *http.Request) {
+	id, err := s.queueCommand(r.Context(), chi.URLParam(r, "id"), "list_resolutions", "Auflösungen auflisten", nil)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
+// handleSetResolution setzt die Bildschirmauflösung des Primärdisplays.
+func (s *Server) handleSetResolution(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Width  int `json:"width"`
+		Height int `json:"height"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Width < 640 || req.Height < 480 {
+		s.writeErr(w, http.StatusBadRequest, "ungültige Auflösung")
+		return
+	}
+	id, err := s.queueCommand(r.Context(), chi.URLParam(r, "id"), "set_resolution",
+		fmt.Sprintf("Auflösung %dx%d", req.Width, req.Height),
+		map[string]any{"width": req.Width, "height": req.Height})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
+// guestToolsScript lädt die VirtIO-/SPICE-Gasttools (Anzeigetreiber für VMs) herunter
+// und installiert sie still. Nach der Installation bietet Windows mehrere Auflösungen an.
+const guestToolsScript = `$ErrorActionPreference='Stop'
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+$url='https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win-guest-tools.exe'
+$out="$env:TEMP\virtio-win-guest-tools.exe"
+Write-Output "Lade $url"
+Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+Write-Output "Installiere (still)..."
+$p=Start-Process -FilePath $out -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+Write-Output ("Fertig, ExitCode " + $p.ExitCode + " – ggf. Neustart erforderlich.")`
+
+// handleInstallGuestTools installiert die VM-Gasttools (VirtIO-GPU/QXL) per PowerShell,
+// damit die Auflösung nicht mehr ausgegraut ist (nur Windows-Gäste).
+func (s *Server) handleInstallGuestTools(w http.ResponseWriter, r *http.Request) {
+	id, err := s.queueCommand(r.Context(), chi.URLParam(r, "id"), "run_script", "Gast-Grafiktreiber installieren",
+		map[string]any{"shell": "powershell", "script": guestToolsScript, "platforms": []string{"windows"}})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
 // handleRunCheck stößt eine sofortige Neuauswertung eines einzelnen Checks an
 // (unabhängig vom Zeitplan). Ergebnis kommt beim nächsten Checkin.
 func (s *Server) handleRunCheck(w http.ResponseWriter, r *http.Request) {

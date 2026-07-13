@@ -394,6 +394,17 @@ func (p *program) runPolicy(ctx context.Context) {
 			output = collect.ListServices(ctx)
 		case "list_processes":
 			output = collect.ListProcesses(ctx)
+		case "list_resolutions":
+			output = collect.ListResolutions()
+		case "set_resolution":
+			w, h := 0, 0
+			if f, ok := cmd.Payload["width"].(float64); ok {
+				w = int(f)
+			}
+			if f, ok := cmd.Payload["height"].(float64); ok {
+				h = int(f)
+			}
+			exit, output = collect.SetResolution(w, h)
 		case "service_control":
 			name, _ := cmd.Payload["name"].(string)
 			action, _ := cmd.Payload["action"].(string)
