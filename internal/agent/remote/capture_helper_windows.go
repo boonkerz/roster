@@ -100,11 +100,18 @@ func RunCaptureHelper(monitor int) {
 			ensure() // Desktop-Wechsel (Login/Sperre/UAC) verfolgen
 			px := out
 			if src != nil {
-				if p, e := src.Capture(); e == nil && len(p) == len(out) {
-					px = p
-				} else if e != nil {
+				p, e := src.Capture()
+				switch {
+				case e != nil:
 					src.Close()
 					src = nil
+				case len(p) == len(out):
+					px = p
+				default:
+					// Auflösung hat sich geändert (Frame-Größe weicht ab) -> Helfer
+					// beenden. Der Server startet einen neuen Helfer mit neuer Größe;
+					// der RFB-Server meldet sie dann via DesktopSize an den Client.
+					return
 				}
 			}
 			if _, err := os.Stdout.Write(px); err != nil {
