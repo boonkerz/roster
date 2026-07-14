@@ -1,0 +1,65 @@
+site_name: Roster
+site_description: Self-hosted, TacticalRMM-style inventory & remote management for Windows/Linux/macOS.
+site_url: https://boonkerz.github.io/roster/
+repo_url: https://github.com/boonkerz/roster
+repo_name: boonkerz/roster
+copyright: MIT-licensed · one Go binary · React UI · bilingual (EN/DE)
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+    - search.suggest
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Features:
+      - Inventory: features/inventory.md
+      - Checks & tasks: features/checks-tasks.md
+      - Remote desktop & terminal: features/remote.md
+      - Roles & permissions: features/permissions.md
+      - Network & discovery: features/network.md
+      - Patching & software: features/patching.md
+      - Alerting & reports: features/alerting.md
+  - Configuration: configuration.md
+  - Security: security.md
