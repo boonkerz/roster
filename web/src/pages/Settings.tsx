@@ -5,21 +5,47 @@ import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
 import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, MaintenanceWindow, ReportSchedule, User } from "../types";
 
-export function Settings() {
+// SettingsArea sind die Bereiche der (nach Themen gegliederten) Einstellungen.
+export type SettingsArea = "users" | "notify" | "devices" | "security";
+
+// settingsAreas definiert Reihenfolge, Label, Sichtbarkeit und Inhalt je Bereich.
+function useSettingsAreas() {
   const { t } = useI18n();
+  return [
+    { key: "users" as const, label: t("Benutzer & Rollen"), adminOnly: true,
+      render: () => <><Users /><Roles /><Tokens /></> },
+    { key: "notify" as const, label: t("Benachrichtigungen"), adminOnly: false,
+      render: () => <><Alerts /><Reports /></> },
+    { key: "devices" as const, label: t("Geräte-Verwaltung"), adminOnly: false,
+      render: () => <><Maintenance /><CustomFields /><SoftwarePackages /></> },
+    { key: "security" as const, label: t("Sicherheit & Protokoll"), adminOnly: false,
+      render: () => <><TwoFactor /><AuditLog /></> },
+  ];
+}
+
+export function Settings({ initialArea }: { initialArea?: SettingsArea }) {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const areas = useSettingsAreas().filter((a) => isAdmin || !a.adminOnly);
+  const [area, setArea] = useState<SettingsArea>(
+    initialArea && areas.some((a) => a.key === initialArea) ? initialArea : (areas[0]?.key ?? "notify"),
+  );
+  const current = areas.find((a) => a.key === area) ?? areas[0];
+
   return (
-    <div className="page">
+    <div className="page settings-page">
       <header className="page-head"><h1>{t("Einstellungen")}</h1></header>
-      <TwoFactor />
-      <Alerts />
-      <Maintenance />
-      <Reports />
-      <CustomFields />
-      <SoftwarePackages />
-      <Tokens />
-      <Roles />
-      <Users />
-      <AuditLog />
+      <div className="settings-layout">
+        <nav className="settings-nav">
+          {areas.map((a) => (
+            <button key={a.key} className={`settings-nav-item ${a.key === area ? "active" : ""}`} onClick={() => setArea(a.key)}>
+              {a.label}
+            </button>
+          ))}
+        </nav>
+        <div className="settings-content">{current?.render()}</div>
+      </div>
     </div>
   );
 }

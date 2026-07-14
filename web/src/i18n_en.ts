@@ -668,4 +668,8 @@ export const EN: Record<string, string> = {
   "Geräte (ansehen)": "Devices (view)",
   "Einstellungen/Verwaltung": "Settings / administration",
   "Geräte bedienen (Terminal, Fernsteuerung, Skripte …)": "Operate devices (terminal, remote control, scripts …)",
+  "Benutzer & Rollen": "Users & roles",
+  "Benachrichtigungen": "Notifications",
+  "Geräte-Verwaltung": "Device management",
+  "Sicherheit & Protokoll": "Security & audit",
 };

@@ -457,3 +457,22 @@ label input, label select { color: var(--text); }
 
 .perm-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0; }
 .perm-item { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }
+
+/* ---- Nav-Dropdown (Einstellungen) ---- */
+.nav-dropdown { position: relative; display: inline-block; }
+.nav-dropdown-menu { position: absolute; top: calc(100% + 4px); left: 0; min-width: 210px; z-index: 30;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.28); display: flex; flex-direction: column; gap: 2px; }
+.nav-dropdown-item { text-align: left; padding: 9px 12px; border-radius: 7px; border: none; background: none;
+  color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+.nav-dropdown-item:hover { background: var(--surface-2); }
+
+/* ---- Einstellungen: Seitenleiste + Inhalt ---- */
+.settings-layout { display: flex; gap: 22px; align-items: flex-start; }
+.settings-nav { flex: 0 0 210px; position: sticky; top: 0; display: flex; flex-direction: column; gap: 3px; }
+.settings-nav-item { text-align: left; padding: 10px 13px; border-radius: 8px; border: 1px solid transparent;
+  background: none; color: var(--muted); font: inherit; font-weight: 500; cursor: pointer; }
+.settings-nav-item:hover { background: var(--surface-2); color: var(--text); }
+.settings-nav-item.active { background: var(--accent); color: #fff; }
+.settings-content { flex: 1; min-width: 0; }
+@media (max-width: 720px) { .settings-layout { flex-direction: column; } .settings-nav { flex-direction: row; flex-wrap: wrap; position: static; } }
