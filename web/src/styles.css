@@ -455,8 +455,11 @@ label input, label select { color: var(--text); }
   padding-top: 14px; border-top: 1px solid var(--border, #26304a); }
 .um-facts > div { display: flex; flex-direction: column; gap: 2px; }
 
-.perm-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0; }
-.perm-item { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }
+.perm-grid { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0; }
+/* Checkbox-Label als Zeile (überschreibt die globale label-Spalten-Regel). */
+.perm-item { display: inline-flex; flex-direction: row; align-items: center; gap: 8px;
+  font-size: 13.5px; color: var(--text); white-space: nowrap; cursor: pointer; }
+.perm-item input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 
 /* ---- Nav-Dropdown (Einstellungen) ---- */
 .nav-dropdown { position: relative; display: inline-block; }
@@ -478,8 +481,12 @@ label input, label select { color: var(--text); }
 @media (max-width: 720px) { .settings-layout { flex-direction: column; } .settings-nav { flex-direction: row; flex-wrap: wrap; position: static; } }
 
 /* ---- Daten-Scope-Editor ---- */
-.scope-editor { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
-.scope-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-.scope-tree { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
-.scope-client { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-.scope-sites { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 4px 0 0 22px; }
+.scope-editor { margin-top: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.scope-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.scope-tree { display: flex; flex-direction: column; gap: 4px; max-height: 340px; overflow: auto; padding-right: 4px; }
+.scope-client { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface-2); }
+.scope-client-head { display: flex; align-items: center; gap: 8px; }
+.scope-client-head .perm-item { font-size: 14.5px; }
+.scope-client-hint { color: var(--muted); font-size: 12px; }
+.scope-sites { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0 12px; padding-left: 14px; border-left: 2px solid var(--border); }
+.scope-sites .scope-empty { color: var(--muted); font-size: 12.5px; }

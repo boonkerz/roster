@@ -678,4 +678,6 @@ export const EN: Record<string, string> = {
   "(auf Auswahl begrenzt)": "(limited to selection)",
   "ganzer Kunde": "entire client",
   "Noch keine Kunden/Standorte angelegt.": "No clients/sites created yet.",
+  "ganze Firma": "entire company",
+  "Noch keine Firmen/Standorte angelegt.": "No companies/sites created yet.",
 };

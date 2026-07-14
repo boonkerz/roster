@@ -888,22 +888,27 @@ function ScopeEditor({ user, onClose }: { user: User; onClose: () => void }) {
       <div className="scope-tree">
         {(tree?.clients ?? []).map((c) => (
           <div key={c.id} className="scope-client">
-            <label className="perm-item">
-              <input type="checkbox" checked={cl.includes(c.id)} onChange={() => toggle(cl, (v) => setClients(v), c.id)} />
-              <strong>{c.name}</strong> <span className="muted small">({t("ganzer Kunde")})</span>
-            </label>
-            <div className="scope-sites">
-              {(c.sites ?? []).map((st) => (
-                <label key={st.id} className="perm-item" style={{ opacity: cl.includes(c.id) ? 0.5 : 1 }}>
-                  <input type="checkbox" checked={cl.includes(c.id) || si.includes(st.id)} disabled={cl.includes(c.id)}
-                    onChange={() => toggle(si, (v) => setSites(v), st.id)} />
-                  {st.name}
-                </label>
-              ))}
+            <div className="scope-client-head">
+              <label className="perm-item">
+                <input type="checkbox" checked={cl.includes(c.id)} onChange={() => toggle(cl, (v) => setClients(v), c.id)} />
+                <strong>{c.name}</strong>
+              </label>
+              <span className="scope-client-hint">· {t("ganze Firma")}</span>
             </div>
+            {(c.sites ?? []).length > 0 && (
+              <div className="scope-sites">
+                {(c.sites ?? []).map((st) => (
+                  <label key={st.id} className="perm-item" style={{ opacity: cl.includes(c.id) ? 0.55 : 1 }}>
+                    <input type="checkbox" checked={cl.includes(c.id) || si.includes(st.id)} disabled={cl.includes(c.id)}
+                      onChange={() => toggle(si, (v) => setSites(v), st.id)} />
+                    {st.name}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         ))}
-        {(tree?.clients ?? []).length === 0 && <p className="muted small">{t("Noch keine Kunden/Standorte angelegt.")}</p>}
+        {(tree?.clients ?? []).length === 0 && <p className="muted small">{t("Noch keine Firmen/Standorte angelegt.")}</p>}
       </div>
       <div className="actions">
         <button className="btn primary sm" disabled={save.isPending} onClick={() => save.mutate()}>{t("Speichern")}</button>
