@@ -46,8 +46,7 @@ SDL3_VERSION   ?= 3.4.12
 fetch-sdl3: ## SDL3-Windows-DLL (zum Bündeln) herunterladen und entpacken
 	mkdir -p third_party/sdl3
 	curl -fsSL -o /tmp/sdl3-win.zip "https://github.com/libsdl-org/SDL/releases/download/release-$(SDL3_VERSION)/SDL3-$(SDL3_VERSION)-win32-x64.zip"
-	cd /tmp && bsdtar -xf sdl3-win.zip SDL3.dll
-	mv /tmp/SDL3.dll third_party/sdl3/SDL3.dll
+	unzip -o -j /tmp/sdl3-win.zip SDL3.dll -d third_party/sdl3
 	rm -f /tmp/sdl3-win.zip
 
 viewer-embed-windows: ## Windows-Viewer (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
