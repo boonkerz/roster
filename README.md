@@ -40,9 +40,14 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
 - **Tasks** – scheduled scripts with frequency; last run per task + full run history.
 - **Live utilization + history** – on-demand CPU (per core) / RAM / disk / network graphs,
   plus stored CPU/RAM/disk **time series** with 24 h / 7 d / 30 d charts.
-- **Remote desktop** – built-in **browser** remote control (own RFB/VNC server, no third-party
+- **Remote desktop** – built-in remote control (own RFB/VNC server, no third-party
   software) through the same tunnel: screen + mouse/keyboard, login screen / UAC, clipboard
-  sync, monitor selection, drag-&-drop file transfer.
+  sync, monitor selection, drag-&-drop file transfer, **live resolution switch** (+ VM
+  guest-driver install for Proxmox/VirtIO/SPICE). Use it in the **browser**, or a bundled
+  **native viewer** (`pcinv-viewer` – SDL3 via purego, **cgo-free**, cross-builds for
+  Linux/Windows/macOS with no toolchain) with a floating AnyDesk-style toolbar (real
+  **Ctrl+Alt+Del** via SendSAS, block local input, on-screen message, quality) and full
+  keyboard capture on Wayland – one-click launch via `pcinv://` link.
 - **Remote terminal** – interactive shell over an on-demand WebSocket (+ pop-out window).
 - **File browser & transfer** – browse the agent's filesystem, download / upload (≤ 32 MB).
 - **Services & processes** – list + start/stop/restart services, kill processes.
@@ -191,9 +196,15 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
 - **Tasks** – geplante Skripte mit Frequenz; letzter Lauf je Task + Lauf-Historie.
 - **Live-Auslastung + Verlauf** – on-demand CPU (je Kern) / RAM / Disk / Netzwerk, plus
   gespeicherte CPU/RAM/Disk-**Zeitreihen** mit 24 h / 7 d / 30 d-Charts.
-- **Fernsteuerung (Remote Desktop)** – **eingebaute** Web-Fernsteuerung (eigener RFB/VNC-
+- **Fernsteuerung (Remote Desktop)** – **eingebaute** Fernsteuerung (eigener RFB/VNC-
   Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur,
-  Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop.
+  Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop,
+  **Live-Auflösungswechsel** (+ VM-Gasttreiber-Installer für Proxmox/VirtIO/SPICE).
+  Nutzbar im **Browser** oder per mitgeliefertem **nativem Viewer** (`pcinv-viewer` –
+  SDL3 via purego, **cgo-frei**, cross-baut für Linux/Windows/macOS ohne Toolchain) mit
+  schwebender AnyDesk-artiger Bedienleiste (echtes **Strg+Alt+Entf** via SendSAS, Eingaben
+  sperren, Meldung, Qualität) und vollständiger Tastatur-Erfassung auf Wayland –
+  Ein-Klick-Start via `pcinv://`-Link.
 - **Remote-Terminal** – interaktive Shell über On-demand-WebSocket (+ Popout-Fenster).
 - **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (≤ 32 MB).
 - **Dienste & Prozesse** – auflisten + Start/Stop/Neustart, Prozesse beenden.
