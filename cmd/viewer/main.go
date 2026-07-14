@@ -52,6 +52,12 @@ func (c *launchConfig) validate() error {
 func main() {
 	runtime.LockOSThread() // SDL: Video/Events müssen auf dem Main-Thread laufen.
 	log.SetFlags(0)
+	if len(os.Args) >= 3 && os.Args[1] == "--previewbar" {
+		if err := previewBar(os.Args[2]); err != nil {
+			log.Fatalf("pcinv-viewer: previewbar: %v", err)
+		}
+		return
+	}
 	for _, a := range os.Args[1:] {
 		switch a {
 		case "--register", "-register":
@@ -207,6 +213,12 @@ func runSession(cfg *launchConfig) error {
 		return fmt.Errorf("renderer: %s", sdl.GetError())
 	}
 	defer sdl.DestroyRenderer(renderer)
+	sdl.SetRenderDrawBlendMode(renderer, sdl.BlendModeBlend) // für die halbtransparente Leiste
+
+	txt, err := newTextRenderer(renderer, 15)
+	if err != nil {
+		return fmt.Errorf("font: %w", err)
+	}
 
 	texW, texH := int32(rc.W), int32(rc.H)
 	texture := sdl.CreateTexture(renderer, sdl.PixelFormatARGB8888, sdl.TextureAccessStreaming, texW, texH)
@@ -231,8 +243,7 @@ func runSession(cfg *launchConfig) error {
 	}
 	log.Printf("verbunden – Bedienleiste oben, Tastatur-Grab aktiv")
 
-	tb := newToolbar()
-	tb.layout()
+	tb := newToolbar(txt)
 	v := &viewer{rc: rc}
 	fullscreen, locked, uiDirty := false, false, false
 	quality := byte(1)
@@ -268,12 +279,11 @@ func runSession(cfg *launchConfig) error {
 		case "qual":
 			quality = (quality + 1) % 3
 			_ = rc.controlQuality(quality)
-			tb.setLabel("qual", "Qual: "+qName[quality])
+			tb.setLabel("qual", "Qualität: "+qName[quality])
 		case "full":
 			fullscreen = !fullscreen
 			sdl.SetWindowFullscreen(window, fullscreen)
 		}
-		tb.layout()
 	}
 
 	running := true
@@ -282,6 +292,7 @@ func runSession(cfg *launchConfig) error {
 		var winW, winH int32
 		sdl.GetWindowSize(window, &winW, &winH)
 		dst := remoteDst(float32(winW), float32(winH), float32(texW), float32(texH))
+		tb.layout(float32(winW))
 
 		for sdl.PollEvent(&ev) {
 			switch ev.Type() {
@@ -385,7 +396,7 @@ func runSession(cfg *launchConfig) error {
 			sdl.SetRenderDrawColor(renderer, 0x0b, 0x0e, 0x14, 0xff)
 			sdl.RenderClear(renderer)
 			sdl.RenderTexture(renderer, texture, nil, &dst)
-			tb.draw(renderer, float32(winW), hoverID)
+			tb.draw(hoverID, locked)
 			sdl.RenderPresent(renderer)
 		}
 		time.Sleep(6 * time.Millisecond)
