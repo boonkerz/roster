@@ -454,3 +454,6 @@ label input, label select { color: var(--text); }
 .um-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; margin-top: 14px;
   padding-top: 14px; border-top: 1px solid var(--border, #26304a); }
 .um-facts > div { display: flex; flex-direction: column; gap: 2px; }
+
+.perm-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0; }
+.perm-item { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }

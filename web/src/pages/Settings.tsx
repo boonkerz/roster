@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, DeployPackage, Device, EnrollmentToken, MaintenanceWindow, ReportSchedule, User } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, MaintenanceWindow, ReportSchedule, User } from "../types";
 
 export function Settings() {
   const { t } = useI18n();
@@ -17,9 +17,88 @@ export function Settings() {
       <CustomFields />
       <SoftwarePackages />
       <Tokens />
+      <Roles />
       <Users />
       <AuditLog />
     </div>
+  );
+}
+
+// permLabel liefert die Anzeige für einen Permission-Key.
+function usePermLabels() {
+  const { t } = useI18n();
+  return (key: string) => ({
+    "page.dashboard": t("Übersicht"),
+    "page.devices": t("Geräte (ansehen)"),
+    "page.policies": t("Richtlinien"),
+    "page.scripts": t("Skripte"),
+    "page.settings": t("Einstellungen/Verwaltung"),
+    "devices.operate": t("Geräte bedienen (Terminal, Fernsteuerung, Skripte …)"),
+  }[key] ?? key);
+}
+
+// Roles verwaltet Custom-Rollen (wiederverwendbare Rechte-Sets).
+function Roles() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const permLabel = usePermLabels();
+  const [name, setName] = useState("");
+  const [perms, setPerms] = useState<string[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const { data } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => api.get<{ roles: CustomRole[]; permissions: string[] }>("/roles"),
+  });
+  const catalog = data?.permissions ?? [];
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["roles"] });
+  const reset = () => { setName(""); setPerms([]); setEditId(null); };
+
+  const save = useMutation({
+    mutationFn: () => editId
+      ? api.put(`/roles/${editId}`, { name, permissions: perms })
+      : api.post("/roles", { name, permissions: perms }),
+    onSuccess: () => { reset(); invalidate(); },
+  });
+  const del = useMutation({ mutationFn: (id: string) => api.del(`/roles/${id}`), onSuccess: invalidate });
+
+  const toggle = (p: string) => setPerms((cur) => cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]);
+  const edit = (r: CustomRole) => { setEditId(r.id); setName(r.name); setPerms(r.permissions); };
+
+  return (
+    <section className="card">
+      <h2>{t("Rollen (Rechte-Sets)")}</h2>
+      <p className="muted small">{t("Eigene Rollen mit gezielten Seiten-/Funktions-Rechten. Benutzer bekommen eine Rolle zugewiesen und sehen nur das Erlaubte. Admins haben immer alle Rechte.")}</p>
+      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (name.trim()) save.mutate(); }}>
+        <input placeholder={t("Rollenname")} value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="perm-grid">
+          {catalog.map((p) => (
+            <label key={p} className="perm-item">
+              <input type="checkbox" checked={perms.includes(p)} onChange={() => toggle(p)} /> {permLabel(p)}
+            </label>
+          ))}
+        </div>
+        <button className="btn primary" type="submit" disabled={save.isPending}>{editId ? t("Speichern") : t("Rolle anlegen")}</button>
+        {editId && <button className="btn ghost" type="button" onClick={reset}>{t("Abbrechen")}</button>}
+      </form>
+
+      <table className="table">
+        <thead><tr><th>{t("Rolle")}</th><th>{t("Rechte")}</th><th>{t("Benutzer")}</th><th></th></tr></thead>
+        <tbody>
+          {(data?.roles ?? []).map((r) => (
+            <tr key={r.id}>
+              <td>{r.name}</td>
+              <td className="muted small">{r.permissions.map(permLabel).join(", ") || "—"}</td>
+              <td className="muted">{r.user_count}</td>
+              <td>
+                <button className="btn ghost sm" onClick={() => edit(r)}>{t("Bearbeiten")}</button>
+                <button className="btn ghost sm" onClick={() => confirm(t("Rolle „{name}“ löschen? Zugeordnete Benutzer fallen auf ihre Grundrolle zurück.", { name: r.name })) && del.mutate(r.id)}>{t("Löschen")}</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -664,27 +743,47 @@ function Users() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("viewer");
+  const [roleSel, setRoleSel] = useState("builtin:viewer"); // "builtin:<role>" | "custom:<id>"
 
   const { data } = useQuery({ queryKey: ["users"], queryFn: () => api.get<User[]>("/users") });
+  const { data: rolesData } = useQuery({ queryKey: ["roles"], queryFn: () => api.get<{ roles: CustomRole[] }>("/roles") });
+  const customRoles = rolesData?.roles ?? [];
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] });
+
+  // decode/encode der kombinierten Auswahl -> API-Felder {role, custom_role_id}.
+  const encode = (u: User) => u.custom_role_id ? `custom:${u.custom_role_id}` : `builtin:${u.role}`;
+  const toFields = (sel: string) => sel.startsWith("custom:")
+    ? { role: "viewer", custom_role_id: sel.slice(7) }
+    : { role: sel.slice(8), custom_role_id: "" };
+
   const create = useMutation({
-    mutationFn: () => api.post<User>("/users", { username, email, password, role }),
-    onSuccess: () => {
-      setUsername("");
-      setEmail("");
-      setPassword("");
-      qc.invalidateQueries({ queryKey: ["users"] });
-    },
+    mutationFn: () => api.post<User>("/users", { username, email, password, ...toFields(roleSel) }),
+    onSuccess: () => { setUsername(""); setEmail(""); setPassword(""); invalidate(); },
+  });
+  const setUserRole = useMutation({
+    mutationFn: ({ id, sel }: { id: string; sel: string }) => api.put(`/users/${id}`, toFields(sel)),
+    onSuccess: invalidate,
   });
   const reset2fa = useMutation({
     mutationFn: (id: string) => api.post(`/users/${id}/reset-2fa`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: invalidate,
   });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (username && password) create.mutate();
   };
+
+  const roleOptions = (
+    <>
+      <option value="builtin:viewer">{t("Viewer (nur lesen)")}</option>
+      <option value="builtin:technician">{t("Techniker (bedienen)")}</option>
+      <option value="builtin:admin">{t("Admin (alles)")}</option>
+      {customRoles.length > 0 && <optgroup label={t("Eigene Rollen")}>
+        {customRoles.map((r) => <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>)}
+      </optgroup>}
+    </>
+  );
 
   return (
     <section className="card">
@@ -693,11 +792,7 @@ function Users() {
         <input placeholder={t("Benutzername")} value={username} onChange={(e) => setUsername(e.target.value)} />
         <input placeholder={t("E-Mail")} value={email} onChange={(e) => setEmail(e.target.value)} />
         <input type="password" placeholder={t("Passwort")} value={password} onChange={(e) => setPassword(e.target.value)} />
-        <select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="viewer">{t("Viewer (nur lesen)")}</option>
-          <option value="technician">{t("Techniker (bedienen)")}</option>
-          <option value="admin">{t("Admin (alles)")}</option>
-        </select>
+        <select value={roleSel} onChange={(e) => setRoleSel(e.target.value)}>{roleOptions}</select>
         <button className="btn primary" type="submit" disabled={create.isPending}>{t("Anlegen")}</button>
       </form>
 
@@ -708,7 +803,11 @@ function Users() {
             <tr key={u.id}>
               <td>{u.username}</td>
               <td className="muted">{u.email || "—"}</td>
-              <td>{u.role}</td>
+              <td>
+                {u.auth_source === "local"
+                  ? <select value={encode(u)} onChange={(e) => setUserRole.mutate({ id: u.id, sel: e.target.value })}>{roleOptions}</select>
+                  : u.role}
+              </td>
               <td>{u.totp_enabled ? <span className="badge badge-online">{t("aktiv")}</span> : <span className="muted small">—</span>}</td>
               <td className="muted">{u.auth_source}</td>
               <td className="muted">{u.last_login ? new Date(u.last_login).toLocaleString() : "—"}</td>

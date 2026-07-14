@@ -12,12 +12,18 @@ import { TerminalPopout } from "./pages/TerminalPopout";
 import { RemotePopout } from "./pages/RemotePopout";
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasPerm } = useAuth();
 
   if (loading) return <div className="center muted">Lädt…</div>;
   if (!user) return <Login />;
   // 2FA-Pflicht: ohne aktivierten zweiten Faktor zuerst die Einrichtung erzwingen.
   if (user.require_2fa && !user.totp_enabled) return <TwoFactorSetup />;
+
+  // Erste für den Nutzer zugängliche Seite (Fallback/Startziel).
+  const home = hasPerm("page.dashboard") ? "/dashboard" : hasPerm("page.devices") ? "/devices"
+    : hasPerm("page.policies") ? "/policies" : hasPerm("page.scripts") ? "/scripts" : "/dashboard";
+  // guard rendert die Seite nur mit Recht, sonst Weiterleitung aufs Startziel.
+  const guard = (perm: string, el: JSX.Element) => (hasPerm(perm) ? el : <Navigate to={home} replace />);
 
   return (
     <Routes>
@@ -27,13 +33,13 @@ export default function App() {
       <Route path="*" element={
         <Layout>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/devices" element={<Devices />} />
-            <Route path="/devices/:id" element={<DeviceDetail />} />
-            <Route path="/policies" element={<Policies />} />
-            <Route path="/scripts" element={<Scripts />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to={home} replace />} />
+            <Route path="/dashboard" element={guard("page.dashboard", <Dashboard />)} />
+            <Route path="/devices" element={guard("page.devices", <Devices />)} />
+            <Route path="/devices/:id" element={guard("page.devices", <DeviceDetail />)} />
+            <Route path="/policies" element={guard("page.policies", <Policies />)} />
+            <Route path="/scripts" element={guard("page.scripts", <Scripts />)} />
+            <Route path="*" element={<Navigate to={home} replace />} />
           </Routes>
         </Layout>
       } />

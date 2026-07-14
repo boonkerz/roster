@@ -30,6 +30,7 @@ type User struct {
 	Email        string     `json:"email"`
 	PasswordHash string     `json:"-"` // bei LDAP leer
 	Role         Role       `json:"role"`
+	CustomRoleID string     `json:"custom_role_id,omitempty"` // optionale Custom-Rolle (Rechte-Set)
 	AuthSource   AuthSource `json:"auth_source"`
 	Theme        string     `json:"theme"` // "light" | "dark" | "" (nicht gesetzt)
 	CreatedAt    time.Time  `json:"created_at"`
@@ -39,6 +40,17 @@ type User struct {
 	TOTPEnabled bool   `json:"totp_enabled"`
 	// Require2FA ist berechnet (nicht persistiert): muss der Nutzer 2FA einrichten?
 	Require2FA bool `json:"require_2fa"`
+	// Permissions ist berechnet (nicht persistiert): effektive Rechte des Benutzers.
+	Permissions []string `json:"permissions,omitempty"`
+}
+
+// CustomRole ist ein wiederverwendbares Rechte-Set (Seiten/Funktionen).
+type CustomRole struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Permissions []string  `json:"permissions"`
+	CreatedAt   time.Time `json:"created_at"`
+	UserCount   int       `json:"user_count"` // Anzahl zugeordneter Benutzer (nur lesend)
 }
 
 // Device ist ein inventarisiertes Gerät = genau ein Agent.

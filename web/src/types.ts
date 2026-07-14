@@ -7,12 +7,28 @@ export interface User {
   username: string;
   email: string;
   role: Role;
+  custom_role_id?: string;
+  permissions?: string[];
   auth_source: "local" | "ldap";
   theme: "light" | "dark" | "";
   created_at: string;
   last_login?: string;
   totp_enabled?: boolean;
   require_2fa?: boolean;
+}
+
+// Permission-Keys (Spiegel von internal/server/model/permissions.go).
+export const PERMISSIONS = [
+  "page.dashboard", "page.devices", "page.policies", "page.scripts", "page.settings", "devices.operate",
+] as const;
+export type Permission = (typeof PERMISSIONS)[number];
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  permissions: string[];
+  created_at: string;
+  user_count: number;
 }
 
 export interface Interface {

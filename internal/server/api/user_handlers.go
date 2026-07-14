@@ -20,10 +20,11 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 type createUserRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Password     string `json:"password"`
+	Role         string `json:"role"`
+	CustomRoleID string `json:"custom_role_id"`
 }
 
 // handleCreateUser legt einen lokalen Benutzer an (nur Admin).
@@ -51,6 +52,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Email:        req.Email,
 		PasswordHash: hash,
 		Role:         role,
+		CustomRoleID: req.CustomRoleID,
 		AuthSource:   model.AuthLocal,
 	}
 	if err := s.store.CreateUser(r.Context(), u); err != nil {
@@ -58,6 +60,32 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusCreated, u)
+}
+
+// handleUpdateUser ändert Rolle und optionale Custom-Rolle eines Benutzers (Admin).
+func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Role         string `json:"role"`
+		CustomRoleID string `json:"custom_role_id"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	role := model.Role(req.Role)
+	if role != model.RoleAdmin && role != model.RoleTech && role != model.RoleViewer {
+		role = model.RoleViewer
+	}
+	// Selbst-Aussperrung vermeiden: der eigene Account darf nicht die Admin-Rolle verlieren.
+	if u := userFrom(r.Context()); u != nil && u.ID == id && role != model.RoleAdmin {
+		s.writeErr(w, http.StatusBadRequest, "die eigene Admin-Rolle kann nicht entzogen werden")
+		return
+	}
+	if err := s.store.UpdateUserRole(r.Context(), id, role, req.CustomRoleID); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // handleAdminReset2FA deaktiviert die Zwei-Faktor-Authentifizierung eines Benutzers

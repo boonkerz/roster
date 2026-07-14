@@ -11,6 +11,8 @@ interface AuthState {
   completeTotp: (pending: string, code: string) => Promise<void>;
   reload: () => Promise<void>;
   logout: () => Promise<void>;
+  // hasPerm prüft ein Recht; Admins haben implizit alles.
+  hasPerm: (perm: string) => boolean;
 }
 
 const AuthContext = createContext<AuthState>(null!);
@@ -44,7 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, completeTotp, reload, logout }}>{children}</AuthContext.Provider>;
+  const hasPerm = (perm: string) =>
+    !!user && (user.role === "admin" || (user.permissions ?? []).includes(perm));
+
+  return <AuthContext.Provider value={{ user, loading, login, completeTotp, reload, logout, hasPerm }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

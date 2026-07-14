@@ -71,6 +71,12 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, user *mode
 		SameSite: http.SameSiteLaxMode,
 	})
 	user.Require2FA = s.cfg.Require2FA
+	// Effektive Rechte für die direkte Login-Antwort berechnen (kein requireUser davor).
+	var customPerms []string
+	if user.Role != model.RoleAdmin && user.CustomRoleID != "" {
+		customPerms, _ = s.store.CustomRolePermissions(r.Context(), user.CustomRoleID)
+	}
+	user.Permissions = model.EffectivePermissions(user, customPerms)
 	s.logAudit(r, user.ID, user.Username, "Anmeldung", http.StatusOK)
 	s.writeJSON(w, http.StatusOK, user)
 }

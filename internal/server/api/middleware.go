@@ -31,6 +31,12 @@ func (s *Server) requireUser(next http.Handler) http.Handler {
 			s.writeErr(w, http.StatusUnauthorized, "session ungültig oder abgelaufen")
 			return
 		}
+		// Effektive Rechte berechnen (Admin = alle; sonst Custom-Rolle oder Default).
+		var customPerms []string
+		if user.Role != model.RoleAdmin && user.CustomRoleID != "" {
+			customPerms, _ = s.store.CustomRolePermissions(r.Context(), user.CustomRoleID)
+		}
+		user.Permissions = model.EffectivePermissions(user, customPerms)
 		ctx := context.WithValue(r.Context(), ctxUser, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -69,6 +75,39 @@ func (s *Server) requireTech(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requirePerm verlangt ein bestimmtes Recht aus den effektiven Rechten des Benutzers
+// (nach requireUser). Admins haben implizit alle Rechte.
+func (s *Server) requirePerm(perm string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := userFrom(r.Context())
+			if u == nil || !model.HasPermission(u.Permissions, perm) {
+				s.writeErr(w, http.StatusForbidden, "keine Berechtigung für diesen Bereich")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requirePermAny verlangt mindestens eines der genannten Rechte (nach requireUser).
+func (s *Server) requirePermAny(perms ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := userFrom(r.Context())
+			if u != nil {
+				for _, p := range perms {
+					if model.HasPermission(u.Permissions, p) {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+			}
+			s.writeErr(w, http.StatusForbidden, "keine Berechtigung für diesen Bereich")
+		})
+	}
 }
 
 // requireAgent verlangt ein gültiges, nicht widerrufenes Agent-Token.

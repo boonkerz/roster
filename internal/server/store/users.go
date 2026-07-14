@@ -25,16 +25,37 @@ func (s *Store) CreateUser(ctx context.Context, u *model.User) error {
 		u.CreatedAt = time.Now().UTC()
 	}
 	_, err := s.db.ExecContext(ctx, s.rebind(`
-		INSERT INTO users (id, username, email, password_hash, role, auth_source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`),
-		u.ID, u.Username, u.Email, u.PasswordHash, string(u.Role), string(u.AuthSource), u.CreatedAt)
+		INSERT INTO users (id, username, email, password_hash, role, custom_role_id, auth_source, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+		u.ID, u.Username, u.Email, u.PasswordHash, string(u.Role), nullStr(u.CustomRoleID), string(u.AuthSource), u.CreatedAt)
 	return err
+}
+
+// UpdateUserRole setzt Rolle und (optionale) Custom-Rolle eines Benutzers.
+func (s *Store) UpdateUserRole(ctx context.Context, id string, role model.Role, customRoleID string) error {
+	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE users SET role = ?, custom_role_id = ? WHERE id = ?`),
+		string(role), nullStr(customRoleID), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// nullStr wandelt einen leeren String in SQL-NULL (für optionale FK-Spalten).
+func nullStr(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // GetUserByUsername lädt einen Benutzer anhand des Login-Namens.
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
 	row := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT id, username, email, password_hash, role, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
+		SELECT id, username, email, password_hash, role, custom_role_id, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
 		FROM users WHERE username = ?`), username)
 	return scanUser(row)
 }
@@ -42,7 +63,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*model.
 // GetUserByID lädt einen Benutzer anhand der ID.
 func (s *Store) GetUserByID(ctx context.Context, id string) (*model.User, error) {
 	row := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT id, username, email, password_hash, role, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
+		SELECT id, username, email, password_hash, role, custom_role_id, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
 		FROM users WHERE id = ?`), id)
 	return scanUser(row)
 }
@@ -50,7 +71,7 @@ func (s *Store) GetUserByID(ctx context.Context, id string) (*model.User, error)
 // ListUsers liefert alle Benutzer (ohne Passwort-Hash im JSON).
 func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, email, password_hash, role, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
+		SELECT id, username, email, password_hash, role, custom_role_id, auth_source, theme, created_at, last_login, totp_secret, totp_enabled
 		FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
@@ -104,8 +125,9 @@ type scanner interface {
 func scanUser(row scanner) (*model.User, error) {
 	var u model.User
 	var role, src string
+	var customRoleID sql.NullString
 	var lastLogin sql.NullTime
-	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &role, &src, &u.Theme, &u.CreatedAt, &lastLogin, &u.TOTPSecret, &u.TOTPEnabled)
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &role, &customRoleID, &src, &u.Theme, &u.CreatedAt, &lastLogin, &u.TOTPSecret, &u.TOTPEnabled)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -113,6 +135,7 @@ func scanUser(row scanner) (*model.User, error) {
 		return nil, err
 	}
 	u.Role = model.Role(role)
+	u.CustomRoleID = customRoleID.String
 	u.AuthSource = model.AuthSource(src)
 	if lastLogin.Valid {
 		t := lastLogin.Time
@@ -134,7 +157,7 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash, userID string, exp
 // UserBySession liefert den Benutzer zu einem gültigen, nicht abgelaufenen Session-Token-Hash.
 func (s *Store) UserBySession(ctx context.Context, tokenHash string) (*model.User, error) {
 	row := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT u.id, u.username, u.email, u.password_hash, u.role, u.auth_source, u.theme, u.created_at, u.last_login, u.totp_secret, u.totp_enabled
+		SELECT u.id, u.username, u.email, u.password_hash, u.role, u.custom_role_id, u.auth_source, u.theme, u.created_at, u.last_login, u.totp_secret, u.totp_enabled
 		FROM sessions sess JOIN users u ON u.id = sess.user_id
 		WHERE sess.token_hash = ? AND sess.expires_at > ?`), tokenHash, time.Now().UTC())
 	return scanUser(row)

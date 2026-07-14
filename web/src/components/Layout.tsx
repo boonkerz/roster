@@ -14,10 +14,9 @@ import { NetworkScan } from "./NetworkScan";
 type ModalKey = "groups" | "settings" | "account" | "bulk" | "vulns" | "netscan";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPerm } = useAuth();
   const { t } = useI18n();
-  const isAdmin = user?.role === "admin";
-  const canOperate = user?.role === "admin" || user?.role === "technician";
+  const canOperate = hasPerm("devices.operate");
   const [modal, setModal] = useState<ModalKey | null>(null);
 
   return (
@@ -27,15 +26,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="brand-mark">▣</span> Roster
         </div>
         <nav className="topnav">
-          <NavLink to="/dashboard">{t("Übersicht")}</NavLink>
-          <NavLink to="/devices">{t("Geräte")}</NavLink>
-          {isAdmin && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
-          {isAdmin && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
-          <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>
-          <button className="navbtn" onClick={() => setModal("vulns")}>{t("Schwachstellen")}</button>
+          {hasPerm("page.dashboard") && <NavLink to="/dashboard">{t("Übersicht")}</NavLink>}
+          {hasPerm("page.devices") && <NavLink to="/devices">{t("Geräte")}</NavLink>}
+          {hasPerm("page.policies") && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
+          {hasPerm("page.scripts") && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
+          {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>}
+          {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("vulns")}>{t("Schwachstellen")}</button>}
           {canOperate && <button className="navbtn" onClick={() => setModal("bulk")}>{t("Sammelaktion")}</button>}
           {canOperate && <button className="navbtn" onClick={() => setModal("netscan")}>{t("Netzwerk-Scan")}</button>}
-          {isAdmin && <button className="navbtn" onClick={() => setModal("settings")}>{t("Einstellungen")}</button>}
+          {hasPerm("page.settings") && <button className="navbtn" onClick={() => setModal("settings")}>{t("Einstellungen")}</button>}
         </nav>
         <div className="topbar-right">
           <button className="topuser topuser-btn" onClick={() => setModal("account")} title={t("Mein Konto")}>

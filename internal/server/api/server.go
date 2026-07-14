@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/boonkerz/roster/internal/server/config"
+	"github.com/boonkerz/roster/internal/server/model"
 	"github.com/boonkerz/roster/internal/server/store"
 )
 
@@ -104,43 +105,60 @@ func (s *Server) routes() http.Handler {
 				// Restliche Funktionen erst nach abgeschlossener 2FA (bei Pflicht).
 				r.Group(func(r chi.Router) {
 					r.Use(s.requireEnrolled)
-					r.Get("/agents", s.handleAgentList)
+					r.Get("/agents", s.handleAgentList) // harmlose Plattform-Liste
 
-					r.Get("/dashboard", s.handleDashboard)
-					r.Get("/devices", s.handleListDevices)
-					r.Get("/devices/{id}", s.handleGetDevice)
-					r.Get("/devices/{id}/history", s.handleDeviceHistory)
-					r.Get("/devices/{id}/events", s.handleDeviceEvents)
-					r.Get("/devices/{id}/remote-consent", s.handleGetDeviceConsent)
-					r.Get("/devices/{id}/metrics-history", s.handleMetricsHistory)
-					r.Get("/devices/{id}/vulnerabilities", s.handleDeviceVulns)
-					r.Get("/vulnerabilities", s.handleAllVulns)
-					r.Get("/sites/{id}/assets", s.handleListSiteAssets)
-					r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
-					r.Get("/devices/{id}/software-events", s.handleDeviceSoftwareEvents)
-					r.Post("/devices/{id}/scan-dir", s.handleScanDir)
-					r.Post("/devices/{id}/services", s.handleListServices)
-					r.Post("/devices/{id}/processes", s.handleListProcesses)
-					r.Post("/devices/{id}/resolutions", s.handleListResolutions)
-					r.Post("/devices/{id}/resolution", s.handleSetResolution)
-					r.Post("/devices/{id}/install-guest-tools", s.handleInstallGuestTools)
-					r.Post("/devices/{id}/metrics", s.handleMetrics)
-					r.Get("/commands/{id}", s.handleGetCommand)
-					r.Put("/devices/{id}/groups", s.handleSetDeviceGroups)
+					// --- Übersicht (page.dashboard) ---
+					r.With(s.requirePerm(model.PermDashboard)).Get("/dashboard", s.handleDashboard)
 
-					r.Get("/groups", s.handleListGroups)
-					r.Get("/clients", s.handleClientTree)
-					r.Get("/scripts", s.handleListScripts)
-					r.Get("/policies", s.handleListPolicies)
-					r.Get("/maintenance", s.handleListMaintenance)
-					r.Get("/settings/alerts", s.handleGetAlerts)
-					r.Get("/settings/alert-providers", s.handleListAlertProviders)
-					r.Get("/custom-fields", s.handleListCustomFields)
-					r.Get("/custom-field-values", s.handleGetCustomFieldValues)
-
-					// Techniker + Admins dürfen Geräte bedienen (keine Verwaltung).
+					// --- Geräte lesen (page.devices) ---
 					r.Group(func(r chi.Router) {
-						r.Use(s.requireTech)
+						r.Use(s.requirePerm(model.PermDevices))
+						r.Get("/devices", s.handleListDevices)
+						r.Get("/devices/{id}", s.handleGetDevice)
+						r.Get("/devices/{id}/history", s.handleDeviceHistory)
+						r.Get("/devices/{id}/events", s.handleDeviceEvents)
+						r.Get("/devices/{id}/remote-consent", s.handleGetDeviceConsent)
+						r.Get("/devices/{id}/metrics-history", s.handleMetricsHistory)
+						r.Get("/devices/{id}/vulnerabilities", s.handleDeviceVulns)
+						r.Get("/vulnerabilities", s.handleAllVulns)
+						r.Get("/sites/{id}/assets", s.handleListSiteAssets)
+						r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
+						r.Get("/devices/{id}/software-events", s.handleDeviceSoftwareEvents)
+						r.Post("/devices/{id}/scan-dir", s.handleScanDir)
+						r.Post("/devices/{id}/services", s.handleListServices)
+						r.Post("/devices/{id}/processes", s.handleListProcesses)
+						r.Post("/devices/{id}/resolutions", s.handleListResolutions)
+						r.Post("/devices/{id}/resolution", s.handleSetResolution)
+						r.Post("/devices/{id}/install-guest-tools", s.handleInstallGuestTools)
+						r.Post("/devices/{id}/metrics", s.handleMetrics)
+						r.Get("/commands/{id}", s.handleGetCommand)
+						r.Put("/devices/{id}/groups", s.handleSetDeviceGroups)
+						r.Get("/groups", s.handleListGroups)
+						r.Get("/clients", s.handleClientTree)
+						r.Get("/custom-fields", s.handleListCustomFields)
+						r.Get("/custom-field-values", s.handleGetCustomFieldValues)
+					})
+
+					// --- Richtlinien lesen (page.policies) ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermPolicies))
+						r.Get("/policies", s.handleListPolicies)
+						r.Get("/maintenance", s.handleListMaintenance)
+					})
+
+					// Skript-Liste: für die Skripte-Seite ODER den Richtlinien-Editor.
+					r.With(s.requirePermAny(model.PermScripts, model.PermPolicies)).Get("/scripts", s.handleListScripts)
+
+					// --- Einstellungen lesen (page.settings) ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermSettings))
+						r.Get("/settings/alerts", s.handleGetAlerts)
+						r.Get("/settings/alert-providers", s.handleListAlertProviders)
+					})
+
+					// Geräte bedienen (devices.operate) – keine Verwaltung.
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermDevicesOperate))
 						r.Put("/devices/{id}/notes", s.handleSetDeviceNotes)
 						r.Post("/devices/{id}/run", s.handleRunScript)
 						r.Post("/devices/{id}/checks/{checkID}/run", s.handleRunCheck)
@@ -177,9 +195,33 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/write-file", s.handleWriteFile)
 					})
 
-					// Nur Admins dürfen schreiben/verwalten.
+					// --- Skripte verwalten (page.scripts) ---
 					r.Group(func(r chi.Router) {
-						r.Use(s.requireAdmin)
+						r.Use(s.requirePerm(model.PermScripts))
+						r.Post("/scripts", s.handleCreateScript)
+						r.Put("/scripts/{id}", s.handleUpdateScript)
+						r.Delete("/scripts/{id}", s.handleDeleteScript)
+					})
+
+					// --- Richtlinien verwalten (page.policies) ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermPolicies))
+						r.Post("/policies", s.handleCreatePolicy)
+						r.Put("/policies/{id}", s.handleUpdatePolicy)
+						r.Delete("/policies/{id}", s.handleDeletePolicy)
+						r.Post("/policies/{id}/checks", s.handleAddCheck)
+						r.Post("/policies/{id}/tasks", s.handleAddTask)
+						r.Post("/policies/{id}/assignments", s.handleAddAssignment)
+						r.Delete("/checks/{id}", s.handleDeleteCheck)
+						r.Delete("/tasks/{id}", s.handleDeleteTask)
+						r.Delete("/assignments/{id}", s.handleDeleteAssignment)
+						r.Post("/maintenance", s.handleCreateMaintenance)
+						r.Delete("/maintenance/{id}", s.handleDeleteMaintenance)
+					})
+
+					// --- Einstellungen/Verwaltung (page.settings) ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermSettings))
 						r.Get("/audit", s.handleListAudit)
 						r.Get("/reports/health", s.handleHealthReport)
 						r.Get("/report-schedules", s.handleListReportSchedules)
@@ -197,21 +239,6 @@ func (s *Server) routes() http.Handler {
 						r.Post("/sites", s.handleCreateSite)
 						r.Put("/sites/{id}", s.handleRenameSite)
 						r.Delete("/sites/{id}", s.handleDeleteSite)
-
-						r.Post("/scripts", s.handleCreateScript)
-						r.Put("/scripts/{id}", s.handleUpdateScript)
-						r.Delete("/scripts/{id}", s.handleDeleteScript)
-						r.Post("/policies", s.handleCreatePolicy)
-						r.Put("/policies/{id}", s.handleUpdatePolicy)
-						r.Delete("/policies/{id}", s.handleDeletePolicy)
-						r.Post("/policies/{id}/checks", s.handleAddCheck)
-						r.Post("/policies/{id}/tasks", s.handleAddTask)
-						r.Post("/policies/{id}/assignments", s.handleAddAssignment)
-						r.Delete("/checks/{id}", s.handleDeleteCheck)
-						r.Delete("/tasks/{id}", s.handleDeleteTask)
-						r.Delete("/assignments/{id}", s.handleDeleteAssignment)
-						r.Post("/maintenance", s.handleCreateMaintenance)
-						r.Delete("/maintenance/{id}", s.handleDeleteMaintenance)
 						r.Put("/settings/alerts", s.handleSetAlertsEnabled)
 						r.Post("/custom-fields", s.handleCreateCustomField)
 						r.Put("/custom-fields/{id}", s.handleUpdateCustomField)
@@ -221,16 +248,26 @@ func (s *Server) routes() http.Handler {
 						r.Put("/settings/alert-channels/{id}", s.handleUpdateAlertChannel)
 						r.Delete("/settings/alert-channels/{id}", s.handleDeleteAlertChannel)
 						r.Post("/settings/alert-channels/{id}/test", s.handleTestAlertChannel)
-						r.Get("/enrollment-tokens", s.handleListTokens)
 						r.Put("/remote-consent", s.handleSetRemoteConsent)
 						r.Post("/software-packages", s.handleCreatePackage)
 						r.Put("/software-packages/{id}", s.handleUpdatePackage)
 						r.Delete("/software-packages/{id}", s.handleDeletePackage)
+					})
+
+					// --- Nur echte Admins: Benutzer, Rollen, Enrollment-Tokens ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requireAdmin)
+						r.Get("/enrollment-tokens", s.handleListTokens)
 						r.Post("/enrollment-tokens", s.handleCreateToken)
 						r.Delete("/enrollment-tokens/{id}", s.handleDeleteToken)
 						r.Get("/users", s.handleListUsers)
 						r.Post("/users", s.handleCreateUser)
+						r.Put("/users/{id}", s.handleUpdateUser)
 						r.Post("/users/{id}/reset-2fa", s.handleAdminReset2FA)
+						r.Get("/roles", s.handleListRoles)
+						r.Post("/roles", s.handleCreateRole)
+						r.Put("/roles/{id}", s.handleUpdateRole)
+						r.Delete("/roles/{id}", s.handleDeleteRole)
 					})
 				})
 			})
