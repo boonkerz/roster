@@ -680,4 +680,5 @@ export const EN: Record<string, string> = {
   "Noch keine Kunden/Standorte angelegt.": "No clients/sites created yet.",
   "ganze Firma": "entire company",
   "Noch keine Firmen/Standorte angelegt.": "No companies/sites created yet.",
+  "Benutzer „{name}“ wirklich löschen?": "Really delete user \"{name}\"?",
 };

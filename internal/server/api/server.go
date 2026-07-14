@@ -264,6 +264,7 @@ func (s *Server) routes() http.Handler {
 						r.Get("/users", s.handleListUsers)
 						r.Post("/users", s.handleCreateUser)
 						r.Put("/users/{id}", s.handleUpdateUser)
+						r.Delete("/users/{id}", s.handleDeleteUser)
 						r.Get("/users/{id}/scope", s.handleGetUserScope)
 						r.Put("/users/{id}/scope", s.handleSetUserScope)
 						r.Post("/users/{id}/reset-2fa", s.handleAdminReset2FA)

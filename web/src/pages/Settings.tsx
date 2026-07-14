@@ -765,6 +765,7 @@ function Tokens() {
 
 function Users() {
   const { t } = useI18n();
+  const { user: me } = useAuth();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -793,6 +794,11 @@ function Users() {
   const reset2fa = useMutation({
     mutationFn: (id: string) => api.post(`/users/${id}/reset-2fa`),
     onSuccess: invalidate,
+  });
+  const del = useMutation({
+    mutationFn: (id: string) => api.del(`/users/${id}`),
+    onSuccess: invalidate,
+    onError: (e) => alert((e as Error).message),
   });
   const [scopeUser, setScopeUser] = useState<User | null>(null);
 
@@ -846,6 +852,12 @@ function Users() {
                   <button className="btn ghost sm" disabled={reset2fa.isPending}
                     onClick={() => confirm(t("2FA für „{name}“ zurücksetzen? Der Nutzer muss es beim nächsten Login neu einrichten.", { name: u.username })) && reset2fa.mutate(u.id)}>
                     {t("2FA zurücksetzen")}
+                  </button>
+                )}
+                {u.id !== me?.id && (
+                  <button className="btn ghost sm" disabled={del.isPending}
+                    onClick={() => confirm(t("Benutzer „{name}“ wirklich löschen?", { name: u.username })) && del.mutate(u.id)}>
+                    {t("Löschen")}
                   </button>
                 )}
               </td>

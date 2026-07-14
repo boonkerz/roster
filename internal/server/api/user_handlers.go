@@ -88,6 +88,32 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleDeleteUser löscht einen Benutzer (Admin). Der eigene Account und der letzte
+// verbleibende Admin sind geschützt.
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if u := userFrom(r.Context()); u != nil && u.ID == id {
+		s.writeErr(w, http.StatusBadRequest, "der eigene Account kann nicht gelöscht werden")
+		return
+	}
+	target, err := s.store.GetUserByID(r.Context(), id)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	if target.Role == model.RoleAdmin {
+		if n, _ := s.store.CountAdmins(r.Context()); n <= 1 {
+			s.writeErr(w, http.StatusBadRequest, "der letzte Admin kann nicht gelöscht werden")
+			return
+		}
+	}
+	if err := s.store.DeleteUser(r.Context(), id); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 // handleGetUserScope liefert den Daten-Scope eines Benutzers (zugeordnete Kunden/Standorte).
 func (s *Server) handleGetUserScope(w http.ResponseWriter, r *http.Request) {
 	clientIDs, siteIDs, err := s.store.GetUserScope(r.Context(), chi.URLParam(r, "id"))

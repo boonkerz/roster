@@ -88,6 +88,38 @@ func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
 	return out, rows.Err()
 }
 
+// CountAdmins zählt die Benutzer mit Admin-Rolle (für den Last-Admin-Schutz).
+func (s *Store) CountAdmins(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT COUNT(*) FROM users WHERE role = ?`), string(model.RoleAdmin)).Scan(&n)
+	return n, err
+}
+
+// DeleteUser entfernt einen Benutzer samt seiner Sessions und Scope-Zuordnungen.
+func (s *Store) DeleteUser(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, q := range []string{
+		`DELETE FROM sessions WHERE user_id = ?`,
+		`DELETE FROM user_scopes WHERE user_id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, s.rebind(q), id); err != nil {
+			return err
+		}
+	}
+	res, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM users WHERE id = ?`), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
+}
+
 // SetUserPassword setzt den Passwort-Hash eines Benutzers (z.B. CLI-Reset).
 func (s *Store) SetUserPassword(ctx context.Context, id, passwordHash string) error {
 	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE users SET password_hash = ? WHERE id = ?`), passwordHash, id)
