@@ -476,3 +476,10 @@ label input, label select { color: var(--text); }
 .settings-nav-item.active { background: var(--accent); color: #fff; }
 .settings-content { flex: 1; min-width: 0; }
 @media (max-width: 720px) { .settings-layout { flex-direction: column; } .settings-nav { flex-direction: row; flex-wrap: wrap; position: static; } }
+
+/* ---- Daten-Scope-Editor ---- */
+.scope-editor { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.scope-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.scope-tree { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
+.scope-client { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.scope-sites { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 4px 0 0 22px; }

@@ -11,15 +11,23 @@ import (
 
 // handleClientTree liefert die Client/Site-Hierarchie inkl. Zähler (für den Baum).
 func (s *Server) handleClientTree(w http.ResponseWriter, r *http.Request) {
-	clients, err := s.store.ClientTree(r.Context())
+	sites, unrestricted := s.allowedSites(r.Context())
+	filter := sites
+	if unrestricted {
+		filter = nil
+	}
+	clients, err := s.store.ClientTree(r.Context(), filter)
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
-	unassigned, err := s.store.UnassignedDeviceCount(r.Context())
-	if err != nil {
-		s.mapStoreErr(w, err)
-		return
+	// Nicht zugeordnete Geräte sind für eingeschränkte Benutzer nicht sichtbar.
+	unassigned := 0
+	if unrestricted {
+		if unassigned, err = s.store.UnassignedDeviceCount(r.Context()); err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"clients": clients, "unassigned_count": unassigned})
 }

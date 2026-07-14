@@ -672,4 +672,10 @@ export const EN: Record<string, string> = {
   "Benachrichtigungen": "Notifications",
   "Geräte-Verwaltung": "Device management",
   "Sicherheit & Protokoll": "Security & audit",
+  "Bereich": "Scope",
+  "Sichtbarer Bereich für {name}": "Visible scope for {name}",
+  "(nichts ausgewählt = sieht alles)": "(nothing selected = sees everything)",
+  "(auf Auswahl begrenzt)": "(limited to selection)",
+  "ganzer Kunde": "entire client",
+  "Noch keine Kunden/Standorte angelegt.": "No clients/sites created yet.",
 };

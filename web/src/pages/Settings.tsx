@@ -794,6 +794,7 @@ function Users() {
     mutationFn: (id: string) => api.post(`/users/${id}/reset-2fa`),
     onSuccess: invalidate,
   });
+  const [scopeUser, setScopeUser] = useState<User | null>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -838,6 +839,9 @@ function Users() {
               <td className="muted">{u.auth_source}</td>
               <td className="muted">{u.last_login ? new Date(u.last_login).toLocaleString() : "—"}</td>
               <td>
+                {u.auth_source === "local" && u.role !== "admin" && (
+                  <button className="btn ghost sm" onClick={() => setScopeUser(u)}>{t("Bereich")}</button>
+                )}
                 {u.totp_enabled && (
                   <button className="btn ghost sm" disabled={reset2fa.isPending}
                     onClick={() => confirm(t("2FA für „{name}“ zurücksetzen? Der Nutzer muss es beim nächsten Login neu einrichten.", { name: u.username })) && reset2fa.mutate(u.id)}>
@@ -849,6 +853,62 @@ function Users() {
           ))}
         </tbody>
       </table>
+      {scopeUser && <ScopeEditor user={scopeUser} onClose={() => setScopeUser(null)} />}
     </section>
+  );
+}
+
+// ScopeEditor begrenzt einen Benutzer auf bestimmte Kunden/Standorte (Daten-Scope).
+// Ohne Auswahl sieht der Benutzer alles.
+function ScopeEditor({ user, onClose }: { user: User; onClose: () => void }) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
+  const { data: scope } = useQuery({ queryKey: ["user-scope", user.id], queryFn: () => api.get<{ clients: string[]; sites: string[] }>(`/users/${user.id}/scope`) });
+  const [clients, setClients] = useState<string[] | null>(null);
+  const [sites, setSites] = useState<string[] | null>(null);
+  // erst initialisieren, sobald der gespeicherte Scope geladen ist.
+  const cl = clients ?? scope?.clients ?? [];
+  const si = sites ?? scope?.sites ?? [];
+  const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
+    set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
+
+  const save = useMutation({
+    mutationFn: () => api.put(`/users/${user.id}/scope`, { clients: cl, sites: si }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-scope", user.id] }); onClose(); },
+  });
+
+  const unrestricted = cl.length === 0 && si.length === 0;
+  return (
+    <div className="scope-editor">
+      <div className="scope-head">
+        <strong>{t("Sichtbarer Bereich für {name}", { name: user.username })}</strong>
+        <span className="muted small">{unrestricted ? t("(nichts ausgewählt = sieht alles)") : t("(auf Auswahl begrenzt)")}</span>
+      </div>
+      <div className="scope-tree">
+        {(tree?.clients ?? []).map((c) => (
+          <div key={c.id} className="scope-client">
+            <label className="perm-item">
+              <input type="checkbox" checked={cl.includes(c.id)} onChange={() => toggle(cl, (v) => setClients(v), c.id)} />
+              <strong>{c.name}</strong> <span className="muted small">({t("ganzer Kunde")})</span>
+            </label>
+            <div className="scope-sites">
+              {(c.sites ?? []).map((st) => (
+                <label key={st.id} className="perm-item" style={{ opacity: cl.includes(c.id) ? 0.5 : 1 }}>
+                  <input type="checkbox" checked={cl.includes(c.id) || si.includes(st.id)} disabled={cl.includes(c.id)}
+                    onChange={() => toggle(si, (v) => setSites(v), st.id)} />
+                  {st.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        {(tree?.clients ?? []).length === 0 && <p className="muted small">{t("Noch keine Kunden/Standorte angelegt.")}</p>}
+      </div>
+      <div className="actions">
+        <button className="btn primary sm" disabled={save.isPending} onClick={() => save.mutate()}>{t("Speichern")}</button>
+        <button className="btn ghost sm" onClick={onClose}>{t("Abbrechen")}</button>
+      </div>
+    </div>
   );
 }

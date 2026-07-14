@@ -7,8 +7,10 @@ import (
 	"github.com/boonkerz/roster/internal/server/model"
 )
 
-// ClientTree liefert alle Clients mit ihren Sites und den jeweiligen Geräteanzahlen.
-func (s *Store) ClientTree(ctx context.Context) ([]model.Client, error) {
+// ClientTree liefert alle Clients mit ihren Sites und Geräteanzahlen. allowed begrenzt
+// (falls nicht nil) auf die sichtbaren Standort-IDs; Clients ohne sichtbaren Standort
+// werden weggelassen (Daten-Scope). nil = unbeschränkt.
+func (s *Store) ClientTree(ctx context.Context, allowed map[string]bool) ([]model.Client, error) {
 	clients, err := s.listClients(ctx)
 	if err != nil {
 		return nil, err
@@ -30,10 +32,22 @@ func (s *Store) ClientTree(ctx context.Context) ([]model.Client, error) {
 		if err := rows.Scan(&site.ID, &site.ClientID, &site.Name, &site.DeviceCount); err != nil {
 			return nil, err
 		}
+		if allowed != nil && !allowed[site.ID] {
+			continue // außerhalb des Scopes
+		}
 		if c := byID[site.ClientID]; c != nil {
 			c.Sites = append(c.Sites, site)
 			c.DeviceCount += site.DeviceCount
 		}
+	}
+	if allowed != nil { // Clients ohne sichtbaren Standort ausblenden
+		filtered := make([]model.Client, 0, len(clients))
+		for _, c := range clients {
+			if len(c.Sites) > 0 {
+				filtered = append(filtered, c)
+			}
+		}
+		clients = filtered
 	}
 	return clients, rows.Err()
 }

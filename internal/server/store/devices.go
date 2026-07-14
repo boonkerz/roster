@@ -162,8 +162,25 @@ const deviceFrom = ` FROM devices d
 	LEFT JOIN clients c ON c.id = s.client_id`
 
 // ListDevices liefert alle Geräte inkl. Interfaces (für die Übersicht).
-func (s *Store) ListDevices(ctx context.Context) ([]model.Device, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+deviceCols+deviceFrom+` ORDER BY d.hostname`)
+// ListDevices liefert alle Geräte. allowed begrenzt (falls nicht nil) auf die
+// angegebenen Standort-IDs (Daten-Scope); nil = unbeschränkt, leere Map = keine.
+func (s *Store) ListDevices(ctx context.Context, allowed map[string]bool) ([]model.Device, error) {
+	query := `SELECT ` + deviceCols + deviceFrom
+	var args []any
+	if allowed != nil {
+		if len(allowed) == 0 {
+			return []model.Device{}, nil
+		}
+		ids := make([]string, 0, len(allowed))
+		for id := range allowed {
+			ids = append(ids, id)
+		}
+		marks, a := placeholders(ids)
+		query += ` WHERE d.site_id IN (` + marks + `)`
+		args = a
+	}
+	query += ` ORDER BY d.hostname`
+	rows, err := s.db.QueryContext(ctx, s.rebind(query), args...)
 	if err != nil {
 		return nil, err
 	}

@@ -142,7 +142,7 @@ func (p *program) cveScanLoop() {
 	ctx := context.Background()
 	client := &http.Client{Timeout: 20 * time.Second}
 	scan := func() {
-		devs, err := p.st.ListDevices(ctx)
+		devs, err := p.st.ListDevices(ctx, nil)
 		if err != nil {
 			p.log.Warn("cve-scan: geräte laden fehlgeschlagen", "err", err)
 			return

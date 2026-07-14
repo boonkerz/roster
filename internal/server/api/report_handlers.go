@@ -14,7 +14,7 @@ import (
 
 // buildHealthReport erzeugt den Health-Bericht über alle Geräte (mit Status).
 func (s *Server) buildHealthReport(r *http.Request) (report.Report, error) {
-	devices, err := s.store.ListDevices(r.Context())
+	devices, err := s.store.ListDevices(r.Context(), nil)
 	if err != nil {
 		return report.Report{}, err
 	}
@@ -89,7 +89,7 @@ func (s *Server) RunReportLoop(ctx context.Context) {
 		if err != nil || len(due) == 0 {
 			return
 		}
-		devices, err := s.store.ListDevices(ctx)
+		devices, err := s.store.ListDevices(ctx, nil)
 		if err != nil {
 			return
 		}

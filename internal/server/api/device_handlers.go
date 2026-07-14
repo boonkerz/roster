@@ -26,12 +26,20 @@ func (s *Server) computeStatus(d *model.Device) string {
 }
 
 func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
+	sites, unrestricted := s.allowedSites(r.Context())
 	var devices []model.Device
 	var err error
 	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
 		devices, err = s.store.SearchDevices(r.Context(), q)
+		if err == nil && !unrestricted {
+			devices = filterBySites(devices, sites) // Suche nachträglich auf den Scope einschränken
+		}
 	} else {
-		devices, err = s.store.ListDevices(r.Context())
+		filter := sites
+		if unrestricted {
+			filter = nil
+		}
+		devices, err = s.store.ListDevices(r.Context(), filter)
 	}
 	if err != nil {
 		s.mapStoreErr(w, err)
@@ -64,7 +72,12 @@ func (s *Server) handleDeviceHistory(w http.ResponseWriter, r *http.Request) {
 
 // handleDashboard liefert die aggregierte Übersicht über alle Geräte.
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	devices, err := s.store.ListDevices(r.Context())
+	sites, unrestricted := s.allowedSites(r.Context())
+	filter := sites
+	if unrestricted {
+		filter = nil
+	}
+	devices, err := s.store.ListDevices(r.Context(), filter)
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
@@ -187,6 +200,17 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id})
+}
+
+// filterBySites behält nur Geräte, deren Standort im erlaubten Set liegt (Daten-Scope).
+func filterBySites(devices []model.Device, sites map[string]bool) []model.Device {
+	out := devices[:0]
+	for _, d := range devices {
+		if d.SiteID != nil && sites[*d.SiteID] {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // handleListResolutions reiht das Auflisten der verfügbaren Bildschirmauflösungen ein.

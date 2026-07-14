@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/boonkerz/roster/internal/server/auth"
 	"github.com/boonkerz/roster/internal/server/model"
 )
@@ -125,6 +127,40 @@ func (s *Server) requireAgent(next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), ctxDevice, device)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// allowedSites liefert den Daten-Scope des angemeldeten Benutzers: sites=nil &
+// unrestricted=true bedeutet „alle sichtbar" (Admin oder ohne Scope-Einträge).
+func (s *Server) allowedSites(ctx context.Context) (sites map[string]bool, unrestricted bool) {
+	u := userFrom(ctx)
+	if u == nil || u.Role == model.RoleAdmin {
+		return nil, true // Admins sehen alles
+	}
+	m, unrestr, err := s.store.AllowedSites(ctx, u.ID)
+	if err != nil {
+		return map[string]bool{}, false // im Zweifel nichts (fail-closed)
+	}
+	return m, unrestr
+}
+
+// scopeDevice erzwingt den Daten-Scope für alle /devices/{id}/…-Routen: ein Benutzer
+// mit eingeschränktem Scope darf nur Geräte in seinen Standorten sehen/bedienen. Nicht-
+// Geräte-Routen (anderes {id}) sind über den Pfad-Präfix ausgenommen.
+func (s *Server) scopeDevice(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/devices/") {
+			if deviceID := chi.URLParam(r, "id"); deviceID != "" {
+				if sites, unrestricted := s.allowedSites(r.Context()); !unrestricted {
+					siteID, exists, _ := s.store.DeviceSiteID(r.Context(), deviceID)
+					if !exists || siteID == "" || !sites[siteID] {
+						s.writeErr(w, http.StatusForbidden, "Gerät außerhalb Ihres Bereichs")
+						return
+					}
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

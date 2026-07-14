@@ -105,6 +105,7 @@ func (s *Server) routes() http.Handler {
 				// Restliche Funktionen erst nach abgeschlossener 2FA (bei Pflicht).
 				r.Group(func(r chi.Router) {
 					r.Use(s.requireEnrolled)
+					r.Use(s.scopeDevice) // Daten-Scope für /devices/{id}/… erzwingen
 					r.Get("/agents", s.handleAgentList) // harmlose Plattform-Liste
 
 					// --- Übersicht (page.dashboard) ---
@@ -263,6 +264,8 @@ func (s *Server) routes() http.Handler {
 						r.Get("/users", s.handleListUsers)
 						r.Post("/users", s.handleCreateUser)
 						r.Put("/users/{id}", s.handleUpdateUser)
+						r.Get("/users/{id}/scope", s.handleGetUserScope)
+						r.Put("/users/{id}/scope", s.handleSetUserScope)
 						r.Post("/users/{id}/reset-2fa", s.handleAdminReset2FA)
 						r.Get("/roles", s.handleListRoles)
 						r.Post("/roles", s.handleCreateRole)

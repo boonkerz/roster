@@ -88,6 +88,32 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleGetUserScope liefert den Daten-Scope eines Benutzers (zugeordnete Kunden/Standorte).
+func (s *Server) handleGetUserScope(w http.ResponseWriter, r *http.Request) {
+	clientIDs, siteIDs, err := s.store.GetUserScope(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"clients": clientIDs, "sites": siteIDs})
+}
+
+// handleSetUserScope setzt den Daten-Scope eines Benutzers (leere Listen = unbeschränkt).
+func (s *Server) handleSetUserScope(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Clients []string `json:"clients"`
+		Sites   []string `json:"sites"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	if err := s.store.SetUserScope(r.Context(), chi.URLParam(r, "id"), req.Clients, req.Sites); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 // handleAdminReset2FA deaktiviert die Zwei-Faktor-Authentifizierung eines Benutzers
 // (Admin, für ausgesperrte Nutzer). Bei 2FA-Pflicht muss der Nutzer beim nächsten
 // Login neu einrichten.
