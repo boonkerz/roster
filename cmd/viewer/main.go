@@ -250,9 +250,20 @@ func runSession(cfg *launchConfig) error {
 	qName := []string{"N", "M", "H"}
 	hoverID, lastHover := "", "?"
 	// Zwischenablage-Sync: lastClip verhindert Echos (Gerät→Viewer nicht sofort
-	// zurücksenden); die lokale Ablage wird periodisch gepollt.
-	lastClip := sdl.GetClipboardText()
+	// zurücksenden). pushClip sendet lokale Änderungen ans Gerät – aufgerufen beim
+	// Verbinden, bei Fokus-Gewinn (dann will man einfügen) und periodisch. lastClip
+	// startet leer, damit auch eine VOR dem Verbinden kopierte Ablage gesendet wird.
+	lastClip := ""
 	lastClipPoll := time.Now()
+	pushClip := func() {
+		if cur := sdl.GetClipboardText(); cur != lastClip {
+			lastClip = cur
+			if cur != "" {
+				log.Printf("zwischenablage → gerät (%d zeichen)", len([]rune(cur)))
+				_ = rc.clientCutText(cur)
+			}
+		}
+	}
 
 	doAction := func(id string) {
 		uiDirty = true
@@ -302,6 +313,10 @@ func runSession(cfg *launchConfig) error {
 			switch ev.Type() {
 			case sdl.EventQuit, sdl.EventWindowCloseRequested:
 				running = false
+			case sdl.EventWindowFocusGained:
+				// Der Nutzer wechselt zum Viewer, um einzufügen – lokale Ablage
+				// jetzt sicher ans Gerät schieben (Wayland liefert sie erst bei Fokus).
+				pushClip()
 			case sdl.EventKeyDown, sdl.EventKeyUp:
 				v.onKey(&ev)
 			case sdl.EventTextInput:
@@ -387,6 +402,7 @@ func runSession(cfg *launchConfig) error {
 				// Gerät → Viewer: in die lokale Zwischenablage übernehmen.
 				if txt != lastClip {
 					lastClip = txt
+					log.Printf("zwischenablage ← gerät (%d zeichen)", len([]rune(txt)))
 					setClipboardText(txt)
 				}
 			case err := <-done:
@@ -403,10 +419,7 @@ func runSession(cfg *launchConfig) error {
 		// Viewer → Gerät: lokale Zwischenablage pollen und Änderungen senden.
 		if time.Since(lastClipPoll) > 500*time.Millisecond {
 			lastClipPoll = time.Now()
-			if cur := sdl.GetClipboardText(); cur != lastClip {
-				lastClip = cur
-				_ = rc.clientCutText(cur)
-			}
+			pushClip()
 		}
 
 		if painted || uiDirty || hoverID != lastHover {
