@@ -120,13 +120,15 @@ func TestDeviceInventoryAndRevoke(t *testing.T) {
 		t.Errorf("nach widerruf sollte token nicht mehr auffindbar sein, bekam %v", err)
 	}
 
-	// Inventar-Historie enthält beide Snapshots.
+	// Inventar-Snapshots werden auf ~1×/Tag pro Gerät gedrosselt: zwei Check-ins
+	// kurz hintereinander erzeugen nur EINEN Snapshot (sonst würde die Tabelle bei
+	// häufigem Check-in unbegrenzt wachsen).
 	hist, err := st.InventoryHistory(ctx, dev.ID, 10)
 	if err != nil {
 		t.Fatalf("InventoryHistory: %v", err)
 	}
-	if len(hist) != 2 {
-		t.Errorf("erwartete 2 snapshots, bekam %d", len(hist))
+	if len(hist) != 1 {
+		t.Errorf("erwartete 1 gedrosselten snapshot, bekam %d", len(hist))
 	}
 }
 

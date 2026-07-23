@@ -129,11 +129,28 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 		}
 	}
 
-	data, _ := json.Marshal(inv)
-	if _, err := tx.ExecContext(ctx, s.rebind(`
-		INSERT INTO inventory (id, device_id, collected_at, data) VALUES (?, ?, ?, ?)`),
-		newID(), deviceID, now, string(data)); err != nil {
-		return err
+	// Inventar-Snapshot (Historie) höchstens ~1×/Tag pro Gerät anlegen – sonst würde
+	// die Tabelle bei häufigem Check-in unbegrenzt wachsen. Die Live-Gerätedaten oben
+	// werden bei JEDEM Check-in aktualisiert; hier geht es nur um die Verlaufskopie.
+	var recent int
+	qerr := tx.QueryRowContext(ctx, s.rebind(
+		`SELECT 1 FROM inventory WHERE device_id=? AND collected_at >= ? LIMIT 1`),
+		deviceID, now.Add(-24*time.Hour)).Scan(&recent)
+	if qerr == sql.ErrNoRows {
+		data, _ := json.Marshal(inv)
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO inventory (id, device_id, collected_at, data) VALUES (?, ?, ?, ?)`),
+			newID(), deviceID, now, string(data)); err != nil {
+			return err
+		}
+		// Historie je Gerät auf 90 Tage begrenzen.
+		if _, err := tx.ExecContext(ctx, s.rebind(
+			`DELETE FROM inventory WHERE device_id=? AND collected_at < ?`),
+			deviceID, now.Add(-90*24*time.Hour)); err != nil {
+			return err
+		}
+	} else if qerr != nil {
+		return qerr
 	}
 
 	return tx.Commit()
