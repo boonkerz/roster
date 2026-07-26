@@ -229,6 +229,7 @@ func (s *Server) routes() http.Handler {
 						r.Put("/policies/{id}", s.handleUpdatePolicy)
 						r.Delete("/policies/{id}", s.handleDeletePolicy)
 						r.Post("/policies/{id}/checks", s.handleAddCheck)
+						r.Put("/checks/{id}", s.handleUpdateCheck)
 						r.Post("/policies/{id}/tasks", s.handleAddTask)
 						r.Post("/policies/{id}/assignments", s.handleAddAssignment)
 						r.Delete("/checks/{id}", s.handleDeleteCheck)

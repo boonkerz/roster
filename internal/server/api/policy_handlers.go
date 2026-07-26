@@ -153,6 +153,27 @@ func (s *Server) handleAddCheck(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusCreated, c)
 }
 
+func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	var req checkRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	rp := req.RemediationProxmox
+	if rp != nil && rp.HostID == "" {
+		rp = nil
+	}
+	c := &model.PolicyCheck{
+		ID: chi.URLParam(r, "id"), Name: req.Name, Type: req.Type, Config: req.Config,
+		ScriptID: req.ScriptID, Severity: req.Severity, Frequency: req.Frequency,
+		RemediationScriptID: req.RemediationScriptID, RemediationProxmox: rp,
+	}
+	if err := s.store.UpdateCheck(r.Context(), c); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, c)
+}
+
 func (s *Server) handleDeleteCheck(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteCheck(r.Context(), chi.URLParam(r, "id")); err != nil {
 		s.mapStoreErr(w, err)

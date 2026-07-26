@@ -228,6 +228,34 @@ func (s *Store) AddCheck(ctx context.Context, c *model.PolicyCheck) error {
 	return err
 }
 
+// UpdateCheck ändert einen bestehenden Check (per c.ID). policy_id bleibt unberührt.
+func (s *Store) UpdateCheck(ctx context.Context, c *model.PolicyCheck) error {
+	cfg, _ := json.Marshal(c.Config)
+	if len(cfg) == 0 {
+		cfg = []byte("{}")
+	}
+	var scriptID any
+	if c.ScriptID != nil {
+		scriptID = *c.ScriptID
+	}
+	var remID any
+	if c.RemediationScriptID != nil && *c.RemediationScriptID != "" {
+		remID = *c.RemediationScriptID
+	}
+	remProxmox := ""
+	if c.RemediationProxmox != nil && c.RemediationProxmox.HostID != "" {
+		b, _ := json.Marshal(c.RemediationProxmox)
+		remProxmox = string(b)
+	}
+	severity := c.Severity
+	if severity != "warning" {
+		severity = "critical"
+	}
+	return s.affect(s.db.ExecContext(ctx, s.rebind(`
+		UPDATE policy_checks SET name=?, type=?, config=?, script_id=?, severity=?, frequency=?, remediation_script_id=?, remediation_proxmox=? WHERE id=?`),
+		c.Name, c.Type, string(cfg), scriptID, severity, c.Frequency, remID, remProxmox, c.ID))
+}
+
 // RemediationScript liefert das Remediation-Skript eines Checks (self-healing),
 // oder ErrNotFound, wenn keines konfiguriert ist.
 func (s *Store) RemediationScript(ctx context.Context, checkID string) (*model.Script, error) {

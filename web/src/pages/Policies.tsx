@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n, gt } from "../i18n";
-import type { Policy, PolicyTask, Script, ClientTree, Device, ProxmoxHost, ProxmoxGuest } from "../types";
+import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, ProxmoxHost, ProxmoxGuest } from "../types";
 
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 function weekdayLabel(s: string): string {
@@ -147,6 +147,7 @@ function PolicyEditor({
   const [cAllowed, setCAllowed] = useState(""); // Ports-Check: erlaubte Ports (Whitelist)
   const [cProxHost, setCProxHost] = useState("");   // Proxmox-Remediation: Host
   const [cProxGuest, setCProxGuest] = useState(""); // Proxmox-Remediation: "type:vmid"
+  const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
     queryKey: ["proxmox-guests", cProxHost],
@@ -187,16 +188,50 @@ function PolicyEditor({
         const g = (proxGuests ?? []).find((x) => `${x.type}:${x.vmid}` === cProxGuest);
         if (g) remediation_proxmox = { host_id: cProxHost, node: g.node, type: g.type, vmid: g.vmid };
       }
-      return api.post(`/policies/${policy.id}/checks`, {
+      const body = {
         name: cName, type: cType, severity, frequency: cFreq, config,
         script_id: cType === "script" ? cScript || null : null,
         remediation_script_id: cRemediation || null,
         remediation_proxmox,
-      });
+      };
+      return editId ? api.put(`/checks/${editId}`, body) : api.post(`/policies/${policy.id}/checks`, body);
     },
-    onSuccess: () => { onChange(); setCName(""); setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCContains(""); setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest(""); },
+    onSuccess: () => { onChange(); resetCheckForm(); },
   });
-  const delCheck = useMutation({ mutationFn: (id: string) => api.del(`/checks/${id}`), onSuccess: onChange });
+  const delCheck = useMutation({ mutationFn: (id: string) => api.del(`/checks/${id}`), onSuccess: () => { if (editId) resetCheckForm(); onChange(); } });
+
+  // resetCheckForm setzt das Formular komplett zurück (auch aus dem Bearbeiten-Modus).
+  function resetCheckForm() {
+    setEditId(null); setCName(""); setCType("disk"); setCThreshold(15); setCScript("");
+    setCSeverity("critical"); setCFreq(""); setCOp(""); setCWarn(""); setCCrit("");
+    setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCContains("");
+    setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
+  }
+
+  // startEditCheck lädt einen bestehenden Check zum Bearbeiten ins Formular.
+  function startEditCheck(c: PolicyCheck) {
+    const cfg = c.config ?? {};
+    const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
+    setEditId(c.id);
+    setCName(c.name);
+    setCType(c.type);
+    setCThreshold(Number(cfg.threshold ?? 15));
+    setCScript(c.script_id ?? "");
+    setCSeverity(c.severity === "warning" ? "warning" : "critical");
+    setCFreq(c.frequency ?? "");
+    setCOp(str(cfg.operator));
+    setCWarn(str(cfg.warn));
+    setCCrit(str(cfg.crit));
+    setCHost(str(cfg.host));
+    setCPort(str(cfg.port));
+    setCUrl(str(cfg.url));
+    setCExpected(str(cfg.expected_status));
+    setCContains(str(cfg.contains));
+    setCAllowed(str(cfg.allowed));
+    setCRemediation(c.remediation_script_id ?? "");
+    setCProxHost(c.remediation_proxmox?.host_id ?? "");
+    setCProxGuest(c.remediation_proxmox ? `${c.remediation_proxmox.type}:${c.remediation_proxmox.vmid}` : "");
+  }
 
   // Task anlegen
   const [tName, setTName] = useState("");
@@ -247,8 +282,9 @@ function PolicyEditor({
       <section className="card">
         <h2>Checks</h2>
         {(policy.checks ?? []).map((c) => (
-          <div key={c.id} className="list-row">
-            <span className="link-strong">{c.name || t(CHECK_TYPES[c.type])}</span>
+          <div key={c.id} className={`list-row ${editId === c.id ? "active" : ""}`}>
+            <span className="link-strong" style={{ cursor: "pointer" }} title={t("Zum Bearbeiten anklicken")}
+              onClick={() => startEditCheck(c)}>{c.name || t(CHECK_TYPES[c.type])}</span>
             <span className="muted small">
               {c.type === "script" ? `Skript: ${scriptName(c.script_id)}`
                 : c.type === "http" ? `HTTP: ${c.config?.url ?? ""}${c.config?.expected_status ? ` (=${c.config.expected_status})` : ""}${c.config?.contains ? ` ⊃ "${c.config.contains}"` : ""}`
@@ -339,7 +375,8 @@ function PolicyEditor({
               )}
             </>
           )}
-          <button className="btn primary" type="submit">+ {t("Check")}</button>
+          <button className="btn primary" type="submit">{editId ? t("Speichern") : "+ " + t("Check")}</button>
+          {editId && <button className="btn ghost" type="button" onClick={resetCheckForm}>{t("Abbrechen")}</button>}
         </form>
       </section>
 

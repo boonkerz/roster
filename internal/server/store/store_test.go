@@ -199,6 +199,33 @@ func TestAlertChannelScopeAndSeverity(t *testing.T) {
 	if err != nil || sev[chk.ID] != "warning" {
 		t.Fatalf("CheckSeverities: %v / %v", sev, err)
 	}
+
+	// UpdateCheck: Typ/Name/Config/Severity ändern und zurücklesen.
+	chk.Name = "web"
+	chk.Type = "http"
+	chk.Severity = "critical"
+	chk.Config = map[string]any{"url": "https://x.de", "contains": "OK"}
+	if err := st.UpdateCheck(ctx, chk); err != nil {
+		t.Fatalf("UpdateCheck: %v", err)
+	}
+	pols, err := st.ListPolicies(ctx)
+	if err != nil {
+		t.Fatalf("ListPolicies: %v", err)
+	}
+	var gotChk *model.PolicyCheck
+	for i := range pols {
+		for j := range pols[i].Checks {
+			if pols[i].Checks[j].ID == chk.ID {
+				gotChk = &pols[i].Checks[j]
+			}
+		}
+	}
+	if gotChk == nil {
+		t.Fatal("aktualisierter Check nicht gefunden")
+	}
+	if gotChk.Name != "web" || gotChk.Type != "http" || gotChk.Severity != "critical" || gotChk.Config["contains"] != "OK" {
+		t.Fatalf("UpdateCheck nicht übernommen: %+v", gotChk)
+	}
 }
 
 func TestRemediation(t *testing.T) {
@@ -564,7 +591,13 @@ func TestDeviceInMaintenance(t *testing.T) {
 	st.SetDeviceSite(ctx, dev.ID, &site.ID)
 	now := time.Now()
 
-	check := func() bool { in, err := st.DeviceInMaintenance(ctx, dev.ID, now); if err != nil { t.Fatal(err) }; return in }
+	check := func() bool {
+		in, err := st.DeviceInMaintenance(ctx, dev.ID, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return in
+	}
 
 	if check() {
 		t.Fatal("ohne Fenster sollte keine Wartung aktiv sein")
@@ -615,20 +648,40 @@ func TestDevicesForTarget(t *testing.T) {
 	st.CreateGroup(ctx, g)
 	st.SetDeviceGroups(ctx, d1.ID, []string{g.ID})
 
-	count := func(tt, id string) int { ids, err := st.DevicesForTarget(ctx, tt, id, time.Now().Add(-5*time.Minute)); if err != nil { t.Fatal(err) }; return len(ids) }
-	if count("device", d1.ID) != 1 { t.Fatal("device") }
-	if count("site", site.ID) != 2 { t.Fatal("site") }
-	if count("client", cl.ID) != 2 { t.Fatal("client") }
-	if count("group", g.ID) != 1 { t.Fatal("group") }
-	if count("all", "") != 2 { t.Fatal("all") }
+	count := func(tt, id string) int {
+		ids, err := st.DevicesForTarget(ctx, tt, id, time.Now().Add(-5*time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(ids)
+	}
+	if count("device", d1.ID) != 1 {
+		t.Fatal("device")
+	}
+	if count("site", site.ID) != 2 {
+		t.Fatal("site")
+	}
+	if count("client", cl.ID) != 2 {
+		t.Fatal("client")
+	}
+	if count("group", g.ID) != 1 {
+		t.Fatal("group")
+	}
+	if count("all", "") != 2 {
+		t.Fatal("all")
+	}
 
 	// Smart Group: Regel os=linux matcht beide, os=windows keins.
 	sg := &model.Group{ID: store.NewID(), Name: "linux", Rule: `{"match":"all","conditions":[{"field":"os","op":"eq","value":"linux"}]}`}
 	st.CreateGroup(ctx, sg)
-	if count("group", sg.ID) != 2 { t.Fatal("smart group linux") }
+	if count("group", sg.ID) != 2 {
+		t.Fatal("smart group linux")
+	}
 	sg.Rule = `{"match":"all","conditions":[{"field":"os","op":"eq","value":"windows"}]}`
 	st.UpdateGroup(ctx, sg)
-	if count("group", sg.ID) != 0 { t.Fatal("smart group windows") }
+	if count("group", sg.ID) != 0 {
+		t.Fatal("smart group windows")
+	}
 }
 
 func TestSearchDevices(t *testing.T) {

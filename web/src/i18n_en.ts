@@ -421,6 +421,7 @@ export const EN: Record<string, string> = {
   "Nur Exit-Code": "Exit code only",
   "URL (z.B. example.com)": "URL (e.g. example.com)",
   "Enthält Text (optional)": "Contains text (optional)",
+  "Zum Bearbeiten anklicken": "Click to edit",
   "Der Check schlägt fehl, wenn der Seiteninhalt diesen Text nicht enthält.": "The check fails if the page content does not contain this text.",
   "Proxmox-VE-Hosts für Reboot-Aktionen und Check-Remediation. API-Token unter Datacenter → Permissions → API Tokens anlegen.": "Proxmox VE hosts for reboot actions and check remediation. Create an API token under Datacenter → Permissions → API Tokens.",
   "TLS geprüft": "TLS verified",
