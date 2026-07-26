@@ -77,6 +77,31 @@ export function Devices() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
+  // Höhe des oberen (Listen-)Panels – per Trenner ziehbar, in localStorage gemerkt.
+  const [listH, setListH] = useState<number>(() => {
+    const v = Number(localStorage.getItem("roster-devices-list-h"));
+    return v >= 150 ? v : 380;
+  });
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = listH;
+    const onMove = (ev: MouseEvent) => {
+      const max = Math.max(200, window.innerHeight - 220);
+      const h = Math.min(max, Math.max(150, startH + (ev.clientY - startY)));
+      setListH(h);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      setListH((h) => { localStorage.setItem("roster-devices-list-h", String(h)); return h; });
+    };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   // Suche serverseitig (debounced) – deckt Hostname, IP/MAC, OS, Seriennr.,
   // installierte Software und Custom-Field-Werte ab.
   const [dq, setDq] = useState("");
@@ -160,7 +185,7 @@ export function Devices() {
 
         {data && (
           <div className="devices-split">
-            <div className="devices-table-wrap">
+            <div className="devices-table-wrap" style={{ height: listH, maxHeight: "none" }}>
               <table className="table selectable">
                 <thead>
                   <tr>
@@ -215,6 +240,10 @@ export function Devices() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="devices-resizer" onMouseDown={startResize} title={t("Ziehen zum Anpassen")}>
+              <span className="devices-resizer-grip" />
             </div>
 
             {selectedId && data.some((d) => d.id === selectedId) ? (

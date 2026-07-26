@@ -301,8 +301,12 @@ label input, label select { color: var(--text); }
 .org-tree { display: flex; flex-direction: column; gap: 1px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; position: sticky; top: 16px; }
 
 /* ---- Geräte-Split: Tabelle oben, Detail-Panel unten ---- */
-.devices-split { display: flex; flex-direction: column; gap: 16px; }
+.devices-split { display: flex; flex-direction: column; gap: 4px; }
 .devices-table-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+/* Ziehbarer Trenner zwischen Liste (oben) und Details (unten). */
+.devices-resizer { height: 12px; flex: none; cursor: row-resize; display: flex; align-items: center; justify-content: center; }
+.devices-resizer-grip { width: 64px; height: 4px; border-radius: 2px; background: var(--border); transition: background .15s, width .15s; }
+.devices-resizer:hover .devices-resizer-grip { background: var(--accent); width: 96px; }
 .devices-table-wrap .table { margin: 0; }
 .table.selectable thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .table.selectable tbody tr { cursor: pointer; }
