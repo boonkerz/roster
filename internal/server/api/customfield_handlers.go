@@ -28,12 +28,31 @@ func (s *Server) handleListCustomFields(w http.ResponseWriter, r *http.Request) 
 }
 
 type customFieldRequest struct {
-	Model    string   `json:"model"`
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	Options  []string `json:"options"`
-	Default  string   `json:"default_value"`
-	Required bool     `json:"required"`
+	Model      string   `json:"model"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	Options    []string `json:"options"`
+	Default    string   `json:"default_value"`
+	Required   bool     `json:"required"`
+	Managed    bool     `json:"managed"`    // agent-verwaltet -> im Editor schreibgeschützt
+	Link       bool     `json:"link"`       // Listen-Einträge als Links rendern
+	Selectable bool     `json:"selectable"` // list: Auswahl-Checkboxen -> Begleitfeld
+}
+
+// selectionFieldName leitet den Namen des Begleit-Listenfelds für die Auswahl ab.
+func selectionFieldName(name string) string { return name + "_selected" }
+
+// ensureSelectionField legt (falls nötig) das Begleit-Listenfeld an und liefert dessen
+// Namen; leerer Rückgabewert = keine Auswahl.
+func (s *Server) ensureSelectionField(r *http.Request, mdl, name string, selectable bool, typ string) (string, error) {
+	if !selectable || typ != "list" {
+		return "", nil
+	}
+	sf := selectionFieldName(name)
+	if _, err := s.store.EnsureCustomField(r.Context(), mdl, sf, "list"); err != nil {
+		return "", err
+	}
+	return sf, nil
 }
 
 func (s *Server) handleCreateCustomField(w http.ResponseWriter, r *http.Request) {
@@ -45,9 +64,15 @@ func (s *Server) handleCreateCustomField(w http.ResponseWriter, r *http.Request)
 		s.writeErr(w, http.StatusBadRequest, "name, gültiges model (client|site|device) und type erforderlich")
 		return
 	}
+	sf, err := s.ensureSelectionField(r, req.Model, req.Name, req.Selectable, req.Type)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
 	f := &model.CustomField{
 		ID: store.NewID(), Model: req.Model, Name: req.Name, Type: req.Type,
 		Options: req.Options, Default: req.Default, Required: req.Required,
+		Managed: req.Managed, Link: req.Link, SelectionField: sf,
 	}
 	if err := s.store.CreateCustomField(r.Context(), f); err != nil {
 		s.mapStoreErr(w, err)
@@ -61,13 +86,19 @@ func (s *Server) handleUpdateCustomField(w http.ResponseWriter, r *http.Request)
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == "" || !validFieldTypes[req.Type] {
-		s.writeErr(w, http.StatusBadRequest, "name und gültiger type erforderlich")
+	if req.Name == "" || !validFieldTypes[req.Type] || !validFieldModels[req.Model] {
+		s.writeErr(w, http.StatusBadRequest, "name, gültiges model und type erforderlich")
+		return
+	}
+	sf, err := s.ensureSelectionField(r, req.Model, req.Name, req.Selectable, req.Type)
+	if err != nil {
+		s.mapStoreErr(w, err)
 		return
 	}
 	f := &model.CustomField{
 		ID: chi.URLParam(r, "id"), Name: req.Name, Type: req.Type,
 		Options: req.Options, Default: req.Default, Required: req.Required,
+		Managed: req.Managed, Link: req.Link, SelectionField: sf,
 	}
 	if err := s.store.UpdateCustomField(r.Context(), f); err != nil {
 		s.mapStoreErr(w, err)
@@ -116,7 +147,22 @@ func (s *Server) handleSetCustomFieldValues(w http.ResponseWriter, r *http.Reque
 		s.writeErr(w, http.StatusBadRequest, "model und entity_id erforderlich")
 		return
 	}
+	// Agent-verwaltete Felder ermitteln – die darf der Nutzer nicht überschreiben.
+	fields, err := s.store.CustomFields(r.Context(), req.Model)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	managed := map[string]bool{}
+	for _, f := range fields {
+		if f.Managed {
+			managed[f.ID] = true
+		}
+	}
 	for fieldID, raw := range req.Values {
+		if managed[fieldID] {
+			continue // agent-verwaltet: Nutzer-Schreibzugriff ignorieren
+		}
 		if err := s.store.SetCustomFieldValue(r.Context(), fieldID, req.EntityID, fieldValueToString(raw)); err != nil {
 			s.mapStoreErr(w, err)
 			return

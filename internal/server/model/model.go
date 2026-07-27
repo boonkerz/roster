@@ -293,6 +293,12 @@ type CustomField struct {
 	Options  []string `json:"options"`
 	Default  string   `json:"default_value"`
 	Required bool     `json:"required"`
+	// Zusatz-Eigenschaften (v.a. für list): Managed = agent-verwaltet (schreibgeschützt
+	// im Editor), Link = Einträge als Links rendern, SelectionField = Name des Begleit-
+	// Listenfelds für die Auswahl (leer => nicht auswählbar).
+	Managed        bool   `json:"managed"`
+	Link           bool   `json:"link"`
+	SelectionField string `json:"selection_field"`
 }
 
 // CustomFieldValue verbindet eine Feld-Definition mit dem Wert einer Entität.

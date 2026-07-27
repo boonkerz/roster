@@ -132,6 +132,59 @@ func TestDeviceInventoryAndRevoke(t *testing.T) {
 	}
 }
 
+func TestCustomFieldProps(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	// Quell-Liste mit den neuen Eigenschaften + Begleitfeld (wie der Handler es anlegt).
+	f := &model.CustomField{ID: store.NewID(), Model: "device", Name: "domains", Type: "list",
+		Managed: true, Link: true, SelectionField: "domains_selected"}
+	if err := st.CreateCustomField(ctx, f); err != nil {
+		t.Fatalf("CreateCustomField: %v", err)
+	}
+	if _, err := st.EnsureCustomField(ctx, "device", "domains_selected", "list"); err != nil {
+		t.Fatalf("EnsureCustomField Begleitfeld: %v", err)
+	}
+
+	fields, err := st.CustomFields(ctx, "device")
+	if err != nil {
+		t.Fatalf("CustomFields: %v", err)
+	}
+	var src, comp *model.CustomField
+	for i := range fields {
+		switch fields[i].Name {
+		case "domains":
+			src = &fields[i]
+		case "domains_selected":
+			comp = &fields[i]
+		}
+	}
+	if src == nil || !src.Managed || !src.Link || src.SelectionField != "domains_selected" {
+		t.Fatalf("Eigenschaften nicht übernommen: %+v", src)
+	}
+	if comp == nil {
+		t.Fatal("Begleitfeld domains_selected fehlt")
+	}
+	if comp.Managed || comp.SelectionField != "" {
+		t.Fatalf("Begleitfeld sollte schlicht sein: %+v", comp)
+	}
+
+	// CustomFieldValues liefert die Flags je Feld mit.
+	vals, err := st.CustomFieldValues(ctx, "device", "dev-x")
+	if err != nil {
+		t.Fatalf("CustomFieldValues: %v", err)
+	}
+	var found bool
+	for _, cv := range vals {
+		if cv.Field.Name == "domains" {
+			found = cv.Field.Managed && cv.Field.Link && cv.Field.SelectionField == "domains_selected"
+		}
+	}
+	if !found {
+		t.Fatal("Flags kamen über CustomFieldValues nicht durch")
+	}
+}
+
 func TestAlertChannelScopeAndSeverity(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

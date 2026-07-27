@@ -149,6 +149,9 @@ export interface CustomField {
   options: string[];
   default_value: string;
   required: boolean;
+  managed?: boolean;          // agent-verwaltet -> im Editor schreibgeschützt
+  link?: boolean;             // Listen-Einträge als Links rendern
+  selection_field?: string;   // Name des Begleit-Listenfelds für die Auswahl (leer = keine)
 }
 
 export interface CustomFieldValue {

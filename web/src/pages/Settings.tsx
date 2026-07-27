@@ -520,12 +520,15 @@ function CustomFields() {
   const [options, setOptions] = useState("");
   const [def, setDef] = useState("");
   const [required, setRequired] = useState(false);
+  const [managed, setManaged] = useState(false);       // list: agent-verwaltet (schreibgeschützt)
+  const [link, setLink] = useState(false);             // list: als Link rendern
+  const [selectable, setSelectable] = useState(false); // list: Auswahl-Checkboxen -> Begleitfeld
   const inval = () => qc.invalidateQueries({ queryKey: ["custom-fields"] });
-  const reset = () => { setEditId(null); setName(""); setType("text"); setOptions(""); setDef(""); setRequired(false); };
+  const reset = () => { setEditId(null); setName(""); setType("text"); setOptions(""); setDef(""); setRequired(false); setManaged(false); setLink(false); setSelectable(false); };
 
   const save = useMutation({
     mutationFn: () => {
-      const body = { model, name, type, options: options.split(",").map((o) => o.trim()).filter(Boolean), default_value: def, required };
+      const body = { model, name, type, options: options.split(",").map((o) => o.trim()).filter(Boolean), default_value: def, required, managed, link, selectable };
       return editId ? api.put(`/custom-fields/${editId}`, body) : api.post("/custom-fields", body);
     },
     onSuccess: () => { inval(); reset(); },
@@ -535,8 +538,10 @@ function CustomFields() {
   const startEdit = (f: CustomField) => {
     setEditId(f.id); setModel(f.model); setName(f.name); setType(f.type);
     setOptions(f.options.join(", ")); setDef(f.default_value); setRequired(f.required);
+    setManaged(!!f.managed); setLink(!!f.link); setSelectable(!!f.selection_field);
   };
   const needsOptions = type === "select" || type === "multiselect";
+  const isList = type === "list";
 
   return (
     <section className="card">
@@ -574,6 +579,13 @@ function CustomFields() {
         {needsOptions && <input placeholder={t("Optionen (kommagetrennt)")} value={options} onChange={(e) => setOptions(e.target.value)} />}
         <input placeholder={t("Standardwert")} value={def} onChange={(e) => setDef(e.target.value)} />
         <label className="chip"><input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> {t("Pflicht")}</label>
+        {isList && (
+          <>
+            <label className="chip" title={t("Nur der Agent/Collector befüllt dieses Feld; Nutzer können nichts ändern.")}><input type="checkbox" checked={managed} onChange={(e) => setManaged(e.target.checked)} /> {t("Agent-verwaltet")}</label>
+            <label className="chip" title={t("Einträge als klickbare Links darstellen.")}><input type="checkbox" checked={link} onChange={(e) => setLink(e.target.checked)} /> {t("Als Link")}</label>
+            <label className="chip" title={t("Einträge lassen sich anhaken; die Auswahl landet im Feld „<name>_selected\".")}><input type="checkbox" checked={selectable} onChange={(e) => setSelectable(e.target.checked)} /> {t("Auswählbar")}</label>
+          </>
+        )}
         <button className="btn primary" type="submit" disabled={save.isPending}>{editId ? "Speichern" : "+ Feld"}</button>
         {editId && <button type="button" className="btn ghost" onClick={reset}>Abbrechen</button>}
       </form>

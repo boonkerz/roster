@@ -17,7 +17,7 @@ import (
 
 // CustomFields liefert die Definitionen für ein Modell (model=="" => alle).
 func (s *Store) CustomFields(ctx context.Context, mdl string) ([]model.CustomField, error) {
-	q := `SELECT id, model, name, type, options, default_value, required FROM custom_fields`
+	q := `SELECT id, model, name, type, options, default_value, required, managed, link, selection_field FROM custom_fields`
 	var args []any
 	if mdl != "" {
 		q += ` WHERE model=?`
@@ -32,7 +32,7 @@ func (s *Store) CustomFields(ctx context.Context, mdl string) ([]model.CustomFie
 	out := []model.CustomField{}
 	for rows.Next() {
 		f, opts := model.CustomField{Options: []string{}}, ""
-		if err := rows.Scan(&f.ID, &f.Model, &f.Name, &f.Type, &opts, &f.Default, &f.Required); err != nil {
+		if err := rows.Scan(&f.ID, &f.Model, &f.Name, &f.Type, &opts, &f.Default, &f.Required, &f.Managed, &f.Link, &f.SelectionField); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(opts), &f.Options)
@@ -48,9 +48,9 @@ func (s *Store) CreateCustomField(ctx context.Context, f *model.CustomField) err
 		opts = []byte("[]")
 	}
 	_, err := s.db.ExecContext(ctx, s.rebind(`
-		INSERT INTO custom_fields (id, model, name, type, options, default_value, required)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`),
-		f.ID, f.Model, f.Name, f.Type, string(opts), f.Default, f.Required)
+		INSERT INTO custom_fields (id, model, name, type, options, default_value, required, managed, link, selection_field)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		f.ID, f.Model, f.Name, f.Type, string(opts), f.Default, f.Required, f.Managed, f.Link, f.SelectionField)
 	return err
 }
 
@@ -61,8 +61,8 @@ func (s *Store) UpdateCustomField(ctx context.Context, f *model.CustomField) err
 		opts = []byte("[]")
 	}
 	return s.affect(s.db.ExecContext(ctx, s.rebind(`
-		UPDATE custom_fields SET name=?, type=?, options=?, default_value=?, required=? WHERE id=?`),
-		f.Name, f.Type, string(opts), f.Default, f.Required, f.ID))
+		UPDATE custom_fields SET name=?, type=?, options=?, default_value=?, required=?, managed=?, link=?, selection_field=? WHERE id=?`),
+		f.Name, f.Type, string(opts), f.Default, f.Required, f.Managed, f.Link, f.SelectionField, f.ID))
 }
 
 // DeleteCustomField entfernt eine Definition inkl. ihrer Werte (FK CASCADE).
@@ -77,7 +77,7 @@ func (s *Store) DeleteCustomField(ctx context.Context, id string) error {
 // verschachteltes Lesen -> kein SQLite-Verbindungs-Deadlock).
 func (s *Store) CustomFieldValues(ctx context.Context, mdl, entityID string) ([]model.CustomFieldValue, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT f.id, f.model, f.name, f.type, f.options, f.default_value, f.required, COALESCE(v.value, '')
+		SELECT f.id, f.model, f.name, f.type, f.options, f.default_value, f.required, f.managed, f.link, f.selection_field, COALESCE(v.value, '')
 		FROM custom_fields f
 		LEFT JOIN custom_field_values v ON v.field_id=f.id AND v.entity_id=?
 		WHERE f.model=?
@@ -92,7 +92,7 @@ func (s *Store) CustomFieldValues(ctx context.Context, mdl, entityID string) ([]
 		var opts string
 		cv.Field.Options = []string{}
 		if err := rows.Scan(&cv.Field.ID, &cv.Field.Model, &cv.Field.Name, &cv.Field.Type, &opts,
-			&cv.Field.Default, &cv.Field.Required, &cv.Value); err != nil {
+			&cv.Field.Default, &cv.Field.Required, &cv.Field.Managed, &cv.Field.Link, &cv.Field.SelectionField, &cv.Value); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(opts), &cv.Field.Options)
