@@ -12,6 +12,7 @@ import { ServicesProcesses } from "./ServicesProcesses";
 import { FileBrowser } from "./FileBrowser";
 import { SecurityPanel } from "./SecurityPanel";
 import { EventLog } from "./EventLog";
+import { DockerPanel } from "./DockerPanel";
 import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
@@ -20,7 +21,7 @@ import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "docker" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -135,16 +136,19 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     software: { label: "Software", icon: "📦" },
     updates: { label: "Patches", icon: "⬇" },
     network: { label: "Netzwerk", icon: "🌐" },
+    docker: { label: "Docker", icon: "🐳" },
     fields: { label: "Felder", icon: "🏷" },
     files: { label: "Dateien", icon: "📁" },
     run: { label: "Ausführen", icon: "▶" },
     terminal: { label: "Terminal", icon: "❯_" },
     remote: { label: "Fernsteuern", icon: "🖱" },
   };
+  // Docker-Tab nur zeigen, wenn das Gerät Docker meldet (sonst leerer Tab überall).
+  const hasDocker = (device.docker_containers ?? []).length > 0 || (device.docker_images ?? []).length > 0;
   const tabGroups: { name: string; icon: string; tabs: Tab[] }[] = [
     { name: "Übersicht", icon: "🖥", tabs: ["summary", "live"] },
     { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "history"] },
-    { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", "fields"] },
+    { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), "fields"] },
     { name: "System", icon: "⚙", tabs: ["system", "security", "vulns", "events"] },
   ];
   if (canOperate) tabGroups.push({ name: "Zugriff", icon: "❯_", tabs: ["files", "run", "terminal", "remote"] });
@@ -156,6 +160,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
       {k === "tasks" && (device.tasks_total ?? 0) > 0 && <span className="tab-badge"><TaskHealthBadge total={device.tasks_total} failing={device.tasks_failing} /></span>}
       {k === "updates" && <span className="tab-badge"><UpdatesBadge count={device.updates_count} /></span>}
       {k === "software" && <span className="tab-count">{(device.software ?? []).length}</span>}
+      {k === "docker" && <span className="tab-count">{(device.docker_containers ?? []).length}</span>}
     </>
   );
   // Fehler-/Warn-Indikator an der Gruppe „Zustand" / „Inventar".
@@ -623,6 +628,8 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
             )}
           </section>
         )}
+
+        {tab === "docker" && <DockerPanel device={device} />}
 
         {tab === "run" && canOperate && (
           <section className="card">

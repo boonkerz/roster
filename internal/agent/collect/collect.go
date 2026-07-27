@@ -71,6 +71,10 @@ func Collect(ctx context.Context, agentVersion string) shared.Inventory {
 	// Lauschende Sockets (Angriffsfläche / „nach außen offen").
 	inv.ListenPorts = ListenPorts(ctx)
 
+	// Docker (nur wo die docker-CLI vorhanden ist).
+	inv.Containers = DockerContainers(ctx)
+	inv.Images = DockerImages(ctx)
+
 	return inv
 }
 

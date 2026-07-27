@@ -120,6 +120,30 @@ type Device struct {
 	Disks         []Disk         `json:"disks,omitempty"`
 	PhysicalDisks []PhysicalDisk `json:"physical_disks,omitempty"`
 	GPUs          []string       `json:"gpus,omitempty"`
+
+	Containers []DockerContainer `json:"docker_containers,omitempty"`
+	Images     []DockerImage     `json:"docker_images,omitempty"`
+}
+
+// DockerContainer ist ein Docker-Container eines Geräts (Momentaufnahme).
+type DockerContainer struct {
+	ContainerID string `json:"container_id"`
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	State       string `json:"state"`
+	Status      string `json:"status"`
+	Ports       string `json:"ports,omitempty"`
+	Compose     string `json:"compose,omitempty"`
+	Created     string `json:"created,omitempty"`
+}
+
+// DockerImage ist ein lokal vorhandenes Docker-Image eines Geräts.
+type DockerImage struct {
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+	ImageID    string `json:"image_id"`
+	Size       string `json:"size,omitempty"`
+	Created    string `json:"created,omitempty"`
 }
 
 // Disk ist ein Volume inkl. Belegung (für die Anzeige).

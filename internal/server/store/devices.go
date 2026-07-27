@@ -302,6 +302,12 @@ func (s *Store) GetDevice(ctx context.Context, id string) (*model.Device, error)
 	if d.ListenPorts, err = s.ListenPortsFor(ctx, id); err != nil {
 		return nil, err
 	}
+	if d.Containers, err = s.DockerContainersFor(ctx, id); err != nil {
+		return nil, err
+	}
+	if d.Images, err = s.DockerImagesFor(ctx, id); err != nil {
+		return nil, err
+	}
 	// Anzahl wirksamer Checks/Tasks (für die Statusmeldung "zugewiesen vs. ausgewertet").
 	if bundle, err := s.EffectivePolicy(ctx, id); err == nil && bundle != nil {
 		d.AssignedChecks = len(bundle.Checks)
@@ -714,6 +720,91 @@ func (s *Store) ListenPortsFor(ctx context.Context, deviceID string) ([]model.Li
 			p.ExtReachable = reachable.Bool
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ReplaceDockerContainers ersetzt die Container-Momentaufnahme eines Geräts.
+func (s *Store) ReplaceDockerContainers(ctx context.Context, deviceID string, containers []shared.DockerContainer) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM docker_containers WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, c := range containers {
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO docker_containers (device_id, container_id, name, image, state, status, ports, compose, created, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, c.ContainerID, c.Name, c.Image, c.State, c.Status, c.Ports, c.Compose, c.Created, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// DockerContainersFor liefert die Container eines Geräts (laufende zuerst, dann Name).
+func (s *Store) DockerContainersFor(ctx context.Context, deviceID string) ([]model.DockerContainer, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT container_id, name, image, state, status, ports, compose, created
+		FROM docker_containers WHERE device_id=?
+		ORDER BY CASE WHEN state='running' THEN 0 ELSE 1 END, name`), deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.DockerContainer
+	for rows.Next() {
+		var c model.DockerContainer
+		if err := rows.Scan(&c.ContainerID, &c.Name, &c.Image, &c.State, &c.Status, &c.Ports, &c.Compose, &c.Created); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ReplaceDockerImages ersetzt die Image-Momentaufnahme eines Geräts.
+func (s *Store) ReplaceDockerImages(ctx context.Context, deviceID string, images []shared.DockerImage) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM docker_images WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, im := range images {
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO docker_images (device_id, repository, tag, image_id, size, created, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, im.Repository, im.Tag, im.ImageID, im.Size, im.Created, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// DockerImagesFor liefert die lokalen Images eines Geräts.
+func (s *Store) DockerImagesFor(ctx context.Context, deviceID string) ([]model.DockerImage, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT repository, tag, image_id, size, created
+		FROM docker_images WHERE device_id=? ORDER BY repository, tag`), deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.DockerImage
+	for rows.Next() {
+		var im model.DockerImage
+		if err := rows.Scan(&im.Repository, &im.Tag, &im.ImageID, &im.Size, &im.Created); err != nil {
+			return nil, err
+		}
+		out = append(out, im)
 	}
 	return out, rows.Err()
 }

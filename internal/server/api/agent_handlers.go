@@ -74,6 +74,12 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplaceListenPorts(r.Context(), device.ID, req.Inventory.ListenPorts); err != nil {
 		s.log.Error("lauschende ports speichern", "err", err)
 	}
+	if err := s.store.ReplaceDockerContainers(r.Context(), device.ID, req.Inventory.Containers); err != nil {
+		s.log.Error("docker-container speichern", "err", err)
+	}
+	if err := s.store.ReplaceDockerImages(r.Context(), device.ID, req.Inventory.Images); err != nil {
+		s.log.Error("docker-images speichern", "err", err)
+	}
 	// Nach dem Inventar (MAC/IP bekannt) etwaige Scan-Platzhalter desselben Hosts
 	// zusammenführen – z. B. wenn ein zuvor per Scan übernommenes Gerät jetzt einen
 	// Agenten bekommen hat.

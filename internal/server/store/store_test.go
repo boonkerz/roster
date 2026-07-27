@@ -132,6 +132,47 @@ func TestDeviceInventoryAndRevoke(t *testing.T) {
 	}
 }
 
+func TestDockerInventory(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "dockerhost", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+
+	cs := []shared.DockerContainer{
+		{ContainerID: "abc123", Name: "web", Image: "nginx:latest", State: "exited", Status: "Exited (0)"},
+		{ContainerID: "def456", Name: "db", Image: "postgres:16", State: "running", Status: "Up 1h", Compose: "shop"},
+	}
+	if err := st.ReplaceDockerContainers(ctx, dev.ID, cs); err != nil {
+		t.Fatalf("ReplaceDockerContainers: %v", err)
+	}
+	got, err := st.DockerContainersFor(ctx, dev.ID)
+	if err != nil {
+		t.Fatalf("DockerContainersFor: %v", err)
+	}
+	// Laufende zuerst.
+	if len(got) != 2 || got[0].Name != "db" || got[0].State != "running" || got[0].Compose != "shop" {
+		t.Fatalf("Container-Reihenfolge/Inhalt falsch: %+v", got)
+	}
+	// Replace ersetzt vollständig.
+	if err := st.ReplaceDockerContainers(ctx, dev.ID, nil); err != nil {
+		t.Fatalf("Replace leer: %v", err)
+	}
+	if got, _ := st.DockerContainersFor(ctx, dev.ID); len(got) != 0 {
+		t.Fatalf("nach leerem Replace sollten 0 Container übrig sein: %d", len(got))
+	}
+
+	ims := []shared.DockerImage{{Repository: "nginx", Tag: "latest", ImageID: "111", Size: "142MB"}}
+	if err := st.ReplaceDockerImages(ctx, dev.ID, ims); err != nil {
+		t.Fatalf("ReplaceDockerImages: %v", err)
+	}
+	gi, err := st.DockerImagesFor(ctx, dev.ID)
+	if err != nil || len(gi) != 1 || gi[0].Repository != "nginx" || gi[0].Size != "142MB" {
+		t.Fatalf("DockerImagesFor: %v / %+v", err, gi)
+	}
+}
+
 func TestCustomFieldProps(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

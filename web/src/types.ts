@@ -49,6 +49,25 @@ export interface ListenPort {
   ext_reachable?: boolean;
 }
 
+export interface DockerContainer {
+  container_id: string;
+  name: string;
+  image: string;
+  state: string;   // running | exited | paused | ...
+  status: string;  // "Up 3 hours" / "Exited (0) 2 days ago"
+  ports?: string;
+  compose?: string;
+  created?: string;
+}
+
+export interface DockerImage {
+  repository: string;
+  tag: string;
+  image_id: string;
+  size?: string;
+  created?: string;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -330,6 +349,8 @@ export interface Device {
   available_updates?: UpdateItem[];
   interfaces?: Interface[];
   listen_ports?: ListenPort[];
+  docker_containers?: DockerContainer[];
+  docker_images?: DockerImage[];
   groups?: Group[];
   software?: SoftwarePackage[];
   printers?: Printer[];

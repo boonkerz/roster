@@ -142,7 +142,32 @@ type Inventory struct {
 	// OSUpdates ist nil, solange noch kein Update-Check lief (Status "unbekannt").
 	OSUpdates *OSUpdateInfo `json:"os_updates,omitempty"`
 
+	// Docker (nur wo die docker-CLI vorhanden ist): Container + lokale Images.
+	Containers []DockerContainer `json:"docker_containers,omitempty"`
+	Images     []DockerImage     `json:"docker_images,omitempty"`
+
 	CollectedAt time.Time `json:"collected_at"`
+}
+
+// DockerContainer ist ein (laufender oder gestoppter) Docker-Container.
+type DockerContainer struct {
+	ContainerID string `json:"container_id"`      // kurze ID
+	Name        string `json:"name"`              // Container-Name(n)
+	Image       string `json:"image"`             // Image-Referenz
+	State       string `json:"state"`             // running | exited | paused | created | restarting | dead
+	Status      string `json:"status"`            // z. B. "Up 3 hours" / "Exited (0) 2 days ago"
+	Ports       string `json:"ports,omitempty"`   // Port-Mappings (Rohstring)
+	Compose     string `json:"compose,omitempty"` // com.docker.compose.project (falls gesetzt)
+	Created     string `json:"created,omitempty"` // Erstellzeitpunkt (Rohstring)
+}
+
+// DockerImage ist ein lokal vorhandenes Docker-Image.
+type DockerImage struct {
+	Repository string `json:"repository"`        // Repository (oder "<none>")
+	Tag        string `json:"tag"`               // Tag (oder "<none>")
+	ImageID    string `json:"image_id"`          // kurze Image-ID
+	Size       string `json:"size,omitempty"`    // menschlich (z. B. "123MB")
+	Created    string `json:"created,omitempty"` // Alter (z. B. "2 weeks ago")
 }
 
 // ListenPort ist ein lauschender Socket des Geräts (Angriffsfläche). Public=true,
