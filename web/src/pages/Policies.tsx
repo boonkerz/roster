@@ -34,8 +34,16 @@ const CHECK_TYPES: Record<string, string> = {
   tcp: "TCP-Port erreichbar",
   http: "HTTP-Status",
   ports: "Offene Ports (Whitelist)",
+  docker: "Docker (Container/Zustand)",
 };
 const isNetCheck = (t: string) => t === "ping" || t === "tcp" || t === "http";
+// Docker-Modi: Label je Modus (für Formular + Zusammenfassung).
+const DOCKER_MODES: Record<string, string> = {
+  running: "Laufende Container (>= min)",
+  stopped: "Gestoppte Container (<= max)",
+  container: "Bestimmter Container läuft",
+  unhealthy: "Keine unhealthy Container",
+};
 
 // Häufigkeits-Presets für Checks und Tasks.
 const FREQ: [string, string][] = [
@@ -147,6 +155,10 @@ function PolicyEditor({
   const [cAllowed, setCAllowed] = useState(""); // Ports-Check: erlaubte Ports (Whitelist)
   const [cProxHost, setCProxHost] = useState("");   // Proxmox-Remediation: Host
   const [cProxGuest, setCProxGuest] = useState(""); // Proxmox-Remediation: "type:vmid"
+  const [cDMode, setCDMode] = useState("running");  // Docker-Check: Modus
+  const [cDMin, setCDMin] = useState("1");           // Docker running: min
+  const [cDMax, setCDMax] = useState("0");           // Docker stopped: max
+  const [cDName, setCDName] = useState("");          // Docker container: Name
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -166,6 +178,11 @@ function PolicyEditor({
         }
       } else if (cType === "ports") {
         config = { allowed: cAllowed.trim() };
+      } else if (cType === "docker") {
+        config = { mode: cDMode };
+        if (cDMode === "running") config.min = Number(cDMin || 1);
+        else if (cDMode === "stopped") config.max = Number(cDMax || 0);
+        else if (cDMode === "container") config.name = cDName.trim();
       } else if (isNetCheck(cType)) {
         config = {};
         if (cType === "http") {
@@ -206,6 +223,7 @@ function PolicyEditor({
     setCSeverity("critical"); setCFreq(""); setCOp(""); setCWarn(""); setCCrit("");
     setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCContains("");
     setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
+    setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName("");
   }
 
   // startEditCheck lädt einen bestehenden Check zum Bearbeiten ins Formular.
@@ -231,6 +249,10 @@ function PolicyEditor({
     setCRemediation(c.remediation_script_id ?? "");
     setCProxHost(c.remediation_proxmox?.host_id ?? "");
     setCProxGuest(c.remediation_proxmox ? `${c.remediation_proxmox.type}:${c.remediation_proxmox.vmid}` : "");
+    setCDMode(str(cfg.mode) || "running");
+    setCDMin(cfg.min !== undefined ? String(cfg.min) : "1");
+    setCDMax(cfg.max !== undefined ? String(cfg.max) : "0");
+    setCDName(str(cfg.name));
   }
 
   // Task anlegen
@@ -291,6 +313,7 @@ function PolicyEditor({
                 : c.type === "tcp" ? `TCP: ${c.config?.host ?? ""}:${c.config?.port ?? ""}`
                 : c.type === "ping" ? `Ping: ${c.config?.host ?? ""}`
                 : c.type === "ports" ? `${t("Erlaubt")}: ${c.config?.allowed ?? "—"}`
+                : c.type === "docker" ? `Docker: ${t(DOCKER_MODES[String(c.config?.mode ?? "running")] ?? "")}${c.config?.name ? ` (${c.config.name})` : c.config?.min !== undefined ? ` (min ${c.config.min})` : c.config?.max !== undefined ? ` (max ${c.config.max})` : ""}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
@@ -326,6 +349,15 @@ function PolicyEditor({
             <input placeholder={t("Erlaubte Ports, z.B. 22,80,443")} value={cAllowed}
               onChange={(e) => setCAllowed(e.target.value)} style={{ minWidth: 200 }}
               title={t("Öffentlich erreichbare Ports, die nicht in dieser Liste stehen, lösen den Check aus.")} />
+          ) : cType === "docker" ? (
+            <>
+              <select value={cDMode} onChange={(e) => setCDMode(e.target.value)} title={t("Was soll geprüft werden?")}>
+                {Object.entries(DOCKER_MODES).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
+              </select>
+              {cDMode === "running" && <label className="num" title={t("Failing, wenn weniger als so viele Container laufen.")}>{t("min")}<input type="number" value={cDMin} onChange={(e) => setCDMin(e.target.value)} /></label>}
+              {cDMode === "stopped" && <label className="num" title={t("Failing, wenn mehr als so viele Container gestoppt sind.")}>{t("max")}<input type="number" value={cDMax} onChange={(e) => setCDMax(e.target.value)} /></label>}
+              {cDMode === "container" && <input placeholder={t("Container-Name (Teilstring)")} value={cDName} onChange={(e) => setCDName(e.target.value)} style={{ minWidth: 160 }} />}
+            </>
           ) : isNetCheck(cType) ? (
             <>
               {cType === "http" ? (

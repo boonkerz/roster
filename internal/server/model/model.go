@@ -135,6 +135,7 @@ type DockerContainer struct {
 	Ports       string `json:"ports,omitempty"`
 	Compose     string `json:"compose,omitempty"`
 	Created     string `json:"created,omitempty"`
+	Health      string `json:"health,omitempty"`
 }
 
 // DockerImage ist ein lokal vorhandenes Docker-Image eines Geräts.

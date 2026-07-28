@@ -159,6 +159,7 @@ type DockerContainer struct {
 	Ports       string `json:"ports,omitempty"`   // Port-Mappings (Rohstring)
 	Compose     string `json:"compose,omitempty"` // com.docker.compose.project (falls gesetzt)
 	Created     string `json:"created,omitempty"` // Erstellzeitpunkt (Rohstring)
+	Health      string `json:"health,omitempty"`  // healthy | unhealthy | starting | "" (kein Healthcheck)
 }
 
 // DockerImage ist ein lokal vorhandenes Docker-Image.

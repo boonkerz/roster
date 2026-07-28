@@ -737,9 +737,9 @@ func (s *Store) ReplaceDockerContainers(ctx context.Context, deviceID string, co
 	now := time.Now().UTC()
 	for _, c := range containers {
 		if _, err := tx.ExecContext(ctx, s.rebind(`
-			INSERT INTO docker_containers (device_id, container_id, name, image, state, status, ports, compose, created, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-			deviceID, c.ContainerID, c.Name, c.Image, c.State, c.Status, c.Ports, c.Compose, c.Created, now); err != nil {
+			INSERT INTO docker_containers (device_id, container_id, name, image, state, status, ports, compose, created, health, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, c.ContainerID, c.Name, c.Image, c.State, c.Status, c.Ports, c.Compose, c.Created, c.Health, now); err != nil {
 			return err
 		}
 	}
@@ -749,7 +749,7 @@ func (s *Store) ReplaceDockerContainers(ctx context.Context, deviceID string, co
 // DockerContainersFor liefert die Container eines Geräts (laufende zuerst, dann Name).
 func (s *Store) DockerContainersFor(ctx context.Context, deviceID string) ([]model.DockerContainer, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT container_id, name, image, state, status, ports, compose, created
+		SELECT container_id, name, image, state, status, ports, compose, created, health
 		FROM docker_containers WHERE device_id=?
 		ORDER BY CASE WHEN state='running' THEN 0 ELSE 1 END, name`), deviceID)
 	if err != nil {
@@ -759,7 +759,7 @@ func (s *Store) DockerContainersFor(ctx context.Context, deviceID string) ([]mod
 	var out []model.DockerContainer
 	for rows.Next() {
 		var c model.DockerContainer
-		if err := rows.Scan(&c.ContainerID, &c.Name, &c.Image, &c.State, &c.Status, &c.Ports, &c.Compose, &c.Created); err != nil {
+		if err := rows.Scan(&c.ContainerID, &c.Name, &c.Image, &c.State, &c.Status, &c.Ports, &c.Compose, &c.Created, &c.Health); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

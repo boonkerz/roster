@@ -58,6 +58,7 @@ export interface DockerContainer {
   ports?: string;
   compose?: string;
   created?: string;
+  health?: string; // healthy | unhealthy | starting | ""
 }
 
 export interface DockerImage {

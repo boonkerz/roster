@@ -14,8 +14,8 @@ import (
 // (exec.LookPath deckt Linux/macOS/Windows ab). Fehlt Docker oder schlägt ein Aufruf
 // fehl, wird nil geliefert (das Feld verschwindet aus dem Inventar).
 
-// dockerAvailable meldet, ob die docker-CLI im PATH ist.
-func dockerAvailable() bool {
+// DockerAvailable meldet, ob die docker-CLI im PATH ist.
+func DockerAvailable() bool {
 	_, err := exec.LookPath("docker")
 	return err == nil
 }
@@ -34,14 +34,15 @@ func dockerRun(ctx context.Context, args ...string) string {
 
 // dockerPSLine spiegelt die Felder von `docker ps --format '{{json .}}'`.
 type dockerPSLine struct {
-	ID        string `json:"ID"`
-	Names     string `json:"Names"`
-	Image     string `json:"Image"`
-	State     string `json:"State"`
-	Status    string `json:"Status"`
-	Ports     string `json:"Ports"`
-	Labels    string `json:"Labels"`
-	CreatedAt string `json:"CreatedAt"`
+	ID           string `json:"ID"`
+	Names        string `json:"Names"`
+	Image        string `json:"Image"`
+	State        string `json:"State"`
+	Status       string `json:"Status"`
+	Ports        string `json:"Ports"`
+	Labels       string `json:"Labels"`
+	CreatedAt    string `json:"CreatedAt"`
+	HealthStatus string `json:"HealthStatus"`
 }
 
 // dockerImageLine spiegelt die Felder von `docker images --format '{{json .}}'`.
@@ -101,6 +102,7 @@ func parseDockerContainers(out string) []shared.DockerContainer {
 			Ports:       p.Ports,
 			Compose:     composeProject(p.Labels),
 			Created:     p.CreatedAt,
+			Health:      p.HealthStatus,
 		})
 	}
 	return list
@@ -131,7 +133,7 @@ func parseDockerImages(out string) []shared.DockerImage {
 
 // DockerContainers listet alle Container (laufend + gestoppt), sofern Docker vorhanden.
 func DockerContainers(ctx context.Context) []shared.DockerContainer {
-	if !dockerAvailable() {
+	if !DockerAvailable() {
 		return nil
 	}
 	return parseDockerContainers(dockerRun(ctx, "ps", "--all", "--no-trunc", "--format", "{{json .}}"))
@@ -139,7 +141,7 @@ func DockerContainers(ctx context.Context) []shared.DockerContainer {
 
 // DockerImages listet lokale Images, sofern Docker vorhanden.
 func DockerImages(ctx context.Context) []shared.DockerImage {
-	if !dockerAvailable() {
+	if !DockerAvailable() {
 		return nil
 	}
 	return parseDockerImages(dockerRun(ctx, "images", "--format", "{{json .}}"))

@@ -37,7 +37,10 @@ export function DockerPanel({ device }: { device: Device }) {
                   <tr key={idx}>
                     <td>{c.state === "running"
                       ? <span className="badge badge-online"><span className="dot" /> {c.state}</span>
-                      : <span className="badge badge-offline"><span className="dot" /> {c.state}</span>}</td>
+                      : <span className="badge badge-offline"><span className="dot" /> {c.state}</span>}
+                      {c.health === "unhealthy" && <span className="badge badge-offline" style={{ marginLeft: 4 }} title="Healthcheck">unhealthy</span>}
+                      {c.health === "healthy" && <span className="muted small" style={{ marginLeft: 4 }} title="Healthcheck">healthy</span>}
+                      {c.health === "starting" && <span className="muted small" style={{ marginLeft: 4 }}>starting</span>}</td>
                     <td className="link-strong">{c.name || "—"}</td>
                     <td className="mono small">{c.image}</td>
                     <td className="muted small">{c.compose || "—"}</td>
