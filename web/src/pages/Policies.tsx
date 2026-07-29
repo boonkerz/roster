@@ -38,6 +38,11 @@ const CHECK_TYPES: Record<string, string> = {
   smart: "SMART (Datenträger-Gesundheit)",
   av: "Virenschutz aktiv",
   bitlocker: "BitLocker verschlüsselt",
+  cert: "Zertifikat-Ablauf (TLS)",
+  service: "Dienst läuft",
+  process: "Prozess läuft",
+  uptime: "Uptime (Neustart überfällig)",
+  reboot: "Neustart ausstehend",
 };
 const isNetCheck = (t: string) => t === "ping" || t === "tcp" || t === "http";
 // Docker-Modi: Label je Modus (für Formular + Zusammenfassung).
@@ -163,6 +168,9 @@ function PolicyEditor({
   const [cDMax, setCDMax] = useState("0");           // Docker stopped: max
   const [cDName, setCDName] = useState("");          // Docker container: Name
   const [cAvAge, setCAvAge] = useState("7");         // Virenschutz: max. Signatur-Alter (Tage)
+  const [cCertDays, setCCertDays] = useState("14");  // Zertifikat: min. Rest-Tage
+  const [cSvcName, setCSvcName] = useState("");       // Dienst-/Prozess-Name
+  const [cUpDays, setCUpDays] = useState("30");       // Uptime: max. Tage
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -187,11 +195,20 @@ function PolicyEditor({
         if (cDMode === "running") config.min = Number(cDMin || 1);
         else if (cDMode === "stopped") config.max = Number(cDMax || 0);
         else if (cDMode === "container") config.name = cDName.trim();
-      } else if (cType === "smart" || cType === "bitlocker") {
+      } else if (cType === "smart" || cType === "bitlocker" || cType === "reboot") {
         config = {};
       } else if (cType === "av") {
         config = {};
         if (cAvAge !== "") config.max_signature_age = Number(cAvAge);
+      } else if (cType === "cert") {
+        config = { host: cHost.trim() };
+        if (cPort !== "") config.port = Number(cPort);
+        if (cCertDays !== "") config.min_days = Number(cCertDays);
+      } else if (cType === "service" || cType === "process") {
+        config = { name: cSvcName.trim() };
+      } else if (cType === "uptime") {
+        config = {};
+        if (cUpDays !== "") config.max_days = Number(cUpDays);
       } else if (isNetCheck(cType)) {
         config = {};
         if (cType === "http") {
@@ -233,6 +250,7 @@ function PolicyEditor({
     setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCContains("");
     setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
     setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName(""); setCAvAge("7");
+    setCCertDays("14"); setCSvcName(""); setCUpDays("30");
   }
 
   // startEditCheck lädt einen bestehenden Check zum Bearbeiten ins Formular.
@@ -263,6 +281,9 @@ function PolicyEditor({
     setCDMax(cfg.max !== undefined ? String(cfg.max) : "0");
     setCDName(str(cfg.name));
     setCAvAge(cfg.max_signature_age !== undefined ? String(cfg.max_signature_age) : "7");
+    setCCertDays(cfg.min_days !== undefined ? String(cfg.min_days) : "14");
+    setCSvcName(str(cfg.name));
+    setCUpDays(cfg.max_days !== undefined ? String(cfg.max_days) : "30");
   }
 
   // Task anlegen
@@ -324,8 +345,11 @@ function PolicyEditor({
                 : c.type === "ping" ? `Ping: ${c.config?.host ?? ""}`
                 : c.type === "ports" ? `${t("Erlaubt")}: ${c.config?.allowed ?? "—"}`
                 : c.type === "docker" ? `Docker: ${t(DOCKER_MODES[String(c.config?.mode ?? "running")] ?? "")}${c.config?.name ? ` (${c.config.name})` : c.config?.min !== undefined ? ` (min ${c.config.min})` : c.config?.max !== undefined ? ` (max ${c.config.max})` : ""}`
-                : c.type === "smart" || c.type === "bitlocker" ? t(CHECK_TYPES[c.type])
+                : c.type === "smart" || c.type === "bitlocker" || c.type === "reboot" ? t(CHECK_TYPES[c.type])
                 : c.type === "av" ? `${t(CHECK_TYPES[c.type])}${c.config?.max_signature_age ? ` (≤${c.config.max_signature_age}d)` : ""}`
+                : c.type === "cert" ? `Zertifikat: ${c.config?.host ?? ""}${c.config?.port ? `:${c.config.port}` : ""}${c.config?.min_days ? ` (≥${c.config.min_days}d)` : ""}`
+                : c.type === "service" || c.type === "process" ? `${t(CHECK_TYPES[c.type])}: ${c.config?.name ?? "—"}`
+                : c.type === "uptime" ? `Uptime ≤ ${c.config?.max_days ?? 30}d`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
@@ -376,6 +400,18 @@ function PolicyEditor({
             <span className="muted small">{t("Failing, wenn ein Datenträger SMART-Warnung/-Fehler meldet.")}</span>
           ) : cType === "bitlocker" ? (
             <span className="muted small">{t("Failing, wenn ein Volume unverschlüsselt ist.")}</span>
+          ) : cType === "cert" ? (
+            <>
+              <input placeholder={t("Host (z.B. example.com)")} value={cHost} onChange={(e) => setCHost(e.target.value)} style={{ minWidth: 180 }} />
+              <label className="num">Port<input type="number" placeholder="443" value={cPort} onChange={(e) => setCPort(e.target.value)} /></label>
+              <label className="num" title={t("Failing, wenn das Zertifikat in weniger als so vielen Tagen abläuft.")}>{t("min. Tage")}<input type="number" value={cCertDays} onChange={(e) => setCCertDays(e.target.value)} /></label>
+            </>
+          ) : cType === "service" || cType === "process" ? (
+            <input placeholder={cType === "service" ? t("Dienst-Name (Teilstring)") : t("Prozess-Name (Teilstring)")} value={cSvcName} onChange={(e) => setCSvcName(e.target.value)} style={{ minWidth: 180 }} />
+          ) : cType === "uptime" ? (
+            <label className="num" title={t("Failing, wenn die Uptime länger als so viele Tage ist (Neustart überfällig).")}>{t("max. Tage")}<input type="number" value={cUpDays} onChange={(e) => setCUpDays(e.target.value)} /></label>
+          ) : cType === "reboot" ? (
+            <span className="muted small">{t("Failing, wenn ein Neustart aussteht.")}</span>
           ) : isNetCheck(cType) ? (
             <>
               {cType === "http" ? (

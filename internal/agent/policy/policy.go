@@ -58,6 +58,16 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return avCheck(ctx, c)
 	case "bitlocker":
 		return bitlockerCheck(ctx, c)
+	case "cert":
+		return certCheck(ctx, c)
+	case "service":
+		return serviceCheck(ctx, c)
+	case "process":
+		return processCheck(ctx, c)
+	case "uptime":
+		return uptimeCheck(ctx, c)
+	case "reboot":
+		return rebootCheck(ctx, c)
 	default:
 		return shared.CheckResult{CheckID: c.ID, Status: "unknown", Output: "unbekannter Checktyp: " + c.Type}
 	}
