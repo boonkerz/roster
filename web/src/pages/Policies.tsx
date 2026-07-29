@@ -35,6 +35,9 @@ const CHECK_TYPES: Record<string, string> = {
   http: "HTTP-Status",
   ports: "Offene Ports (Whitelist)",
   docker: "Docker (Container/Zustand)",
+  smart: "SMART (Datenträger-Gesundheit)",
+  av: "Virenschutz aktiv",
+  bitlocker: "BitLocker verschlüsselt",
 };
 const isNetCheck = (t: string) => t === "ping" || t === "tcp" || t === "http";
 // Docker-Modi: Label je Modus (für Formular + Zusammenfassung).
@@ -159,6 +162,7 @@ function PolicyEditor({
   const [cDMin, setCDMin] = useState("1");           // Docker running: min
   const [cDMax, setCDMax] = useState("0");           // Docker stopped: max
   const [cDName, setCDName] = useState("");          // Docker container: Name
+  const [cAvAge, setCAvAge] = useState("7");         // Virenschutz: max. Signatur-Alter (Tage)
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -183,6 +187,11 @@ function PolicyEditor({
         if (cDMode === "running") config.min = Number(cDMin || 1);
         else if (cDMode === "stopped") config.max = Number(cDMax || 0);
         else if (cDMode === "container") config.name = cDName.trim();
+      } else if (cType === "smart" || cType === "bitlocker") {
+        config = {};
+      } else if (cType === "av") {
+        config = {};
+        if (cAvAge !== "") config.max_signature_age = Number(cAvAge);
       } else if (isNetCheck(cType)) {
         config = {};
         if (cType === "http") {
@@ -223,7 +232,7 @@ function PolicyEditor({
     setCSeverity("critical"); setCFreq(""); setCOp(""); setCWarn(""); setCCrit("");
     setCHost(""); setCPort(""); setCUrl(""); setCExpected(""); setCContains("");
     setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
-    setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName("");
+    setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName(""); setCAvAge("7");
   }
 
   // startEditCheck lädt einen bestehenden Check zum Bearbeiten ins Formular.
@@ -253,6 +262,7 @@ function PolicyEditor({
     setCDMin(cfg.min !== undefined ? String(cfg.min) : "1");
     setCDMax(cfg.max !== undefined ? String(cfg.max) : "0");
     setCDName(str(cfg.name));
+    setCAvAge(cfg.max_signature_age !== undefined ? String(cfg.max_signature_age) : "7");
   }
 
   // Task anlegen
@@ -314,6 +324,8 @@ function PolicyEditor({
                 : c.type === "ping" ? `Ping: ${c.config?.host ?? ""}`
                 : c.type === "ports" ? `${t("Erlaubt")}: ${c.config?.allowed ?? "—"}`
                 : c.type === "docker" ? `Docker: ${t(DOCKER_MODES[String(c.config?.mode ?? "running")] ?? "")}${c.config?.name ? ` (${c.config.name})` : c.config?.min !== undefined ? ` (min ${c.config.min})` : c.config?.max !== undefined ? ` (max ${c.config.max})` : ""}`
+                : c.type === "smart" || c.type === "bitlocker" ? t(CHECK_TYPES[c.type])
+                : c.type === "av" ? `${t(CHECK_TYPES[c.type])}${c.config?.max_signature_age ? ` (≤${c.config.max_signature_age}d)` : ""}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
@@ -358,6 +370,12 @@ function PolicyEditor({
               {cDMode === "stopped" && <label className="num" title={t("Failing, wenn mehr als so viele Container gestoppt sind.")}>{t("max")}<input type="number" value={cDMax} onChange={(e) => setCDMax(e.target.value)} /></label>}
               {cDMode === "container" && <input placeholder={t("Container-Name (Teilstring)")} value={cDName} onChange={(e) => setCDName(e.target.value)} style={{ minWidth: 160 }} />}
             </>
+          ) : cType === "av" ? (
+            <label className="num" title={t("Failing, wenn die Virensignaturen älter als so viele Tage sind.")}>{t("Signatur max. Tage")}<input type="number" value={cAvAge} onChange={(e) => setCAvAge(e.target.value)} /></label>
+          ) : cType === "smart" ? (
+            <span className="muted small">{t("Failing, wenn ein Datenträger SMART-Warnung/-Fehler meldet.")}</span>
+          ) : cType === "bitlocker" ? (
+            <span className="muted small">{t("Failing, wenn ein Volume unverschlüsselt ist.")}</span>
           ) : isNetCheck(cType) ? (
             <>
               {cType === "http" ? (

@@ -52,6 +52,12 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return portsCheck(ctx, c)
 	case "docker":
 		return dockerCheck(ctx, c)
+	case "smart":
+		return smartCheck(ctx, c)
+	case "av":
+		return avCheck(ctx, c)
+	case "bitlocker":
+		return bitlockerCheck(ctx, c)
 	default:
 		return shared.CheckResult{CheckID: c.ID, Status: "unknown", Output: "unbekannter Checktyp: " + c.Type}
 	}
