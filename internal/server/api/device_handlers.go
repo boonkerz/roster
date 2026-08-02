@@ -137,6 +137,21 @@ func (s *Server) handleSetDeviceNotes(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleSetDeviceMuteSoftware (de)aktiviert Software-Benachrichtigungen für ein Gerät.
+func (s *Server) handleSetDeviceMuteSoftware(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mute bool `json:"mute"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	if err := s.store.SetDeviceMuteSoftware(r.Context(), chi.URLParam(r, "id"), req.Mute); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 // handleDeviceEvents liefert den Check-Statuswechsel-Verlauf eines Geräts.
 func (s *Server) handleDeviceEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := s.store.CheckEventsFor(r.Context(), chi.URLParam(r, "id"), 100)

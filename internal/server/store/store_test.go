@@ -132,6 +132,55 @@ func TestDeviceInventoryAndRevoke(t *testing.T) {
 	}
 }
 
+func TestSoftwareDedupeNoPhantomEvents(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "srv", OS: "windows"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	dup := shared.Inventory{Hostname: "srv", Software: []shared.SoftwarePackage{
+		{Name: "Runtime", Version: "6.0.27.33320"},
+		{Name: "Runtime", Version: "48.108.8836"}, // Doppel-Name (Registry-Artefakt)
+		{Name: "Other", Version: "1.0"},
+	}}
+	if err := st.UpdateInventory(ctx, dev.ID, dup); err != nil { // Baseline
+		t.Fatalf("UpdateInventory 1: %v", err)
+	}
+	start := time.Now().Add(-time.Hour)
+
+	// Zweiter Check-in, gleiche Menge nur umsortiert → darf KEIN Event erzeugen.
+	dup.Software = []shared.SoftwarePackage{
+		{Name: "Other", Version: "1.0"},
+		{Name: "Runtime", Version: "48.108.8836"},
+		{Name: "Runtime", Version: "6.0.27.33320"},
+	}
+	if err := st.UpdateInventory(ctx, dev.ID, dup); err != nil {
+		t.Fatalf("UpdateInventory 2: %v", err)
+	}
+	ev, err := st.SoftwareEventsSince(ctx, dev.ID, start)
+	if err != nil {
+		t.Fatalf("SoftwareEventsSince: %v", err)
+	}
+	if len(ev) != 0 {
+		t.Fatalf("keine Phantom-Events erwartet, bekam %d: %+v", len(ev), ev)
+	}
+
+	// Echte Änderung → genau ein Event.
+	dup.Software = []shared.SoftwarePackage{
+		{Name: "Runtime", Version: "48.108.8836"},
+		{Name: "Runtime", Version: "6.0.27.33320"},
+		{Name: "Other", Version: "2.0"},
+	}
+	if err := st.UpdateInventory(ctx, dev.ID, dup); err != nil {
+		t.Fatalf("UpdateInventory 3: %v", err)
+	}
+	ev, _ = st.SoftwareEventsSince(ctx, dev.ID, start)
+	if len(ev) != 1 || ev[0].Name != "Other" || ev[0].Change != "updated" {
+		t.Fatalf("erwartete genau 1 updated-Event für Other, bekam %+v", ev)
+	}
+}
+
 func TestDockerInventory(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

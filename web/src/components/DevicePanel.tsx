@@ -94,6 +94,10 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     mutationFn: (v: string) => api.put(`/devices/${id}/notes`, { notes: v }),
     onSuccess: () => { setNotes(null); invalidate(); },
   });
+  const muteSoftware = useMutation({
+    mutationFn: (mute: boolean) => api.put(`/devices/${id}/mute-software`, { mute }),
+    onSuccess: invalidate,
+  });
   const wake = useMutation({
     mutationFn: () => api.post<{ mac: string; via: string[] }>(`/devices/${id}/wake`),
     onSuccess: (d) => alert(t("Aufweck-Signal (Wake-on-LAN) an {mac} gesendet.", { mac: d.mac }) + " (" + (d.via || []).join(", ") + ")"),
@@ -286,6 +290,14 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                   <button className="btn ghost sm" onClick={() => setNotes(null)}>{t("Verwerfen")}</button>
                 </div>
               )}
+
+              <h2 style={{ marginTop: 18 }}>{t("Benachrichtigungen")}</h2>
+              <label className="chip" style={{ width: "fit-content" }} title={t("Keine Alarme bei Software-Änderungen für dieses Gerät (z. B. bei „flappenden“ Versionen).")}>
+                <input type="checkbox" disabled={!canOperate || muteSoftware.isPending}
+                  checked={device.mute_software_alerts ?? false}
+                  onChange={(e) => muteSoftware.mutate(e.target.checked)} />
+                {" "}{t("Software-Änderungen nicht melden")}
+              </label>
             </section>
           </div>
           {(device.disks ?? []).length > 0 && (

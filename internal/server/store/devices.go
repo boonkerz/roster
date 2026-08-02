@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -81,14 +82,17 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 	}
 
 	// Software-Änderungen protokollieren (Diff gegen den bisherigen Stand), dann
-	// Software bei jedem Checkin vollständig ersetzen.
-	if err := s.recordSoftwareChanges(ctx, tx, deviceID, inv.Software, now); err != nil {
+	// Software bei jedem Checkin vollständig ersetzen. Vorher deduplizieren: doppelte
+	// Registry-Einträge mit gleichem Namen (aber unterschiedlicher Version) würden
+	// sonst bei jedem Checkin ein Phantom-„aktualisiert" auslösen (Diff nach Name).
+	software := dedupeSoftware(inv.Software)
+	if err := s.recordSoftwareChanges(ctx, tx, deviceID, software, now); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM software WHERE device_id = ?`), deviceID); err != nil {
 		return err
 	}
-	for _, sw := range inv.Software {
+	for _, sw := range software {
 		if _, err := tx.ExecContext(ctx, s.rebind(`
 			INSERT INTO software (device_id, name, version, publisher) VALUES (?, ?, ?, ?)`),
 			deviceID, sw.Name, sw.Version, sw.Publisher); err != nil {
@@ -172,7 +176,7 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
-	d.managed`
+	d.managed, d.mute_software_alerts`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -421,6 +425,24 @@ func (s *Store) softwareFor(ctx context.Context, deviceID string) ([]model.Softw
 // Stand und schreibt added/removed/updated-Ereignisse. Übersprungen wird, wenn es
 // noch keinen Stand gibt (Erstinventar = Baseline) oder die neue Liste leer ist
 // (vermutlich Sammel-Aussetzer – kein Massen-„entfernt").
+// dedupeSoftware entfernt Einträge mit gleichem Namen deterministisch (behält die
+// lexikografisch größte Version) und sortiert nach Namen. So bleibt die Menge über
+// Check-ins stabil, auch wenn der Agent doppelte/umsortierte Registry-Einträge liefert.
+func dedupeSoftware(sw []shared.SoftwarePackage) []shared.SoftwarePackage {
+	best := make(map[string]shared.SoftwarePackage, len(sw))
+	for _, p := range sw {
+		if cur, ok := best[p.Name]; !ok || p.Version > cur.Version {
+			best[p.Name] = p
+		}
+	}
+	out := make([]shared.SoftwarePackage, 0, len(best))
+	for _, p := range best {
+		out = append(out, p)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
 func (s *Store) recordSoftwareChanges(ctx context.Context, tx *sql.Tx, deviceID string, newSW []shared.SoftwarePackage, now time.Time) error {
 	if len(newSW) == 0 {
 		return nil
@@ -538,6 +560,18 @@ func (s *Store) printersFor(ctx context.Context, deviceID string) ([]model.Print
 // SetDeviceNotes speichert die Freitext-Notizen eines Geräts.
 func (s *Store) SetDeviceNotes(ctx context.Context, id, notes string) error {
 	return s.affect(s.db.ExecContext(ctx, s.rebind(`UPDATE devices SET notes=? WHERE id=?`), notes, id))
+}
+
+// SetDeviceMuteSoftware (de)aktiviert Software-Änderungs-Benachrichtigungen für ein Gerät.
+func (s *Store) SetDeviceMuteSoftware(ctx context.Context, id string, mute bool) error {
+	return s.affect(s.db.ExecContext(ctx, s.rebind(`UPDATE devices SET mute_software_alerts=? WHERE id=?`), mute, id))
+}
+
+// DeviceMuteSoftware meldet, ob für ein Gerät Software-Benachrichtigungen unterdrückt sind.
+func (s *Store) DeviceMuteSoftware(ctx context.Context, id string) bool {
+	var mute bool
+	_ = s.db.QueryRowContext(ctx, s.rebind(`SELECT mute_software_alerts FROM devices WHERE id=?`), id).Scan(&mute)
+	return mute
 }
 
 // DeleteDevice entfernt ein Gerät vollständig.
@@ -847,7 +881,7 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
-		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed)
+		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.MuteSoftwareAlerts)
 	if err != nil {
 		return nil, err
 	}

@@ -352,6 +352,7 @@ export interface Device {
   listen_ports?: ListenPort[];
   docker_containers?: DockerContainer[];
   docker_images?: DockerImage[];
+  mute_software_alerts?: boolean;
   groups?: Group[];
   software?: SoftwarePackage[];
   printers?: Printer[];

@@ -79,6 +79,9 @@ type Device struct {
 	// Freitext-Notizen zum Gerät (Doku).
 	Notes string `json:"notes"`
 
+	// MuteSoftwareAlerts unterdrückt Software-Änderungs-Benachrichtigungen für dieses Gerät.
+	MuteSoftwareAlerts bool `json:"mute_software_alerts"`
+
 	// Organisations-Zuordnung (Client -> Site). SiteID nil = nicht zugeordnet.
 	SiteID     *string `json:"site_id,omitempty"`
 	SiteName   string  `json:"site_name,omitempty"`

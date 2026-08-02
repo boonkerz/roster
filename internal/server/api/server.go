@@ -179,6 +179,7 @@ func (s *Server) routes() http.Handler {
 					r.Group(func(r chi.Router) {
 						r.Use(s.requirePerm(model.PermDevicesOperate))
 						r.Put("/devices/{id}/notes", s.handleSetDeviceNotes)
+						r.Put("/devices/{id}/mute-software", s.handleSetDeviceMuteSoftware)
 						r.Post("/devices/{id}/run", s.handleRunScript)
 						r.Post("/devices/{id}/checks/{checkID}/run", s.handleRunCheck)
 						r.Post("/devices/{id}/tasks/{taskID}/run", s.handleRunTask)

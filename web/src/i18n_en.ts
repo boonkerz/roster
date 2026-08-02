@@ -108,6 +108,8 @@ export const EN: Record<string, string> = {
   "Compose-Projekt": "Compose project",
   "Keine Container.": "No containers.",
   "Kein Docker erkannt (oder Agent noch nicht aktualisiert).": "No Docker detected (or agent not yet updated).",
+  "Software-Änderungen nicht melden": "Do not notify on software changes",
+  "Keine Alarme bei Software-Änderungen für dieses Gerät (z. B. bei „flappenden“ Versionen).": "No alerts on software changes for this device (e.g. for flapping versions).",
   "Docker (Container/Zustand)": "Docker (containers/state)",
   "Laufende Container (>= min)": "Running containers (>= min)",
   "Gestoppte Container (<= max)": "Stopped containers (<= max)",

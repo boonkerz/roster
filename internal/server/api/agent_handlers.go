@@ -301,6 +301,9 @@ func (s *Server) alertSoftwareChanges(ctx context.Context, device *model.Device,
 	if err != nil || !cfg.Enabled || !cfg.AlertSoftware {
 		return
 	}
+	if s.store.DeviceMuteSoftware(ctx, device.ID) {
+		return // für dieses Gerät stummgeschaltet
+	}
 	events, err := s.store.SoftwareEventsSince(ctx, device.ID, since)
 	if err != nil || len(events) == 0 {
 		return
