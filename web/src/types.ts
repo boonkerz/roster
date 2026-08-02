@@ -477,6 +477,8 @@ export interface DeployPackage {
   apt: string;
   dnf: string;
   brew: string;
+  pacman: string;
+  apk: string;
 }
 
 export interface EnrollmentToken {

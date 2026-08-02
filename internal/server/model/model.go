@@ -530,6 +530,8 @@ type DeployPackage struct {
 	Apt    string `json:"apt"`
 	Dnf    string `json:"dnf"`
 	Brew   string `json:"brew"`
+	Pacman string `json:"pacman"`
+	Apk    string `json:"apk"`
 }
 
 type EnrollmentToken struct {

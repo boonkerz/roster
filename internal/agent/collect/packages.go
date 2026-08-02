@@ -28,6 +28,8 @@ func InstallPackage(ctx context.Context, ids map[string]string) (int, string) {
 		mgrs = []mgr{
 			{"apt", "apt-get", []string{"install", "-y", "{id}"}, []string{"DEBIAN_FRONTEND=noninteractive"}},
 			{"dnf", "dnf", []string{"install", "-y", "{id}"}, nil},
+			{"pacman", "pacman", []string{"-S", "--noconfirm", "{id}"}, nil},
+			{"apk", "apk", []string{"add", "{id}"}, nil},
 		}
 	case "darwin":
 		mgrs = []mgr{

@@ -79,7 +79,7 @@ func (s *Server) handleBulkInstallPackage(w http.ResponseWriter, r *http.Request
 		return
 	}
 	payload := map[string]any{
-		"winget": pkg.Winget, "choco": pkg.Choco, "apt": pkg.Apt, "dnf": pkg.Dnf, "brew": pkg.Brew,
+		"winget": pkg.Winget, "choco": pkg.Choco, "apt": pkg.Apt, "dnf": pkg.Dnf, "brew": pkg.Brew, "pacman": pkg.Pacman, "apk": pkg.Apk,
 	}
 	label := "Installieren: " + pkg.Name
 	queued := 0

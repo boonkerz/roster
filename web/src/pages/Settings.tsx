@@ -214,7 +214,7 @@ function SoftwarePackages() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["software-packages"], queryFn: () => api.get<DeployPackage[]>("/software-packages") });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["software-packages"] });
-  const empty: DeployPackage = { id: "", name: "", winget: "", choco: "", apt: "", dnf: "", brew: "" };
+  const empty: DeployPackage = { id: "", name: "", winget: "", choco: "", apt: "", dnf: "", brew: "", pacman: "", apk: "" };
   const [form, setForm] = useState<DeployPackage>(empty);
 
   const save = useMutation({
@@ -230,7 +230,7 @@ function SoftwarePackages() {
       <p className="muted small">{t("Verteilbare Pakete – je Paketmanager eine Kennung. Ausrollen über „Sammelaktion → Software installieren“. Der Agent nutzt den auf dem Gerät verfügbaren Manager.")}</p>
       {(data ?? []).length > 0 && (
         <table className="table">
-          <thead><tr><th>{t("Name")}</th><th>winget</th><th>choco</th><th>apt</th><th>dnf</th><th>brew</th><th></th></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>winget</th><th>choco</th><th>apt</th><th>dnf</th><th>brew</th><th>pacman</th><th>apk</th><th></th></tr></thead>
           <tbody>
             {(data ?? []).map((p) => (
               <tr key={p.id}>
@@ -240,6 +240,8 @@ function SoftwarePackages() {
                 <td className="muted mono small">{p.apt || "—"}</td>
                 <td className="muted mono small">{p.dnf || "—"}</td>
                 <td className="muted mono small">{p.brew || "—"}</td>
+                <td className="muted mono small">{p.pacman || "—"}</td>
+                <td className="muted mono small">{p.apk || "—"}</td>
                 <td>
                   <button className="btn ghost sm" onClick={() => setForm(p)}>{t("Bearbeiten")}</button>
                   <button className="btn ghost sm" onClick={() => del.mutate(p.id)}>{t("Löschen")}</button>
@@ -256,6 +258,8 @@ function SoftwarePackages() {
         <input placeholder="apt (firefox)" value={form.apt} onChange={(e) => set("apt", e.target.value)} />
         <input placeholder="dnf" value={form.dnf} onChange={(e) => set("dnf", e.target.value)} />
         <input placeholder="brew" value={form.brew} onChange={(e) => set("brew", e.target.value)} />
+        <input placeholder="pacman" value={form.pacman} onChange={(e) => set("pacman", e.target.value)} />
+        <input placeholder="apk" value={form.apk} onChange={(e) => set("apk", e.target.value)} />
         <button className="btn primary" type="submit">{form.id ? t("Speichern") : t("Anlegen")}</button>
         {form.id && <button className="btn ghost" type="button" onClick={() => setForm(empty)}>{t("Abbrechen")}</button>}
       </form>
