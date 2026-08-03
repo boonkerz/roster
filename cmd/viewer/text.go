@@ -9,6 +9,7 @@ import (
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomedium"
 	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -17,6 +18,7 @@ import (
 // ColorMod – so reicht eine Textur je String für beliebige Farben.
 type textRenderer struct {
 	renderer *sdl.Renderer
+	font     *sfnt.Font
 	face     font.Face
 	ascent   int
 	height   int
@@ -33,16 +35,32 @@ func newTextRenderer(renderer *sdl.Renderer, px float64) (*textRenderer, error) 
 	if err != nil {
 		return nil, err
 	}
-	face, err := opentype.NewFace(f, &opentype.FaceOptions{Size: px, DPI: 72, Hinting: font.HintingFull})
-	if err != nil {
+	t := &textRenderer{renderer: renderer, font: f, cache: map[string]*textTex{}}
+	if err := t.setSize(px); err != nil {
 		return nil, err
 	}
+	return t, nil
+}
+
+// setSize wechselt die Schriftgröße (z. B. für Live-HiDPI-Zoom). Der Textur-Cache
+// wird verworfen (alte Größen freigegeben), sodass Strings neu gerastert werden.
+func (t *textRenderer) setSize(px float64) error {
+	face, err := opentype.NewFace(t.font, &opentype.FaceOptions{Size: px, DPI: 72, Hinting: font.HintingFull})
+	if err != nil {
+		return err
+	}
+	if t.face != nil {
+		_ = t.face.Close()
+	}
+	t.face = face
 	m := face.Metrics()
-	return &textRenderer{
-		renderer: renderer, face: face,
-		ascent: m.Ascent.Ceil(), height: (m.Ascent + m.Descent).Ceil(),
-		cache: map[string]*textTex{},
-	}, nil
+	t.ascent = m.Ascent.Ceil()
+	t.height = (m.Ascent + m.Descent).Ceil()
+	for _, tt := range t.cache {
+		sdl.DestroyTexture(tt.tex)
+	}
+	t.cache = map[string]*textTex{}
+	return nil
 }
 
 func (t *textRenderer) get(s string) *textTex {

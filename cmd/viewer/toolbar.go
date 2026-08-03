@@ -10,22 +10,31 @@ import (
 // Das Remote-Bild wird darunter gerendert (barHeight reserviert). Scharfer Text via
 // textRenderer (Go-Font), Hover-Highlights, Akzentfarben.
 
-// Leisten-Maße (Basiswerte bei UI-Skalierung 1.0; applyUIScale multipliziert sie
-// für HiDPI-Displays).
-var (
-	barHeight float32 = 44 // reservierter Streifen oben
-	pillY     float32 = 6
-	pillH     float32 = 32
-	btnPadX   float32 = 14
+// Basiswerte der Leisten-Maße bei UI-Skalierung 1.0.
+const (
+	baseBarHeight float32 = 44 // reservierter Streifen oben
+	basePillY     float32 = 6
+	basePillH     float32 = 32
+	baseBtnPadX   float32 = 14
+	baseFontPx            = 15 // Font-Basisgröße in px bei Skalierung 1.0
 )
 
-// applyUIScale skaliert die Leisten-Maße einmalig für HiDPI (Faktor aus dem
-// Display-Scale). Der Text skaliert separat über die Font-Größe.
+// Aktuelle (skalierte) Leisten-Maße.
+var (
+	barHeight = baseBarHeight
+	pillY     = basePillY
+	pillH     = basePillH
+	btnPadX   = baseBtnPadX
+)
+
+// applyUIScale setzt die Leisten-Maße für den HiDPI-Faktor s (idempotent, immer aus
+// den Basiswerten – so kann der Faktor zur Laufzeit neu gesetzt werden). Der Text
+// skaliert separat über die Font-Größe.
 func applyUIScale(s float32) {
-	barHeight *= s
-	pillY *= s
-	pillH *= s
-	btnPadX *= s
+	barHeight = baseBarHeight * s
+	pillY = basePillY * s
+	pillH = basePillH * s
+	btnPadX = baseBtnPadX * s
 }
 
 type button struct {
@@ -51,6 +60,8 @@ func newToolbar(txt *textRenderer) *toolbar {
 		{id: "files", label: "Dateien"},
 		{id: "qual", label: "Qualität: M"},
 		{id: "res", label: "Auflösung: Nativ"},
+		{id: "zoomout", label: "A−"},
+		{id: "zoomin", label: "A+"},
 		{id: "full", label: "Vollbild"},
 		{id: "disc", label: "Trennen", accent: 1},
 	}}

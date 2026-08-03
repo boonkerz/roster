@@ -68,6 +68,16 @@ type fileManager struct {
 	colW  float32
 	listY float32
 	rowH  float32
+
+	// Buttonleiste (gesetzt beim Zeichnen, gelesen bei Mausklick).
+	btns       []fmButton
+	btnY, btnH float32
+}
+
+// fmButton ist ein anklickbarer Knopf in der Aktionsleiste des Dateimanagers.
+type fmButton struct {
+	id, label string
+	x, w      float32
 }
 
 func newFileManager(txt *textRenderer, cfg *launchConfig) *fileManager {
@@ -277,7 +287,8 @@ func (fm *fileManager) goParent(p *fmPane) {
 	}
 }
 
-// transfer kopiert die ausgewählte Datei ins andere Panel (F5).
+// transfer kopiert die Auswahl ins andere Panel (F5) – Datei oder rekursiv einen
+// ganzen Ordner. Läuft asynchron; Fortschritt/Ergebnis stehen in der Fußzeile.
 func (fm *fileManager) transfer() {
 	fm.mu.Lock()
 	if fm.busy {
@@ -293,13 +304,14 @@ func (fm *fileManager) transfer() {
 	e := src.entries[src.sel]
 	dstPath := dst.path
 	dstRemote := dst.remote
+	srcRemote := src.remote
 	fm.mu.Unlock()
 
 	if e.name == ".." {
 		return
 	}
-	if e.dir {
-		fm.setStatus("Ordner-Transfer wird (noch) nicht unterstützt – nur einzelne Dateien.")
+	if srcRemote == dstRemote {
+		fm.setStatus("Quelle und Ziel sind dieselbe Seite")
 		return
 	}
 	fm.mu.Lock()
@@ -307,38 +319,101 @@ func (fm *fileManager) transfer() {
 	fm.mu.Unlock()
 	go func() {
 		defer func() { fm.mu.Lock(); fm.busy = false; fm.mu.Unlock() }()
-		var err error
-		if src.remote && !dstRemote {
-			// Gerät → lokal
-			fm.setStatus("Lade herunter: " + e.name + " …")
-			var data []byte
-			data, err = fm.cl.read(e.path)
-			if err == nil {
-				target := filepath.Join(dstPath, e.name)
-				err = os.WriteFile(target, data, 0644)
-			}
-		} else if !src.remote && dstRemote {
-			// lokal → Gerät
-			fm.setStatus("Lade hoch: " + e.name + " …")
-			var data []byte
-			data, err = os.ReadFile(e.path)
-			if err == nil && int64(len(data)) > maxViewerTransfer {
-				err = fmt.Errorf("Datei zu groß (max 32 MB)")
-			}
-			if err == nil {
-				target := remoteJoin(dstPath, e.name)
-				err = fm.cl.write(target, data)
-			}
+		var count int
+		if e.dir {
+			fm.setStatus("Ordner-Transfer: " + e.name + " …")
 		} else {
-			err = fmt.Errorf("Quelle und Ziel sind dieselbe Seite")
+			fm.setStatus("Übertrage " + e.name + " …")
 		}
-		if err != nil {
+		if err := fm.copyTree(e, dstPath, srcRemote, dstRemote, &count); err != nil {
 			fm.setStatus("Fehler: " + err.Error())
+			fm.load(dst, dstPath) // teils Übertragenes sichtbar machen
 			return
 		}
-		fm.setStatus("✓ " + e.name + " übertragen")
+		if e.dir {
+			fm.setStatus(fmt.Sprintf("✓ %s übertragen (%d Dateien)", e.name, count))
+		} else {
+			fm.setStatus("✓ " + e.name + " übertragen")
+		}
 		fm.load(dst, dstPath) // Zielpanel aktualisieren
 	}()
+}
+
+// copyTree kopiert src (Datei oder Ordner) rekursiv in das Zielverzeichnis dstDir.
+// srcRemote/dstRemote geben die Seiten an. count zählt tatsächlich kopierte Dateien.
+func (fm *fileManager) copyTree(src fmEntry, dstDir string, srcRemote, dstRemote bool, count *int) error {
+	if !src.dir {
+		return fm.copyFile(src, dstDir, srcRemote, dstRemote, count)
+	}
+	target := joinFor(dstDir, src.name, dstRemote)
+	if err := fm.mkdirFor(target, dstRemote); err != nil {
+		return fmt.Errorf("Ordner %s: %s", src.name, err)
+	}
+	var l fmListing
+	if srcRemote {
+		l = fm.cl.browse(src.path)
+	} else {
+		l = localBrowse(src.path)
+	}
+	if l.err != "" {
+		return fmt.Errorf("%s: %s", src.name, l.err)
+	}
+	for _, c := range l.entries {
+		if c.name == "." || c.name == ".." {
+			continue
+		}
+		if err := fm.copyTree(c, target, srcRemote, dstRemote, count); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// copyFile überträgt eine einzelne Datei zwischen den Seiten.
+func (fm *fileManager) copyFile(e fmEntry, dstDir string, srcRemote, dstRemote bool, count *int) error {
+	var data []byte
+	var err error
+	if srcRemote {
+		data, err = fm.cl.read(e.path)
+	} else {
+		data, err = os.ReadFile(e.path)
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %s", e.name, err)
+	}
+	if int64(len(data)) > maxViewerTransfer {
+		return fmt.Errorf("%s zu groß (max 32 MB)", e.name)
+	}
+	target := joinFor(dstDir, e.name, dstRemote)
+	if dstRemote {
+		err = fm.cl.write(target, data)
+	} else {
+		err = os.WriteFile(target, data, 0644)
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %s", e.name, err)
+	}
+	*count++
+	fm.setStatus(fmt.Sprintf("kopiere … %s  (%d)", e.name, *count))
+	return nil
+}
+
+// joinFor verbindet Verzeichnis + Name für die jeweilige Seite (Remote: geräte-
+// gerechtes Trennzeichen; lokal: filepath.Join).
+func joinFor(dir, name string, remote bool) string {
+	if remote {
+		return remoteJoin(dir, name)
+	}
+	return filepath.Join(dir, name)
+}
+
+// mkdirFor legt ein Verzeichnis auf der jeweiligen Seite an (idempotent: MkdirAll
+// bzw. agentseitig ebenfalls MkdirAll – bestehende Ordner sind kein Fehler).
+func (fm *fileManager) mkdirFor(path string, remote bool) error {
+	if remote {
+		return fm.cl.mkdir(path)
+	}
+	return os.MkdirAll(path, 0755)
 }
 
 // commitPrompt führt die bestätigte modale Aktion aus (Ordner anlegen / löschen).
@@ -397,12 +472,73 @@ func (fm *fileManager) setStatus(s string) {
 	fm.mu.Unlock()
 }
 
+// doButton führt eine über die Buttonleiste ausgelöste Aktion aus (ohne gehaltenes
+// fm.mu – die einzelnen Helfer sperren selbst).
+func (fm *fileManager) doButton(id string) {
+	switch id {
+	case "copy":
+		fm.transfer()
+	case "mkdir":
+		fm.startMkdir()
+	case "delete":
+		fm.startDelete()
+	case "refresh":
+		fm.refresh()
+	case "close":
+		fm.active = false
+	}
+}
+
+// startMkdir öffnet die modale Ordner-Eingabe für das fokussierte Panel.
+func (fm *fileManager) startMkdir() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	p := fm.curPane()
+	fm.prompt = promptState{kind: "mkdir", label: "Neuer Ordner in " + paneLabel(p) + ":"}
+}
+
+// startDelete öffnet die Löschbestätigung für den ausgewählten Eintrag.
+func (fm *fileManager) startDelete() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	p := fm.curPane()
+	if len(p.entries) == 0 || p.entries[p.sel].name == ".." {
+		return
+	}
+	e := p.entries[p.sel]
+	fm.prompt = promptState{kind: "delete", text: e.path, label: "Löschen: " + e.name + "  (Enter=ja, Esc=nein)"}
+}
+
+// refresh lädt das fokussierte Panel neu.
+func (fm *fileManager) refresh() {
+	fm.mu.Lock()
+	p := fm.curPane()
+	base := p.path
+	fm.mu.Unlock()
+	fm.load(p, base)
+}
+
 // --- Maus ---
 
 // onClick verarbeitet einen Linksklick (Fensterkoordinaten). Liefert true, wenn er
 // im Manager lag.
 func (fm *fileManager) onClick(mx, my float32, double bool) bool {
 	fm.mu.Lock()
+	// Buttonleiste (unter den Listen, über der Fußzeile) zuerst prüfen.
+	if fm.btnH > 0 && my >= fm.btnY && my < fm.btnY+fm.btnH {
+		id := ""
+		for _, b := range fm.btns {
+			if mx >= b.x && mx < b.x+b.w {
+				id = b.id
+				break
+			}
+		}
+		fm.mu.Unlock()
+		if id != "" {
+			fm.doButton(id)
+		}
+		return true
+	}
 	if my < fm.listY || fm.rowH <= 0 {
 		fm.mu.Unlock()
 		return false

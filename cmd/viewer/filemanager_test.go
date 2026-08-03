@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -77,6 +81,75 @@ func TestFMClientBrowse(t *testing.T) {
 	}
 	if !l.entries[1].dir || l.entries[0].size != 10 {
 		t.Errorf("Einträge falsch geparst: %+v", l.entries)
+	}
+}
+
+// TestCopyTreeRemoteToLocal überträgt rekursiv einen Geräte-Ordner (mit Unterordner)
+// ins lokale Dateisystem und prüft, dass Struktur + Inhalte ankommen. Der Stub bildet
+// browse/read/blob der viewer-files-API nach; die Command-ID kodiert den Zielpfad.
+func TestCopyTreeRemoteToLocal(t *testing.T) {
+	files := map[string]string{
+		"/src/file1.txt":        "hello",
+		"/src/subdir/file2.txt": "world",
+	}
+	browseOut := map[string]string{
+		"/src":        `{"path":"/src","parent":"/","entries":[{"name":"file1.txt","path":"/src/file1.txt","dir":false,"size":5},{"name":"subdir","path":"/src/subdir","dir":true}]}`,
+		"/src/subdir": `{"path":"/src/subdir","parent":"/src","entries":[{"name":"file2.txt","path":"/src/subdir/file2.txt","dir":false,"size":5}]}`,
+	}
+	enc := func(kind, p string) string { return kind + "." + base64.RawURLEncoding.EncodeToString([]byte(p)) }
+	dec := func(id string) (kind, p string) {
+		i := strings.IndexByte(id, '.')
+		b, _ := base64.RawURLEncoding.DecodeString(id[i+1:])
+		return id[:i], string(b)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/viewer-files/browse"):
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewEncoder(w).Encode(map[string]string{"command_id": enc("browse", body.Path)})
+		case strings.HasSuffix(r.URL.Path, "/viewer-files/read"):
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewEncoder(w).Encode(map[string]string{"command_id": enc("read", body.Path)})
+		case strings.Contains(r.URL.Path, "/viewer-files/command/"):
+			kind, p := dec(path.Base(r.URL.Path))
+			out := ""
+			if kind == "browse" {
+				out = browseOut[p]
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "done", "exit_code": 0, "output": out})
+		case strings.Contains(r.URL.Path, "/viewer-files/blob/"):
+			_, p := dec(path.Base(r.URL.Path))
+			_, _ = w.Write([]byte(files[p]))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	fm := &fileManager{cl: &fmClient{http: srv.Client(), base: srv.URL, device: "d", token: "tok"}}
+	dst := t.TempDir()
+	count := 0
+	src := fmEntry{name: "src", path: "/src", dir: true}
+	if err := fm.copyTree(src, dst, true, false, &count); err != nil {
+		t.Fatalf("copyTree: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("erwartete 2 kopierte Dateien, bekam %d", count)
+	}
+	for rel, want := range map[string]string{
+		"src/file1.txt":        "hello",
+		"src/subdir/file2.txt": "world",
+	} {
+		got, err := os.ReadFile(filepath.Join(dst, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("lesen %s: %v", rel, err)
+		}
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", rel, got, want)
+		}
 	}
 }
 

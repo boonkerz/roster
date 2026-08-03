@@ -38,12 +38,13 @@ func (fm *fileManager) draw(winW, winH float32) {
 	pad := 8 * s
 	gap := 8 * s
 	footerH := lh + 14*s
+	btnBarH := lh + 12*s
 	colW := (winW - 2*pad - gap) / 2
 	fm.colW = colW
 	headerH := lh + 10*s
 	listY := top + headerH
 	fm.listY = listY
-	listH := winH - listY - footerH - pad
+	listH := winH - listY - footerH - btnBarH - pad
 	if listH < rowH {
 		listH = rowH
 	}
@@ -122,6 +123,9 @@ func (fm *fileManager) draw(winW, winH float32) {
 		}
 	}
 
+	// Aktionsleiste mit anklickbaren Buttons (unter den Listen).
+	fm.drawButtons(winW, winH-footerH-btnBarH, btnBarH, s, lh)
+
 	// Fußzeile: Tastenhinweise bzw. Status/Prompt.
 	fy := winH - footerH
 	fm.fill(0, fy, winW, footerH, fmHeader)
@@ -139,6 +143,37 @@ func (fm *fileManager) draw(winW, winH float32) {
 		col = fmWhite
 	}
 	fm.txt.draw(clip(fm.txt, msg, winW-16*s), 8*s, fy+7*s, col[0], col[1], col[2])
+}
+
+// drawButtons rendert die Aktionsleiste und merkt sich die Trefferzonen (fm.btns)
+// für die Klickbehandlung. Wird mit gehaltenem fm.mu aufgerufen.
+func (fm *fileManager) drawButtons(winW, y, h, s, lh float32) {
+	fm.fill(0, y, winW, h, fmHeader)
+	defs := []fmButton{
+		{id: "copy", label: "Kopieren F5"},
+		{id: "mkdir", label: "Ordner F7"},
+		{id: "delete", label: "Löschen F8"},
+		{id: "refresh", label: "Aktualisieren"},
+		{id: "close", label: "Schließen Esc"},
+	}
+	padX := 12 * s
+	bx := 8 * s
+	for i := range defs {
+		w := fm.txt.width(defs[i].label) + 2*padX
+		defs[i].x = bx
+		defs[i].w = w
+		accent := defs[i].id == "copy"
+		cr, cg, cb := uint8(0x2b), uint8(0x38), uint8(0x49)
+		if accent {
+			cr, cg, cb = 0x2f, 0x5a, 0x8f // Kopieren hervorheben
+		}
+		fillRound(fm.rn, bx, y+3*s, w, h-6*s, 6*s, cr, cg, cb, 0xff)
+		tw := fm.txt.width(defs[i].label)
+		fm.txt.draw(defs[i].label, bx+(w-tw)/2, y+(h-lh)/2, fmWhite[0], fmWhite[1], fmWhite[2])
+		bx += w + 6*s
+	}
+	fm.btns = defs
+	fm.btnY, fm.btnH = y, h
 }
 
 func paneTitle(p *fmPane) string {

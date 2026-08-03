@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -217,17 +218,20 @@ func runSession(cfg *launchConfig) error {
 
 	// HiDPI: Font + Leisten-Maße mit dem Display-Scale hochskalieren, sonst wirkt
 	// die Schrift auf hochauflösenden Monitoren (Wayland/fraktionale Skalierung) winzig.
-	uiScale := sdl.GetWindowDisplayScale(window)
-	if uiScale < 1 { // Wayland: direkt nach CreateWindow ggf. noch 0 → Display-Scale
-		uiScale = sdl.GetDisplayContentScale(sdl.GetPrimaryDisplay())
-	}
-	if uiScale < 1 {
-		uiScale = 1
+	// ROSTER_VIEWER_SCALE erzwingt einen festen Faktor (deaktiviert die Auto-Erkennung),
+	// falls der Monitor keinen Content-Scale meldet (z. B. 4K@100% unter X11).
+	manualScale := false
+	uiScale := detectUIScale(window)
+	if v := strings.TrimSpace(os.Getenv("ROSTER_VIEWER_SCALE")); v != "" {
+		if f, perr := strconv.ParseFloat(v, 32); perr == nil && f > 0 {
+			uiScale = clampScale(float32(f))
+			manualScale = true
+		}
 	}
 	applyUIScale(uiScale)
 	log.Printf("ui-skalierung: %.2f", uiScale)
 
-	txt, err := newTextRenderer(renderer, float64(15*uiScale))
+	txt, err := newTextRenderer(renderer, float64(baseFontPx*uiScale))
 	if err != nil {
 		return fmt.Errorf("font: %w", err)
 	}
@@ -260,6 +264,23 @@ func runSession(cfg *launchConfig) error {
 	fm := newFileManager(txt, cfg)
 	fm.scale = uiScale
 	fullscreen, locked, uiDirty := false, false, false
+
+	// setScale ändert die UI-Skalierung zur Laufzeit (Zoom-Buttons / Monitorwechsel):
+	// Leisten-Maße + Font + Dateimanager-Skala neu setzen.
+	setScale := func(s float32) {
+		s = clampScale(s)
+		if s == uiScale {
+			return
+		}
+		uiScale = s
+		applyUIScale(s)
+		if err := txt.setSize(float64(baseFontPx * s)); err != nil {
+			log.Printf("font-skalierung: %v", err)
+		}
+		fm.scale = s
+		uiDirty = true
+		log.Printf("ui-skalierung: %.2f", s)
+	}
 	quality := byte(1)
 	qName := []string{"N", "M", "H"}
 	hoverID, lastHover := "", "?"
@@ -334,6 +355,12 @@ func runSession(cfg *launchConfig) error {
 			quality = (quality + 1) % 3
 			_ = rc.controlQuality(quality)
 			tb.setLabel("qual", "Qualität: "+qName[quality])
+		case "zoomin":
+			manualScale = true
+			setScale(uiScale + 0.15)
+		case "zoomout":
+			manualScale = true
+			setScale(uiScale - 0.15)
 		case "res":
 			adaptRes = !adaptRes
 			if adaptRes {
@@ -370,6 +397,12 @@ func runSession(cfg *launchConfig) error {
 				if adaptRes {
 					resDirty = true
 					resAt = time.Now()
+				}
+				// Pixel-Dichte kann sich erst jetzt füllen (Wayland) oder beim Verschieben
+				// auf einen anderen Monitor ändern → Skalierung nachziehen, außer der
+				// Nutzer hat sie manuell gesetzt.
+				if !manualScale {
+					setScale(detectUIScale(window))
 				}
 			case sdl.EventKeyDown, sdl.EventKeyUp:
 				down := ev.Type() == sdl.EventKeyDown
@@ -623,6 +656,41 @@ func clampWindow(w, h int) (int, int) {
 		s = sy
 	}
 	return int(float64(w) * s), int(float64(h) * s)
+}
+
+// detectUIScale ermittelt den HiDPI-Faktor aus mehreren Signalen und nimmt das
+// Maximum: dem gemeldeten Window-/Display-Content-Scale und dem Verhältnis von
+// Pixel- zu Logikgröße (fängt Retina/Wayland-fraktional ab, wo der Content-Scale
+// mitunter erst nach dem ersten Frame korrekt ist).
+func detectUIScale(window *sdl.Window) float32 {
+	s := sdl.GetWindowDisplayScale(window)
+	if cs := sdl.GetDisplayContentScale(sdl.GetPrimaryDisplay()); cs > s {
+		s = cs
+	}
+	var lw, lh, pw, ph int32
+	sdl.GetWindowSize(window, &lw, &lh)
+	sdl.GetWindowSizeInPixels(window, &pw, &ph)
+	if lw > 0 && pw > 0 {
+		if pr := float32(pw) / float32(lw); pr > s {
+			s = pr
+		}
+	}
+	if s < 1 { // Auto-Erkennung nie unter 1 skalieren.
+		s = 1
+	}
+	return clampScale(s)
+}
+
+// clampScale hält die UI-Skalierung in einem sinnvollen Bereich (manueller Zoom
+// darf leicht verkleinern; Obergrenze schützt vor Extremwerten).
+func clampScale(s float32) float32 {
+	if s < 0.6 {
+		return 0.6
+	}
+	if s > 4 {
+		return 4
+	}
+	return s
 }
 
 func wsBase(u string) string {
