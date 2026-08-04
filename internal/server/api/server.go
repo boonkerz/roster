@@ -118,6 +118,12 @@ func (s *Server) routes() http.Handler {
 					r.Use(s.scopeDevice)                // Daten-Scope für /devices/{id}/… erzwingen
 					r.Get("/agents", s.handleAgentList) // harmlose Plattform-Liste
 
+					// --- API-Tokens (Bearer) für native Clients / Mobile-App ---
+					// Jeder voll authentifizierte Nutzer verwaltet seine eigenen Tokens.
+					r.Get("/auth/api-tokens", s.handleListAPITokens)
+					r.Post("/auth/api-tokens", s.handleCreateAPIToken)
+					r.Delete("/auth/api-tokens/{id}", s.handleRevokeAPIToken)
+
 					// --- Übersicht (page.dashboard) ---
 					r.With(s.requirePerm(model.PermDashboard)).Get("/dashboard", s.handleDashboard)
 

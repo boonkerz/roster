@@ -130,6 +130,7 @@ func (p *program) Start(s service.Service) error {
 		go p.pruneLoop(cfg.ResultRetention)
 	}
 	go srv.RunReportLoop(context.Background())
+	go srv.RunOfflineLoop(context.Background())
 	go p.cveScanLoop()
 
 	go p.serve(cfg)

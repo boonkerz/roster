@@ -991,3 +991,61 @@ func TestMergeUnmanagedDuplicates(t *testing.T) {
 		t.Fatalf("zweiter Lauf sollte 0 sein, bekam %d", n2)
 	}
 }
+
+// TestUserAPITokenLifecycle deckt Erzeugung, Auflösung (inkl. last_used), Auflistung,
+// Widerruf und Ablauf der User-API-Tokens ab.
+func TestUserAPITokenLifecycle(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	u := &model.User{ID: store.NewID(), Username: "carol", Role: model.RoleAdmin, AuthSource: model.AuthLocal, PasswordHash: "x"}
+	if err := st.CreateUser(ctx, u); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	plain := auth.GenerateToken()
+	tok := &model.UserAPIToken{ID: store.NewID(), UserID: u.ID, Label: "iPhone"}
+	if err := st.CreateUserAPIToken(ctx, tok, auth.HashToken(plain)); err != nil {
+		t.Fatalf("CreateUserAPIToken: %v", err)
+	}
+
+	got, err := st.UserByAPIToken(ctx, auth.HashToken(plain))
+	if err != nil {
+		t.Fatalf("UserByAPIToken: %v", err)
+	}
+	if got.ID != u.ID {
+		t.Errorf("falscher Benutzer: %s", got.ID)
+	}
+
+	list, err := st.ListUserAPITokens(ctx, u.ID)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("Liste: err=%v len=%d", err, len(list))
+	}
+	if list[0].Token != "" {
+		t.Errorf("Klartext darf nicht in der Liste stehen")
+	}
+	if list[0].LastUsedAt == nil {
+		t.Errorf("last_used_at sollte nach Nutzung gesetzt sein")
+	}
+
+	if _, err := st.UserByAPIToken(ctx, auth.HashToken("nope")); err != store.ErrNotFound {
+		t.Errorf("unbekanntes Token: erwartete ErrNotFound, bekam %v", err)
+	}
+
+	if err := st.RevokeUserAPIToken(ctx, tok.ID, u.ID); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+	if _, err := st.UserByAPIToken(ctx, auth.HashToken(plain)); err != store.ErrNotFound {
+		t.Errorf("widerrufenes Token: erwartete ErrNotFound, bekam %v", err)
+	}
+
+	// Abgelaufenes Token ist nicht auflösbar.
+	past := time.Now().Add(-time.Hour)
+	expTok := &model.UserAPIToken{ID: store.NewID(), UserID: u.ID, Label: "alt", ExpiresAt: &past}
+	plain2 := auth.GenerateToken()
+	if err := st.CreateUserAPIToken(ctx, expTok, auth.HashToken(plain2)); err != nil {
+		t.Fatalf("Create expired: %v", err)
+	}
+	if _, err := st.UserByAPIToken(ctx, auth.HashToken(plain2)); err != store.ErrNotFound {
+		t.Errorf("abgelaufenes Token: erwartete ErrNotFound, bekam %v", err)
+	}
+}

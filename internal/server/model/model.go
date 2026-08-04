@@ -549,3 +549,17 @@ type EnrollmentToken struct {
 	// SiteID bindet das Token an einen Standort; damit enrollte Geräte landen dort.
 	SiteID *string `json:"site_id,omitempty"`
 }
+
+// UserAPIToken ist ein langlebiges Bearer-Token eines Benutzers für native Clients
+// (Mobile-App). Der Klartext wird nur bei der Erzeugung zurückgegeben; gespeichert
+// wird ausschließlich der Hash.
+type UserAPIToken struct {
+	ID         string     `json:"id"`
+	UserID     string     `json:"user_id"`
+	Label      string     `json:"label"`
+	Token      string     `json:"token,omitempty"` // nur bei Erstellung im Klartext
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	Revoked    bool       `json:"revoked"`
+}

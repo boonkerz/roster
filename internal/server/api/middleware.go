@@ -20,17 +20,27 @@ const (
 
 const sessionCookie = "roster_session"
 
-// requireUser verlangt eine gültige Session und legt den Benutzer in den Kontext.
+// requireUser verlangt eine gültige Session (Cookie) ODER ein gültiges User-API-Token
+// (Authorization: Bearer …, für native Clients/Mobile-App) und legt den Benutzer in den
+// Kontext. Das Cookie hat Vorrang; native WS-Clients können den Header setzen, sodass
+// mit diesem einen Zugang auch Terminal-/Remote-WebSockets erreichbar sind.
 func (s *Server) requireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(sessionCookie)
-		if err != nil || c.Value == "" {
+		var user *model.User
+		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
+			user, err = s.store.UserBySession(r.Context(), auth.HashToken(c.Value))
+			if err != nil {
+				s.writeErr(w, http.StatusUnauthorized, "session ungültig oder abgelaufen")
+				return
+			}
+		} else if tok := bearerToken(r); tok != "" {
+			user, err = s.store.UserByAPIToken(r.Context(), auth.HashToken(tok))
+			if err != nil {
+				s.writeErr(w, http.StatusUnauthorized, "api-token ungültig oder widerrufen")
+				return
+			}
+		} else {
 			s.writeErr(w, http.StatusUnauthorized, "nicht angemeldet")
-			return
-		}
-		user, err := s.store.UserBySession(r.Context(), auth.HashToken(c.Value))
-		if err != nil {
-			s.writeErr(w, http.StatusUnauthorized, "session ungültig oder abgelaufen")
 			return
 		}
 		// Effektive Rechte berechnen (Admin = alle; sonst Custom-Rolle oder Default).
