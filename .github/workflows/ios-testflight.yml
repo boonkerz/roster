@@ -1,0 +1,99 @@
+name: iOS TestFlight
+
+# Archiviert die App auf einem macOS-Runner (automatische Signierung über einen
+# App-Store-Connect-API-Key) und lädt sie zu TestFlight hoch. Manuell auslösbar
+# oder über ein Tag `ios-v*`.
+#
+# Voraussetzungen (einmalig im Repo einrichten):
+#   Variables (Settings → Secrets and variables → Actions → Variables):
+#     IOS_BUNDLE_ID   z. B. com.printshopcreator.roster (in App Store Connect als App anlegen)
+#     IOS_TEAM_ID     10-stellige Apple-Developer-Team-ID
+#   Secrets:
+#     ASC_KEY_ID      Key-ID des App-Store-Connect-API-Keys (Rolle „App Manager")
+#     ASC_ISSUER_ID   Issuer-ID
+#     ASC_API_KEY_P8  Inhalt der .p8-Datei (komplett, mehrzeilig)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  testflight:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ios
+    env:
+      BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode auswählen
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: XcodeGen installieren
+        run: brew install xcodegen
+
+      - name: Xcode-Projekt generieren
+        run: xcodegen generate
+
+      - name: API-Key ablegen
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Archivieren
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Roster.xcodeproj \
+            -scheme Roster \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Roster.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            MARKETING_VERSION="0.1.0" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Export-Optionen schreiben
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+
+      - name: IPA exportieren
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Roster.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload zu TestFlight
+        run: |
+          xcrun altool --upload-app -t ios \
+            -f "$RUNNER_TEMP"/export/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
