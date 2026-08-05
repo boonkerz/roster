@@ -3,7 +3,7 @@
 # Dateien unter RosterApp/ hinzufügen, SwiftTerm per SPM einbinden.
 name: Roster
 options:
-  bundleIdPrefix: com.printshopcreator
+  bundleIdPrefix: de.thomas-peterson
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -40,7 +40,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.printshopcreator.roster
+        PRODUCT_BUNDLE_IDENTIFIER: de.thomas-peterson.roster
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"

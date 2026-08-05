@@ -46,7 +46,7 @@ Voraussetzung: Xcode 15+, iOS 16+.
    Ohne XcodeGen: neues iOS-App-Target anlegen, `RosterApp/` hinzufügen und die
    SwiftTerm-SPM-Abhängigkeit (`https://github.com/migueldeicaza/SwiftTerm`) einbinden.
 2. In den Target-Einstellungen **Signing/Team** setzen (Bundle-ID
-   `com.printshopcreator.roster` in `project.yml` anpassbar).
+   `de.thomas-peterson.roster`, in `project.yml` anpassbar).
 3. Bauen/ausführen. Beim Start: Server-URL (`https://…`), Benutzer, Passwort, ggf. TOTP.
 
 > **SwiftTerm-Hinweis:** Die `TerminalViewDelegate`-Signaturen können je nach

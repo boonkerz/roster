@@ -6,7 +6,7 @@ name: iOS TestFlight
 #
 # Voraussetzungen (einmalig im Repo einrichten):
 #   Variables (Settings → Secrets and variables → Actions → Variables):
-#     IOS_BUNDLE_ID   z. B. com.printshopcreator.roster (in App Store Connect als App anlegen)
+#     IOS_BUNDLE_ID   de.thomas-peterson.roster (in App Store Connect als App anlegen)
 #     IOS_TEAM_ID     10-stellige Apple-Developer-Team-ID
 #   Secrets:
 #     ASC_KEY_ID      Key-ID des App-Store-Connect-API-Keys (Rolle „App Manager")
