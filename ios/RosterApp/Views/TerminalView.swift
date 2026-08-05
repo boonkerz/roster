@@ -181,6 +181,9 @@ final class TerminalBridge: NSObject, TerminalViewDelegate {
     func scrolled(source: SwiftTerm.TerminalView, position: Double) {}
     func hostCurrentDirectoryUpdate(source: SwiftTerm.TerminalView, directory: String?) {}
     func clipboardCopy(source: SwiftTerm.TerminalView, content: Data) {}
+    func clipboardRead(source: SwiftTerm.TerminalView) -> Data? { nil }
     func requestOpenLink(source: SwiftTerm.TerminalView, link: String, params: [String: String]) {}
     func bell(source: SwiftTerm.TerminalView) {}
+    func iTermContent(source: SwiftTerm.TerminalView, content: ArraySlice<UInt8>) {}
+    func rangeChanged(source: SwiftTerm.TerminalView, startY: Int, endY: Int) {}
 }
