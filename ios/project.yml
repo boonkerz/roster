@@ -1,0 +1,49 @@
+# XcodeGen-Projektdefinition → `xcodegen generate` erzeugt Roster.xcodeproj.
+# (brew install xcodegen). Ohne XcodeGen: neues iOS-App-Target anlegen und die
+# Dateien unter RosterApp/ hinzufügen, SwiftTerm per SPM einbinden.
+name: Roster
+options:
+  bundleIdPrefix: com.printshopcreator
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    from: "1.2.0"
+
+schemes:
+  Roster:
+    build:
+      targets:
+        Roster: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+targets:
+  Roster:
+    type: application
+    platform: iOS
+    sources:
+      - RosterApp
+    dependencies:
+      - package: SwiftTerm
+    info:
+      path: RosterApp/Info.plist
+      properties:
+        CFBundleDisplayName: Roster
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.printshopcreator.roster
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: NO
+        # Signing/Team hier oder in Xcode setzen (DEVELOPMENT_TEAM).
