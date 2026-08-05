@@ -35,6 +35,8 @@ targets:
       path: RosterApp/Info.plist
       properties:
         CFBundleDisplayName: Roster
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
         NSFaceIDUsageDescription: Roster mit Face ID entsperren.
         UILaunchScreen: {}
