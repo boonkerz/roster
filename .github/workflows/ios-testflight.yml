@@ -1,13 +1,17 @@
 name: iOS TestFlight
 
-# Signiert (fastlane match), baut und lädt die App zu TestFlight. match legt das
-# Verteil-Zertifikat + Profil verschlüsselt im Branch `match-certs` dieses Repos ab
-# und verwendet es bei jedem Lauf wieder (kein Zertifikats-Churn auf CI-Runnern).
+# Baut und lädt die App zu TestFlight – Signierung wie in der BikeRouter-Pipeline:
+# vorhandenes Distribution-.p12 in einen Wegwerf-Keychain importieren, sigh erzeugt
+# nur das App-Store-Profil (kein neues Zertifikat). macos-latest wegen des für
+# App-Store-Uploads geforderten aktuellen SDK.
 #
 # Voraussetzungen (einmalig):
-#   Variables: IOS_BUNDLE_ID (de.thomas-peterson.roster), IOS_TEAM_ID
-#   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, MATCH_PASSWORD
-#   Sowie ein App-Record in App Store Connect für die Bundle-ID (für den Upload).
+#   Variables: IOS_TEAM_ID
+#   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8,
+#              IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD
+#              (die beiden letzten identisch aus dem BikeRouter-Repo kopieren)
+#   Sowie: App-ID de.thomas-peterson.roster registriert + App-Record in
+#          App Store Connect (eindeutiger Name).
 
 on:
   workflow_dispatch:
@@ -17,9 +21,7 @@ on:
 
 jobs:
   testflight:
-    runs-on: macos-14
-    permissions:
-      contents: write # match speichert Zertifikate im Branch match-certs
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: ios
@@ -27,8 +29,8 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      MATCH_GIT_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+      IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+      IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,5 +50,26 @@ jobs:
           echo "${{ secrets.ASC_API_KEY_P8 }}" > "$RUNNER_TEMP/AuthKey.p8"
           echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
-      - name: fastlane beta (match + build + TestFlight)
+      - name: Distribution-Zertifikat importieren
+        env:
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/dist-cert.p12"
+          echo "$IOS_DIST_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$IOS_DIST_CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          rm -f "$CERT_PATH"
+
+      - name: fastlane beta (sigh + build + TestFlight)
         run: fastlane beta
+
+      - name: Keychain aufräumen
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true

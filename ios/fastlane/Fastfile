@@ -1,34 +1,36 @@
 default_platform(:ios)
 
+# Signierung wie in der BikeRouter-Pipeline: das Distribution-.p12 (inkl. privatem
+# Schlüssel) wird im CI-Schritt vor fastlane in einen Wegwerf-Keychain importiert.
+# `sigh` erzeugt/lädt nur das App-Store-PROFIL über den API-Key (kein neues
+# Zertifikat → kein 3-Zertifikate-Limit). Danach manuell signiert bauen + hochladen.
 platform :ios do
-  desc "Signieren (fastlane match), bauen und zu TestFlight laden"
+  desc "Signieren, bauen und zu TestFlight laden"
   lane :beta do
-    setup_ci # temporärer Keychain auf dem CI-Runner
-
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
       issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_filepath: ENV.fetch("ASC_KEY_PATH")
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+      in_house: false
     )
 
-    # Verteil-Zertifikat + App-Store-Profil einmalig erzeugen und im Branch
-    # match-certs (verschlüsselt) ablegen; danach bei jedem Lauf wiederverwenden.
-    match(
-      type: "appstore",
-      app_identifier: "de.thomas-peterson.roster",
-      api_key: api_key,
-      git_url: ENV.fetch("MATCH_GIT_URL"),
-      git_branch: "match-certs",
-      readonly: false
-    )
+    team_id = ENV.fetch("IOS_TEAM_ID")
+    app_id  = "de.thomas-peterson.roster"
 
+    sigh(api_key: api_key, app_identifier: app_id, platform: "ios", readonly: false)
+    profile = lane_context[SharedValues::SIGH_NAME]
+    UI.user_error!("sigh lieferte keinen Profilnamen") unless profile
+    UI.message "Profil: #{profile}"
+
+    xcodeproj = File.expand_path("../Roster.xcodeproj", __dir__)
     update_code_signing_settings(
       use_automatic_signing: false,
-      path: "Roster.xcodeproj",
-      team_id: ENV.fetch("IOS_TEAM_ID"),
-      bundle_identifier: "de.thomas-peterson.roster",
+      path: xcodeproj,
+      team_id: team_id,
       code_sign_identity: "Apple Distribution",
-      profile_name: "match AppStore de.thomas-peterson.roster"
+      bundle_identifier: app_id,
+      profile_name: profile,
+      targets: ["Roster"]
     )
 
     build_app(
@@ -36,7 +38,14 @@ platform :ios do
       scheme: "Roster",
       configuration: "Release",
       export_method: "app-store",
-      xcargs: "CURRENT_PROJECT_VERSION=#{ENV.fetch('GITHUB_RUN_NUMBER', '1')}"
+      xcargs: "CURRENT_PROJECT_VERSION=#{ENV.fetch('GITHUB_RUN_NUMBER', '1')}",
+      export_options: {
+        method: "app-store",
+        teamID: team_id,
+        signingStyle: "manual",
+        signingCertificate: "Apple Distribution",
+        provisioningProfiles: { app_id => profile }
+      }
     )
 
     upload_to_testflight(
