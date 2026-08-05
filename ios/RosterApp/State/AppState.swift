@@ -27,6 +27,22 @@ final class AppState: ObservableObject {
             api = APIClient(root: root, token: tok)
             phase = .authed
         }
+        // Abgelaufenes/widerrufenes Token → abmelden und Login zeigen.
+        NotificationCenter.default.addObserver(forName: .rosterUnauthorized, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.handleUnauthorized() }
+        }
+    }
+
+    // handleUnauthorized wird bei 401 eines authentifizierten Requests aufgerufen:
+    // lokales Token verwerfen und zurück zum Login (de-facto erzwungene Neuanmeldung
+    // nach Token-Ablauf/-Widerruf).
+    func handleUnauthorized() {
+        guard phase == .authed else { return }
+        Keychain.delete(.token)
+        Keychain.delete(.tokenID)
+        api = nil
+        errorMessage = "Sitzung abgelaufen – bitte neu anmelden."
+        phase = .login
     }
 
     func login(username: String, password: String) async {
@@ -69,8 +85,10 @@ final class AppState: ObservableObject {
 
     // mintAndFinish tauscht die frische Session gegen ein langlebiges API-Token.
     private func mintAndFinish(using client: APIClient, root: URL) async throws {
+        // Token mit begrenzter Lebensdauer (90 Tage); nach Ablauf erzwingt der 401-
+        // Pfad eine Neuanmeldung. Begrenzt das Zeitfenster eines gestohlenen Tokens.
         let tok: APIToken = try await client.post("api/v1/auth/api-tokens",
-            MintBody(label: deviceLabel(), expiresInHours: 0))
+            MintBody(label: deviceLabel(), expiresInHours: 24 * 90))
         guard let plain = tok.token else { throw APIError.message("Kein Token erhalten") }
         Keychain.save(.serverURL, normalized(serverURL))
         Keychain.save(.token, plain)

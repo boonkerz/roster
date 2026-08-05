@@ -1,5 +1,11 @@
 import Foundation
 
+extension Notification.Name {
+    // Wird gepostet, wenn ein authentifizierter Request 401 liefert (Token abgelaufen/
+    // widerrufen) – AppState meldet den Nutzer dann ab und zeigt den Login.
+    static let rosterUnauthorized = Notification.Name("de.thomas-peterson.roster.unauthorized")
+}
+
 enum APIError: LocalizedError {
     case network
     case status(Int, String)
@@ -57,6 +63,11 @@ final class APIClient {
     private func send<T: Decodable>(_ req: URLRequest) async throws -> T {
         let (data, resp) = try await session.data(for: req)
         guard let http = resp as? HTTPURLResponse else { throw APIError.network }
+        // Abgelaufenes/widerrufenes Token: nur bei authentifizierten Requests melden
+        // (beim Login liefert 401 „falsche Anmeldedaten", das ist kein Session-Ablauf).
+        if http.statusCode == 401, token != nil {
+            NotificationCenter.default.post(name: .rosterUnauthorized, object: nil)
+        }
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.status(http.statusCode, String(data: data, encoding: .utf8) ?? "")
         }
