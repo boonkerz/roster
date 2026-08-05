@@ -5,11 +5,13 @@ import SwiftUI
 @main
 struct RosterApp: App {
     @StateObject private var app = AppState()
+    @StateObject private var lock = AppLock()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(app)
+                .environmentObject(lock)
         }
     }
 }

@@ -36,6 +36,7 @@ targets:
       properties:
         CFBundleDisplayName: Roster
         ITSAppUsesNonExemptEncryption: false
+        NSFaceIDUsageDescription: Roster mit Face ID entsperren.
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
