@@ -1,9 +1,23 @@
 import SwiftUI
 
+enum DeviceFilter: String, CaseIterable, Identifiable {
+    case all, failing, offline, online
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all: return "Alle"
+        case .failing: return "Check-Fehler"
+        case .offline: return "Offline"
+        case .online: return "Online"
+        }
+    }
+}
+
 struct DevicesView: View {
     @EnvironmentObject var app: AppState
     @State private var devices: [Device] = []
     @State private var query = ""
+    @State private var filter: DeviceFilter = .all
     @State private var error: String?
 
     var body: some View {
@@ -34,18 +48,69 @@ struct DevicesView: View {
                 DeviceDetailView(deviceId: id)
             }
             .searchable(text: $query)
+            .safeAreaInset(edge: .top) { filterBar }
             .refreshable { await load() }
             .task { await load() }
             .overlay {
                 if let error, devices.isEmpty {
                     Text(error).foregroundStyle(.red)
+                } else if devices.isEmpty == false && filtered.isEmpty {
+                    Text("Keine Geräte in diesem Filter")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
     }
 
+    // Schnellfilter-Leiste (horizontal scrollbare Chips mit Anzahl).
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(DeviceFilter.allCases) { f in
+                    let active = filter == f
+                    Button {
+                        filter = f
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(f.label)
+                            Text("\(count(for: f))")
+                                .font(.caption2)
+                                .opacity(0.75)
+                        }
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(active ? Color.accentColor : Color(.secondarySystemBackground))
+                        .foregroundStyle(active ? Color.white : Color.primary)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .background(.bar)
+    }
+
     private var filtered: [Device] {
-        query.isEmpty ? devices : devices.filter { $0.hostname.localizedCaseInsensitiveContains(query) }
+        devices.filter { d in
+            let matchesSearch = query.isEmpty || d.hostname.localizedCaseInsensitiveContains(query)
+            return matchesSearch && matches(d, filter)
+        }
+    }
+
+    private func matches(_ d: Device, _ f: DeviceFilter) -> Bool {
+        switch f {
+        case .all: return true
+        case .failing: return (d.checksFailing ?? 0) > 0
+        case .offline: return d.status == "offline"
+        case .online: return d.status == "online"
+        }
+    }
+
+    private func count(for f: DeviceFilter) -> Int {
+        devices.filter { matches($0, f) }.count
     }
 
     private func color(_ status: String?) -> Color {
