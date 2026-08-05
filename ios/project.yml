@@ -35,6 +35,7 @@ targets:
       path: RosterApp/Info.plist
       properties:
         CFBundleDisplayName: Roster
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
