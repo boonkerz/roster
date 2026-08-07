@@ -13,11 +13,18 @@ export function DockerPanel({ device, canOperate }: { device: Device; canOperate
   const images = device.docker_images ?? [];
 
   const control = useMutation({
-    mutationFn: (v: { container_id: string; action: "start" | "stop" | "restart" }) =>
-      api.post(`/devices/${device.id}/docker-control`, v),
+    mutationFn: async (v: { container_id: string; action: "start" | "stop" | "restart" }) => {
+      const { command_id } = await api.post<{ command_id: string }>(`/devices/${device.id}/docker-control`, v);
+      // Auf Ausführung warten – der Agent schickt im selben Checkin frisches Inventar.
+      for (let i = 0; i < 40 && command_id; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const cmd = await api.get<{ status: string }>(`/commands/${command_id}`);
+        if (cmd.status === "done") break;
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["device", device.id] });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["device", device.id] }), 4000);
+      setTimeout(() => qc.invalidateQueries({ queryKey: ["device", device.id] }), 1500);
     },
   });
 
