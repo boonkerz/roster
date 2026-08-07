@@ -51,6 +51,7 @@ export const EN: Record<string, string> = {
   "Pool-Name (optional, leer = alle)": "Pool name (optional, empty = all)",
   "Failing, wenn die Belegung eines Pools diesen Prozentwert überschreitet.": "Fails if a pool's usage exceeds this percentage.",
   "max %": "max %",
+  "Skript – als root ausführen:": "Script – run as root:",
   "Aktiv": "Active",
   "Wert": "Value",
   "Kanal": "Channel",

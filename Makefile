@@ -23,6 +23,7 @@ agents-embed: ## Agent-Binaries für alle Plattformen ins Server-Embed cross-kom
 	$(GOFLAGS) GOOS=darwin  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-darwin-amd64      ./cmd/agent
 	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-darwin-arm64      ./cmd/agent
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-windows-amd64.exe ./cmd/agent
+	$(GOFLAGS) GOOS=freebsd GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-freebsd-amd64      ./cmd/agent
 
 server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Downloads)
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/server ./cmd/server

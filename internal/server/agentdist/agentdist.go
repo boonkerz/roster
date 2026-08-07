@@ -22,6 +22,7 @@ var files = map[string]string{
 	"darwin-amd64":  "bin/agent-darwin-amd64",
 	"darwin-arm64":  "bin/agent-darwin-arm64",
 	"windows-amd64": "bin/agent-windows-amd64.exe",
+	"freebsd-amd64": "bin/agent-freebsd-amd64", // OPNsense/pfSense & FreeBSD
 }
 
 // downloadName ist der Dateiname, unter dem der Client speichert.
@@ -31,6 +32,7 @@ var downloadName = map[string]string{
 	"darwin-amd64":  "roster-agent",
 	"darwin-arm64":  "roster-agent",
 	"windows-amd64": "agent.exe",
+	"freebsd-amd64": "roster-agent",
 }
 
 // Read liefert das Binary einer Plattform sowie den vorgeschlagenen Dateinamen.

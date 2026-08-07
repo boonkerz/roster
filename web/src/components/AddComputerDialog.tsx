@@ -4,9 +4,9 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import type { ClientTree, EnrollmentToken } from "../types";
 
-type OS = "linux" | "windows" | "mac";
+type OS = "linux" | "windows" | "mac" | "freebsd";
 
-const OS_LABEL: Record<OS, string> = { linux: "Linux", windows: "Windows", mac: "macOS" };
+const OS_LABEL: Record<OS, string> = { linux: "Linux", windows: "Windows", mac: "macOS", freebsd: "FreeBSD / OPNsense" };
 
 // buildScript erzeugt das fertige Install-Skript mit eingesetzten Variablen.
 function buildScript(os: OS, server: string, token: string): string {
@@ -28,6 +28,28 @@ state_path: "C:/ProgramData/Roster/agent-state.json"
 
 & "$dir\\agent.exe" -config "$env:ProgramData\\Roster\\agent.yaml" install
 & "$dir\\agent.exe" -config "$env:ProgramData\\Roster\\agent.yaml" start`;
+  }
+
+  if (os === "freebsd") {
+    // OPNsense/FreeBSD: kein bash/curl/sudo im Basissystem -> sh + fetch, als root.
+    return `#!/bin/sh
+# Roster Agent für FreeBSD / OPNsense – als root ausführen
+# (OPNsense: Diagnostics -> Command Prompt, oder per SSH)
+set -eu
+SERVER="${server}"
+TOKEN="${token}"
+
+fetch -o /usr/local/bin/roster-agent "$SERVER/api/v1/agents/freebsd-amd64"
+chmod +x /usr/local/bin/roster-agent
+mkdir -p /etc/roster /var/lib/roster
+cat > /etc/roster/agent.yaml <<EOF
+server_url: "$SERVER"
+enrollment_token: "$TOKEN"
+interval: "5m"
+state_path: "/var/lib/roster/agent-state.json"
+EOF
+/usr/local/bin/roster-agent -config /etc/roster/agent.yaml install
+/usr/local/bin/roster-agent -config /etc/roster/agent.yaml start`;
   }
 
   const archCase =
@@ -62,6 +84,7 @@ sudo /usr/local/bin/roster-agent -config /etc/roster/agent.yaml start`;
 // und ausführt (kein Datei-Speichern/-Kopieren nötig).
 function buildOneLiner(os: OS, server: string, token: string): string {
   if (os === "windows") return `irm ${server}/i/w/${token} | iex`;
+  if (os === "freebsd") return ""; // kein Server-Install-Skript für FreeBSD – nur das volle Skript unten
   const p = os === "mac" ? "m" : "l";
   return `curl -fsSL ${server}/i/${p}/${token} | sudo bash`;
 }
@@ -158,17 +181,21 @@ export function AddComputerDialog({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
-            <label className="muted small" style={{ display: "block", marginBottom: 4 }}>
-              {os === "windows"
-                ? t("Schnell: in einer PowerShell als Administrator ausführen:")
-                : t("Schnell: mit Root-Rechten ausführen:")}
-            </label>
-            <div className="code-block">
-              <button className="btn ghost sm copy-btn" onClick={copyLine}>{copiedLine ? t("Kopiert ✓") : t("Kopieren")}</button>
-              <pre className="one-liner">{oneLiner}</pre>
-            </div>
+            {oneLiner && (
+              <>
+                <label className="muted small" style={{ display: "block", marginBottom: 4 }}>
+                  {os === "windows"
+                    ? t("Schnell: in einer PowerShell als Administrator ausführen:")
+                    : t("Schnell: mit Root-Rechten ausführen:")}
+                </label>
+                <div className="code-block">
+                  <button className="btn ghost sm copy-btn" onClick={copyLine}>{copiedLine ? t("Kopiert ✓") : t("Kopieren")}</button>
+                  <pre className="one-liner">{oneLiner}</pre>
+                </div>
+              </>
+            )}
             <label className="muted small" style={{ display: "block", margin: "10px 0 4px" }}>
-              {t("Oder das vollständige Skript:")}
+              {oneLiner ? t("Oder das vollständige Skript:") : t("Skript – als root ausführen:")}
             </label>
             <div className="code-block">
               <button className="btn ghost sm copy-btn" onClick={copy}>{copied ? t("Kopiert ✓") : t("Kopieren")}</button>
