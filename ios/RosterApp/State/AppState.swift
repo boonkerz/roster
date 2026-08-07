@@ -154,3 +154,12 @@ struct RunScriptBody: Encodable {
         case scriptId = "script_id"
     }
 }
+
+struct DockerControlBody: Encodable {
+    let containerId: String
+    let action: String // start | stop | restart
+    enum CodingKeys: String, CodingKey {
+        case containerId = "container_id"
+        case action
+    }
+}

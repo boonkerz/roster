@@ -20,14 +20,14 @@ import (
 	"github.com/kardianos/service"
 
 	"github.com/boonkerz/roster/internal/agent/collect"
-	"github.com/boonkerz/roster/internal/netscan"
-	"github.com/boonkerz/roster/internal/snmp"
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/transport"
 	"github.com/boonkerz/roster/internal/agent/update"
+	"github.com/boonkerz/roster/internal/netscan"
 	"github.com/boonkerz/roster/internal/shared"
+	"github.com/boonkerz/roster/internal/snmp"
 )
 
 // version wird beim Build via -ldflags gesetzt.
@@ -409,6 +409,9 @@ func (p *program) runPolicy(ctx context.Context) {
 			name, _ := cmd.Payload["name"].(string)
 			action, _ := cmd.Payload["action"].(string)
 			exit, output = collect.ControlService(ctx, name, action)
+		case "docker_start", "docker_stop", "docker_restart":
+			id, _ := cmd.Payload["container_id"].(string)
+			exit, output = collect.DockerControl(ctx, id, strings.TrimPrefix(cmd.Type, "docker_"))
 		case "process_kill":
 			pid := 0
 			if f, ok := cmd.Payload["pid"].(float64); ok {

@@ -465,3 +465,33 @@ func (s *Server) handleSetDeviceGroups(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "aktualisiert"})
 }
+
+type dockerControlRequest struct {
+	ContainerID string `json:"container_id"`
+	Action      string `json:"action"` // start | stop | restart
+}
+
+// handleDockerControl reiht ein Start/Stop/Restart eines Docker-Containers ein.
+func (s *Server) handleDockerControl(w http.ResponseWriter, r *http.Request) {
+	var req dockerControlRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	switch req.Action {
+	case "start", "stop", "restart":
+	default:
+		s.writeErr(w, http.StatusBadRequest, "aktion muss start, stop oder restart sein")
+		return
+	}
+	if req.ContainerID == "" {
+		s.writeErr(w, http.StatusBadRequest, "container_id fehlt")
+		return
+	}
+	id, err := s.queueCommand(r.Context(), chi.URLParam(r, "id"), "docker_"+req.Action, "Docker "+req.Action,
+		map[string]any{"container_id": req.ContainerID})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id, "status": "eingereiht"})
+}

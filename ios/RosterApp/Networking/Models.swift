@@ -50,6 +50,17 @@ struct Device: Decodable, Identifiable {
     var siteName: String?
     var checkResults: [CheckResult]?
     var interfaces: [NetInterface]?
+    var dockerContainers: [DockerContainer]?
+}
+
+struct DockerContainer: Decodable, Identifiable {
+    var containerId: String
+    var name: String?
+    var image: String?
+    var state: String?
+    var status: String?
+    var health: String?
+    var id: String { containerId }
 }
 
 struct CheckResult: Decodable, Identifiable {

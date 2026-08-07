@@ -77,6 +77,39 @@ struct DeviceDetailView: View {
                         }
                     }
                 }
+                if let containers = d.dockerContainers, !containers.isEmpty {
+                    Section("Docker") {
+                        ForEach(containers) { c in
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(c.state == "running" ? Color.green : Color.red)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(c.name ?? c.containerId).lineLimit(1)
+                                    Text(c.image ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                Spacer()
+                                if c.state == "running" {
+                                    Button {
+                                        Task { await perform("Stop: \(c.name ?? "")") {
+                                            try await app.api!.runAndWait("api/v1/devices/\(deviceId)/docker-control",
+                                                DockerControlBody(containerId: c.containerId, action: "stop"))
+                                        } }
+                                    } label: { Image(systemName: "stop.fill") }
+                                    .buttonStyle(.borderless).tint(.red)
+                                } else {
+                                    Button {
+                                        Task { await perform("Start: \(c.name ?? "")") {
+                                            try await app.api!.runAndWait("api/v1/devices/\(deviceId)/docker-control",
+                                                DockerControlBody(containerId: c.containerId, action: "start"))
+                                        } }
+                                    } label: { Image(systemName: "play.fill") }
+                                    .buttonStyle(.borderless).tint(.green)
+                                }
+                            }
+                        }
+                    }
+                }
             } else if let error {
                 Text(error).foregroundStyle(.red)
             } else {

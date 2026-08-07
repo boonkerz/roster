@@ -146,3 +146,30 @@ func DockerImages(ctx context.Context) []shared.DockerImage {
 	}
 	return parseDockerImages(dockerRun(ctx, "images", "--format", "{{json .}}"))
 }
+
+// DockerControl startet, stoppt oder rebootet einen Container per docker-CLI.
+// Nur start|stop|restart sind erlaubt. Liefert Exit-Code (0=ok) und Ausgabe.
+func DockerControl(ctx context.Context, id, action string) (int, string) {
+	if !DockerAvailable() {
+		return 1, "docker ist auf diesem Gerät nicht verfügbar"
+	}
+	switch action {
+	case "start", "stop", "restart":
+	default:
+		return 1, "unbekannte Aktion: " + action
+	}
+	if strings.TrimSpace(id) == "" {
+		return 1, "container_id erforderlich"
+	}
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(cctx, "docker", action, id).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return 1, msg
+	}
+	return 0, "Container " + shortID(id) + ": " + action + " ok"
+}

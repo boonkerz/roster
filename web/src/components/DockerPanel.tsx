@@ -1,12 +1,25 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../i18n";
+import { api } from "../api";
 import type { Device } from "../types";
 
 // DockerPanel zeigt die vom Agent gemeldeten Docker-Container und -Images eines
-// Geräts (periodisches Inventar – kein Nachladen). Leer, wenn kein Docker erkannt.
-export function DockerPanel({ device }: { device: Device }) {
+// Geräts (periodisches Inventar). Mit Bedienrecht können Container gestartet,
+// gestoppt oder neu gestartet werden (Ergebnis erscheint beim nächsten Inventar).
+export function DockerPanel({ device, canOperate }: { device: Device; canOperate?: boolean }) {
   const { t } = useI18n();
+  const qc = useQueryClient();
   const containers = device.docker_containers ?? [];
   const images = device.docker_images ?? [];
+
+  const control = useMutation({
+    mutationFn: (v: { container_id: string; action: "start" | "stop" | "restart" }) =>
+      api.post(`/devices/${device.id}/docker-control`, v),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["device", device.id] });
+      setTimeout(() => qc.invalidateQueries({ queryKey: ["device", device.id] }), 4000);
+    },
+  });
 
   if (containers.length === 0 && images.length === 0) {
     return (
@@ -31,7 +44,7 @@ export function DockerPanel({ device }: { device: Device }) {
         ) : (
           <div className="scroll-list">
             <table className="table">
-              <thead><tr><th>{t("Status")}</th><th>{t("Name")}</th><th>Image</th><th>{t("Compose-Projekt")}</th><th>Ports</th><th></th></tr></thead>
+              <thead><tr><th>{t("Status")}</th><th>{t("Name")}</th><th>Image</th><th>{t("Compose-Projekt")}</th><th>Ports</th><th></th>{canOperate && <th>{t("Aktion")}</th>}</tr></thead>
               <tbody>
                 {containers.map((c, idx) => (
                   <tr key={idx}>
@@ -46,12 +59,28 @@ export function DockerPanel({ device }: { device: Device }) {
                     <td className="muted small">{c.compose || "—"}</td>
                     <td className="mono small">{c.ports || "—"}</td>
                     <td className="muted small" title={c.created}>{c.status}</td>
+                    {canOperate && (
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {c.state === "running" ? (
+                          <>
+                            <button className="btn ghost sm" disabled={control.isPending || !c.container_id}
+                              onClick={() => control.mutate({ container_id: c.container_id, action: "stop" })}>{t("Stoppen")}</button>
+                            <button className="btn ghost sm" style={{ marginLeft: 4 }} disabled={control.isPending || !c.container_id}
+                              onClick={() => control.mutate({ container_id: c.container_id, action: "restart" })}>{t("Neustart")}</button>
+                          </>
+                        ) : (
+                          <button className="btn ghost sm" disabled={control.isPending || !c.container_id}
+                            onClick={() => control.mutate({ container_id: c.container_id, action: "start" })}>{t("Starten")}</button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+        {control.isError && <p className="error small" style={{ marginTop: 6 }}>{t("Aktion fehlgeschlagen.")}</p>}
       </section>
 
       {images.length > 0 && (

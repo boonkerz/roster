@@ -641,7 +641,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
           </section>
         )}
 
-        {tab === "docker" && <DockerPanel device={device} />}
+        {tab === "docker" && <DockerPanel device={device} canOperate={canOperate} />}
 
         {tab === "run" && canOperate && (
           <section className="card">
