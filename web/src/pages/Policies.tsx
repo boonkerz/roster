@@ -43,6 +43,12 @@ const CHECK_TYPES: Record<string, string> = {
   process: "Prozess läuft",
   uptime: "Uptime (Neustart überfällig)",
   reboot: "Neustart ausstehend",
+  zfs: "ZFS-Pool (Health/Kapazität)",
+};
+
+const ZFS_MODES: Record<string, string> = {
+  health: "Health (ONLINE)",
+  capacity: "Kapazität (% <)",
 };
 const isNetCheck = (t: string) => t === "ping" || t === "tcp" || t === "http";
 // Docker-Modi: Label je Modus (für Formular + Zusammenfassung).
@@ -171,6 +177,9 @@ function PolicyEditor({
   const [cCertDays, setCCertDays] = useState("14");  // Zertifikat: min. Rest-Tage
   const [cSvcName, setCSvcName] = useState("");       // Dienst-/Prozess-Name
   const [cUpDays, setCUpDays] = useState("30");       // Uptime: max. Tage
+  const [cZfsMode, setCZfsMode] = useState("health"); // ZFS: Modus (health|capacity)
+  const [cZfsPool, setCZfsPool] = useState("");       // ZFS: nur dieser Pool (optional)
+  const [cZfsMax, setCZfsMax] = useState("80");       // ZFS capacity: max. Belegung %
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -209,6 +218,10 @@ function PolicyEditor({
       } else if (cType === "uptime") {
         config = {};
         if (cUpDays !== "") config.max_days = Number(cUpDays);
+      } else if (cType === "zfs") {
+        config = { mode: cZfsMode };
+        if (cZfsPool.trim() !== "") config.pool = cZfsPool.trim();
+        if (cZfsMode === "capacity" && cZfsMax !== "") config.max = Number(cZfsMax);
       } else if (isNetCheck(cType)) {
         config = {};
         if (cType === "http") {
@@ -251,6 +264,7 @@ function PolicyEditor({
     setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
     setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName(""); setCAvAge("7");
     setCCertDays("14"); setCSvcName(""); setCUpDays("30");
+    setCZfsMode("health"); setCZfsPool(""); setCZfsMax("80");
   }
 
   // startEditCheck lädt einen bestehenden Check zum Bearbeiten ins Formular.
@@ -284,6 +298,9 @@ function PolicyEditor({
     setCCertDays(cfg.min_days !== undefined ? String(cfg.min_days) : "14");
     setCSvcName(str(cfg.name));
     setCUpDays(cfg.max_days !== undefined ? String(cfg.max_days) : "30");
+    setCZfsMode(str(cfg.mode) || "health");
+    setCZfsPool(str(cfg.pool));
+    setCZfsMax(cfg.max !== undefined ? String(cfg.max) : "80");
   }
 
   // Task anlegen
@@ -350,6 +367,7 @@ function PolicyEditor({
                 : c.type === "cert" ? `Zertifikat: ${c.config?.host ?? ""}${c.config?.port ? `:${c.config.port}` : ""}${c.config?.min_days ? ` (≥${c.config.min_days}d)` : ""}`
                 : c.type === "service" || c.type === "process" ? `${t(CHECK_TYPES[c.type])}: ${c.config?.name ?? "—"}`
                 : c.type === "uptime" ? `Uptime ≤ ${c.config?.max_days ?? 30}d`
+                : c.type === "zfs" ? `ZFS: ${t(ZFS_MODES[String(c.config?.mode ?? "health")] ?? "")}${c.config?.pool ? ` (${c.config.pool})` : ""}${c.config?.mode === "capacity" ? ` ≤${c.config?.max ?? 80}%` : ""}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
               {" · "}{c.frequency ? t(FREQ_LABEL[c.frequency] ?? c.frequency) : t("jeden Checkin")}
@@ -410,6 +428,14 @@ function PolicyEditor({
             <input placeholder={cType === "service" ? t("Dienst-Name (Teilstring)") : t("Prozess-Name (Teilstring)")} value={cSvcName} onChange={(e) => setCSvcName(e.target.value)} style={{ minWidth: 180 }} />
           ) : cType === "uptime" ? (
             <label className="num" title={t("Failing, wenn die Uptime länger als so viele Tage ist (Neustart überfällig).")}>{t("max. Tage")}<input type="number" value={cUpDays} onChange={(e) => setCUpDays(e.target.value)} /></label>
+          ) : cType === "zfs" ? (
+            <>
+              <select value={cZfsMode} onChange={(e) => setCZfsMode(e.target.value)} title={t("Was soll geprüft werden?")}>
+                {Object.entries(ZFS_MODES).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
+              </select>
+              <input placeholder={t("Pool-Name (optional, leer = alle)")} value={cZfsPool} onChange={(e) => setCZfsPool(e.target.value)} style={{ minWidth: 160 }} />
+              {cZfsMode === "capacity" && <label className="num" title={t("Failing, wenn die Belegung eines Pools diesen Prozentwert überschreitet.")}>{t("max %")}<input type="number" value={cZfsMax} onChange={(e) => setCZfsMax(e.target.value)} /></label>}
+            </>
           ) : cType === "reboot" ? (
             <span className="muted small">{t("Failing, wenn ein Neustart aussteht.")}</span>
           ) : isNetCheck(cType) ? (

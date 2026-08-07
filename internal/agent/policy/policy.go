@@ -66,6 +66,8 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return processCheck(ctx, c)
 	case "uptime":
 		return uptimeCheck(ctx, c)
+	case "zfs":
+		return zfsCheck(ctx, c)
 	case "reboot":
 		return rebootCheck(ctx, c)
 	default:
