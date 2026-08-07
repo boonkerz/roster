@@ -48,8 +48,25 @@ enrollment_token: "$TOKEN"
 interval: "5m"
 state_path: "/var/lib/roster/agent-state.json"
 EOF
-/usr/local/bin/roster-agent -config /etc/roster/agent.yaml install
-/usr/local/bin/roster-agent -config /etc/roster/agent.yaml start`;
+
+# rc.d-Dienst (hyphenfreier Name wegen rc-/Shell-Variablen)
+cat > /usr/local/etc/rc.d/rosteragent <<'RC'
+#!/bin/sh
+# PROVIDE: rosteragent
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+. /etc/rc.subr
+name=rosteragent
+rcvar=rosteragent_enable
+pidfile="/var/run/\${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-P \${pidfile} -r -f /usr/local/bin/roster-agent -config /etc/roster/agent.yaml run"
+load_rc_config \$name
+run_rc_command "\$1"
+RC
+chmod +x /usr/local/etc/rc.d/rosteragent
+sysrc rosteragent_enable=YES
+service rosteragent start`;
   }
 
   const archCase =
