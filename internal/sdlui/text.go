@@ -1,4 +1,8 @@
-package main
+// Package sdlui bündelt die cgo-freien SDL3-UI-Bausteine, die sich Viewer und
+// Taskleisten-App teilen: Textausgabe mit eingebetteter Go-Font, ein paar
+// Zeichen-Helfer und die Bindings für das System-Tray (SDL_Tray), die das
+// purego-Binding noch nicht anbietet.
+package sdlui
 
 import (
 	"image"
@@ -13,10 +17,10 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-// textRenderer rastert Strings mit der eingebetteten Go-Font (antialiased, reines Go)
+// Text rastert Strings mit der eingebetteten Go-Font (antialiased, reines Go)
 // und lädt sie als SDL-Texturen hoch (gecacht). Weiß gerendert, Einfärbung per
 // ColorMod – so reicht eine Textur je String für beliebige Farben.
-type textRenderer struct {
+type Text struct {
 	renderer *sdl.Renderer
 	font     *sfnt.Font
 	face     font.Face
@@ -30,21 +34,24 @@ type textTex struct {
 	w, h int32
 }
 
-func newTextRenderer(renderer *sdl.Renderer, px float64) (*textRenderer, error) {
+func NewText(renderer *sdl.Renderer, px float64) (*Text, error) {
 	f, err := opentype.Parse(gomedium.TTF)
 	if err != nil {
 		return nil, err
 	}
-	t := &textRenderer{renderer: renderer, font: f, cache: map[string]*textTex{}}
-	if err := t.setSize(px); err != nil {
+	t := &Text{renderer: renderer, font: f, cache: map[string]*textTex{}}
+	if err := t.SetSize(px); err != nil {
 		return nil, err
 	}
 	return t, nil
 }
 
-// setSize wechselt die Schriftgröße (z. B. für Live-HiDPI-Zoom). Der Textur-Cache
+// Renderer liefert den Renderer, auf dem die Texturen liegen (für eigene Zeichenbefehle).
+func (t *Text) Renderer() *sdl.Renderer { return t.renderer }
+
+// SetSize wechselt die Schriftgröße (z. B. für Live-HiDPI-Zoom). Der Textur-Cache
 // wird verworfen (alte Größen freigegeben), sodass Strings neu gerastert werden.
-func (t *textRenderer) setSize(px float64) error {
+func (t *Text) SetSize(px float64) error {
 	face, err := opentype.NewFace(t.font, &opentype.FaceOptions{Size: px, DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
 		return err
@@ -63,7 +70,7 @@ func (t *textRenderer) setSize(px float64) error {
 	return nil
 }
 
-func (t *textRenderer) get(s string) *textTex {
+func (t *Text) get(s string) *textTex {
 	if tt, ok := t.cache[s]; ok {
 		return tt
 	}
@@ -90,8 +97,8 @@ func (t *textRenderer) get(s string) *textTex {
 	return tt
 }
 
-// draw zeichnet s linksbündig mit Oberkante bei (x,y) in Farbe (r,g,b) und liefert die Breite.
-func (t *textRenderer) draw(s string, x, y float32, r, g, b uint8) float32 {
+// Draw zeichnet s linksbündig mit Oberkante bei (x,y) in Farbe (r,g,b) und liefert die Breite.
+func (t *Text) Draw(s string, x, y float32, r, g, b uint8) float32 {
 	tt := t.get(s)
 	sdl.SetTextureColorMod(tt.tex, r, g, b)
 	dst := sdl.FRect{X: x, Y: y, W: float32(tt.w), H: float32(tt.h)}
@@ -99,5 +106,35 @@ func (t *textRenderer) draw(s string, x, y float32, r, g, b uint8) float32 {
 	return float32(tt.w)
 }
 
-func (t *textRenderer) width(s string) float32 { return float32(t.get(s).w) }
-func (t *textRenderer) lineH() float32         { return float32(t.height) }
+func (t *Text) Width(s string) float32 { return float32(t.get(s).w) }
+func (t *Text) LineH() float32         { return float32(t.height) }
+
+// Clip kürzt s von links mit „…", bis es in maxW passt (Pfade: das Ende zählt).
+func (t *Text) Clip(s string, maxW float32) string {
+	if t.Width(s) <= maxW || maxW <= 0 {
+		return s
+	}
+	r := []rune(s)
+	for len(r) > 1 {
+		r = r[1:]
+		if t.Width("…"+string(r)) <= maxW {
+			return "…" + string(r)
+		}
+	}
+	return string(r)
+}
+
+// Ellipsize kürzt s von rechts mit „…", bis es in maxW passt (Namen: der Anfang zählt).
+func (t *Text) Ellipsize(s string, maxW float32) string {
+	if t.Width(s) <= maxW || maxW <= 0 {
+		return s
+	}
+	r := []rune(s)
+	for len(r) > 1 {
+		r = r[:len(r)-1]
+		if t.Width(string(r)+"…") <= maxW {
+			return string(r) + "…"
+		}
+	}
+	return string(r)
+}

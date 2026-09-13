@@ -194,6 +194,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/process-kill", s.handleProcessKill)
 						r.Post("/devices/{id}/wake", s.handleWake)
 						r.Post("/devices/{id}/docker-control", s.handleDockerControl)
+						r.Post("/devices/{id}/proxmox-control", s.handleProxmoxControl)
 						r.Post("/bulk/run-script", s.handleBulkRunScript)
 						r.Post("/bulk/scan-updates", s.handleBulkScanUpdates)
 						r.Post("/bulk/install-updates", s.handleBulkInstallUpdates)

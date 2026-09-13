@@ -472,6 +472,45 @@ type dockerControlRequest struct {
 }
 
 // handleDockerControl reiht ein Start/Stop/Restart eines Docker-Containers ein.
+type proxmoxControlRequest struct {
+	Node   string `json:"node"`
+	Type   string `json:"type"`
+	VMID   int    `json:"vmid"`
+	Action string `json:"action"`
+}
+
+// handleProxmoxControl reiht Start/Stop/Herunterfahren/Neustart eines Proxmox-Gasts
+// als Agent-Befehl ein. Der Agent auf dem PVE-Host führt ihn per pvesh aus; der neue
+// Status kommt mit dem darauf folgenden Checkin.
+func (s *Server) handleProxmoxControl(w http.ResponseWriter, r *http.Request) {
+	var req proxmoxControlRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	switch req.Action {
+	case "start", "stop", "shutdown", "reboot":
+	default:
+		s.writeErr(w, http.StatusBadRequest, "aktion muss start, stop, shutdown oder reboot sein")
+		return
+	}
+	if req.Type != "qemu" && req.Type != "lxc" {
+		s.writeErr(w, http.StatusBadRequest, "type muss qemu oder lxc sein")
+		return
+	}
+	if req.VMID < 100 || strings.TrimSpace(req.Node) == "" {
+		s.writeErr(w, http.StatusBadRequest, "node und vmid erforderlich")
+		return
+	}
+	label := fmt.Sprintf("Proxmox %s %s/%d", req.Action, req.Type, req.VMID)
+	id, err := s.queueCommand(r.Context(), chi.URLParam(r, "id"), "proxmox_"+req.Action, label,
+		map[string]any{"node": req.Node, "type": req.Type, "vmid": req.VMID})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": id, "status": "eingereiht"})
+}
+
 func (s *Server) handleDockerControl(w http.ResponseWriter, r *http.Request) {
 	var req dockerControlRequest
 	if !s.decodeJSON(w, r, &req) {

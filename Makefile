@@ -8,7 +8,7 @@ GOFLAGS := CGO_ENABLED=0
 BIN := bin
 AGENT_EMBED := internal/server/agentdist/bin
 
-.PHONY: help web server agent agents-embed viewer build test vet tidy clean run-server cross
+.PHONY: help web server agent agents-embed viewer tray install-tray install-tray-autostart uninstall-tray build test vet tidy clean run-server cross
 
 help: ## Diese Hilfe anzeigen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -33,6 +33,47 @@ agent: ## Agent-Binary für die aktuelle Plattform bauen
 
 viewer: ## Nativer Fernsteuerungs-Viewer für die aktuelle Plattform (SDL3, cgo-frei)
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-viewer ./cmd/viewer
+
+tray: ## Taskleisten-App für die aktuelle Plattform bauen (SDL3, cgo-frei)
+	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray ./cmd/tray
+
+tray-cross: ## Taskleisten-App für Linux/Windows/macOS bauen (SDL3 wird zur Laufzeit geladen)
+	$(GOFLAGS) GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-linux-amd64      ./cmd/tray
+	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-windows-amd64.exe ./cmd/tray
+	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-darwin-arm64     ./cmd/tray
+
+# Benutzer-Installation der Taskleisten-App (kein root nötig). PREFIX überschreibbar,
+# z. B. `sudo make install-tray PREFIX=/usr/local` für alle Benutzer.
+PREFIX ?= $(HOME)/.local
+APP_ID := de.boonkerz.roster.tray
+
+install-tray: tray ## roster-tray + Desktop-Eintrag/Symbol installieren (Anwendungsmenü)
+	install -Dm755 $(BIN)/roster-tray $(PREFIX)/bin/roster-tray
+	$(BIN)/roster-tray --write-icon $(BIN)/$(APP_ID).png --icon-size 256
+	install -Dm644 $(BIN)/$(APP_ID).png $(PREFIX)/share/icons/hicolor/256x256/apps/$(APP_ID).png
+	install -Dm644 deploy/linux/roster-tray.png $(PREFIX)/share/pixmaps/$(APP_ID).png
+	mkdir -p $(PREFIX)/share/applications
+	sed 's|^Exec=roster-tray|Exec=$(PREFIX)/bin/roster-tray|' deploy/linux/$(APP_ID).desktop \
+		> $(PREFIX)/share/applications/$(APP_ID).desktop
+	-update-desktop-database $(PREFIX)/share/applications 2>/dev/null
+	-gtk-update-icon-cache -f -t $(PREFIX)/share/icons/hicolor 2>/dev/null
+	@echo "installiert: $(PREFIX)/bin/roster-tray + Anwendungsmenü-Eintrag ($(APP_ID))"
+
+install-tray-autostart: install-tray ## Zusätzlich beim Anmelden ins Tray starten
+	mkdir -p $(HOME)/.config/autostart
+	sed -e 's|^Exec=roster-tray|Exec=$(PREFIX)/bin/roster-tray --hidden|' \
+	    -e 's|^Name=Roster|Name=Roster (Taskleiste)|' deploy/linux/$(APP_ID).desktop \
+		> $(HOME)/.config/autostart/$(APP_ID).desktop
+	@echo "Autostart eingerichtet: $(HOME)/.config/autostart/$(APP_ID).desktop"
+
+uninstall-tray: ## Taskleisten-App und Desktop-Eintrag wieder entfernen
+	rm -f $(PREFIX)/bin/roster-tray \
+		$(PREFIX)/share/applications/$(APP_ID).desktop \
+		$(PREFIX)/share/icons/hicolor/256x256/apps/$(APP_ID).png \
+		$(PREFIX)/share/pixmaps/$(APP_ID).png \
+		$(HOME)/.config/autostart/$(APP_ID).desktop
+	-update-desktop-database $(PREFIX)/share/applications 2>/dev/null
+	@echo "entfernt"
 
 viewer-embed: ## Linux-Viewer ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
 	mkdir -p internal/server/viewerdist/bin

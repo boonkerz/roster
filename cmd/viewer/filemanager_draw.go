@@ -1,6 +1,10 @@
 package main
 
-import "github.com/jupiterrider/purego-sdl3/sdl"
+import (
+	"github.com/jupiterrider/purego-sdl3/sdl"
+
+	"github.com/boonkerz/roster/internal/sdlui"
+)
 
 // Farben (RGBA).
 var (
@@ -30,7 +34,7 @@ func (fm *fileManager) draw(winW, winH float32) {
 	if s < 1 {
 		s = 1
 	}
-	lh := fm.txt.lineH()
+	lh := fm.txt.LineH()
 	rowH := lh + 6*s
 	fm.rowH = rowH
 
@@ -66,7 +70,7 @@ func (fm *fileManager) draw(winW, winH float32) {
 		}
 		fm.fill(x, top, colW, headerH, hc)
 		title := paneTitle(p)
-		fm.txt.draw(clip(fm.txt, title, colW-16*s), x+8*s, top+5*s, fmWhite[0], fmWhite[1], fmWhite[2])
+		fm.txt.Draw(fm.txt.Clip(title, colW-16*s), x+8*s, top+5*s, fmWhite[0], fmWhite[1], fmWhite[2])
 
 		// Auswahl in den sichtbaren Bereich scrollen.
 		if p.sel < p.top {
@@ -80,11 +84,11 @@ func (fm *fileManager) draw(winW, winH float32) {
 		}
 
 		if p.loading {
-			fm.txt.draw("… lädt", x+8*s, listY+4*s, fmMuted[0], fmMuted[1], fmMuted[2])
+			fm.txt.Draw("… lädt", x+8*s, listY+4*s, fmMuted[0], fmMuted[1], fmMuted[2])
 			continue
 		}
 		if p.err != "" {
-			fm.txt.draw(clip(fm.txt, "Fehler: "+p.err, colW-16*s), x+8*s, listY+4*s, 0xff, 0x8f, 0x8f)
+			fm.txt.Draw(fm.txt.Clip("Fehler: "+p.err, colW-16*s), x+8*s, listY+4*s, 0xff, 0x8f, 0x8f)
 			continue
 		}
 		for r := 0; r < visRows; r++ {
@@ -114,11 +118,11 @@ func (fm *fileManager) draw(winW, winH float32) {
 			if !e.dir {
 				sizeStr = humanSize(e.size)
 			}
-			sw := fm.txt.width(sizeStr)
+			sw := fm.txt.Width(sizeStr)
 			nameMax := colW - 20*s - sw
-			fm.txt.draw(clip(fm.txt, name, nameMax), x+8*s, ry+3*s, col[0], col[1], col[2])
+			fm.txt.Draw(fm.txt.Clip(name, nameMax), x+8*s, ry+3*s, col[0], col[1], col[2])
 			if sizeStr != "" {
-				fm.txt.draw(sizeStr, x+colW-8*s-sw, ry+3*s, fmMuted[0], fmMuted[1], fmMuted[2])
+				fm.txt.Draw(sizeStr, x+colW-8*s-sw, ry+3*s, fmMuted[0], fmMuted[1], fmMuted[2])
 			}
 		}
 	}
@@ -142,7 +146,7 @@ func (fm *fileManager) draw(winW, winH float32) {
 		msg = fm.status
 		col = fmWhite
 	}
-	fm.txt.draw(clip(fm.txt, msg, winW-16*s), 8*s, fy+7*s, col[0], col[1], col[2])
+	fm.txt.Draw(fm.txt.Clip(msg, winW-16*s), 8*s, fy+7*s, col[0], col[1], col[2])
 }
 
 // drawButtons rendert die Aktionsleiste und merkt sich die Trefferzonen (fm.btns)
@@ -159,7 +163,7 @@ func (fm *fileManager) drawButtons(winW, y, h, s, lh float32) {
 	padX := 12 * s
 	bx := 8 * s
 	for i := range defs {
-		w := fm.txt.width(defs[i].label) + 2*padX
+		w := fm.txt.Width(defs[i].label) + 2*padX
 		defs[i].x = bx
 		defs[i].w = w
 		accent := defs[i].id == "copy"
@@ -167,9 +171,9 @@ func (fm *fileManager) drawButtons(winW, y, h, s, lh float32) {
 		if accent {
 			cr, cg, cb = 0x2f, 0x5a, 0x8f // Kopieren hervorheben
 		}
-		fillRound(fm.rn, bx, y+3*s, w, h-6*s, 6*s, cr, cg, cb, 0xff)
-		tw := fm.txt.width(defs[i].label)
-		fm.txt.draw(defs[i].label, bx+(w-tw)/2, y+(h-lh)/2, fmWhite[0], fmWhite[1], fmWhite[2])
+		sdlui.FillRound(fm.rn, bx, y+3*s, w, h-6*s, 6*s, cr, cg, cb, 0xff)
+		tw := fm.txt.Width(defs[i].label)
+		fm.txt.Draw(defs[i].label, bx+(w-tw)/2, y+(h-lh)/2, fmWhite[0], fmWhite[1], fmWhite[2])
 		bx += w + 6*s
 	}
 	fm.btns = defs
@@ -186,19 +190,4 @@ func paneTitle(p *fmPane) string {
 		path = "(Laufwerke)"
 	}
 	return loc + "  " + path
-}
-
-// clip kürzt s von links mit „…", bis es in maxW passt.
-func clip(t *textRenderer, s string, maxW float32) string {
-	if t.width(s) <= maxW || maxW <= 0 {
-		return s
-	}
-	r := []rune(s)
-	for len(r) > 1 {
-		r = r[1:]
-		if t.width("…"+string(r)) <= maxW {
-			return "…" + string(r)
-		}
-	}
-	return string(r)
 }

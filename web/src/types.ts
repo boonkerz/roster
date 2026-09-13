@@ -125,7 +125,7 @@ export interface PolicyCheck {
   policy_id: string;
   name: string;
   type: string;
-  config: Record<string, number | string>;
+  config: Record<string, number | string | boolean>;
   script_id?: string;
   remediation_script_id?: string | null;
   remediation_proxmox?: ProxmoxRemediation | null;
@@ -142,13 +142,40 @@ export interface ProxmoxHost {
   verify_tls: boolean;
 }
 
-// ProxmoxGuest ist ein Container/VM eines Proxmox-Hosts.
+// ProxmoxGuest ist ein Container/VM eines Proxmox-Hosts. Aus der API-Integration
+// kommen nur die Grunddaten; vom Agent auf einem PVE-Host (Gerät) zusätzlich
+// Ressourcen und Backup-Status.
 export interface ProxmoxGuest {
   node: string;
   vmid: number;
   type: "lxc" | "qemu";
   name: string;
   status: string;
+  template?: boolean;
+  cpus?: number;
+  cpu?: number;
+  mem?: number;
+  maxmem?: number;
+  maxdisk?: number;
+  uptime?: number;
+  backup_at?: string;
+  backup_size?: number;
+  backup_storage?: string;
+  backup_count?: number;
+  backup_task_status?: "ok" | "failed" | "";
+  backup_task_at?: string;
+  backup_task_msg?: string;
+  backup_job?: boolean; // fehlt = unbekannt
+}
+
+// Temperature ist ein Temperatursensor eines Geräts (Momentaufnahme vom Checkin).
+export interface Temperature {
+  sensor: string;
+  label: string;
+  class: "cpu" | "gpu" | "disk" | "board" | "other";
+  celsius: number;
+  high?: number;     // Warnschwelle laut Chip
+  critical?: number; // kritische Schwelle laut Chip
 }
 
 // ProxmoxRemediation zeigt auf einen Gast, der bei Check-Fehler rebootet wird.
@@ -352,6 +379,9 @@ export interface Device {
   listen_ports?: ListenPort[];
   docker_containers?: DockerContainer[];
   docker_images?: DockerImage[];
+  temperatures?: Temperature[];
+  proxmox_version?: string; // gesetzt = Agent läuft auf einem Proxmox-VE-Host
+  proxmox_guests?: ProxmoxGuest[];
   mute_software_alerts?: boolean;
   groups?: Group[];
   software?: SoftwarePackage[];

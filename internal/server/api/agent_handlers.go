@@ -80,6 +80,12 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplaceDockerImages(r.Context(), device.ID, req.Inventory.Images); err != nil {
 		s.log.Error("docker-images speichern", "err", err)
 	}
+	if err := s.store.ReplaceTemperatures(r.Context(), device.ID, req.Inventory.Temperatures); err != nil {
+		s.log.Error("temperaturen speichern", "err", err)
+	}
+	if err := s.store.ReplaceProxmox(r.Context(), device.ID, req.Inventory.Proxmox); err != nil {
+		s.log.Error("proxmox-gäste speichern", "err", err)
+	}
 	// Nach dem Inventar (MAC/IP bekannt) etwaige Scan-Platzhalter desselben Hosts
 	// zusammenführen – z. B. wenn ein zuvor per Scan übernommenes Gerät jetzt einen
 	// Agenten bekommen hat.
@@ -90,7 +96,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.alertSoftwareChanges(r.Context(), device, before)
 	if req.Sample != nil {
-		_ = s.store.InsertMetricsSample(r.Context(), device.ID, time.Now().UnixMilli(), req.Sample.CPU, req.Sample.Mem, req.Sample.Disk)
+		_ = s.store.InsertMetricsSample(r.Context(), device.ID, time.Now().UnixMilli(), req.Sample.CPU, req.Sample.Mem, req.Sample.Disk, req.Sample.Temp)
 	}
 	if len(req.CheckResults) > 0 {
 		events, err := s.store.SaveCheckResults(r.Context(), device.ID, req.CheckResults)

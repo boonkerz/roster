@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Roster
+GenericName=Server management
+GenericName[de]=Serververwaltung
+Comment=Server list with check and task status, remote terminal and remote control
+Comment[de]=Serverliste mit Check- und Task-Status, Remote-Terminal und Fernsteuerung
+# Der Installer (make install-tray) trägt hier den absoluten Pfad ein.
+Exec=roster-tray
+Icon=de.boonkerz.roster.tray
+Terminal=false
+Categories=Network;RemoteAccess;Monitor;
+Keywords=roster;rmm;server;inventory;monitoring;remote;terminal;
+Keywords[de]=roster;server;inventar;überwachung;fernwartung;terminal;
+# Muss zur App-ID aus cmd/tray (SDL_APP_ID) passen, sonst ordnet die Leiste das
+# Fenster dem Eintrag nicht zu und zeigt kein Symbol.
+StartupWMClass=de.boonkerz.roster.tray
+SingleMainWindow=true

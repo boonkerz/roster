@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
+
+	"github.com/boonkerz/roster/internal/sdlui"
 )
 
 // Zweipanel-Dateimanager (Midnight-Commander-Stil) als Overlay über dem Remote-Bild.
@@ -49,7 +51,7 @@ type promptState struct {
 }
 
 type fileManager struct {
-	txt    *textRenderer
+	txt    *sdlui.Text
 	rn     *sdl.Renderer
 	cl     *fmClient
 	active bool
@@ -80,10 +82,10 @@ type fmButton struct {
 	x, w      float32
 }
 
-func newFileManager(txt *textRenderer, cfg *launchConfig) *fileManager {
+func newFileManager(txt *sdlui.Text, cfg *launchConfig) *fileManager {
 	fm := &fileManager{
 		txt:   txt,
-		rn:    txt.renderer,
+		rn:    txt.Renderer(),
 		cl:    newFMClient(cfg),
 		scale: 1,
 	}

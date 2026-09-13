@@ -13,15 +13,17 @@ import { FileBrowser } from "./FileBrowser";
 import { SecurityPanel } from "./SecurityPanel";
 import { EventLog } from "./EventLog";
 import { DockerPanel } from "./DockerPanel";
+import { ProxmoxPanel, backupState } from "./ProxmoxPanel";
 import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
+import { tempStatus } from "../temperature";
 import { Vulnerabilities } from "./Vulnerabilities";
 import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "docker" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -141,6 +143,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     updates: { label: "Patches", icon: "⬇" },
     network: { label: "Netzwerk", icon: "🌐" },
     docker: { label: "Docker", icon: "🐳" },
+    proxmox: { label: "Proxmox", icon: "🗄" },
     fields: { label: "Felder", icon: "🏷" },
     files: { label: "Dateien", icon: "📁" },
     run: { label: "Ausführen", icon: "▶" },
@@ -149,10 +152,14 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   };
   // Docker-Tab nur zeigen, wenn das Gerät Docker meldet (sonst leerer Tab überall).
   const hasDocker = (device.docker_containers ?? []).length > 0 || (device.docker_images ?? []).length > 0;
+  // Proxmox-Tab nur für Geräte, deren Agent auf einem PVE-Host läuft.
+  const hasProxmox = !!device.proxmox_version;
+  const pveGuests = (device.proxmox_guests ?? []).filter((g) => !g.template);
+  const pveBad = pveGuests.filter((g) => backupState(g) !== "ok").length;
   const tabGroups: { name: string; icon: string; tabs: Tab[] }[] = [
     { name: "Übersicht", icon: "🖥", tabs: ["summary", "live"] },
     { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "history"] },
-    { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), "fields"] },
+    { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), ...(hasProxmox ? ["proxmox" as Tab] : []), "fields"] },
     { name: "System", icon: "⚙", tabs: ["system", "security", "vulns", "events"] },
   ];
   if (canOperate) tabGroups.push({ name: "Zugriff", icon: "❯_", tabs: ["files", "run", "terminal", "remote"] });
@@ -165,6 +172,10 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
       {k === "updates" && <span className="tab-badge"><UpdatesBadge count={device.updates_count} /></span>}
       {k === "software" && <span className="tab-count">{(device.software ?? []).length}</span>}
       {k === "docker" && <span className="tab-count">{(device.docker_containers ?? []).length}</span>}
+      {k === "proxmox" && (
+        <span className={pveBad > 0 ? "tab-count tab-count-bad" : "tab-count"}
+          title={pveBad > 0 ? t("{n} ohne aktuelles Backup", { n: pveBad }) : undefined}>{pveGuests.length}</span>
+      )}
     </>
   );
   // Fehler-/Warn-Indikator an der Gruppe „Zustand" / „Inventar".
@@ -311,6 +322,29 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                     <div className="muted small">{fmtSize(d.free_bytes)} {t("frei von")} {fmtSize(d.size_bytes)}</div>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+          {(device.temperatures ?? []).length > 0 && (
+            <section className="card">
+              <h2>{t("Temperaturen")}</h2>
+              <div className="temps">
+                {device.temperatures!.map((tp) => {
+                  const st = tempStatus(tp);
+                  const scale = tp.critical && tp.critical > 0 ? tp.critical : 100;
+                  return (
+                    <div key={tp.sensor} className="temp-row" title={tp.sensor}>
+                      <span className="temp-label">{tp.label}</span>
+                      <span className="disk-bar"><span className={`temp-fill temp-${st}`} style={{ width: `${Math.min(100, (tp.celsius / scale) * 100)}%` }} /></span>
+                      <span className="temp-value">{Math.round(tp.celsius)} °C</span>
+                      <span className="temp-state">
+                        {st === "critical" && <span className="badge badge-offline">{t("kritisch")}</span>}
+                        {st === "warn" && <span className="badge badge-warn">{t("Warnung")}</span>}
+                        {(st === "ok" || st === "unknown") && tp.critical ? <span className="muted small">{t("krit.")} {Math.round(tp.critical)} °C</span> : null}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -642,6 +676,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
         )}
 
         {tab === "docker" && <DockerPanel device={device} canOperate={canOperate} />}
+        {tab === "proxmox" && <ProxmoxPanel device={device} canOperate={canOperate} />}
 
         {tab === "run" && canOperate && (
           <section className="card">

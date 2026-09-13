@@ -13,6 +13,11 @@ Each check has its own frequency, severity, output comparison and platform targe
 - **Script**: run a shell/PowerShell script and evaluate its result.
 - **Network**: native `ping`, `tcp` port, `http` status.
 - **Open ports**: alert when a device exposes a public port not on an allow-list.
+- **Temperature**: warning/failing when a sensor gets too hot — by default at the limits
+  the chip reports itself (critical at `crit`, warning at `max` or 10 °C below `crit`),
+  optionally with your own °C thresholds and a sensor filter such as `cpu` or `nvme`.
+- **Proxmox backups**: every guest on a PVE host has a recent, successful backup and sits
+  in a backup job — see [Proxmox VE](proxmox.md).
 
 Failing checks surface as a health badge in the device list and drive **alerting** and
 **self-healing**.

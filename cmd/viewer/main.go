@@ -32,6 +32,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/jupiterrider/purego-sdl3/sdl"
+
+	"github.com/boonkerz/roster/internal/sdlui"
 )
 
 type launchConfig struct {
@@ -231,7 +233,7 @@ func runSession(cfg *launchConfig) error {
 	applyUIScale(uiScale)
 	log.Printf("ui-skalierung: %.2f", uiScale)
 
-	txt, err := newTextRenderer(renderer, float64(baseFontPx*uiScale))
+	txt, err := sdlui.NewText(renderer, float64(baseFontPx*uiScale))
 	if err != nil {
 		return fmt.Errorf("font: %w", err)
 	}
@@ -274,7 +276,7 @@ func runSession(cfg *launchConfig) error {
 		}
 		uiScale = s
 		applyUIScale(s)
-		if err := txt.setSize(float64(baseFontPx * s)); err != nil {
+		if err := txt.SetSize(float64(baseFontPx * s)); err != nil {
 			log.Printf("font-skalierung: %v", err)
 		}
 		fm.scale = s

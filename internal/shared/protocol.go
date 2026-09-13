@@ -34,9 +34,10 @@ type CheckinRequest struct {
 // MetricsSample ist eine leichte Auslastungs-Momentaufnahme je Checkin (für die
 // Verlaufscharts). Prozentwerte 0..100.
 type MetricsSample struct {
-	CPU  float64 `json:"cpu"`
-	Mem  float64 `json:"mem"`
-	Disk float64 `json:"disk"` // am stärksten belegter Datenträger
+	CPU  float64  `json:"cpu"`
+	Mem  float64  `json:"mem"`
+	Disk float64  `json:"disk"`           // am stärksten belegter Datenträger
+	Temp *float64 `json:"temp,omitempty"` // Leittemperatur in °C (siehe HeadlineTemperature), nil = keine Sensoren
 }
 
 // CommandResult ist das Ergebnis eines Ad-hoc-Befehls.
@@ -146,6 +147,14 @@ type Inventory struct {
 	Containers []DockerContainer `json:"docker_containers,omitempty"`
 	Images     []DockerImage     `json:"docker_images,omitempty"`
 
+	// Temperatursensoren (CPU, Chipsatz, NVMe, GPU …), soweit das System sie liefert.
+	// VMs und viele Windows-Rechner haben keine auslesbaren Sensoren.
+	Temperatures []Temperature `json:"temperatures,omitempty"`
+
+	// Proxmox VE (nur auf PVE-Hosts, erkannt über pvesh): VMs/Container samt
+	// Backup-Status. nil = kein Proxmox-Host.
+	Proxmox *ProxmoxInfo `json:"proxmox,omitempty"`
+
 	CollectedAt time.Time `json:"collected_at"`
 }
 
@@ -160,6 +169,77 @@ type DockerContainer struct {
 	Compose     string `json:"compose,omitempty"` // com.docker.compose.project (falls gesetzt)
 	Created     string `json:"created,omitempty"` // Erstellzeitpunkt (Rohstring)
 	Health      string `json:"health,omitempty"`  // healthy | unhealthy | starting | "" (kein Healthcheck)
+}
+
+// Temperature ist ein Temperatursensor (Momentaufnahme beim Checkin).
+type Temperature struct {
+	Sensor   string  `json:"sensor"`             // Schlüssel des Treibers, z. B. coretemp_package_id_0
+	Label    string  `json:"label"`              // lesbar, z. B. "CPU Package 0"
+	Class    string  `json:"class"`              // cpu | gpu | disk | board | other
+	Celsius  float64 `json:"celsius"`            // aktueller Wert
+	High     float64 `json:"high,omitempty"`     // Warnschwelle laut Chip (0 = unbekannt)
+	Critical float64 `json:"critical,omitempty"` // kritische Schwelle laut Chip (0 = unbekannt)
+}
+
+// WarnAt liefert die Warnschwelle in °C (0 = keine bekannt). Viele Treiber melden
+// als „max" denselben Wert wie „crit" (z. B. Intel coretemp: beide = TjMax); dann
+// gilt 10 °C darunter als Warnung.
+func (t Temperature) WarnAt() float64 {
+	switch {
+	case t.High > 0 && (t.Critical == 0 || t.High < t.Critical):
+		return t.High
+	case t.Critical > 10:
+		return t.Critical - 10
+	}
+	return 0
+}
+
+// Status bewertet den Sensor anhand der Chip-Schwellen: ok | warn | critical |
+// unknown (keine Schwellen bekannt).
+func (t Temperature) Status() string {
+	switch {
+	case t.Critical > 0 && t.Celsius >= t.Critical:
+		return "critical"
+	case t.WarnAt() > 0 && t.Celsius >= t.WarnAt():
+		return "warn"
+	case t.WarnAt() == 0 && t.Critical == 0:
+		return "unknown"
+	}
+	return "ok"
+}
+
+// ProxmoxInfo beschreibt einen Proxmox-VE-Host (bzw. dessen Cluster).
+type ProxmoxInfo struct {
+	Version string         `json:"version"` // pve-manager-Version, z. B. "8.2.4"
+	Guests  []ProxmoxGuest `json:"guests"`  // clusterweit (pvesh /cluster/resources)
+}
+
+// ProxmoxGuest ist eine VM (qemu) oder ein Container (lxc) samt Backup-Status.
+type ProxmoxGuest struct {
+	Node     string  `json:"node"`
+	VMID     int     `json:"vmid"`
+	Type     string  `json:"type"`   // qemu | lxc
+	Name     string  `json:"name"`   // Anzeigename
+	Status   string  `json:"status"` // running | stopped | paused …
+	Template bool    `json:"template,omitempty"`
+	CPUs     float64 `json:"cpus,omitempty"`    // zugewiesene vCPUs
+	CPU      float64 `json:"cpu,omitempty"`     // Auslastung 0..1 (nur laufend)
+	Mem      uint64  `json:"mem,omitempty"`     // belegter RAM (Bytes)
+	MaxMem   uint64  `json:"maxmem,omitempty"`  // zugewiesener RAM (Bytes)
+	MaxDisk  uint64  `json:"maxdisk,omitempty"` // Plattengröße (Bytes)
+	Uptime   uint64  `json:"uptime,omitempty"`  // Sekunden
+
+	// Backup-Status: letztes vorhandenes Backup auf einem Backup-Speicher ...
+	BackupAt      *time.Time `json:"backup_at,omitempty"`
+	BackupSize    uint64     `json:"backup_size,omitempty"`
+	BackupStorage string     `json:"backup_storage,omitempty"`
+	BackupCount   int        `json:"backup_count,omitempty"`
+	// ... Ergebnis des letzten vzdump-Laufs, der diesen Gast enthielt ...
+	BackupTaskStatus string     `json:"backup_task_status,omitempty"` // ok | failed | "" (kein Lauf bekannt)
+	BackupTaskAt     *time.Time `json:"backup_task_at,omitempty"`
+	BackupTaskMsg    string     `json:"backup_task_msg,omitempty"`
+	// ... und ob er überhaupt in einem Backup-Job steckt (nil = unbekannt).
+	BackupJob *bool `json:"backup_job,omitempty"`
 }
 
 // DockerImage ist ein lokal vorhandenes Docker-Image.

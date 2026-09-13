@@ -52,6 +52,10 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return portsCheck(ctx, c)
 	case "docker":
 		return dockerCheck(ctx, c)
+	case "proxmox_backup":
+		return proxmoxBackupCheck(ctx, c)
+	case "temperature":
+		return temperatureCheck(ctx, c)
 	case "smart":
 		return smartCheck(ctx, c)
 	case "av":

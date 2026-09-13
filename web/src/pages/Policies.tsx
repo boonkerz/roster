@@ -44,6 +44,8 @@ const CHECK_TYPES: Record<string, string> = {
   uptime: "Uptime (Neustart überfällig)",
   reboot: "Neustart ausstehend",
   zfs: "ZFS-Pool (Health/Kapazität)",
+  proxmox_backup: "Proxmox-Backups (aktuell?)",
+  temperature: "Temperatur (°C)",
 };
 
 const ZFS_MODES: Record<string, string> = {
@@ -180,6 +182,14 @@ function PolicyEditor({
   const [cZfsMode, setCZfsMode] = useState("health"); // ZFS: Modus (health|capacity)
   const [cZfsPool, setCZfsPool] = useState("");       // ZFS: nur dieser Pool (optional)
   const [cZfsMax, setCZfsMax] = useState("80");       // ZFS capacity: max. Belegung %
+  const [cPbAge, setCPbAge] = useState("26");         // Proxmox-Backup: max. Alter (h)
+  const [cPbVmids, setCPbVmids] = useState("");       // Proxmox-Backup: nur diese VMIDs
+  const [cPbExclude, setCPbExclude] = useState("");   // Proxmox-Backup: diese VMIDs auslassen
+  const [cPbStopped, setCPbStopped] = useState(true);  // Proxmox-Backup: gestoppte Gäste mitprüfen
+  const [cPbJob, setCPbJob] = useState(true);          // Proxmox-Backup: Backup-Job verlangen
+  const [cTempSensor, setCTempSensor] = useState("");  // Temperatur: nur Sensoren mit diesem Namensteil
+  const [cTempWarn, setCTempWarn] = useState("");      // Temperatur: Warnung ab °C (leer = Chip-Grenze)
+  const [cTempCrit, setCTempCrit] = useState("");      // Temperatur: kritisch ab °C (leer = Chip-Grenze)
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -189,7 +199,7 @@ function PolicyEditor({
   });
   const addCheck = useMutation({
     mutationFn: () => {
-      let config: Record<string, number | string> = { threshold: cThreshold };
+      let config: Record<string, number | string | boolean> = { threshold: cThreshold };
       if (cType === "script") {
         config = {};
         if (cOp) {
@@ -218,6 +228,15 @@ function PolicyEditor({
       } else if (cType === "uptime") {
         config = {};
         if (cUpDays !== "") config.max_days = Number(cUpDays);
+      } else if (cType === "temperature") {
+        config = {};
+        if (cTempSensor.trim() !== "") config.sensor = cTempSensor.trim();
+        if (cTempWarn !== "") config.warn = Number(cTempWarn);
+        if (cTempCrit !== "") config.crit = Number(cTempCrit);
+      } else if (cType === "proxmox_backup") {
+        config = { max_age_hours: Number(cPbAge || 26), include_stopped: cPbStopped, require_job: cPbJob };
+        if (cPbVmids.trim() !== "") config.vmids = cPbVmids.trim();
+        if (cPbExclude.trim() !== "") config.exclude_vmids = cPbExclude.trim();
       } else if (cType === "zfs") {
         config = { mode: cZfsMode };
         if (cZfsPool.trim() !== "") config.pool = cZfsPool.trim();
@@ -301,6 +320,14 @@ function PolicyEditor({
     setCZfsMode(str(cfg.mode) || "health");
     setCZfsPool(str(cfg.pool));
     setCZfsMax(cfg.max !== undefined ? String(cfg.max) : "80");
+    setCPbAge(cfg.max_age_hours !== undefined ? String(cfg.max_age_hours) : "26");
+    setCPbVmids(str(cfg.vmids));
+    setCPbExclude(str(cfg.exclude_vmids));
+    setCPbStopped(cfg.include_stopped !== false);
+    setCPbJob(cfg.require_job !== false);
+    setCTempSensor(c.type === "temperature" ? str(cfg.sensor) : "");
+    setCTempWarn(c.type === "temperature" ? str(cfg.warn) : "");
+    setCTempCrit(c.type === "temperature" ? str(cfg.crit) : "");
   }
 
   // Task anlegen
@@ -367,6 +394,10 @@ function PolicyEditor({
                 : c.type === "cert" ? `Zertifikat: ${c.config?.host ?? ""}${c.config?.port ? `:${c.config.port}` : ""}${c.config?.min_days ? ` (≥${c.config.min_days}d)` : ""}`
                 : c.type === "service" || c.type === "process" ? `${t(CHECK_TYPES[c.type])}: ${c.config?.name ?? "—"}`
                 : c.type === "uptime" ? `Uptime ≤ ${c.config?.max_days ?? 30}d`
+                : c.type === "temperature" ? `${t("Temperatur")}${c.config?.sensor ? ` (${c.config.sensor})` : ""}${c.config?.warn !== undefined || c.config?.crit !== undefined
+                    ? `${c.config?.warn !== undefined ? ` ⚠ ≥ ${c.config.warn} °C` : ""}${c.config?.crit !== undefined ? ` ✖ ≥ ${c.config.crit} °C` : ""}`
+                    : ` · ${t("Chip-Grenzen")}`}`
+                : c.type === "proxmox_backup" ? `${t("Proxmox-Backups")} ≤ ${c.config?.max_age_hours ?? 26} h${c.config?.vmids ? ` (${c.config.vmids})` : ""}${c.config?.exclude_vmids ? ` ${t("ohne")} ${c.config.exclude_vmids}` : ""}`
                 : c.type === "zfs" ? `ZFS: ${t(ZFS_MODES[String(c.config?.mode ?? "health")] ?? "")}${c.config?.pool ? ` (${c.config.pool})` : ""}${c.config?.mode === "capacity" ? ` ≤${c.config?.max ?? 80}%` : ""}`
                 : `${t(CHECK_TYPES[c.type])} ${c.config?.threshold ?? ""}`}
               {" · "}{c.severity === "warning" ? t("Warnung") : t("Kritisch")}
@@ -435,6 +466,31 @@ function PolicyEditor({
               </select>
               <input placeholder={t("Pool-Name (optional, leer = alle)")} value={cZfsPool} onChange={(e) => setCZfsPool(e.target.value)} style={{ minWidth: 160 }} />
               {cZfsMode === "capacity" && <label className="num" title={t("Failing, wenn die Belegung eines Pools diesen Prozentwert überschreitet.")}>{t("max %")}<input type="number" value={cZfsMax} onChange={(e) => setCZfsMax(e.target.value)} /></label>}
+            </>
+          ) : cType === "temperature" ? (
+            <>
+              <input placeholder={t("Sensor enthält (z. B. cpu, nvme – leer = alle)")} value={cTempSensor}
+                onChange={(e) => setCTempSensor(e.target.value)} style={{ minWidth: 220 }} />
+              <label className="num" title={t("Warnung ab dieser Temperatur. Leer = Warnschwelle, die der Chip meldet.")}>
+                {t("Warnung °C")}<input type="number" placeholder={t("Chip")} value={cTempWarn} onChange={(e) => setCTempWarn(e.target.value)} />
+              </label>
+              <label className="num" title={t("Failing ab dieser Temperatur. Leer = kritische Schwelle, die der Chip meldet.")}>
+                {t("kritisch °C")}<input type="number" placeholder={t("Chip")} value={cTempCrit} onChange={(e) => setCTempCrit(e.target.value)} />
+              </label>
+            </>
+          ) : cType === "proxmox_backup" ? (
+            <>
+              <label className="num" title={t("Failing, wenn das letzte Backup eines Gasts älter ist, der letzte Lauf fehlschlug oder es gar keins gibt.")}>
+                {t("max. Alter (h)")}<input type="number" min={1} value={cPbAge} onChange={(e) => setCPbAge(e.target.value)} />
+              </label>
+              <input placeholder={t("Nur VMIDs (leer = alle)")} value={cPbVmids} onChange={(e) => setCPbVmids(e.target.value)} style={{ minWidth: 150 }} />
+              <input placeholder={t("VMIDs ausnehmen")} value={cPbExclude} onChange={(e) => setCPbExclude(e.target.value)} style={{ minWidth: 130 }} />
+              <label className="chip" title={t("Auch ausgeschaltete Gäste müssen ein aktuelles Backup haben.")}>
+                <input type="checkbox" checked={cPbStopped} onChange={(e) => setCPbStopped(e.target.checked)} /> {t("gestoppte mitprüfen")}
+              </label>
+              <label className="chip" title={t("Failing, wenn ein Gast in keinem Backup-Job von Proxmox steckt.")}>
+                <input type="checkbox" checked={cPbJob} onChange={(e) => setCPbJob(e.target.checked)} /> {t("Backup-Job verlangen")}
+              </label>
             </>
           ) : cType === "reboot" ? (
             <span className="muted small">{t("Failing, wenn ein Neustart aussteht.")}</span>

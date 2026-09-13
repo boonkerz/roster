@@ -41,6 +41,8 @@ getting started, all features, configuration and security.
 - **Tasks** – scheduled scripts with frequency; last run per task + full run history.
 - **Live utilization + history** – on-demand CPU (per core) / RAM / disk / network graphs,
   plus stored CPU/RAM/disk **time series** with 24 h / 7 d / 30 d charts.
+- **Temperatures** – all hardware sensors with the chips' own limits, a temperature history
+  chart and a **temperature** check type (chip limits or your own °C thresholds).
 - **Remote desktop** – built-in remote control (own RFB/VNC server, no third-party
   software) through the same tunnel: screen + mouse/keyboard, login screen / UAC, clipboard
   sync, monitor selection, drag-&-drop file transfer, **live resolution switch** (+ VM
@@ -50,6 +52,15 @@ getting started, all features, configuration and security.
   **Ctrl+Alt+Del** via SendSAS, block local input, on-screen message, quality) and full
   keyboard capture on Wayland – one-click launch via `roster://` link.
 - **Remote terminal** – interactive shell over an on-demand WebSocket (+ pop-out window).
+- **Proxmox VE** – agent on a PVE host lists all VMs/containers cluster-wide (via `pvesh`,
+  no API token), start / shut down / reboot / stop them, and shows each guest's backup
+  state (latest backup, failed runs, not in a job) plus a **Proxmox backups** check type.
+- **Taskbar app** – `roster-tray`: a system-tray icon plus a compact window listing every
+  server with its check/task result, and a **Terminal** button (opens your own terminal
+  emulator on the remote shell), a **Viewer** button (native remote control) and an **SFTP**
+  button (hands `sftp://` to your file manager / FileZilla / WinSCP) per row.
+  Same cgo-free SDL3 stack as the viewer; the icon turns red when a check or task fails.
+  `make install-tray` adds it to the application launcher (autostart optional).
 - **File browser & transfer** – browse the agent's filesystem, download / upload (≤ 32 MB).
 - **Services & processes** – list + start/stop/restart services, kill processes.
 - **Storage explorer** – TreeSize-style live directory scan with a pie chart.
@@ -197,6 +208,8 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit.
 - **Tasks** – geplante Skripte mit Frequenz; letzter Lauf je Task + Lauf-Historie.
 - **Live-Auslastung + Verlauf** – on-demand CPU (je Kern) / RAM / Disk / Netzwerk, plus
   gespeicherte CPU/RAM/Disk-**Zeitreihen** mit 24 h / 7 d / 30 d-Charts.
+- **Temperaturen** – alle Hardware-Sensoren mit den Grenzwerten der Chips, Temperaturverlauf
+  als Diagramm und Check-Typ **Temperatur** (Chip-Grenzen oder eigene °C-Schwellen).
 - **Fernsteuerung (Remote Desktop)** – **eingebaute** Fernsteuerung (eigener RFB/VNC-
   Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur,
   Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop,
@@ -207,6 +220,16 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit.
   sperren, Meldung, Qualität) und vollständiger Tastatur-Erfassung auf Wayland –
   Ein-Klick-Start via `roster://`-Link.
 - **Remote-Terminal** – interaktive Shell über On-demand-WebSocket (+ Popout-Fenster).
+- **Proxmox VE** – Agent auf einem PVE-Host listet alle VMs/Container clusterweit (über
+  `pvesh`, ohne API-Token), starten / herunterfahren / neu starten / stoppen, Backup-Status
+  je Gast (letztes Backup, fehlgeschlagene Läufe, kein Job) plus Check-Typ **Proxmox-Backups**.
+- **Taskleisten-App** – `roster-tray`: Symbol im System-Tray plus schlankes Fenster mit
+  allen Servern samt Check- und Task-Ergebnis, je Zeile ein **Terminal**-Knopf (öffnet die
+  Remote-Shell im eigenen Terminal-Emulator), ein **Viewer**-Knopf (native Fernsteuerung)
+  und ein **SFTP**-Knopf (übergibt `sftp://` an Dateimanager/FileZilla/WinSCP). Gleiche
+  cgo-freie SDL3-Basis wie der Viewer; das Symbol wird rot, sobald ein Check oder Task
+  fehlschlägt. `make install-tray` trägt sie ins Anwendungsmenü ein
+  (Autostart optional).
 - **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (≤ 32 MB).
 - **Dienste & Prozesse** – auflisten + Start/Stop/Neustart, Prozesse beenden.
 - **Speicher-Explorer** – TreeSize-artiger Live-Scan mit Tortendiagramm.

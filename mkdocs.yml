@@ -57,6 +57,8 @@ nav:
       - Inventory: features/inventory.md
       - Checks & tasks: features/checks-tasks.md
       - Remote desktop & terminal: features/remote.md
+      - Taskbar app: features/tray-app.md
+      - Proxmox VE: features/proxmox.md
       - Roles & permissions: features/permissions.md
       - Network & discovery: features/network.md
       - Patching & software: features/patching.md

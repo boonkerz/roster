@@ -222,6 +222,123 @@ func TestDockerInventory(t *testing.T) {
 	}
 }
 
+func TestProxmoxInventory(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pve1", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	backupAt := time.Date(2026, 9, 12, 1, 0, 41, 0, time.UTC)
+	yes, no := true, false
+	info := &shared.ProxmoxInfo{Version: "8.2.4", Guests: []shared.ProxmoxGuest{
+		{Node: "pve1", VMID: 101, Type: "qemu", Name: "win-srv", Status: "running", CPUs: 4, CPU: 0.25,
+			Mem: 2 << 30, MaxMem: 8 << 30, MaxDisk: 64 << 30, Uptime: 3600,
+			BackupAt: &backupAt, BackupSize: 12 << 30, BackupStorage: "pbs", BackupCount: 14,
+			BackupTaskStatus: "failed", BackupTaskAt: &backupAt, BackupTaskMsg: "no space left", BackupJob: &yes},
+		{Node: "pve1", VMID: 100, Type: "lxc", Name: "dns", Status: "stopped", BackupJob: &no},
+		{Node: "pve2", VMID: 9000, Type: "qemu", Name: "tpl", Status: "stopped", Template: true},
+	}}
+	if err := st.ReplaceProxmox(ctx, dev.ID, info); err != nil {
+		t.Fatalf("ReplaceProxmox: %v", err)
+	}
+
+	got, err := st.GetDevice(ctx, dev.ID)
+	if err != nil {
+		t.Fatalf("GetDevice: %v", err)
+	}
+	if got.ProxmoxVersion != "8.2.4" || len(got.ProxmoxGuests) != 3 {
+		t.Fatalf("Version/Gäste: %q %d", got.ProxmoxVersion, len(got.ProxmoxGuests))
+	}
+	g := got.ProxmoxGuests
+	if g[0].VMID != 100 || g[1].VMID != 101 || g[2].VMID != 9000 {
+		t.Errorf("nicht nach VMID sortiert: %+v", g)
+	}
+	vm := g[1]
+	if vm.Mem != 2<<30 || vm.MaxDisk != 64<<30 || vm.CPU != 0.25 || vm.BackupSize != 12<<30 || vm.BackupCount != 14 {
+		t.Errorf("Zahlen falsch gespeichert: %+v", vm)
+	}
+	if vm.BackupAt == nil || !vm.BackupAt.Equal(backupAt) || vm.BackupTaskStatus != "failed" || vm.BackupTaskMsg != "no space left" {
+		t.Errorf("Backup-Stand falsch gespeichert: %+v", vm)
+	}
+	if vm.BackupJob == nil || !*vm.BackupJob || g[0].BackupJob == nil || *g[0].BackupJob || g[2].BackupJob != nil {
+		t.Errorf("backup_job (ja/nein/unbekannt) nicht erhalten: %v %v %v", vm.BackupJob, g[0].BackupJob, g[2].BackupJob)
+	}
+	if !g[2].Template || g[0].BackupAt != nil {
+		t.Errorf("Vorlage/fehlendes Backup falsch: %+v %+v", g[2], g[0])
+	}
+
+	// Die Geräteliste trägt die Gäste für PVE-Hosts mit (Taskleisten-App).
+	list, err := st.ListDevices(ctx, nil)
+	if err != nil || len(list) != 1 || len(list[0].ProxmoxGuests) != 3 {
+		t.Fatalf("ListDevices: %v / %+v", err, list)
+	}
+
+	// Kein PVE mehr gemeldet → Kennzeichnung und Gäste weg.
+	if err := st.ReplaceProxmox(ctx, dev.ID, nil); err != nil {
+		t.Fatalf("Replace nil: %v", err)
+	}
+	if got, _ := st.GetDevice(ctx, dev.ID); got.ProxmoxVersion != "" || len(got.ProxmoxGuests) != 0 {
+		t.Fatalf("nach nil sollte das Gerät kein PVE-Host mehr sein: %q %d", got.ProxmoxVersion, len(got.ProxmoxGuests))
+	}
+}
+
+func TestTemperaturesAndHistory(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "srv", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	temps := []shared.Temperature{
+		{Sensor: "coretemp_package_id_0", Label: "CPU Package 0", Class: "cpu", Celsius: 61.5, High: 100, Critical: 100},
+		{Sensor: "nvme_composite", Label: "NVMe Composite", Class: "disk", Celsius: 38, High: 69.8, Critical: 84.8},
+		{Sensor: "acpitz", Label: "ACPI-Zone", Class: "board", Celsius: 27.8},
+	}
+	if err := st.ReplaceTemperatures(ctx, dev.ID, temps); err != nil {
+		t.Fatalf("ReplaceTemperatures: %v", err)
+	}
+	got, err := st.GetDevice(ctx, dev.ID)
+	if err != nil || len(got.Temperatures) != 3 {
+		t.Fatalf("GetDevice: %v / %+v", err, got)
+	}
+	if got.Temperatures[0].Label != "CPU Package 0" || got.Temperatures[1].Critical != 84.8 || got.Temperatures[2].High != 0 {
+		t.Errorf("Reihenfolge/Werte falsch: %+v", got.Temperatures)
+	}
+	if list, _ := st.ListDevices(ctx, nil); len(list) != 1 || len(list[0].Temperatures) != 3 {
+		t.Errorf("Liste ohne Sensoren: %+v", list)
+	}
+
+	// Verlauf: Buckets mit Temperatur mitteln, ohne Temperatur bleibt temp nil.
+	base := time.Now().Add(-time.Hour).UnixMilli() / 300000 * 300000
+	t60, t70 := 60.0, 70.0
+	for _, smp := range []struct {
+		ts   int64
+		temp *float64
+	}{{base + 1000, &t60}, {base + 2000, &t70}, {base + 300000 + 1000, nil}} {
+		if err := st.InsertMetricsSample(ctx, dev.ID, smp.ts, 10, 20, 30, smp.temp); err != nil {
+			t.Fatalf("InsertMetricsSample: %v", err)
+		}
+	}
+	pts, err := st.MetricsHistory(ctx, dev.ID, base, 300000)
+	if err != nil || len(pts) != 2 {
+		t.Fatalf("MetricsHistory: %v / %+v", err, pts)
+	}
+	if pts[0].Temp == nil || *pts[0].Temp != 65 {
+		t.Errorf("Temperatur-Mittel falsch: %v", pts[0].Temp)
+	}
+	if pts[1].Temp != nil {
+		t.Errorf("Bucket ohne Sensordaten muss temp=nil haben: %v", *pts[1].Temp)
+	}
+
+	if err := st.ReplaceTemperatures(ctx, dev.ID, nil); err != nil {
+		t.Fatalf("Replace leer: %v", err)
+	}
+	if got, _ := st.GetDevice(ctx, dev.ID); len(got.Temperatures) != 0 {
+		t.Errorf("nach leerem Replace noch Sensoren: %+v", got.Temperatures)
+	}
+}
+
 func TestCustomFieldProps(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

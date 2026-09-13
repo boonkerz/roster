@@ -241,9 +241,13 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	p.pendingChecks, p.pendingTasks, p.pendingCmdResults = nil, nil, nil
 	p.mu.Unlock()
 
+	sample := collect.Sample(ctx)
+	if sample != nil {
+		sample.Temp = collect.HeadlineTemperature(inv.Temperatures) // für den Temperaturverlauf
+	}
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
-		Sample: collect.Sample(ctx),
+		Sample: sample,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -412,6 +416,17 @@ func (p *program) runPolicy(ctx context.Context) {
 		case "docker_start", "docker_stop", "docker_restart":
 			id, _ := cmd.Payload["container_id"].(string)
 			exit, output = collect.DockerControl(ctx, id, strings.TrimPrefix(cmd.Type, "docker_"))
+		case "proxmox_start", "proxmox_stop", "proxmox_shutdown", "proxmox_reboot":
+			// Herunterfahren kann Minuten dauern -> asynchron, Ergebnis + frisches
+			// Inventar (neuer Gast-Status) kommen mit dem nächsten Checkin.
+			node, _ := cmd.Payload["node"].(string)
+			gtype, _ := cmd.Payload["type"].(string)
+			vmid := 0
+			if f, ok := cmd.Payload["vmid"].(float64); ok {
+				vmid = int(f)
+			}
+			go p.proxmoxControl(ctx, cmd.ID, node, gtype, vmid, strings.TrimPrefix(cmd.Type, "proxmox_"))
+			continue
 		case "process_kill":
 			pid := 0
 			if f, ok := cmd.Payload["pid"].(float64); ok {
@@ -676,6 +691,17 @@ func (p *program) installPackage(ctx context.Context, cmdID string, ids map[stri
 	})
 	p.mu.Unlock()
 	p.log.Info("software-installation abgeschlossen", "command", cmdID, "exit", exit)
+	p.requestCheckin()
+}
+
+func (p *program) proxmoxControl(ctx context.Context, cmdID, node, gtype string, vmid int, action string) {
+	exit, output := collect.ProxmoxControl(ctx, node, gtype, vmid, action)
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
+	p.log.Info("proxmox-aktion abgeschlossen", "command", cmdID, "action", action, "vmid", vmid, "exit", exit)
 	p.requestCheckin()
 }
 

@@ -75,6 +75,12 @@ func Collect(ctx context.Context, agentVersion string) shared.Inventory {
 	inv.Containers = DockerContainers(ctx)
 	inv.Images = DockerImages(ctx)
 
+	// Temperatursensoren (leer auf VMs / Systemen ohne auslesbare Sensoren).
+	inv.Temperatures = Temperatures(ctx)
+
+	// Proxmox VE (nur auf PVE-Hosts): Gäste + Backup-Status.
+	inv.Proxmox = Proxmox(ctx)
+
 	return inv
 }
 

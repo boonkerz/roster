@@ -126,6 +126,51 @@ type Device struct {
 
 	Containers []DockerContainer `json:"docker_containers,omitempty"`
 	Images     []DockerImage     `json:"docker_images,omitempty"`
+
+	// Temperatursensoren (leer bei VMs / ohne auslesbare Sensoren).
+	Temperatures []Temperature `json:"temperatures,omitempty"`
+
+	// Proxmox VE: gesetzt, wenn der Agent auf einem PVE-Host läuft.
+	ProxmoxVersion string         `json:"proxmox_version,omitempty"`
+	ProxmoxGuests  []ProxmoxGuest `json:"proxmox_guests,omitempty"`
+}
+
+// Temperature ist ein Temperatursensor eines Geräts (Momentaufnahme vom Checkin).
+// Gleiche JSON-Felder wie shared.Temperature; die Bewertung (Status) machen Agent,
+// Web-UI und Taskleisten-App anhand high/critical selbst.
+type Temperature struct {
+	Sensor   string  `json:"sensor"`
+	Label    string  `json:"label"`
+	Class    string  `json:"class"`
+	Celsius  float64 `json:"celsius"`
+	High     float64 `json:"high,omitempty"`
+	Critical float64 `json:"critical,omitempty"`
+}
+
+// ProxmoxGuest ist eine VM (qemu) oder ein Container (lxc) auf einem Proxmox-Host,
+// samt Backup-Status (Momentaufnahme vom letzten Checkin).
+type ProxmoxGuest struct {
+	Node     string  `json:"node"`
+	VMID     int     `json:"vmid"`
+	Type     string  `json:"type"`
+	Name     string  `json:"name"`
+	Status   string  `json:"status"`
+	Template bool    `json:"template,omitempty"`
+	CPUs     float64 `json:"cpus,omitempty"`
+	CPU      float64 `json:"cpu,omitempty"`
+	Mem      int64   `json:"mem,omitempty"`
+	MaxMem   int64   `json:"maxmem,omitempty"`
+	MaxDisk  int64   `json:"maxdisk,omitempty"`
+	Uptime   int64   `json:"uptime,omitempty"`
+
+	BackupAt         *time.Time `json:"backup_at,omitempty"`
+	BackupSize       int64      `json:"backup_size,omitempty"`
+	BackupStorage    string     `json:"backup_storage,omitempty"`
+	BackupCount      int        `json:"backup_count,omitempty"`
+	BackupTaskStatus string     `json:"backup_task_status,omitempty"` // ok | failed | ""
+	BackupTaskAt     *time.Time `json:"backup_task_at,omitempty"`
+	BackupTaskMsg    string     `json:"backup_task_msg,omitempty"`
+	BackupJob        *bool      `json:"backup_job,omitempty"` // in einem Backup-Job? nil = unbekannt
 }
 
 // DockerContainer ist ein Docker-Container eines Geräts (Momentaufnahme).

@@ -8,6 +8,8 @@ import (
 	"unsafe"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
+
+	"github.com/boonkerz/roster/internal/sdlui"
 )
 
 // previewBar rendert die Bedienleiste offscreen in ein PNG (Entwicklungs-Hilfe, um
@@ -29,7 +31,7 @@ func previewBar(path string) error {
 	defer sdl.DestroyRenderer(rn)
 	sdl.SetRenderDrawBlendMode(rn, sdl.BlendModeBlend)
 
-	txt, err := newTextRenderer(rn, 15)
+	txt, err := sdlui.NewText(rn, 15)
 	if err != nil {
 		return err
 	}

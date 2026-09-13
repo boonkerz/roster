@@ -176,7 +176,7 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
-	d.managed, d.mute_software_alerts`
+	d.managed, d.mute_software_alerts, d.proxmox_version`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -223,6 +223,14 @@ func (s *Store) ListDevices(ctx context.Context, allowed map[string]bool) ([]mod
 			return nil, err
 		}
 		out[i].Interfaces = ifaces
+		if out[i].Temperatures, err = s.TemperaturesFor(ctx, out[i].ID); err != nil {
+			return nil, err
+		}
+		if out[i].ProxmoxVersion != "" { // Gäste nur für PVE-Hosts (Taskleisten-App klappt sie auf)
+			if out[i].ProxmoxGuests, err = s.ProxmoxGuestsFor(ctx, out[i].ID); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return out, nil
 }
@@ -265,6 +273,14 @@ func (s *Store) SearchDevices(ctx context.Context, q string) ([]model.Device, er
 			return nil, err
 		}
 		out[i].Interfaces = ifaces
+		if out[i].Temperatures, err = s.TemperaturesFor(ctx, out[i].ID); err != nil {
+			return nil, err
+		}
+		if out[i].ProxmoxVersion != "" { // Gäste nur für PVE-Hosts (Taskleisten-App klappt sie auf)
+			if out[i].ProxmoxGuests, err = s.ProxmoxGuestsFor(ctx, out[i].ID); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return out, nil
 }
@@ -311,6 +327,14 @@ func (s *Store) GetDevice(ctx context.Context, id string) (*model.Device, error)
 	}
 	if d.Images, err = s.DockerImagesFor(ctx, id); err != nil {
 		return nil, err
+	}
+	if d.Temperatures, err = s.TemperaturesFor(ctx, id); err != nil {
+		return nil, err
+	}
+	if d.ProxmoxVersion != "" {
+		if d.ProxmoxGuests, err = s.ProxmoxGuestsFor(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	// Anzahl wirksamer Checks/Tasks (für die Statusmeldung "zugewiesen vs. ausgewertet").
 	if bundle, err := s.EffectivePolicy(ctx, id); err == nil && bundle != nil {
@@ -801,6 +825,124 @@ func (s *Store) DockerContainersFor(ctx context.Context, deviceID string) ([]mod
 	return out, rows.Err()
 }
 
+// ReplaceTemperatures ersetzt die Sensor-Momentaufnahme eines Geräts.
+func (s *Store) ReplaceTemperatures(ctx context.Context, deviceID string, temps []shared.Temperature) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM temperatures WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for i, t := range temps {
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO temperatures (device_id, pos, sensor, label, class, celsius, high, critical, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, i, t.Sensor, t.Label, t.Class, t.Celsius, t.High, t.Critical, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// TemperaturesFor liefert die Sensoren eines Geräts in gemeldeter Reihenfolge.
+func (s *Store) TemperaturesFor(ctx context.Context, deviceID string) ([]model.Temperature, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT sensor, label, class, celsius, high, critical
+		FROM temperatures WHERE device_id=? ORDER BY pos`), deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.Temperature
+	for rows.Next() {
+		var t model.Temperature
+		if err := rows.Scan(&t.Sensor, &t.Label, &t.Class, &t.Celsius, &t.High, &t.Critical); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ReplaceProxmox ersetzt den Proxmox-Stand eines Geräts. info == nil heißt: kein
+// PVE-Host (mehr) – Version und Gäste werden dann geleert.
+func (s *Store) ReplaceProxmox(ctx context.Context, deviceID string, info *shared.ProxmoxInfo) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	version := ""
+	if info != nil {
+		version = info.Version
+		if version == "" {
+			version = "unbekannt" // PVE erkannt, Version nicht lesbar – trotzdem als Host kennzeichnen
+		}
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE devices SET proxmox_version=? WHERE id=?`), version, deviceID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM proxmox_guests WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	if info != nil {
+		now := time.Now().UTC()
+		for _, g := range info.Guests {
+			if _, err := tx.ExecContext(ctx, s.rebind(`
+				INSERT INTO proxmox_guests (device_id, node, vmid, type, name, status, template, cpus, cpu, mem, maxmem, maxdisk, uptime,
+					backup_at, backup_size, backup_storage, backup_count, backup_task_status, backup_task_at, backup_task_msg, backup_job, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+				deviceID, g.Node, g.VMID, g.Type, g.Name, g.Status, g.Template, g.CPUs, g.CPU,
+				int64(g.Mem), int64(g.MaxMem), int64(g.MaxDisk), int64(g.Uptime),
+				g.BackupAt, int64(g.BackupSize), g.BackupStorage, g.BackupCount,
+				g.BackupTaskStatus, g.BackupTaskAt, g.BackupTaskMsg, g.BackupJob, now); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+// ProxmoxGuestsFor liefert die Proxmox-Gäste eines Geräts, nach VMID sortiert.
+func (s *Store) ProxmoxGuestsFor(ctx context.Context, deviceID string) ([]model.ProxmoxGuest, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT node, vmid, type, name, status, template, cpus, cpu, mem, maxmem, maxdisk, uptime,
+			backup_at, backup_size, backup_storage, backup_count, backup_task_status, backup_task_at, backup_task_msg, backup_job
+		FROM proxmox_guests WHERE device_id=? ORDER BY vmid`), deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.ProxmoxGuest
+	for rows.Next() {
+		var g model.ProxmoxGuest
+		var backupAt, taskAt sql.NullTime
+		var job sql.NullBool
+		if err := rows.Scan(&g.Node, &g.VMID, &g.Type, &g.Name, &g.Status, &g.Template, &g.CPUs, &g.CPU,
+			&g.Mem, &g.MaxMem, &g.MaxDisk, &g.Uptime,
+			&backupAt, &g.BackupSize, &g.BackupStorage, &g.BackupCount, &g.BackupTaskStatus, &taskAt, &g.BackupTaskMsg, &job); err != nil {
+			return nil, err
+		}
+		if backupAt.Valid {
+			t := backupAt.Time
+			g.BackupAt = &t
+		}
+		if taskAt.Valid {
+			t := taskAt.Time
+			g.BackupTaskAt = &t
+		}
+		if job.Valid {
+			v := job.Bool
+			g.BackupJob = &v
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
 // ReplaceDockerImages ersetzt die Image-Momentaufnahme eines Geräts.
 func (s *Store) ReplaceDockerImages(ctx context.Context, deviceID string, images []shared.DockerImage) error {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -881,7 +1023,8 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
-		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.MuteSoftwareAlerts)
+		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.MuteSoftwareAlerts,
+		&d.ProxmoxVersion)
 	if err != nil {
 		return nil, err
 	}
