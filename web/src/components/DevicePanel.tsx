@@ -18,6 +18,7 @@ import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
 import { tempStatus } from "../temperature";
+import { fanProblem } from "../types";
 import { Vulnerabilities } from "./Vulnerabilities";
 import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
@@ -341,6 +342,28 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                         {st === "critical" && <span className="badge badge-offline">{t("kritisch")}</span>}
                         {st === "warn" && <span className="badge badge-warn">{t("Warnung")}</span>}
                         {(st === "ok" || st === "unknown") && tp.critical ? <span className="muted small">{t("krit.")} {Math.round(tp.critical)} °C</span> : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {(device.fans ?? []).length > 0 && (
+            <section className="card">
+              <h2>{t("Lüfter")}</h2>
+              <div className="temps">
+                {device.fans!.map((f) => {
+                  const problem = fanProblem(f);
+                  const fill = f.max ? (f.rpm / f.max) * 100 : f.percent ?? 0;
+                  return (
+                    <div key={f.sensor} className="temp-row" title={f.sensor}>
+                      <span className="temp-label">{f.label}</span>
+                      <span className="disk-bar"><span className={`temp-fill ${problem ? "temp-critical" : ""}`} style={{ width: `${Math.min(100, fill)}%` }} /></span>
+                      <span className="temp-value">{f.rpm}</span>
+                      <span className="temp-state">
+                        {problem ? <span className="badge badge-offline">{t(problem)}</span>
+                          : <span className="muted small">{t("U/min")}{f.percent !== undefined ? ` · ${f.percent} %` : ""}</span>}
                       </span>
                     </div>
                   );

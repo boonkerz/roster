@@ -129,6 +129,7 @@ type Device struct {
 
 	// Temperatursensoren (leer bei VMs / ohne auslesbare Sensoren).
 	Temperatures []Temperature `json:"temperatures,omitempty"`
+	Fans         []Fan         `json:"fans,omitempty"`
 
 	// Proxmox VE: gesetzt, wenn der Agent auf einem PVE-Host läuft.
 	ProxmoxVersion string         `json:"proxmox_version,omitempty"`
@@ -145,6 +146,17 @@ type Temperature struct {
 	Celsius  float64 `json:"celsius"`
 	High     float64 `json:"high,omitempty"`
 	Critical float64 `json:"critical,omitempty"`
+}
+
+// Fan ist ein Lüfter eines Geräts (gleiche JSON-Felder wie shared.Fan).
+type Fan struct {
+	Sensor  string `json:"sensor"`
+	Label   string `json:"label"`
+	RPM     int    `json:"rpm"`
+	Min     int    `json:"min,omitempty"`
+	Max     int    `json:"max,omitempty"`
+	Percent *int   `json:"percent,omitempty"`
+	Alarm   bool   `json:"alarm,omitempty"`
 }
 
 // ProxmoxGuest ist eine VM (qemu) oder ein Container (lxc) auf einem Proxmox-Host,

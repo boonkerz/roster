@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,13 +16,158 @@ import (
 // der Chips), FreeBSD sysctl, macOS SMC, Windows WMI-Thermalzonen (liefern auf vielen
 // Boards nichts). VMs haben meist gar keine Sensoren – dann bleibt die Liste leer.
 
-// Temperatures liefert alle plausiblen Sensorwerte, CPU zuerst.
+// Temperatures liefert alle plausiblen Sensorwerte, CPU zuerst. Unter Linux liest der
+// Agent /sys/class/hwmon selbst (Chips gleichen Namens – z. B. zwei NVMe-SSDs – lassen
+// sich nur so auseinanderhalten), sonst bzw. ohne hwmon-Temperaturen gopsutil.
 func Temperatures(ctx context.Context) []shared.Temperature {
+	if temps := readHwmonTemps(hwmonRoot); len(temps) > 0 {
+		return temps
+	}
 	stats, err := sensors.TemperaturesWithContext(ctx)
 	if err != nil && len(stats) == 0 {
 		return nil // gopsutil meldet Teilfehler als Warnung UND liefert die lesbaren Werte
 	}
 	return normalizeTemperatures(stats)
+}
+
+// hwmonChip ist ein hwmon-Verzeichnis mit Treibername und zugehörigem Gerät.
+type hwmonChip struct {
+	dir    string
+	name   string // Treiber, z. B. nvme, k10temp
+	device string // Kernel-Gerät, z. B. nvme0, 0000:00:18.3
+}
+
+// readHwmonTemps liest alle temp*_input unter root. Gleichnamige Chips bekommen
+// eindeutige Namen: NVMe-SSDs ihren Gerätenamen (nvme0 – wie in Proxmox/lsblk; die
+// hwmon-Reihenfolge passt dazu nicht zwingend), andere eine laufende Nummer.
+func readHwmonTemps(root string) []shared.Temperature {
+	dirs, _ := filepath.Glob(filepath.Join(root, "hwmon*"))
+	chips := make([]hwmonChip, 0, len(dirs))
+	count := map[string]int{}
+	for _, d := range dirs {
+		name := readTrim(filepath.Join(d, "name"))
+		if name == "" {
+			continue
+		}
+		dev := ""
+		if target, err := filepath.EvalSymlinks(filepath.Join(d, "device")); err == nil {
+			dev = filepath.Base(target)
+		}
+		chips = append(chips, hwmonChip{dir: d, name: name, device: dev})
+		count[name]++
+	}
+	sort.SliceStable(chips, func(i, j int) bool {
+		if chips[i].name != chips[j].name {
+			return chips[i].name < chips[j].name
+		}
+		return natLess(chips[i].device, chips[j].device)
+	})
+
+	var out []shared.Temperature
+	instance := map[string]int{}
+	for _, c := range chips {
+		instance[c.name]++
+		chipName, class := chipDisplayName(c.name)
+		chipKey := c.name
+		if count[c.name] > 1 {
+			if c.name == "nvme" && strings.HasPrefix(c.device, "nvme") {
+				chipKey, chipName = c.device, c.device
+			} else {
+				n := strconv.Itoa(instance[c.name])
+				chipKey, chipName = c.name+n, chipName+" "+n
+			}
+		}
+
+		inputs, _ := filepath.Glob(filepath.Join(c.dir, "temp*_input"))
+		sort.Slice(inputs, func(i, j int) bool { return natLess(inputs[i], inputs[j]) })
+		for _, in := range inputs {
+			base := strings.TrimSuffix(filepath.Base(in), "_input") // temp3
+			milli, ok := readInt(in)
+			if !ok {
+				continue
+			}
+			celsius := float64(milli) / 1000
+			if celsius <= 0 || celsius > 150 {
+				continue
+			}
+			label := readTrim(filepath.Join(c.dir, base+"_label"))
+			t := shared.Temperature{Class: class, Celsius: round1(celsius)}
+			switch {
+			case label != "":
+				t.Sensor = chipKey + "_" + strings.ReplaceAll(strings.ToLower(label), " ", "_")
+				t.Label = chipName + " " + label
+			case len(inputs) > 1:
+				idx := strings.TrimPrefix(base, "temp")
+				t.Sensor, t.Label = chipKey+"_"+base, chipName+" "+idx
+			default:
+				t.Sensor, t.Label = chipKey, chipName
+			}
+			if v, ok := readInt(filepath.Join(c.dir, base+"_max")); ok {
+				t.High = plausibleLimit(float64(v) / 1000)
+			}
+			if v, ok := readInt(filepath.Join(c.dir, base+"_crit")); ok {
+				t.Critical = plausibleLimit(float64(v) / 1000)
+			}
+			applyKnownLimits(c.name, &t)
+			out = append(out, t)
+		}
+	}
+	order := map[string]int{"cpu": 0, "gpu": 1, "disk": 2, "board": 3, "other": 4}
+	sort.SliceStable(out, func(i, j int) bool { return order[out[i].Class] < order[out[j].Class] })
+	return out
+}
+
+// applyKnownLimits ergänzt Grenzwerte für Chips, die selbst keine melden. AMD-CPUs
+// (k10temp/zenpower) liefern nur den Messwert; AMD gibt für aktuelle Ryzen eine
+// maximale Betriebstemperatur (Tjmax) von 95 °C an – Warnung 10 °C darunter.
+func applyKnownLimits(chip string, t *shared.Temperature) {
+	if t.High > 0 || t.Critical > 0 {
+		return
+	}
+	switch chip {
+	case "k10temp", "zenpower":
+		t.High, t.Critical = 85, 95
+	}
+}
+
+// chipDisplayName liefert Anzeigename und Klasse eines Treibers.
+func chipDisplayName(chip string) (string, string) {
+	lower := strings.ToLower(chip)
+	for _, c := range tempChips {
+		if strings.HasPrefix(lower, c.prefix) {
+			return c.name, c.class
+		}
+	}
+	return humanWords(lower), "other"
+}
+
+// natLess vergleicht Zeichenketten mit Zahlen natürlich (temp2 < temp10, nvme2 < nvme10).
+func natLess(a, b string) bool {
+	for a != "" && b != "" {
+		da, db := leadingDigits(a), leadingDigits(b)
+		if da != "" && db != "" {
+			na, _ := strconv.Atoi(da)
+			nb, _ := strconv.Atoi(db)
+			if na != nb {
+				return na < nb
+			}
+			a, b = a[len(da):], b[len(db):]
+			continue
+		}
+		if a[0] != b[0] {
+			return a[0] < b[0]
+		}
+		a, b = a[1:], b[1:]
+	}
+	return len(a) < len(b)
+}
+
+func leadingDigits(s string) string {
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	return s[:i]
 }
 
 // normalizeTemperatures filtert Unsinnswerte, vergibt lesbare Namen, macht doppelte

@@ -50,3 +50,22 @@ func tempText(t shared.Temperature) string {
 	}
 	return fmt.Sprintf("%s %.0f °C", t.Label, t.Celsius)
 }
+
+// fanBadge meldet Lüfterprobleme (steht / Alarm / zu langsam). Laufen alle Lüfter
+// normal, gibt es keine Plakette – Drehzahlen sind im Alltag uninteressant.
+func fanBadge(fans []shared.Fan) (badgeInfo, bool) {
+	var bad []shared.Fan
+	for _, f := range fans {
+		if f.Problem() != "" {
+			bad = append(bad, f)
+		}
+	}
+	switch len(bad) {
+	case 0:
+		return badgeInfo{}, false
+	case 1:
+		return badgeInfo{"Lüfter " + bad[0].Problem(), colRed}, true
+	default:
+		return badgeInfo{fmt.Sprintf("%d Lüfter gestört", len(bad)), colRed}, true
+	}
+}

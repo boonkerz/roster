@@ -331,6 +331,19 @@ func TestTemperaturesAndHistory(t *testing.T) {
 		t.Errorf("Bucket ohne Sensordaten muss temp=nil haben: %v", *pts[1].Temp)
 	}
 
+	pct := 42
+	if err := st.ReplaceFans(ctx, dev.ID, []shared.Fan{
+		{Sensor: "nct6798_fan1", Label: "CPU Fan", RPM: 1180, Max: 2200, Percent: &pct},
+		{Sensor: "nct6798_fan3", Label: "Mainboard Lüfter 3", RPM: 0, Min: 300, Alarm: true},
+	}); err != nil {
+		t.Fatalf("ReplaceFans: %v", err)
+	}
+	gf, err := st.GetDevice(ctx, dev.ID)
+	if err != nil || len(gf.Fans) != 2 || gf.Fans[0].Percent == nil || *gf.Fans[0].Percent != 42 ||
+		gf.Fans[1].Percent != nil || !gf.Fans[1].Alarm || gf.Fans[1].Min != 300 || gf.Fans[0].Max != 2200 {
+		t.Fatalf("Lüfter falsch gespeichert: %v / %+v", err, gf.Fans)
+	}
+
 	if err := st.ReplaceTemperatures(ctx, dev.ID, nil); err != nil {
 		t.Fatalf("Replace leer: %v", err)
 	}

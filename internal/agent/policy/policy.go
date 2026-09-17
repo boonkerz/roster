@@ -56,6 +56,8 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return proxmoxBackupCheck(ctx, c)
 	case "temperature":
 		return temperatureCheck(ctx, c)
+	case "fan":
+		return fanCheck(c)
 	case "smart":
 		return smartCheck(ctx, c)
 	case "av":

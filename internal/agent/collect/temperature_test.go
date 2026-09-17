@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/shirou/gopsutil/v4/sensors"
@@ -86,5 +87,67 @@ func TestHeadlineTemperature(t *testing.T) {
 	}
 	if HeadlineTemperature(nil) != nil {
 		t.Error("ohne Sensoren nil")
+	}
+}
+
+// TestReadHwmonTempsPVE nutzt die echten sysfs-Werte eines Proxmox-Mini-PCs (AMD Ryzen 5
+// 7430U, zwei NVMe). Wichtig: hwmon0 gehört dort zu nvme1, hwmon1 zu nvme0.
+func TestReadHwmonTempsPVE(t *testing.T) {
+	root := fakeHwmon(t, map[string]string{
+		"hwmon0/name": "nvme", "hwmon0/device": "<link>devices/nvme1",
+		"hwmon0/temp1_input": "58850", "hwmon0/temp1_label": "Composite", "hwmon0/temp1_max": "82850", "hwmon0/temp1_crit": "89850", "hwmon0/temp1_min": "-150",
+		"hwmon0/temp3_input": "81850", "hwmon0/temp3_label": "Sensor 2", "hwmon0/temp3_max": "",
+		"hwmon1/name": "nvme", "hwmon1/device": "<link>devices/nvme0",
+		"hwmon1/temp1_input": "55850", "hwmon1/temp1_label": "Composite", "hwmon1/temp1_max": "82850", "hwmon1/temp1_crit": "89850",
+		"hwmon1/temp3_input": "82850", "hwmon1/temp3_label": "Sensor 2",
+		"hwmon2/name": "k10temp", "hwmon2/device": "<link>devices/0000:00:18.3",
+		"hwmon2/temp1_input": "68125", "hwmon2/temp1_label": "Tctl",
+		"hwmon3/name": "amdgpu", "hwmon3/device": "<link>devices/0000:05:00.0",
+		"hwmon3/temp1_input": "60000", "hwmon3/temp1_label": "edge",
+	})
+	got := readHwmonTemps(root)
+	want := []struct {
+		sensor, label, class string
+		celsius, high, crit  float64
+		status               string
+	}{
+		{"k10temp_tctl", "CPU Tctl", "cpu", 68.1, 85, 95, "ok"},
+		{"amdgpu_edge", "GPU edge", "gpu", 60, 0, 0, "unknown"},
+		{"nvme0_composite", "nvme0 Composite", "disk", 55.9, 82.9, 89.9, "ok"},
+		{"nvme0_sensor_2", "nvme0 Sensor 2", "disk", 82.9, 0, 0, "unknown"},
+		{"nvme1_composite", "nvme1 Composite", "disk", 58.9, 82.9, 89.9, "ok"},
+		{"nvme1_sensor_2", "nvme1 Sensor 2", "disk", 81.9, 0, 0, "unknown"},
+	}
+	if len(got) != len(want) {
+		for _, g := range got {
+			t.Logf("%+v", g)
+		}
+		t.Fatalf("%d Sensoren, erwartet %d", len(got), len(want))
+	}
+	for i, w := range want {
+		g := got[i]
+		if g.Sensor != w.sensor || g.Label != w.label || g.Class != w.class || g.Celsius != w.celsius ||
+			g.High != w.high || g.Critical != w.crit || g.Status() != w.status {
+			t.Errorf("%d: %+v (%s) – erwartet %+v", i, g, g.Status(), w)
+		}
+	}
+	if h := HeadlineTemperature(got); h == nil || *h != 68.1 {
+		t.Errorf("Leittemperatur soll die CPU sein: %v", h)
+	}
+}
+
+func TestReadHwmonTempsSingleChipAndUnlabeled(t *testing.T) {
+	root := fakeHwmon(t, map[string]string{
+		"hwmon0/name": "nvme", "hwmon0/temp1_input": "40000", "hwmon0/temp1_label": "Composite",
+		"hwmon1/name": "dell_smm", "hwmon1/temp1_input": "30000", "hwmon1/temp2_input": "80000", "hwmon1/temp10_input": "0",
+		"hwmon2/name": "acpitz", "hwmon2/temp1_input": "25000",
+	})
+	got := readHwmonTemps(root)
+	labels := make([]string, len(got))
+	for i, g := range got {
+		labels[i] = g.Label
+	}
+	if strings.Join(labels, "|") != "NVMe Composite|ACPI-Zone|Dell SMM 1|Dell SMM 2" {
+		t.Errorf("Bezeichnungen: %v", labels)
 	}
 }

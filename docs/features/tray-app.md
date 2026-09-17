@@ -16,7 +16,8 @@ no runtime to install, cross-builds for Linux/Windows/macOS without a toolchain.
 - **Tasks** badge — same idea, based on the last run of every task.
 - Company / site / OS, and how long an offline device has been quiet.
 - **Temperature** badge — the hottest CPU in neutral grey; if any sensor is in its warning
-  or critical range, that sensor instead, in amber or red (e.g. `NVMe 86 °C`).
+  or critical range, that sensor instead, in amber or red (e.g. `NVMe 86 °C`). A red
+  **fan** badge appears only when a fan stops, raises an alarm or runs too slow.
 - The tray icon itself turns **red** when anything fails and **amber** when a device drops
   offline, with a summary in the tooltip — so a glance at the taskbar is enough.
 

@@ -77,6 +77,7 @@ func Collect(ctx context.Context, agentVersion string) shared.Inventory {
 
 	// Temperatursensoren (leer auf VMs / Systemen ohne auslesbare Sensoren).
 	inv.Temperatures = Temperatures(ctx)
+	inv.Fans = Fans()
 
 	// Proxmox VE (nur auf PVE-Hosts): Gäste + Backup-Status.
 	inv.Proxmox = Proxmox(ctx)

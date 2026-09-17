@@ -218,3 +218,15 @@ func TestTempBadge(t *testing.T) {
 		t.Errorf("ohne CPU der heißeste Sensor: %q", b.label)
 	}
 }
+
+func TestFanBadge(t *testing.T) {
+	if _, ok := fanBadge([]shared.Fan{{Label: "CPU Fan", RPM: 1200}}); ok {
+		t.Error("laufende Lüfter brauchen keine Plakette")
+	}
+	if b, ok := fanBadge([]shared.Fan{{Label: "CPU Fan", RPM: 1200}, {Label: "Lüfter 3", RPM: 0, Min: 300}}); !ok || b.label != "Lüfter steht" || b.color != colRed {
+		t.Errorf("ein stehender Lüfter: %q %v", b.label, b.color)
+	}
+	if b, _ := fanBadge([]shared.Fan{{RPM: 0}, {RPM: 500, Alarm: true}}); b.label != "2 Lüfter gestört" {
+		t.Errorf("mehrere: %q", b.label)
+	}
+}

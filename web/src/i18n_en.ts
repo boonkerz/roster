@@ -809,4 +809,16 @@ export const EN: Record<string, string> = {
   "Chip": "chip",
   "Failing ab dieser Temperatur. Leer = kritische Schwelle, die der Chip meldet.": "Failing from this temperature. Empty = critical threshold reported by the chip.",
   "kritisch °C": "critical °C",
+
+  // --- Lüfter ---
+  "Lüfter": "Fans",
+  "U/min": "RPM",
+  "Alarm": "alarm",
+  "steht": "stopped",
+  "zu langsam": "too slow",
+  "Lüfter (Stillstand/Drehzahl)": "Fans (stopped/speed)",
+  "Stillstand/Alarm": "stopped/alarm",
+  "Lüfter enthält (z. B. cpu – leer = alle)": "Fan contains (e.g. cpu – empty = all)",
+  "Failing unter dieser Drehzahl. Leer = nur bei Stillstand, Alarm oder unter dem Minimum des Chips.": "Failing below this speed. Empty = only when stopped, in alarm or below the chip's minimum.",
+  "min. U/min": "min. RPM",
 };

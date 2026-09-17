@@ -226,6 +226,9 @@ func (s *Store) ListDevices(ctx context.Context, allowed map[string]bool) ([]mod
 		if out[i].Temperatures, err = s.TemperaturesFor(ctx, out[i].ID); err != nil {
 			return nil, err
 		}
+		if out[i].Fans, err = s.FansFor(ctx, out[i].ID); err != nil {
+			return nil, err
+		}
 		if out[i].ProxmoxVersion != "" { // Gäste nur für PVE-Hosts (Taskleisten-App klappt sie auf)
 			if out[i].ProxmoxGuests, err = s.ProxmoxGuestsFor(ctx, out[i].ID); err != nil {
 				return nil, err
@@ -274,6 +277,9 @@ func (s *Store) SearchDevices(ctx context.Context, q string) ([]model.Device, er
 		}
 		out[i].Interfaces = ifaces
 		if out[i].Temperatures, err = s.TemperaturesFor(ctx, out[i].ID); err != nil {
+			return nil, err
+		}
+		if out[i].Fans, err = s.FansFor(ctx, out[i].ID); err != nil {
 			return nil, err
 		}
 		if out[i].ProxmoxVersion != "" { // Gäste nur für PVE-Hosts (Taskleisten-App klappt sie auf)
@@ -329,6 +335,9 @@ func (s *Store) GetDevice(ctx context.Context, id string) (*model.Device, error)
 		return nil, err
 	}
 	if d.Temperatures, err = s.TemperaturesFor(ctx, id); err != nil {
+		return nil, err
+	}
+	if d.Fans, err = s.FansFor(ctx, id); err != nil {
 		return nil, err
 	}
 	if d.ProxmoxVersion != "" {
@@ -863,6 +872,53 @@ func (s *Store) TemperaturesFor(ctx context.Context, deviceID string) ([]model.T
 			return nil, err
 		}
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ReplaceFans ersetzt die Lüfter-Momentaufnahme eines Geräts.
+func (s *Store) ReplaceFans(ctx context.Context, deviceID string, fans []shared.Fan) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM fans WHERE device_id=?`), deviceID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for i, f := range fans {
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO fans (device_id, pos, sensor, label, rpm, min_rpm, max_rpm, percent, alarm, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, i, f.Sensor, f.Label, f.RPM, f.Min, f.Max, f.Percent, f.Alarm, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// FansFor liefert die Lüfter eines Geräts in gemeldeter Reihenfolge.
+func (s *Store) FansFor(ctx context.Context, deviceID string) ([]model.Fan, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT sensor, label, rpm, min_rpm, max_rpm, percent, alarm
+		FROM fans WHERE device_id=? ORDER BY pos`), deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.Fan
+	for rows.Next() {
+		var f model.Fan
+		var pct sql.NullInt64
+		if err := rows.Scan(&f.Sensor, &f.Label, &f.RPM, &f.Min, &f.Max, &pct, &f.Alarm); err != nil {
+			return nil, err
+		}
+		if pct.Valid {
+			v := int(pct.Int64)
+			f.Percent = &v
+		}
+		out = append(out, f)
 	}
 	return out, rows.Err()
 }

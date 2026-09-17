@@ -46,6 +46,7 @@ type device struct {
 	Interfaces []iface    `json:"interfaces"`
 
 	Temperatures []shared.Temperature `json:"temperatures"`
+	Fans         []shared.Fan         `json:"fans"`
 
 	ProxmoxVersion string     `json:"proxmox_version"` // gesetzt = Agent läuft auf einem PVE-Host
 	ProxmoxGuests  []pveGuest `json:"proxmox_guests"`

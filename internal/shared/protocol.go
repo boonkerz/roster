@@ -151,6 +151,9 @@ type Inventory struct {
 	// VMs und viele Windows-Rechner haben keine auslesbaren Sensoren.
 	Temperatures []Temperature `json:"temperatures,omitempty"`
 
+	// Lüfter (derzeit Linux/hwmon). Unbelegte Anschlüsse (dauerhaft 0 U/min) fehlen.
+	Fans []Fan `json:"fans,omitempty"`
+
 	// Proxmox VE (nur auf PVE-Hosts, erkannt über pvesh): VMs/Container samt
 	// Backup-Status. nil = kein Proxmox-Host.
 	Proxmox *ProxmoxInfo `json:"proxmox,omitempty"`
@@ -206,6 +209,30 @@ func (t Temperature) Status() string {
 		return "unknown"
 	}
 	return "ok"
+}
+
+// Fan ist ein Lüfter (Momentaufnahme beim Checkin).
+type Fan struct {
+	Sensor  string `json:"sensor"`            // eindeutiger Schlüssel, z. B. nct6798_fan2
+	Label   string `json:"label"`             // lesbar, z. B. "Mainboard Lüfter 2" oder Chip-Label ("CPU Fan")
+	RPM     int    `json:"rpm"`               // aktuelle Drehzahl
+	Min     int    `json:"min,omitempty"`     // Mindestdrehzahl laut Chip (0 = nicht gesetzt)
+	Max     int    `json:"max,omitempty"`     // Höchstdrehzahl laut Chip (0 = unbekannt)
+	Percent *int   `json:"percent,omitempty"` // PWM-Ansteuerung 0–100 %, falls lesbar
+	Alarm   bool   `json:"alarm,omitempty"`   // Chip meldet Lüfteralarm
+}
+
+// Problem nennt, was an einem Lüfter nicht stimmt ("" = in Ordnung).
+func (f Fan) Problem() string {
+	switch {
+	case f.Alarm:
+		return "Alarm"
+	case f.RPM == 0:
+		return "steht"
+	case f.Min > 0 && f.RPM < f.Min:
+		return "zu langsam"
+	}
+	return ""
 }
 
 // ProxmoxInfo beschreibt einen Proxmox-VE-Host (bzw. dessen Cluster).

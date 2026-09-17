@@ -83,6 +83,9 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplaceTemperatures(r.Context(), device.ID, req.Inventory.Temperatures); err != nil {
 		s.log.Error("temperaturen speichern", "err", err)
 	}
+	if err := s.store.ReplaceFans(r.Context(), device.ID, req.Inventory.Fans); err != nil {
+		s.log.Error("lüfter speichern", "err", err)
+	}
 	if err := s.store.ReplaceProxmox(r.Context(), device.ID, req.Inventory.Proxmox); err != nil {
 		s.log.Error("proxmox-gäste speichern", "err", err)
 	}

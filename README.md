@@ -41,8 +41,8 @@ getting started, all features, configuration and security.
 - **Tasks** – scheduled scripts with frequency; last run per task + full run history.
 - **Live utilization + history** – on-demand CPU (per core) / RAM / disk / network graphs,
   plus stored CPU/RAM/disk **time series** with 24 h / 7 d / 30 d charts.
-- **Temperatures** – all hardware sensors with the chips' own limits, a temperature history
-  chart and a **temperature** check type (chip limits or your own °C thresholds).
+- **Temperatures & fans** – all hardware sensors with the chips' own limits, a temperature
+  history chart, fan speeds (Linux) and **temperature** / **fan** check types.
 - **Remote desktop** – built-in remote control (own RFB/VNC server, no third-party
   software) through the same tunnel: screen + mouse/keyboard, login screen / UAC, clipboard
   sync, monitor selection, drag-&-drop file transfer, **live resolution switch** (+ VM
@@ -208,8 +208,8 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit.
 - **Tasks** – geplante Skripte mit Frequenz; letzter Lauf je Task + Lauf-Historie.
 - **Live-Auslastung + Verlauf** – on-demand CPU (je Kern) / RAM / Disk / Netzwerk, plus
   gespeicherte CPU/RAM/Disk-**Zeitreihen** mit 24 h / 7 d / 30 d-Charts.
-- **Temperaturen** – alle Hardware-Sensoren mit den Grenzwerten der Chips, Temperaturverlauf
-  als Diagramm und Check-Typ **Temperatur** (Chip-Grenzen oder eigene °C-Schwellen).
+- **Temperaturen & Lüfter** – alle Hardware-Sensoren mit den Grenzwerten der Chips,
+  Temperaturverlauf, Lüfterdrehzahlen (Linux) und Check-Typen **Temperatur** / **Lüfter**.
 - **Fernsteuerung (Remote Desktop)** – **eingebaute** Fernsteuerung (eigener RFB/VNC-
   Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur,
   Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop,

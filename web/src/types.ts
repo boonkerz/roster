@@ -178,6 +178,25 @@ export interface Temperature {
   critical?: number; // kritische Schwelle laut Chip
 }
 
+// Fan ist ein Lüfter eines Geräts (derzeit Linux/hwmon).
+export interface Fan {
+  sensor: string;
+  label: string;
+  rpm: number;
+  min?: number;
+  max?: number;
+  percent?: number; // PWM-Ansteuerung 0–100 %
+  alarm?: boolean;
+}
+
+// fanProblem nennt, was an einem Lüfter nicht stimmt (wie shared.Fan.Problem).
+export function fanProblem(f: Fan): "" | "Alarm" | "steht" | "zu langsam" {
+  if (f.alarm) return "Alarm";
+  if (f.rpm === 0) return "steht";
+  if (f.min && f.rpm < f.min) return "zu langsam";
+  return "";
+}
+
 // ProxmoxRemediation zeigt auf einen Gast, der bei Check-Fehler rebootet wird.
 export interface ProxmoxRemediation {
   host_id: string;
@@ -380,6 +399,7 @@ export interface Device {
   docker_containers?: DockerContainer[];
   docker_images?: DockerImage[];
   temperatures?: Temperature[];
+  fans?: Fan[];
   proxmox_version?: string; // gesetzt = Agent läuft auf einem Proxmox-VE-Host
   proxmox_guests?: ProxmoxGuest[];
   mute_software_alerts?: boolean;

@@ -16,6 +16,8 @@ Each check has its own frequency, severity, output comparison and platform targe
 - **Temperature**: warning/failing when a sensor gets too hot — by default at the limits
   the chip reports itself (critical at `crit`, warning at `max` or 10 °C below `crit`),
   optionally with your own °C thresholds and a sensor filter such as `cpu` or `nvme`.
+- **Fans**: failing when a fan stops, its chip raises an alarm or it runs below a minimum
+  speed (the chip's own or yours), optionally filtered to e.g. the CPU fan.
 - **Proxmox backups**: every guest on a PVE host has a recent, successful backup and sits
   in a backup job — see [Proxmox VE](proxmox.md).
 

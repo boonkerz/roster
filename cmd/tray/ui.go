@@ -331,6 +331,11 @@ func (a *app) drawRow(d device, x, y, w, h float32) {
 		bx -= a.txt.Width(cb.label) + 14*s
 		a.badge(cb.label, bx, badgeY, badgeH, cb.color)
 	}
+	if fb, ok := fanBadge(d.Fans); ok {
+		bx -= 6 * s
+		bx -= a.txt.Width(fb.label) + 14*s
+		a.badge(fb.label, bx, badgeY, badgeH, fb.color)
+	}
 	if tb, ok := tempBadge(d.Temperatures); ok {
 		bx -= 6 * s
 		bx -= a.txt.Width(tb.label) + 14*s

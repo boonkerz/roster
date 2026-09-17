@@ -15,7 +15,12 @@ scanning required.
   external-reachability check and a ports-whitelist check type.
 - **Temperatures**: every sensor the system exposes (CPU package/cores, chipset, NVMe,
   GPU, board) with the chip's own warning and critical thresholds — shown on the device
-  overview with a status per sensor.
+  overview with a status per sensor. Several SSDs are named after their kernel device
+  (`nvme0 Composite`, `nvme1 Composite`) as in Proxmox; AMD CPUs, which report no limits,
+  use AMD's Tjmax of 95 °C (warning from 85 °C).
+- **Fans**: speed (RPM), PWM duty and alarm flag of every fan on Linux (hwmon). Headers
+  with nothing connected are left out; a fan that has spun before and stops is reported
+  as *stopped*.
 - **Proxmox VE**: on a PVE host, all VMs/containers with resources and backup state —
   see [Proxmox VE](proxmox.md).
 
@@ -30,6 +35,12 @@ chart for the **hottest CPU temperature** (own °C axis, hover for value and tim
     `sysctl`, macOS the SMC and Windows the WMI thermal zones — which many Windows boards
     leave empty. Virtual machines normally have no sensors at all; the section then simply
     stays hidden.
+
+    Fans and board temperatures on Linux need the driver for the board's monitoring chip
+    (e.g. `nct6775`, `it87`) — CPU and NVMe sensors work out of the box, board chips often
+    only after `modprobe nct6775` (or running `sensors-detect` once). Servers with a BMC
+    frequently expose fans only via IPMI. Many mini PCs have no OS-readable fan at all —
+    the embedded controller regulates it on its own; Roster then shows no fans.
 
 ![Live utilization](../screenshots/live-utilization.png){ .shadow }
 

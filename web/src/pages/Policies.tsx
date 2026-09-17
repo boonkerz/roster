@@ -46,6 +46,7 @@ const CHECK_TYPES: Record<string, string> = {
   zfs: "ZFS-Pool (Health/Kapazität)",
   proxmox_backup: "Proxmox-Backups (aktuell?)",
   temperature: "Temperatur (°C)",
+  fan: "Lüfter (Stillstand/Drehzahl)",
 };
 
 const ZFS_MODES: Record<string, string> = {
@@ -190,6 +191,8 @@ function PolicyEditor({
   const [cTempSensor, setCTempSensor] = useState("");  // Temperatur: nur Sensoren mit diesem Namensteil
   const [cTempWarn, setCTempWarn] = useState("");      // Temperatur: Warnung ab °C (leer = Chip-Grenze)
   const [cTempCrit, setCTempCrit] = useState("");      // Temperatur: kritisch ab °C (leer = Chip-Grenze)
+  const [cFanSensor, setCFanSensor] = useState("");    // Lüfter: nur Lüfter mit diesem Namensteil
+  const [cFanMin, setCFanMin] = useState("");          // Lüfter: Mindestdrehzahl (leer = nur Stillstand/Alarm)
   const [editId, setEditId] = useState<string | null>(null); // Check bearbeiten (null = neu)
   const { data: proxHosts } = useQuery({ queryKey: ["proxmox-hosts"], queryFn: () => api.get<ProxmoxHost[]>("/proxmox/hosts") });
   const { data: proxGuests } = useQuery({
@@ -228,6 +231,10 @@ function PolicyEditor({
       } else if (cType === "uptime") {
         config = {};
         if (cUpDays !== "") config.max_days = Number(cUpDays);
+      } else if (cType === "fan") {
+        config = {};
+        if (cFanSensor.trim() !== "") config.sensor = cFanSensor.trim();
+        if (cFanMin !== "") config.min_rpm = Number(cFanMin);
       } else if (cType === "temperature") {
         config = {};
         if (cTempSensor.trim() !== "") config.sensor = cTempSensor.trim();
@@ -325,6 +332,8 @@ function PolicyEditor({
     setCPbExclude(str(cfg.exclude_vmids));
     setCPbStopped(cfg.include_stopped !== false);
     setCPbJob(cfg.require_job !== false);
+    setCFanSensor(c.type === "fan" ? str(cfg.sensor) : "");
+    setCFanMin(c.type === "fan" ? str(cfg.min_rpm) : "");
     setCTempSensor(c.type === "temperature" ? str(cfg.sensor) : "");
     setCTempWarn(c.type === "temperature" ? str(cfg.warn) : "");
     setCTempCrit(c.type === "temperature" ? str(cfg.crit) : "");
@@ -394,6 +403,7 @@ function PolicyEditor({
                 : c.type === "cert" ? `Zertifikat: ${c.config?.host ?? ""}${c.config?.port ? `:${c.config.port}` : ""}${c.config?.min_days ? ` (≥${c.config.min_days}d)` : ""}`
                 : c.type === "service" || c.type === "process" ? `${t(CHECK_TYPES[c.type])}: ${c.config?.name ?? "—"}`
                 : c.type === "uptime" ? `Uptime ≤ ${c.config?.max_days ?? 30}d`
+                : c.type === "fan" ? `${t("Lüfter")}${c.config?.sensor ? ` (${c.config.sensor})` : ""}${c.config?.min_rpm !== undefined ? ` ≥ ${c.config.min_rpm} ${t("U/min")}` : ` · ${t("Stillstand/Alarm")}`}`
                 : c.type === "temperature" ? `${t("Temperatur")}${c.config?.sensor ? ` (${c.config.sensor})` : ""}${c.config?.warn !== undefined || c.config?.crit !== undefined
                     ? `${c.config?.warn !== undefined ? ` ⚠ ≥ ${c.config.warn} °C` : ""}${c.config?.crit !== undefined ? ` ✖ ≥ ${c.config.crit} °C` : ""}`
                     : ` · ${t("Chip-Grenzen")}`}`
@@ -466,6 +476,14 @@ function PolicyEditor({
               </select>
               <input placeholder={t("Pool-Name (optional, leer = alle)")} value={cZfsPool} onChange={(e) => setCZfsPool(e.target.value)} style={{ minWidth: 160 }} />
               {cZfsMode === "capacity" && <label className="num" title={t("Failing, wenn die Belegung eines Pools diesen Prozentwert überschreitet.")}>{t("max %")}<input type="number" value={cZfsMax} onChange={(e) => setCZfsMax(e.target.value)} /></label>}
+            </>
+          ) : cType === "fan" ? (
+            <>
+              <input placeholder={t("Lüfter enthält (z. B. cpu – leer = alle)")} value={cFanSensor}
+                onChange={(e) => setCFanSensor(e.target.value)} style={{ minWidth: 200 }} />
+              <label className="num" title={t("Failing unter dieser Drehzahl. Leer = nur bei Stillstand, Alarm oder unter dem Minimum des Chips.")}>
+                {t("min. U/min")}<input type="number" min={0} value={cFanMin} onChange={(e) => setCFanMin(e.target.value)} />
+              </label>
             </>
           ) : cType === "temperature" ? (
             <>
