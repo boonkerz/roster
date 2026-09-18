@@ -250,6 +250,15 @@ func PlatformAllowed(platforms []string) bool {
 // RunScript führt ein Skript aus und liefert Exit-Code, Ausgabe und ob es auf diesem OS
 // anwendbar war (false = übersprungen, z.B. falsche Shell oder Plattform).
 func RunScript(ctx context.Context, shell, content string, platforms []string) (exitCode int, output string, applicable bool) {
+	return RunScriptEnv(ctx, shell, content, platforms, nil)
+}
+
+// RunScriptEnv ist RunScript mit zusätzlichen Umgebungsvariablen – z. B. das Ergebnis
+// eines Backups für das Folgeskript. Die Variablen kommen ZUR vorhandenen Umgebung
+// dazu (os.Environ ist Pflicht, sonst fehlt unter Windows u. a. SystemRoot und
+// PowerShell startet nicht). Bewusst nicht als Text vor das Skript geschrieben: das
+// würde die Shebang-Erkennung unten zerstören.
+func RunScriptEnv(ctx context.Context, shell, content string, platforms []string, env map[string]string) (exitCode int, output string, applicable bool) {
 	if !PlatformAllowed(platforms) {
 		return 0, "", false
 	}
@@ -279,6 +288,14 @@ func RunScript(ctx context.Context, shell, content string, platforms []string) (
 	default:
 		return 0, "", false
 	}
+	if len(env) > 0 {
+		cmd.Env = os.Environ()
+		for k, v := range env {
+			if validEnvKey(k) {
+				cmd.Env = append(cmd.Env, k+"="+v)
+			}
+		}
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -287,6 +304,19 @@ func RunScript(ctx context.Context, shell, content string, platforms []string) (
 		return -1, trunc(string(out) + err.Error()), true
 	}
 	return 0, trunc(string(out)), true
+}
+
+// validEnvKey lässt nur schlichte Namen zu (GROSSBUCHSTABEN, Ziffern, Unterstrich).
+func validEnvKey(k string) bool {
+	if k == "" || (k[0] < 'A' || k[0] > 'Z') {
+		return false
+	}
+	for _, r := range k {
+		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
+			return false
+		}
+	}
+	return true
 }
 
 // shebangCommand schreibt das Skript in eine ausführbare temporäre Datei und liefert

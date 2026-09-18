@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n, gt } from "../i18n";
+import { BackupSection } from "../components/BackupSection";
 import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, ProxmoxHost, ProxmoxGuest } from "../types";
 
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -509,6 +510,7 @@ function PolicyEditor({
               <label className="chip" title={t("Failing, wenn ein Gast in keinem Backup-Job von Proxmox steckt.")}>
                 <input type="checkbox" checked={cPbJob} onChange={(e) => setCPbJob(e.target.checked)} /> {t("Backup-Job verlangen")}
               </label>
+              <span className="muted small">{t("Abschalten, wenn die Sicherung über den Backup-Bereich von Roster läuft statt über Proxmox-Jobs.")}</span>
             </>
           ) : cType === "reboot" ? (
             <span className="muted small">{t("Failing, wenn ein Neustart aussteht.")}</span>
@@ -565,6 +567,8 @@ function PolicyEditor({
           {editId && <button className="btn ghost" type="button" onClick={resetCheckForm}>{t("Abbrechen")}</button>}
         </form>
       </section>
+
+      <BackupSection policy={policy} scripts={scripts} devices={devices} />
 
       <section className="card">
         <h2>{t("Tasks (geplante Skripte)")}</h2>

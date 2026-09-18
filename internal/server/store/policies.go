@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -31,6 +32,24 @@ func (s *Store) ListScripts(ctx context.Context) ([]model.Script, error) {
 		out = append(out, sc)
 	}
 	return out, rows.Err()
+}
+
+// ScriptByID lädt ein einzelnes Skript (für Backup-Läufe und Folgeaktionen).
+func (s *Store) ScriptByID(ctx context.Context, id string) (*model.Script, error) {
+	var sc model.Script
+	var plat string
+	err := s.db.QueryRowContext(ctx, s.rebind(`
+		SELECT id, name, shell, platforms, content, check_only, created_at FROM scripts WHERE id=?`), id).
+		Scan(&sc.ID, &sc.Name, &sc.Shell, &plat, &sc.Content, &sc.CheckOnly, &sc.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sc.Platforms = []string{}
+	_ = json.Unmarshal([]byte(plat), &sc.Platforms)
+	return &sc, nil
 }
 
 func platformsJSON(p []string) string {
@@ -97,6 +116,11 @@ func (s *Store) loadPolicyChildren(ctx context.Context, p *model.Policy) error {
 		return err
 	}
 	p.Tasks = tasks
+	backups, err := s.backupsOf(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	p.Backups = backups
 	asg, err := s.assignmentsOf(ctx, p.ID)
 	if err != nil {
 		return err

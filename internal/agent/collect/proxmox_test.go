@@ -151,3 +151,59 @@ func TestProxmoxControlValidation(t *testing.T) {
 		t.Error("ohne pvesh darf keine Aktion als erfolgreich gelten")
 	}
 }
+
+func TestGroupBackupGuests(t *testing.T) {
+	// Ohne pvesh bleibt die Live-Abfrage leer → die vom Server gelieferten Nodes gelten.
+	got, err := groupBackupGuests(t.Context(), []BackupGuest{
+		{Node: "pve2", VMID: 110, Type: "qemu"},
+		{Node: "pve1", VMID: 101, Type: "qemu"},
+		{Node: "pve1", VMID: 100, Type: "lxc"},
+		{Node: "pve1", VMID: 42, Type: "qemu"},      // unter 100: keine gültige VMID
+		{Node: "bad node", VMID: 105, Type: "qemu"}, // ungültiger Node-Name
+	})
+	if err != nil {
+		t.Fatalf("groupBackupGuests: %v", err)
+	}
+	if len(got) != 2 || len(got["pve1"]) != 2 || got["pve1"][0] != 100 || got["pve1"][1] != 101 {
+		t.Fatalf("Gruppierung/Sortierung falsch: %+v", got)
+	}
+	if len(got["pve2"]) != 1 || got["pve2"][0] != 110 {
+		t.Errorf("zweiter Node: %+v", got["pve2"])
+	}
+}
+
+func TestBackupSummary(t *testing.T) {
+	ok := backupSummary(map[int]vzdumpResult{100: {ok: true}, 101: {ok: true}})
+	if ok != "2 Gäste gesichert (100,101)" {
+		t.Errorf("Erfolg: %q", ok)
+	}
+	bad := backupSummary(map[int]vzdumpResult{
+		100: {ok: true},
+		102: {ok: false, msg: "no space left"},
+	})
+	if bad != "1 von 2 Gästen fehlgeschlagen – 102: no space left" {
+		t.Errorf("Fehlschlag: %q", bad)
+	}
+}
+
+func TestTailLinesAndJoinInts(t *testing.T) {
+	lines := []string{"a", "b", "c", "d"}
+	if tailLines(lines, 2) != "c\nd" {
+		t.Errorf("tailLines: %q", tailLines(lines, 2))
+	}
+	if tailLines(lines, 10) != "a\nb\nc\nd" {
+		t.Error("kürzer als n: alles behalten")
+	}
+	if joinInts([]int{100, 101}) != "100,101" {
+		t.Errorf("joinInts: %q", joinInts([]int{100, 101}))
+	}
+}
+
+func TestProxmoxBackupValidation(t *testing.T) {
+	if ProxmoxAvailable() {
+		t.Skip("echter Proxmox-Host")
+	}
+	if code, msg := ProxmoxBackup(t.Context(), BackupSpec{Guests: []BackupGuest{{Node: "pve", VMID: 100}}}, nil); code == 0 {
+		t.Errorf("ohne pvesh darf nichts als erfolgreich gelten: %q", msg)
+	}
+}

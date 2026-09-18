@@ -115,8 +115,9 @@ func (s *Server) routes() http.Handler {
 				// Restliche Funktionen erst nach abgeschlossener 2FA (bei Pflicht).
 				r.Group(func(r chi.Router) {
 					r.Use(s.requireEnrolled)
-					r.Use(s.scopeDevice)                // Daten-Scope für /devices/{id}/… erzwingen
-					r.Get("/agents", s.handleAgentList) // harmlose Plattform-Liste
+					r.Use(s.scopeDevice)                 // Daten-Scope für /devices/{id}/… erzwingen
+					r.Get("/agents", s.handleAgentList)  // harmlose Plattform-Liste
+					r.Get("/viewer", s.handleViewerList) // Viewer-Pakete für die Download-Seite
 
 					// --- API-Tokens (Bearer) für native Clients / Mobile-App ---
 					// Jeder voll authentifizierte Nutzer verwaltet seine eigenen Tokens.
@@ -140,6 +141,8 @@ func (s *Server) routes() http.Handler {
 						r.Get("/vulnerabilities", s.handleAllVulns)
 						r.Get("/sites/{id}/assets", s.handleListSiteAssets)
 						r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
+						r.Get("/devices/{id}/backup-runs", s.handleDeviceBackupRuns)
+						r.Get("/backup-runs/{id}", s.handleGetBackupRun)
 						r.Get("/devices/{id}/software-events", s.handleDeviceSoftwareEvents)
 						r.Post("/devices/{id}/scan-dir", s.handleScanDir)
 						r.Post("/devices/{id}/services", s.handleListServices)
@@ -189,6 +192,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/run", s.handleRunScript)
 						r.Post("/devices/{id}/checks/{checkID}/run", s.handleRunCheck)
 						r.Post("/devices/{id}/tasks/{taskID}/run", s.handleRunTask)
+						r.Post("/backups/{id}/run", s.handleRunBackup)
 						r.Post("/devices/{id}/external-scan", s.handleExternalScan)
 						r.Post("/devices/{id}/service-control", s.handleServiceControl)
 						r.Post("/devices/{id}/process-kill", s.handleProcessKill)
@@ -240,6 +244,9 @@ func (s *Server) routes() http.Handler {
 						r.Post("/policies/{id}/checks", s.handleAddCheck)
 						r.Put("/checks/{id}", s.handleUpdateCheck)
 						r.Post("/policies/{id}/tasks", s.handleAddTask)
+						r.Post("/policies/{id}/backups", s.handleAddBackup)
+						r.Put("/backups/{id}", s.handleUpdateBackup)
+						r.Delete("/backups/{id}", s.handleDeleteBackup)
 						r.Post("/policies/{id}/assignments", s.handleAddAssignment)
 						r.Delete("/checks/{id}", s.handleDeleteCheck)
 						r.Delete("/tasks/{id}", s.handleDeleteTask)

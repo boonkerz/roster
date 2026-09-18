@@ -46,6 +46,26 @@ func Read(platform string) (data []byte, filename string, ok bool) {
 	return b, downloadName[platform], true
 }
 
+// Entry beschreibt ein eingebettetes Viewer-Paket für die Download-Übersicht.
+type Entry struct {
+	Platform string `json:"platform"` // <os>-<arch>
+	Filename string `json:"filename"` // Dateiname beim Herunterladen
+	Size     int64  `json:"size"`     // Bytes
+}
+
+// List liefert die eingebetteten Pakete mit Dateiname und Größe, nach Plattform sortiert.
+func List() []Entry {
+	var out []Entry
+	for _, p := range Available() {
+		info, err := fs.Stat(binFS, files[p])
+		if err != nil {
+			continue
+		}
+		out = append(out, Entry{Platform: p, Filename: downloadName[p], Size: info.Size()})
+	}
+	return out
+}
+
 // Available listet die tatsächlich eingebetteten (gebauten) Plattformen, sortiert.
 func Available() []string {
 	var out []string

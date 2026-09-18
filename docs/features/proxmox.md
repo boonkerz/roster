@@ -41,6 +41,12 @@ With the *Operate devices* permission, each guest has:
 The action runs as a PVE task on the host; the result and the new state arrive with the
 check-in that immediately follows. Every action is written to the audit log.
 
+## Starting backups from Roster
+
+Beyond watching backups, Roster can **run** them: a policy's [Backups](backups.md) section
+schedules `vzdump` for the guests you pick, waits for the backup target to be reachable,
+and can run a script on another device afterwards.
+
 ## Backup check
 
 Add the check type **Proxmox backups** to a policy and assign it to the PVE host:

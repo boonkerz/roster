@@ -59,6 +59,7 @@ nav:
       - Remote desktop & terminal: features/remote.md
       - Taskbar app: features/tray-app.md
       - Proxmox VE: features/proxmox.md
+      - Backups: features/backups.md
       - Roles & permissions: features/permissions.md
       - Network & discovery: features/network.md
       - Patching & software: features/patching.md

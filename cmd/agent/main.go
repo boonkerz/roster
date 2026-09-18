@@ -102,6 +102,7 @@ type program struct {
 	pendingTasks      []shared.TaskResult    // beim nächsten Checkin zu meldende Task-Läufe
 	commandQueue      []shared.Command       // empfangene Ad-hoc-Befehle, noch auszuführen
 	pendingCmdResults []shared.CommandResult // beim nächsten Checkin zu meldende Befehls-Ergebnisse
+	backupRunning     bool                   // ein vzdump-Lauf ist aktiv (kein zweiter parallel)
 	taskLastRun       map[string]time.Time   // letzte Ausführung je Task-ID
 	checkLastRun      map[string]time.Time   // letzte Auswertung je Check-ID (für Häufigkeit)
 	checkinNow        chan struct{}          // Server-Push: sofort einchecken
@@ -343,7 +344,7 @@ func (p *program) runPolicy(ctx context.Context) {
 			shell, _ := cmd.Payload["shell"].(string)
 			script, _ := cmd.Payload["script"].(string)
 			var ok bool
-			exit, output, ok = policy.RunScript(ctx, shell, script, stringList(cmd.Payload["platforms"]))
+			exit, output, ok = policy.RunScriptEnv(ctx, shell, script, stringList(cmd.Payload["platforms"]), stringMap(cmd.Payload["env"]))
 			if !ok {
 				exit = -1
 				output = "Nicht unterstützt auf diesem Betriebssystem (" + runtime.GOOS + ")"
@@ -416,6 +417,14 @@ func (p *program) runPolicy(ctx context.Context) {
 		case "docker_start", "docker_stop", "docker_restart":
 			id, _ := cmd.Payload["container_id"].(string)
 			exit, output = collect.DockerControl(ctx, id, strings.TrimPrefix(cmd.Type, "docker_"))
+		case "proxmox_backup":
+			// Kann Stunden dauern -> asynchron; Zwischenstände meldet der Lauf selbst.
+			var spec collect.BackupSpec
+			if raw, err := json.Marshal(cmd.Payload); err == nil {
+				_ = json.Unmarshal(raw, &spec)
+			}
+			go p.proxmoxBackup(ctx, cmd.ID, spec)
+			continue
 		case "proxmox_start", "proxmox_stop", "proxmox_shutdown", "proxmox_reboot":
 			// Herunterfahren kann Minuten dauern -> asynchron, Ergebnis + frisches
 			// Inventar (neuer Gast-Status) kommen mit dem nächsten Checkin.
@@ -557,6 +566,21 @@ func (p *program) runPolicy(ctx context.Context) {
 // installUpdates installiert Updates (lang laufend) und meldet das Ergebnis; danach
 // wird der Update-Status neu ermittelt.
 // stringList wandelt einen JSON-Payload-Wert ([]any) in []string um.
+// stringMap liest eine JSON-Map mit Textwerten (z. B. env eines run_script-Befehls).
+func stringMap(v any) map[string]string {
+	raw, ok := v.(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for k, val := range raw {
+		if s, ok := val.(string); ok {
+			out[k] = s
+		}
+	}
+	return out
+}
+
 func stringList(v any) []string {
 	arr, ok := v.([]any)
 	if !ok {
@@ -691,6 +715,44 @@ func (p *program) installPackage(ctx context.Context, cmdID string, ids map[stri
 	})
 	p.mu.Unlock()
 	p.log.Info("software-installation abgeschlossen", "command", cmdID, "exit", exit)
+	p.requestCheckin()
+}
+
+// proxmoxBackup führt einen vzdump-Lauf aus und meldet Zwischenstände. Ein zweiter
+// Lauf wird abgewiesen: parallele vzdump-Läufe behindern sich gegenseitig, und der
+// Server erwartet je Lauf genau ein Ergebnis.
+func (p *program) proxmoxBackup(ctx context.Context, cmdID string, spec collect.BackupSpec) {
+	p.mu.Lock()
+	busy := p.backupRunning
+	p.backupRunning = true
+	p.mu.Unlock()
+	if busy {
+		p.finishCommand(cmdID, 1, "auf diesem Host läuft bereits ein Backup")
+		return
+	}
+	defer func() {
+		p.mu.Lock()
+		p.backupRunning = false
+		p.mu.Unlock()
+	}()
+
+	p.log.Info("backup gestartet", "command", cmdID, "gäste", len(spec.Guests))
+	exit, output := collect.ProxmoxBackup(ctx, spec, func(note string) {
+		pctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		_ = p.client.ReportProgress(pctx, p.agentToken, cmdID, note)
+	})
+	p.log.Info("backup beendet", "command", cmdID, "exit", exit)
+	p.finishCommand(cmdID, exit, output)
+}
+
+// finishCommand legt ein Befehlsergebnis ab und stößt den Checkin an.
+func (p *program) finishCommand(cmdID string, exit int, output string) {
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
 	p.requestCheckin()
 }
 

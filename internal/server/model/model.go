@@ -310,12 +310,64 @@ type Script struct {
 
 // Policy bündelt Checks und Tasks und wird Clients/Sites/Geräten zugewiesen.
 type Policy struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Checks      []PolicyCheck `json:"checks,omitempty"`
-	Tasks       []PolicyTask  `json:"tasks,omitempty"`
-	Assignments []Assignment  `json:"assignments,omitempty"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Checks      []PolicyCheck  `json:"checks,omitempty"`
+	Tasks       []PolicyTask   `json:"tasks,omitempty"`
+	Backups     []PolicyBackup `json:"backups,omitempty"`
+	Assignments []Assignment   `json:"assignments,omitempty"`
+}
+
+// PolicyBackup ist ein Backup-Eintrag einer Richtlinie: was gesichert wird, wann, und
+// was danach passiert. Geplant wird serverseitig (siehe RunBackupLoop), ausgeführt über
+// einen Agent-Befehl auf dem zugewiesenen Gerät.
+type PolicyBackup struct {
+	ID       string         `json:"id"`
+	PolicyID string         `json:"policy_id"`
+	Name     string         `json:"name"`
+	Type     string         `json:"type"` // proxmox | script
+	Enabled  bool           `json:"enabled"`
+	Config   map[string]any `json:"config"`              // typabhängig, siehe BackupConfig
+	ScriptID *string        `json:"script_id,omitempty"` // Typ script: auszuführendes Skript
+
+	// Zeitplan in Serverzeit. Weekdays wie time.Weekday ("1,3,5"), leer = täglich.
+	Weekdays       string `json:"weekdays"`
+	AtTime         string `json:"at_time"` // "18:00"
+	CatchUpMinutes int    `json:"catch_up_minutes"`
+
+	// Startbedingung: erst starten, wenn dieses Gerät online ist (leer = sofort).
+	WaitDeviceID   *string `json:"wait_device_id,omitempty"`
+	WaitMinutes    int     `json:"wait_minutes"`
+	TimeoutMinutes int     `json:"timeout_minutes"`
+
+	// Folgeaktion auf einem anderen Gerät, nach Abschluss des Laufs.
+	AfterDeviceID *string    `json:"after_device_id,omitempty"`
+	AfterScriptID *string    `json:"after_script_id,omitempty"`
+	AfterWhen     string     `json:"after_when"` // always | success | failure
+	LastRunAt     *time.Time `json:"last_run_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+// BackupRun ist ein einzelner (geplanter oder manueller) Backup-Lauf auf einem Gerät.
+type BackupRun struct {
+	ID          string     `json:"id"`
+	BackupID    string     `json:"backup_id"`
+	BackupName  string     `json:"backup_name,omitempty"` // aus dem Join, für die Anzeige
+	DeviceID    string     `json:"device_id"`
+	TriggerType string     `json:"trigger_type"` // schedule | manual
+	Status      string     `json:"status"`       // waiting|running|ok|failed|timeout|skipped
+	ScheduledAt time.Time  `json:"scheduled_at"`
+	WaitUntil   *time.Time `json:"wait_until,omitempty"`
+	StartedAt   *time.Time `json:"started_at,omitempty"`
+	FinishedAt  *time.Time `json:"finished_at,omitempty"`
+	DeadlineAt  *time.Time `json:"deadline_at,omitempty"`
+	ExitCode    int        `json:"exit_code"`
+	Summary     string     `json:"summary"`
+	Output      string     `json:"output,omitempty"`
+	CommandID   *string    `json:"command_id,omitempty"`
+	FollowID    *string    `json:"follow_command_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // PolicyCheck ist ein Check innerhalb einer Policy.

@@ -431,3 +431,257 @@ func ProxmoxControl(ctx context.Context, node, gtype string, vmid int, action st
 	label := map[string]string{"start": "gestartet", "stop": "gestoppt", "shutdown": "heruntergefahren", "reboot": "neu gestartet"}[action]
 	return 0, fmt.Sprintf("%s %d %s", map[string]string{"qemu": "VM", "lxc": "Container"}[gtype], vmid, label)
 }
+
+// --- Backups auslösen -------------------------------------------------------
+
+// BackupGuest ist ein zu sichernder Gast (Node aus dem Inventar des Servers).
+type BackupGuest struct {
+	Node string `json:"node"`
+	VMID int    `json:"vmid"`
+	Type string `json:"type"`
+}
+
+// BackupSpec beschreibt einen Backup-Lauf, wie ihn der Server schickt.
+type BackupSpec struct {
+	Guests     []BackupGuest `json:"guests"`
+	Storage    string        `json:"storage"`
+	Mode       string        `json:"mode"`     // snapshot | suspend | stop
+	Compress   string        `json:"compress"` // zstd | gzip | lzo | 0
+	Notes      string        `json:"notes"`    // notes-template, z. B. {{guestname}}
+	MaxMinutes int           `json:"max_minutes"`
+}
+
+var (
+	pveStorageName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+	pveModes       = map[string]bool{"snapshot": true, "suspend": true, "stop": true}
+	pveCompress    = map[string]bool{"zstd": true, "gzip": true, "lzo": true, "0": true}
+	reUPID         = regexp.MustCompile(`UPID:[^\s"']+`)
+)
+
+// ProxmoxBackup sichert die angegebenen Gäste per vzdump. Je Node läuft ein
+// vzdump-Task; der Agent verfolgt ihn über seine UPID und wertet am Ende das
+// Task-Protokoll je Gast aus (dieselbe Auswertung wie beim Backup-Status im Inventar).
+// progress meldet Zwischenstände, damit die Oberfläche bei stundenlangen Läufen etwas
+// zu zeigen hat. Rückgabe: Exit-Code (0 = alle Gäste ok) und Ausgabe, deren ERSTE Zeile
+// die Zusammenfassung ist.
+func ProxmoxBackup(ctx context.Context, spec BackupSpec, progress func(string)) (int, string) {
+	if !ProxmoxAvailable() {
+		return 1, "dies ist kein Proxmox-VE-Host (pvesh fehlt)"
+	}
+	if spec.Storage != "" && !pveStorageName.MatchString(spec.Storage) {
+		return 1, "ungültiger Speichername: " + spec.Storage
+	}
+	mode := spec.Mode
+	if !pveModes[mode] {
+		mode = "snapshot"
+	}
+	compress := spec.Compress
+	if !pveCompress[compress] {
+		compress = "zstd"
+	}
+	byNode, err := groupBackupGuests(ctx, spec.Guests)
+	if err != nil {
+		return 1, err.Error()
+	}
+	if len(byNode) == 0 {
+		return 1, "keine gültigen Gäste angegeben"
+	}
+
+	deadline := time.Duration(spec.MaxMinutes) * time.Minute
+	if deadline <= 0 {
+		deadline = 12 * time.Hour
+	}
+	cctx, cancel := context.WithTimeout(ctx, deadline)
+	defer cancel()
+
+	results := map[int]vzdumpResult{}
+	var logs []string
+	failed := false
+	for _, node := range sortedKeys(byNode) {
+		vmids := byNode[node]
+		args := []string{"create", "/nodes/" + node + "/vzdump",
+			"--vmid", joinInts(vmids), "--mode", mode, "--compress", compress}
+		if spec.Storage != "" {
+			args = append(args, "--storage", spec.Storage)
+		}
+		if strings.TrimSpace(spec.Notes) != "" {
+			args = append(args, "--notes-template", spec.Notes)
+		}
+		note := fmt.Sprintf("%s: vzdump %s gestartet", node, joinInts(vmids))
+		report(progress, note)
+
+		out, err := exec.CommandContext(cctx, "pvesh", args...).CombinedOutput()
+		upid := reUPID.FindString(string(out))
+		if upid == "" {
+			failed = true
+			msg := strings.TrimSpace(string(out))
+			if msg == "" && err != nil {
+				msg = err.Error()
+			}
+			logs = append(logs, node+": Start fehlgeschlagen: "+msg)
+			for _, id := range vmids {
+				results[id] = vzdumpResult{ok: false, msg: "Start fehlgeschlagen"}
+			}
+			continue
+		}
+		status, lines := waitForTask(cctx, node, upid, progress)
+		nodeResults := parseVzdumpLog(lines, status)
+		for id, r := range nodeResults {
+			results[id] = r
+			if !r.ok {
+				failed = true
+			}
+		}
+		// Gäste, über die das Protokoll nichts sagt (Abbruch vor dem Start).
+		for _, id := range vmids {
+			if _, ok := results[id]; !ok {
+				failed = true
+				results[id] = vzdumpResult{ok: false, msg: "kein Ergebnis im Protokoll (" + status + ")"}
+			}
+		}
+		logs = append(logs, lines...)
+	}
+
+	summary := backupSummary(results)
+	exit := 0
+	if failed {
+		exit = 1
+	}
+	return exit, summary + "\n" + tailLines(logs, 120)
+}
+
+// groupBackupGuests gruppiert die Gäste nach Node und korrigiert den Node anhand des
+// aktuellen Clusterzustands – ein Gast kann seit der Planung migriert worden sein.
+func groupBackupGuests(ctx context.Context, guests []BackupGuest) (map[string][]int, error) {
+	current := map[int]string{}
+	var res []pveResource
+	if err := pveshGet(ctx, &res, "/cluster/resources", "--type", "vm"); err == nil {
+		for _, r := range res {
+			if r.Type == "qemu" || r.Type == "lxc" {
+				current[r.VMID] = r.Node
+			}
+		}
+	}
+	byNode := map[string][]int{}
+	for _, g := range guests {
+		if g.VMID < 100 {
+			continue
+		}
+		node := g.Node
+		if live, ok := current[g.VMID]; ok && live != "" {
+			node = live // Gast wurde verschoben
+		}
+		if !pveNodeName.MatchString(node) {
+			continue
+		}
+		byNode[node] = append(byNode[node], g.VMID)
+	}
+	for node := range byNode {
+		sort.Ints(byNode[node])
+	}
+	return byNode, nil
+}
+
+// waitForTask verfolgt einen PVE-Task bis zum Ende und liefert Status und Protokoll.
+func waitForTask(ctx context.Context, node, upid string, progress func(string)) (string, []string) {
+	type taskStatus struct {
+		Status     string `json:"status"`     // running | stopped
+		ExitStatus string `json:"exitstatus"` // OK | Fehlertext
+	}
+	lastNote := time.Now()
+	for {
+		var st taskStatus
+		if err := pveshGet(ctx, &st, "/nodes/"+node+"/tasks/"+upid+"/status"); err != nil {
+			return "Statusabfrage fehlgeschlagen: " + err.Error(), nil
+		}
+		if st.Status != "running" {
+			lines := taskLog(ctx, node, upid)
+			status := st.ExitStatus
+			if status == "" {
+				status = "unbekannt"
+			}
+			return status, lines
+		}
+		if time.Since(lastNote) >= time.Minute {
+			lastNote = time.Now()
+			if lines := taskLog(ctx, node, upid); len(lines) > 0 {
+				report(progress, lines[len(lines)-1])
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return "abgebrochen (Zeitlimit)", taskLog(ctx, node, upid)
+		case <-time.After(10 * time.Second):
+		}
+	}
+}
+
+// taskLog liest das Protokoll eines Tasks.
+func taskLog(ctx context.Context, node, upid string) []string {
+	var lines []struct {
+		T string `json:"t"`
+	}
+	if err := pveshGet(ctx, &lines, "/nodes/"+node+"/tasks/"+upid+"/log", "--limit", "50000"); err != nil {
+		return nil
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = l.T
+	}
+	return out
+}
+
+// backupSummary fasst das Ergebnis je Gast in einer Zeile zusammen.
+func backupSummary(results map[int]vzdumpResult) string {
+	var okIDs, failIDs []int
+	for id, r := range results {
+		if r.ok {
+			okIDs = append(okIDs, id)
+		} else {
+			failIDs = append(failIDs, id)
+		}
+	}
+	sort.Ints(okIDs)
+	sort.Ints(failIDs)
+	if len(failIDs) == 0 {
+		return fmt.Sprintf("%d Gäste gesichert (%s)", len(okIDs), joinInts(okIDs))
+	}
+	parts := make([]string, 0, len(failIDs))
+	for _, id := range failIDs {
+		parts = append(parts, fmt.Sprintf("%d: %s", id, results[id].msg))
+	}
+	return fmt.Sprintf("%d von %d Gästen fehlgeschlagen – %s",
+		len(failIDs), len(failIDs)+len(okIDs), strings.Join(parts, "; "))
+}
+
+// tailLines liefert die letzten n Zeilen (das Ende eines vzdump-Protokolls ist das
+// Interessante; trunc kappt die Ausgabe sonst mitten im Vorspann).
+func tailLines(lines []string, n int) string {
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func report(progress func(string), msg string) {
+	if progress != nil {
+		progress(msg)
+	}
+}
+
+func sortedKeys(m map[string][]int) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func joinInts(v []int) string {
+	parts := make([]string, len(v))
+	for i, n := range v {
+		parts[i] = strconv.Itoa(n)
+	}
+	return strings.Join(parts, ",")
+}

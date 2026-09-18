@@ -30,6 +30,16 @@ func (s *Server) handleAgentDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, filename, time.Time{}, bytes.NewReader(data))
 }
 
+// handleViewerList liefert die eingebetteten Viewer-Pakete (Plattform, Dateiname,
+// Größe) für die Download-Übersicht in den Einstellungen.
+func (s *Server) handleViewerList(w http.ResponseWriter, r *http.Request) {
+	list := viewerdist.List()
+	if list == nil {
+		list = []viewerdist.Entry{}
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"platforms": list, "version": s.version})
+}
+
 // handleViewerDownload streamt das native Fernsteuerungs-Viewer-Binary (roster-viewer)
 // einer Plattform. Enthält keine Geheimnisse (die Berechtigung steckt im pro-Sitzung
 // erzeugten Startcode), daher wie der Agent öffentlich ladbar.

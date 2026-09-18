@@ -63,3 +63,8 @@ User ──> built-in role (viewer/technician/admin)
 
 Existing users are unrestricted by default, so turning this on changes nothing until you
 explicitly assign a custom role or a scope.
+
+!!! warning "Policies reach other devices"
+    A policy's [backup](backups.md) entries can run a follow-up script on a **different**
+    device than the one being backed up. Editing policies therefore implies the ability to
+    execute scripts across devices.

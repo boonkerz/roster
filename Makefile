@@ -79,6 +79,10 @@ viewer-embed: ## Linux-Viewer ins Server-Embed bauen (cgo-frei; SDL3 aus dem Sys
 	mkdir -p internal/server/viewerdist/bin
 	$(GOFLAGS) GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/roster-viewer-linux-amd64 ./cmd/viewer
 
+viewer-embed-arm64: ## Linux-ARM64-Viewer ins Server-Embed bauen (Raspberry Pi & Co.)
+	mkdir -p internal/server/viewerdist/bin
+	$(GOFLAGS) GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/roster-viewer-linux-arm64 ./cmd/viewer
+
 # SDL3-Laufzeitbibliotheken zum Bündeln für Windows/macOS (der Viewer selbst ist
 # cgo-frei; SDL3 wird zur Laufzeit geladen). Pfade überschreibbar via `make VAR=…`.
 SDL3_WIN_DLL   ?= third_party/sdl3/SDL3.dll

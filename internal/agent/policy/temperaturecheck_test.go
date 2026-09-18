@@ -49,3 +49,16 @@ func TestEvalTemperatureCustomAndFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestValidEnvKey(t *testing.T) {
+	for _, ok := range []string{"ROSTER_BACKUP_STATUS", "A", "A1_B"} {
+		if !validEnvKey(ok) {
+			t.Errorf("%q sollte gültig sein", ok)
+		}
+	}
+	for _, bad := range []string{"", "lower", "1ABC", "A-B", "A B", "PATH="} {
+		if validEnvKey(bad) {
+			t.Errorf("%q sollte ungültig sein", bad)
+		}
+	}
+}

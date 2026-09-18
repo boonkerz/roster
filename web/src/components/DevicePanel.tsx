@@ -14,6 +14,7 @@ import { SecurityPanel } from "./SecurityPanel";
 import { EventLog } from "./EventLog";
 import { DockerPanel } from "./DockerPanel";
 import { ProxmoxPanel, backupState } from "./ProxmoxPanel";
+import { BackupRuns } from "./BackupRuns";
 import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
@@ -24,7 +25,7 @@ import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "backups" | "history" | "storage" | "system" | "security" | "vulns" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -145,6 +146,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     network: { label: "Netzwerk", icon: "🌐" },
     docker: { label: "Docker", icon: "🐳" },
     proxmox: { label: "Proxmox", icon: "🗄" },
+    backups: { label: "Backups", icon: "💾" },
     fields: { label: "Felder", icon: "🏷" },
     files: { label: "Dateien", icon: "📁" },
     run: { label: "Ausführen", icon: "▶" },
@@ -159,7 +161,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   const pveBad = pveGuests.filter((g) => backupState(g) !== "ok").length;
   const tabGroups: { name: string; icon: string; tabs: Tab[] }[] = [
     { name: "Übersicht", icon: "🖥", tabs: ["summary", "live"] },
-    { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "history"] },
+    { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "backups", "history"] },
     { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), ...(hasProxmox ? ["proxmox" as Tab] : []), "fields"] },
     { name: "System", icon: "⚙", tabs: ["system", "security", "vulns", "events"] },
   ];
@@ -700,6 +702,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
 
         {tab === "docker" && <DockerPanel device={device} canOperate={canOperate} />}
         {tab === "proxmox" && <ProxmoxPanel device={device} canOperate={canOperate} />}
+        {tab === "backups" && <BackupRuns device={device} canOperate={canOperate} />}
 
         {tab === "run" && canOperate && (
           <section className="card">

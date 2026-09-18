@@ -48,6 +48,7 @@ jobs:
           LDFLAGS="-s -w -X main.version=$VERSION"
           make fetch-sdl3                 # SDL3.dll fürs Windows-Viewer-ZIP
           make viewer-embed               # Linux-Viewer (cgo-frei) ins Embed
+          make viewer-embed-arm64         # Linux-ARM64-Viewer ins Embed
           make viewer-embed-windows       # Windows-Viewer (.exe + SDL3.dll) ins Embed
           make server                     # Frontend + Agents-Embed + Linux-Server
           mkdir -p dist
@@ -55,6 +56,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" \
             -o dist/roster-server-windows-amd64.exe ./cmd/server
           cp internal/server/viewerdist/bin/roster-viewer-linux-amd64      dist/roster-viewer-linux-amd64
+          cp internal/server/viewerdist/bin/roster-viewer-linux-arm64      dist/roster-viewer-linux-arm64
           cp internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip dist/roster-viewer-windows-amd64.zip
           ls -la dist
 

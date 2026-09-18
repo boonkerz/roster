@@ -67,6 +67,7 @@ export function Layout({ children }: { children: ReactNode }) {
               ...(isAdmin ? [{ label: t("Benutzer & Rollen"), onClick: () => openSettings("users") }] : []),
               { label: t("Benachrichtigungen"), onClick: () => openSettings("notify") },
               { label: t("Geräte-Verwaltung"), onClick: () => openSettings("devices") },
+              { label: t("Downloads"), onClick: () => openSettings("downloads") },
               { label: t("Sicherheit & Protokoll"), onClick: () => openSettings("security") },
             ]} />
           )}

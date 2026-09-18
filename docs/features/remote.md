@@ -33,7 +33,9 @@ install. Screen, mouse and keyboard are relayed through the tunnel. Features:
     Win+numbers and Alt+Tab that the browser cannot grab on Wayland. It has a floating
     AnyDesk-style toolbar with **real Ctrl+Alt+Del** (SendSAS), block-local-input,
     on-screen message and a quality selector. Launch it with one click via a `roster://`
-    link, or paste the launch code into its connect dialog.
+    link, or paste the launch code into its connect dialog. Packages for every platform the server
+    carries are listed under **Settings → Downloads** (Linux x86-64/ARM64, Windows; the
+    macOS build is attached to the GitHub release).
 
 ## Remote terminal
 

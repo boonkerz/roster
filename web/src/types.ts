@@ -120,6 +120,44 @@ export interface Script {
   created_at: string;
 }
 
+// PolicyBackup ist ein Backup-Eintrag einer Richtlinie (serverseitig geplant).
+export interface PolicyBackup {
+  id: string;
+  policy_id: string;
+  name: string;
+  type: "proxmox" | "script";
+  enabled: boolean;
+  config: Record<string, unknown>;
+  script_id?: string | null;
+  weekdays: string;   // "1,3,5" (0 = Sonntag), leer = täglich
+  at_time: string;    // "18:00" (Serverzeit)
+  catch_up_minutes: number;
+  wait_device_id?: string | null;
+  wait_minutes: number;
+  timeout_minutes: number;
+  after_device_id?: string | null;
+  after_script_id?: string | null;
+  after_when: "always" | "success" | "failure";
+  last_run_at?: string;
+}
+
+// BackupRun ist ein einzelner Backup-Lauf.
+export interface BackupRun {
+  id: string;
+  backup_id: string;
+  backup_name?: string;
+  device_id: string;
+  trigger_type: "schedule" | "manual";
+  status: "waiting" | "running" | "ok" | "failed" | "timeout" | "skipped";
+  scheduled_at: string;
+  wait_until?: string;
+  started_at?: string;
+  finished_at?: string;
+  exit_code: number;
+  summary: string;
+  output?: string;
+}
+
 export interface PolicyCheck {
   id: string;
   policy_id: string;
@@ -310,6 +348,7 @@ export interface Policy {
   description: string;
   checks?: PolicyCheck[];
   tasks?: PolicyTask[];
+  backups?: PolicyBackup[];
   assignments?: Assignment[];
 }
 

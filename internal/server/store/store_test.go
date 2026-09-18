@@ -352,6 +352,92 @@ func TestTemperaturesAndHistory(t *testing.T) {
 	}
 }
 
+func TestBackupRunsAtomicFinish(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pve1", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	pol := &model.Policy{ID: store.NewID(), Name: "Backups"}
+	if err := st.CreatePolicy(ctx, pol); err != nil {
+		t.Fatalf("CreatePolicy: %v", err)
+	}
+	b := &model.PolicyBackup{
+		PolicyID: pol.ID, Name: "Nachts", Type: "proxmox", Enabled: true,
+		Config: map[string]any{"all": true, "storage": "pbs"},
+		AtTime: "18:00", CatchUpMinutes: 360, TimeoutMinutes: 720, AfterWhen: "always",
+	}
+	if err := st.SaveBackup(ctx, b); err != nil {
+		t.Fatalf("SaveBackup: %v", err)
+	}
+	if got, err := st.GetBackup(ctx, b.ID); err != nil || got.Name != "Nachts" || got.Config["storage"] != "pbs" || !got.Enabled {
+		t.Fatalf("GetBackup: %v / %+v", err, got)
+	}
+	// Über die Richtlinie mitgeladen?
+	if pols, err := st.ListPolicies(ctx); err != nil || len(pols) != 1 || len(pols[0].Backups) != 1 {
+		t.Fatalf("Backups an der Richtlinie: %v / %+v", err, pols)
+	}
+
+	// Zeitplan-Anspruch gilt nur einmal je Zeitpunkt.
+	slot := time.Date(2026, 9, 18, 18, 0, 0, 0, time.UTC)
+	first, err := st.ClaimBackupSchedule(ctx, b.ID, slot)
+	second, err2 := st.ClaimBackupSchedule(ctx, b.ID, slot)
+	if err != nil || err2 != nil || !first || second {
+		t.Fatalf("ClaimBackupSchedule: %v/%v %v/%v", first, err, second, err2)
+	}
+	if next, _ := st.ClaimBackupSchedule(ctx, b.ID, slot.Add(24*time.Hour)); !next {
+		t.Error("am Folgetag muss der Anspruch wieder greifen")
+	}
+
+	// Lauf anlegen: derselbe Zeitpunkt darf kein zweites Mal entstehen.
+	run := &model.BackupRun{BackupID: b.ID, DeviceID: dev.ID, TriggerType: "schedule", Status: "waiting", ScheduledAt: slot}
+	if err := st.InsertBackupRun(ctx, run); err != nil {
+		t.Fatalf("InsertBackupRun: %v", err)
+	}
+	dup := &model.BackupRun{BackupID: b.ID, DeviceID: dev.ID, TriggerType: "schedule", Status: "waiting", ScheduledAt: slot}
+	if err := st.InsertBackupRun(ctx, dup); err == nil {
+		t.Error("doppelter Lauf für denselben Zeitpunkt muss scheitern")
+	}
+
+	// Starten ist ebenfalls einmalig.
+	started, err := st.StartBackupRun(ctx, run.ID, "cmd-1", slot.Add(time.Hour))
+	again, err2 := st.StartBackupRun(ctx, run.ID, "cmd-2", slot.Add(time.Hour))
+	if err != nil || err2 != nil || !started || again {
+		t.Fatalf("StartBackupRun: %v/%v %v/%v", started, err, again, err2)
+	}
+	if got, err := st.BackupRunByCommand(ctx, "cmd-1"); err != nil || got == nil || got.ID != run.ID || got.BackupName != "Nachts" {
+		t.Fatalf("BackupRunByCommand: %v / %+v", err, got)
+	}
+
+	// Kern der Sache: Checkin-Hook und Watchdog dürfen zusammen nur EINMAL abschließen.
+	changed, err := st.FinishBackupRun(ctx, run.ID, "ok", 0, "2 Gäste gesichert", "log")
+	changedAgain, err2 := st.FinishBackupRun(ctx, run.ID, "timeout", 1, "zu spät", "")
+	if err != nil || err2 != nil || !changed || changedAgain {
+		t.Fatalf("FinishBackupRun: %v/%v %v/%v", changed, err, changedAgain, err2)
+	}
+	got, err := st.BackupRun(ctx, run.ID)
+	if err != nil || got.Status != "ok" || got.Summary != "2 Gäste gesichert" {
+		t.Fatalf("Lauf nach Abschluss: %v / %+v", err, got)
+	}
+
+	// Offene Läufe auf dasselbe Folgegerät zählen (Schutz vor zu früher Folgeaktion).
+	other := &model.BackupRun{BackupID: b.ID, DeviceID: dev.ID, TriggerType: "manual", Status: "running", ScheduledAt: slot.Add(time.Minute)}
+	if err := st.InsertBackupRun(ctx, other); err != nil {
+		t.Fatalf("zweiter Lauf: %v", err)
+	}
+	b.AfterDeviceID = &dev.ID
+	if err := st.SaveBackup(ctx, b); err != nil {
+		t.Fatalf("SaveBackup (Folgegerät): %v", err)
+	}
+	if n, err := st.OpenRunsForFollowDevice(ctx, dev.ID, run.ID); err != nil || n != 1 {
+		t.Errorf("offene Läufe: %d (%v), erwartet 1", n, err)
+	}
+	if runs, err := st.BackupRunsForDevice(ctx, dev.ID, 10); err != nil || len(runs) != 2 {
+		t.Errorf("Historie: %d (%v)", len(runs), err)
+	}
+}
+
 func TestCustomFieldProps(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

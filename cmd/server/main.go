@@ -131,6 +131,7 @@ func (p *program) Start(s service.Service) error {
 	}
 	go srv.RunReportLoop(context.Background())
 	go srv.RunOfflineLoop(context.Background())
+	go srv.RunBackupLoop(context.Background())
 	go p.cveScanLoop()
 
 	go p.serve(cfg)
@@ -206,6 +207,9 @@ func (p *program) pruneLoop(retention time.Duration) {
 		}
 		// Auslastungs-Historie 90 Tage aufbewahren (unabhängig von der Task-Retention).
 		_ = p.st.PruneMetrics(ctx, 90*24*time.Hour)
+		// Backup-Läufe wie die übrige Historie aufräumen (Ausgabe steht in der Zeile,
+		// nicht im Befehl – der wird früher gelöscht).
+		_ = p.st.PruneBackupRuns(ctx, retention)
 	}
 	prune()
 	t := time.NewTicker(6 * time.Hour)

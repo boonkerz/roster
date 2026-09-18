@@ -30,6 +30,11 @@ Scheduled scripts with a frequency (interval / daily / weekly / …), keeping th
 per task plus a full run history. You can also **re-run** any check or task on demand with
 the ↻ button.
 
+!!! tip "Tasks or backups?"
+    Tasks are scheduled by the agent and run on the device itself. Scheduled **backups**
+    live in their own section of a policy — they are scheduled by the server and can wait
+    for another device and trigger a follow-up action on one. See [Backups](backups.md).
+
 ## Self-healing
 
 Automatic remediation: run a script or restart a service **when a check fails** — so common
