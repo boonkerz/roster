@@ -64,6 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {canOperate && <button className="navbtn" onClick={() => setModal("netscan")}>{t("Netzwerk-Scan")}</button>}
           {hasPerm("page.settings") && (
             <NavDropdown label={t("Einstellungen")} items={[
+              { label: t("Allgemein"), onClick: () => openSettings("general") },
               ...(isAdmin ? [{ label: t("Benutzer & Rollen"), onClick: () => openSettings("users") }] : []),
               { label: t("Benachrichtigungen"), onClick: () => openSettings("notify") },
               { label: t("Geräte-Verwaltung"), onClick: () => openSettings("devices") },

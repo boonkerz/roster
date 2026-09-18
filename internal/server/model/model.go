@@ -132,8 +132,17 @@ type Device struct {
 	Fans         []Fan         `json:"fans,omitempty"`
 
 	// Proxmox VE: gesetzt, wenn der Agent auf einem PVE-Host läuft.
-	ProxmoxVersion string         `json:"proxmox_version,omitempty"`
-	ProxmoxGuests  []ProxmoxGuest `json:"proxmox_guests,omitempty"`
+	ProxmoxVersion  string           `json:"proxmox_version,omitempty"`
+	ProxmoxGuests   []ProxmoxGuest   `json:"proxmox_guests,omitempty"`
+	ProxmoxStorages []ProxmoxStorage `json:"proxmox_storages,omitempty"`
+}
+
+// ProxmoxStorage ist ein backup-fähiger Speicher des PVE-Clusters (Zielauswahl im
+// Backup-Formular). Gleiche JSON-Felder wie shared.ProxmoxStorage.
+type ProxmoxStorage struct {
+	Name   string `json:"name"`
+	Node   string `json:"node"`
+	Shared bool   `json:"shared,omitempty"`
 }
 
 // Temperature ist ein Temperatursensor eines Geräts (Momentaufnahme vom Checkin).

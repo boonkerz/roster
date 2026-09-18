@@ -176,7 +176,7 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
-	d.managed, d.mute_software_alerts, d.proxmox_version`
+	d.managed, d.mute_software_alerts, d.proxmox_version, d.proxmox_storages`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -938,7 +938,14 @@ func (s *Store) ReplaceProxmox(ctx context.Context, deviceID string, info *share
 			version = "unbekannt" // PVE erkannt, Version nicht lesbar – trotzdem als Host kennzeichnen
 		}
 	}
-	if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE devices SET proxmox_version=? WHERE id=?`), version, deviceID); err != nil {
+	storagesJSON := ""
+	if info != nil && len(info.Storages) > 0 {
+		if raw, err := json.Marshal(info.Storages); err == nil {
+			storagesJSON = string(raw)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE devices SET proxmox_version=?, proxmox_storages=? WHERE id=?`),
+		version, storagesJSON, deviceID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM proxmox_guests WHERE device_id=?`), deviceID); err != nil {
@@ -1075,14 +1082,18 @@ func scanDevice(row scanner) (*model.Device, error) {
 	var users string
 	var updatesCount sql.NullInt64
 	var siteID, siteName, clientID, clientName sql.NullString
+	var proxmoxStorages string
 	err := row.Scan(&d.ID, &d.Hostname, &d.OS, &d.OSVersion, &d.Vendor, &d.Model, &d.Serial,
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.MuteSoftwareAlerts,
-		&d.ProxmoxVersion)
+		&d.ProxmoxVersion, &proxmoxStorages)
 	if err != nil {
 		return nil, err
+	}
+	if proxmoxStorages != "" {
+		_ = json.Unmarshal([]byte(proxmoxStorages), &d.ProxmoxStorages)
 	}
 	if siteID.Valid {
 		v := siteID.String

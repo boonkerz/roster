@@ -24,6 +24,12 @@ import (
 // bis zum Timeout ins Leere.
 const minAgentVersionBackup = "0.15.0"
 
+// minAgentVersionTargets ist die erste Agent-Version, die guests[].storage auswertet.
+// Ältere Agenten ignorieren das Feld still und schrieben alles auf den Vorgabe-Speicher –
+// ein falsches Ziel ohne Fehlermeldung. Deshalb wird ein Eintrag mit abweichenden Zielen
+// auf alten Agenten gar nicht erst gestartet.
+const minAgentVersionTargets = "0.16.0"
+
 // RunBackupLoop prüft jede Minute Zeitpläne und offene Läufe. Wird beim Serverstart
 // als Goroutine gestartet (wie RunReportLoop / RunOfflineLoop).
 func (s *Server) RunBackupLoop(ctx context.Context) {
@@ -34,7 +40,8 @@ func (s *Server) RunBackupLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			s.backupTick(ctx, time.Now())
+			// In der eingestellten Zeitzone rechnen – backupDue nutzt now.Location().
+			s.backupTick(ctx, time.Now().In(s.location(ctx)))
 		}
 	}
 }
@@ -138,10 +145,17 @@ func (s *Server) tryStartRun(ctx context.Context, b model.PolicyBackup, run mode
 			return
 		}
 	}
-	if b.Type == "proxmox" && !agentSupportsBackup(device.AgentVersion) {
-		s.finishRun(ctx, run, b, "failed", 1,
-			"Agent "+device.AgentVersion+" kennt den Befehl noch nicht (nötig: "+minAgentVersionBackup+")", "")
-		return
+	if b.Type == "proxmox" {
+		if !agentSupportsVersion(device.AgentVersion, minAgentVersionBackup) {
+			s.finishRun(ctx, run, b, "failed", 1,
+				"Agent "+device.AgentVersion+" kennt den Befehl noch nicht (nötig: "+minAgentVersionBackup+")", "")
+			return
+		}
+		if len(guestTargets(b.Config)) > 0 && !agentSupportsVersion(device.AgentVersion, minAgentVersionTargets) {
+			s.finishRun(ctx, run, b, "failed", 1,
+				"Ziel je Gast braucht Agent "+minAgentVersionTargets+" (installiert: "+device.AgentVersion+")", "")
+			return
+		}
 	}
 
 	payload, label, cmdType, err := s.backupCommand(ctx, b, device)
@@ -211,12 +225,36 @@ func proxmoxBackupGuests(b model.PolicyBackup, d *model.Device) []map[string]any
 	for _, v := range cfgInts(b.Config, "vmids") {
 		wanted[v] = true
 	}
+	def := cfgString(b.Config, "storage")
+	targets := guestTargets(b.Config)
 	var out []map[string]any
 	for _, g := range d.ProxmoxGuests {
 		if g.Template || (!all && !wanted[g.VMID]) {
 			continue
 		}
-		out = append(out, map[string]any{"node": g.Node, "vmid": g.VMID, "type": g.Type})
+		guest := map[string]any{"node": g.Node, "vmid": g.VMID, "type": g.Type}
+		if st, ok := targets[g.VMID]; ok && st != def {
+			guest["storage"] = st // eigenes Ziel; leer lassen heißt "Vorgabe des Eintrags"
+		}
+		out = append(out, guest)
+	}
+	return out
+}
+
+// guestTargets liest die Ziel-Zuordnung {"110":"backup-pi_2"} aus der Config. Enthalten
+// sind nur Gäste, die vom Vorgabe-Speicher abweichen sollen – fehlt der Schlüssel, bleibt
+// alles wie vor der Einführung.
+func guestTargets(cfg map[string]any) map[int]string {
+	raw, _ := cfg["targets"].(map[string]any)
+	out := map[int]string{}
+	for k, v := range raw {
+		vmid, err := strconv.Atoi(strings.TrimSpace(k))
+		if err != nil {
+			continue
+		}
+		if name, _ := v.(string); strings.TrimSpace(name) != "" {
+			out[vmid] = strings.TrimSpace(name)
+		}
 	}
 	return out
 }
@@ -245,14 +283,14 @@ func (s *Server) progressOpenRuns(ctx context.Context, now time.Time) {
 	}
 }
 
-// agentSupportsBackup vergleicht die gemeldete Agent-Version mit der Mindestversion.
+// agentSupportsVersion vergleicht die gemeldete Agent-Version mit einer Mindestversion.
 // Unbekannte oder Entwicklungsversionen ("dev") gelten als tauglich.
-func agentSupportsBackup(version string) bool {
+func agentSupportsVersion(version, min string) bool {
 	v := strings.TrimSpace(version)
 	if v == "" || v == "dev" {
 		return true
 	}
-	return compareVersions(v, minAgentVersionBackup) >= 0
+	return compareVersions(v, min) >= 0
 }
 
 // compareVersions vergleicht "1.2.3"-Versionen numerisch (-1, 0, 1).

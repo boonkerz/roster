@@ -1265,3 +1265,64 @@ func TestUserAPITokenLifecycle(t *testing.T) {
 		t.Errorf("abgelaufenes Token: erwartete ErrNotFound, bekam %v", err)
 	}
 }
+
+func TestAppSettings(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	// Unbekannter Schlüssel liefert "" ohne Fehler – Aufrufer sollen keinen Sonderfall
+	// behandeln müssen ("" heißt überall: wie bisher, lokale Zeit).
+	if v, err := st.GetSetting(ctx, store.SettingTimezone); err != nil || v != "" {
+		t.Fatalf("leerer Schlüssel: %q, %v", v, err)
+	}
+	if err := st.SetSetting(ctx, store.SettingTimezone, "Europe/Berlin"); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	if v, _ := st.GetSetting(ctx, store.SettingTimezone); v != "Europe/Berlin" {
+		t.Errorf("nach INSERT: %q", v)
+	}
+	// Zweites Schreiben muss aktualisieren, nicht scheitern (Upsert).
+	if err := st.SetSetting(ctx, store.SettingTimezone, "Pacific/Auckland"); err != nil {
+		t.Fatalf("zweites SetSetting: %v", err)
+	}
+	if v, _ := st.GetSetting(ctx, store.SettingTimezone); v != "Pacific/Auckland" {
+		t.Errorf("nach UPDATE: %q", v)
+	}
+	if err := st.SetSetting(ctx, store.SettingTimezone, ""); err != nil {
+		t.Fatalf("zurücksetzen: %v", err)
+	}
+	if v, _ := st.GetSetting(ctx, store.SettingTimezone); v != "" {
+		t.Errorf("nach Zurücksetzen: %q", v)
+	}
+}
+
+func TestProxmoxStoragesRoundTrip(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pve", OS: "debian"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	info := &shared.ProxmoxInfo{Version: "8.2.4",
+		Guests:   []shared.ProxmoxGuest{{Node: "pve", VMID: 107, Type: "lxc", Name: "caddy"}},
+		Storages: []shared.ProxmoxStorage{{Name: "backup-pi_1", Node: "pve"}, {Name: "backup-pi_2", Node: "pve"}},
+	}
+	if err := st.ReplaceProxmox(ctx, dev.ID, info); err != nil {
+		t.Fatalf("ReplaceProxmox: %v", err)
+	}
+	got, err := st.GetDevice(ctx, dev.ID)
+	if err != nil {
+		t.Fatalf("GetDevice: %v", err)
+	}
+	if len(got.ProxmoxStorages) != 2 || got.ProxmoxStorages[1].Name != "backup-pi_2" {
+		t.Fatalf("Speicher nicht zurückgelesen: %+v", got.ProxmoxStorages)
+	}
+	// Kein PVE mehr (Agent meldet nil): Liste muss verschwinden, nicht stehenbleiben.
+	if err := st.ReplaceProxmox(ctx, dev.ID, nil); err != nil {
+		t.Fatalf("ReplaceProxmox(nil): %v", err)
+	}
+	got, _ = st.GetDevice(ctx, dev.ID)
+	if len(got.ProxmoxStorages) != 0 {
+		t.Errorf("Speicher hätten geleert werden müssen: %+v", got.ProxmoxStorages)
+	}
+}

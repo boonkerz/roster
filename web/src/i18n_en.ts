@@ -889,4 +889,23 @@ export const EN: Record<string, string> = {
   "Protokoll": "Log",
   "Protokoll ausblenden": "Hide log",
   "Abschalten, wenn die Sicherung über den Backup-Bereich von Roster läuft statt über Proxmox-Jobs.": "Turn off when backups run through Roster's backup area instead of Proxmox jobs.",
+
+  // Zeitzone (Einstellungen → Allgemein) und Ziel je Gast (Backup-Formular)
+  "Allgemein": "General",
+  "Zeitzone": "Time zone",
+  "Gilt für alle Zeitpläne: Backup-Einträge (plant der Server) und Tasks/Checks mit fester Uhrzeit (plant der Agent). Ohne Einstellung rechnet jedes Gerät in seiner eigenen Systemzeit.": "Applies to every schedule: backup entries (scheduled by the server) and tasks/checks with a fixed time (scheduled by the agent). Without it every device uses its own system time.",
+  "— Systemzeit des jeweiligen Geräts —": "— each device's own system time —",
+  "Serverzeit jetzt": "Server time now",
+  "wirksam": "effective",
+  "dieser Browser": "this browser",
+  "Achtung: Nach dem Umstellen laufen bestehende Tasks mit fester Uhrzeit zu einem anderen Zeitpunkt als bisher. Agenten älter als 0.16.0 planen weiter in ihrer eigenen Systemzeit.": "Note: after changing this, existing tasks with a fixed time run at a different moment than before. Agents older than 0.16.0 keep using their own system time.",
+  "(Systemzeit des Geräts)": "(device system time)",
+  "Einstellungen → Allgemein → Zeitzone.": "Settings → General → Time zone.",
+  "; keine Auswahl = täglich": "; no selection = daily",
+  "Ziel als Vorgabe (z. B. backup-pi_1)": "Default target (e.g. backup-pi_1)",
+  "Gast": "Guest",
+  "gesichert": "backed up",
+  "Vorgabe": "Default",
+  "(Vorgabe)": "(default)",
+  "Auswahl steht auf „alle Gäste des Hosts“.": "Selection is set to “all guests of the host”.",
 };

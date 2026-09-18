@@ -3,15 +3,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User } from "../types";
 
 // SettingsArea sind die Bereiche der (nach Themen gegliederten) Einstellungen.
-export type SettingsArea = "users" | "notify" | "devices" | "downloads" | "security";
+export type SettingsArea = "general" | "users" | "notify" | "devices" | "downloads" | "security";
 
 // settingsAreas definiert Reihenfolge, Label, Sichtbarkeit und Inhalt je Bereich.
 function useSettingsAreas() {
   const { t } = useI18n();
   return [
+    { key: "general" as const, label: t("Allgemein"), adminOnly: false,
+      render: () => <Timezone /> },
     { key: "users" as const, label: t("Benutzer & Rollen"), adminOnly: true,
       render: () => <><Users /><Roles /><Tokens /></> },
     { key: "notify" as const, label: t("Benachrichtigungen"), adminOnly: false,
@@ -49,6 +51,62 @@ export function Settings({ initialArea }: { initialArea?: SettingsArea }) {
         <div className="settings-content">{current?.render()}</div>
       </div>
     </div>
+  );
+}
+
+// Timezone stellt die Zeitzone ein, in der ALLE Zeitpläne gerechnet werden: die
+// serverseitig geplanten Backups und die Tasks/Checks, die der Agent selbst plant. Ohne
+// sie rechnet jedes Gerät in seiner eigenen Systemzeit – „täglich 02:00" bedeutet dann
+// auf jedem Rechner einen anderen Moment.
+function Timezone() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [value, setValue] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const { data } = useQuery<GeneralSettings>({
+    queryKey: ["settings", "general"],
+    queryFn: () => api.get("/settings/general"),
+  });
+  const save = useMutation({
+    mutationFn: (timezone: string) => api.put("/settings/general", { timezone }),
+    onSuccess: () => { setValue(null); setErr(""); qc.invalidateQueries({ queryKey: ["settings", "general"] }); },
+    onError: (e: Error) => setErr(e.message),
+  });
+
+  // Die Zonenliste bringt der Browser mit (Intl) – keine eigene Tabelle nötig. Die
+  // TS-Lib dieses Projekts kennt supportedValuesOf noch nicht, daher der enge Cast.
+  const intl = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+  const zones: string[] = intl.supportedValuesOf?.("timeZone") ?? [];
+  const current = value ?? data?.timezone ?? "";
+  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  return (
+    <section className="card">
+      <h2>{t("Zeitzone")}</h2>
+      <p className="muted small">
+        {t("Gilt für alle Zeitpläne: Backup-Einträge (plant der Server) und Tasks/Checks mit fester Uhrzeit (plant der Agent). Ohne Einstellung rechnet jedes Gerät in seiner eigenen Systemzeit.")}
+      </p>
+      <div className="inline-form">
+        <select value={current} onChange={(e) => setValue(e.target.value)} style={{ minWidth: 260 }}>
+          <option value="">{t("— Systemzeit des jeweiligen Geräts —")}</option>
+          {zones.map((z) => <option key={z} value={z}>{z}</option>)}
+          {current && !zones.includes(current) && <option value={current}>{current}</option>}
+        </select>
+        <button className="btn primary" disabled={value === null || save.isPending} onClick={() => save.mutate(current)}>
+          {t("Speichern")}
+        </button>
+        {value !== null && <button className="btn ghost" onClick={() => { setValue(null); setErr(""); }}>{t("Abbrechen")}</button>}
+        {err && <span className="error small">{err}</span>}
+      </div>
+      <p className="muted small" style={{ marginTop: 8 }}>
+        {t("Serverzeit jetzt")}: {data?.server_now ? new Date(data.server_now).toLocaleString() : "—"}
+        {data?.effective ? ` · ${t("wirksam")}: ${data.effective}` : ""}
+        {browserZone ? ` · ${t("dieser Browser")}: ${browserZone}` : ""}
+      </p>
+      <p className="muted small">
+        {t("Achtung: Nach dem Umstellen laufen bestehende Tasks mit fester Uhrzeit zu einem anderen Zeitpunkt als bisher. Agenten älter als 0.16.0 planen weiter in ihrer eigenen Systemzeit.")}
+      </p>
+    </section>
   );
 }
 

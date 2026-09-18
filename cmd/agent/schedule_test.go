@@ -68,3 +68,45 @@ func TestTaskDueDaily(t *testing.T) {
 		t.Error("gestern gelaufen, heute nach 02:00 -> fällig")
 	}
 }
+
+// TestTaskDueTimezone belegt, dass der Zeitplan in der übergebenen Zone gilt: derselbe
+// Augenblick ist in Berlin schon der nächste Tag, in London noch der vorige – ein
+// Tages-Task darf dann genau einmal je Berliner Tag laufen.
+func TestTaskDueTimezone(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatalf("Zeitzone nicht ladbar: %v", err)
+	}
+	london, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		t.Fatalf("Zeitzone nicht ladbar: %v", err)
+	}
+	task := shared.TaskSpec{Frequency: "daily", DailyTime: "20:00"}
+
+	// 2026-09-18 19:30 UTC = 21:30 Berlin (fällig) = 20:30 London (auch fällig).
+	instant := time.Date(2026, 9, 18, 19, 30, 0, 0, time.UTC)
+	if !taskDue(task, time.Time{}, instant.In(berlin)) {
+		t.Error("21:30 Berliner Zeit sollte einen 20:00-Task fällig machen")
+	}
+
+	// 2026-09-18 18:30 UTC = 20:30 Berlin (fällig), aber 19:30 London (noch nicht).
+	instant = time.Date(2026, 9, 18, 18, 30, 0, 0, time.UTC)
+	if !taskDue(task, time.Time{}, instant.In(berlin)) {
+		t.Error("20:30 Berliner Zeit sollte fällig sein")
+	}
+	if taskDue(task, time.Time{}, instant.In(london)) {
+		t.Error("19:30 Londoner Zeit ist noch nicht fällig – die Zone entscheidet")
+	}
+
+	// Tagesgrenze ohne Uhrzeit: 22:30 UTC ist in Berlin schon der 19., in London noch
+	// der 18. – derselbe Augenblick, zwei verschiedene Antworten.
+	daily := shared.TaskSpec{Frequency: "daily"}
+	last := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) // Lauf am 18. (beide Zonen)
+	instant = time.Date(2026, 9, 18, 22, 30, 0, 0, time.UTC)
+	if taskDue(daily, last.In(london), instant.In(london)) {
+		t.Error("in London noch derselbe Tag – kein zweiter Lauf")
+	}
+	if !taskDue(daily, last.In(berlin), instant.In(berlin)) {
+		t.Error("in Berlin ist bereits der 19. – wieder fällig")
+	}
+}

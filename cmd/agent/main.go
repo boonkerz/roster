@@ -16,6 +16,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	// Zeitzonen-Datenbank einbetten: der Agent plant in der zentral eingestellten Zone,
+	// und time.LoadLocation findet unter Windows (keine Registry-Auswertung in Go) und in
+	// schlanken Containern sonst nichts. Kostet ~450 KB, hält das Binary selbst-enthalten.
+	_ "time/tzdata"
 
 	"github.com/kardianos/service"
 
@@ -106,6 +110,32 @@ type program struct {
 	taskLastRun       map[string]time.Time   // letzte Ausführung je Task-ID
 	checkLastRun      map[string]time.Time   // letzte Auswertung je Check-ID (für Häufigkeit)
 	checkinNow        chan struct{}          // Server-Push: sofort einchecken
+	tzName            string                 // zuletzt vom Server gemeldete Zeitzone
+	tzLoc             *time.Location         // dazu aufgelöste Zone (nil = lokale Zeit)
+}
+
+// scheduleLocation liefert die Zone, in der Zeitpläne gerechnet werden. Der Name kommt im
+// Policy-Bundle vom Server; leer oder unbekannt heißt lokale Zeit wie früher. Ergebnis
+// wird gecacht, LoadLocation liest sonst bei jedem Checkin die Zonendatei.
+func (p *program) scheduleLocation(name string) *time.Location {
+	name = strings.TrimSpace(name)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if name == "" {
+		p.tzName, p.tzLoc = "", nil
+		return time.Local
+	}
+	if p.tzName == name && p.tzLoc != nil {
+		return p.tzLoc
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		p.log.Warn("zeitzone nicht auflösbar, nutze lokale Zeit", "zone", name, "err", err)
+		p.tzName, p.tzLoc = "", nil
+		return time.Local
+	}
+	p.tzName, p.tzLoc = name, loc
+	return loc
 }
 
 func (p *program) Start(s service.Service) error {
@@ -508,7 +538,9 @@ func (p *program) runPolicy(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	// Zeitpläne in der zentral eingestellten Zone rechnen – sonst bedeutet "täglich 02:00"
+	// auf jedem Gerät der Flotte einen anderen Moment.
+	now := time.Now().In(p.scheduleLocation(bundle.Timezone))
 
 	// 2) Fällige Checks auswerten (Häufigkeit je Check; "" = jeden Checkin). Nicht
 	// fällige Checks werden nicht erneut gesendet – der Server behält ihr Ergebnis.
@@ -517,7 +549,7 @@ func (p *program) runPolicy(ctx context.Context) {
 		p.mu.Lock()
 		last := p.checkLastRun[c.ID]
 		p.mu.Unlock()
-		if freqDue(c.Frequency, last, now, "", "") || contains(forceChecks, c.ID) {
+		if freqDue(c.Frequency, last.In(now.Location()), now, "", "") || contains(forceChecks, c.ID) {
 			dueChecks = append(dueChecks, c)
 		}
 	}
@@ -534,7 +566,7 @@ func (p *program) runPolicy(ctx context.Context) {
 		p.mu.Lock()
 		last := p.taskLastRun[t.ID]
 		p.mu.Unlock()
-		if !taskDue(t, last, now) && !contains(forceTasks, t.ID) {
+		if !taskDue(t, last.In(now.Location()), now) && !contains(forceTasks, t.ID) {
 			continue
 		}
 		exit, output, applicable := policy.RunScript(ctx, t.Shell, t.Script, t.Platforms)

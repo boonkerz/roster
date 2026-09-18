@@ -11,8 +11,8 @@ import (
 // Zeitplan der Backup-Einträge. Bewusst eine reine Funktion: Wochenrhythmus, Nachholen
 // nach einer Server-Auszeit und Sommerzeit lassen sich so tabellengetrieben testen.
 //
-// Gerechnet wird in SERVERZEIT (time.Local) – anders als bei Tasks, die der Agent in
-// seiner eigenen Zeitzone plant. Die Oberfläche weist darauf hin.
+// Gerechnet wird in der Zone von now – der Aufrufer (RunBackupLoop) übergibt die zentral
+// eingestellte Zeitzone, siehe timezone.go. Ist keine gesetzt, ist das die Serverzeit.
 
 // backupDue meldet, ob ein Eintrag jetzt fällig ist, und den geplanten Zeitpunkt des
 // Laufs (Wanduhr-Zeit von heute). Ein Lauf ist fällig, wenn

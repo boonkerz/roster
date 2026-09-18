@@ -16,13 +16,15 @@ the server**, which is what makes three things possible:
 - a **follow-up action on a different device** than the one that ran the backup,
 - schedules that survive an agent restart (a task's next-run state lives in agent memory).
 
-Times are **server time**, not the device's.
+Times use the **central time zone** (Settings → General → Time zone). Without one set,
+they fall back to the server's own clock — which in a container is usually UTC.
 
 ## An entry
 
 | Field | Meaning |
 | ----- | ------- |
 | Type | *Proxmox*: guests (all, or picked from the host's inventory), storage, mode. *Script*: a script from the library. |
+| Target per guest | Each guest can override the default storage, so one entry can write guest 107 to `backup-pi_1` and guest 110 to `backup-pi_2`. The agent then runs one `vzdump` per node **and** target. Needs agent 0.16.0 — with an older one the run fails with a clear message instead of quietly using the default storage. |
 | Schedule | Weekdays (none = daily) and a time. A run that is missed — server down — is caught up for up to 6 hours, never later. |
 | Start condition | Wait until a device is online, up to N minutes; after that the run counts as failed. |
 | Time limit | Aborts a run that takes longer. |
@@ -64,6 +66,19 @@ PVE so they never run while it sleeps.
    `/sys/class/rtc/rtc0/wakealarm` and shuts the Pi down.
 
 The Pi needs a Roster agent for this (64-bit OS; the server ships an `arm64` agent).
+
+Compute the wake time with an explicit zone, not the Pi's system time — a fresh Raspberry
+Pi OS often sits on `Europe/London`:
+
+```sh
+target=$(TZ=Europe/Berlin date -d "tomorrow 20:00" +%s)
+echo 0 > /sys/class/rtc/rtc0/wakealarm
+echo "$target" > /sys/class/rtc/rtc0/wakealarm
+shutdown -h +1          # delay, so Roster still collects the result
+```
+
+Do not halt immediately: the agent reports the script's result at the check-in it triggers
+right after the run, and a machine that is already off reports nothing.
 
 ## Runs
 

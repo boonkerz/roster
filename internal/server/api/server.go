@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,10 @@ type Server struct {
 	files    *fileHub    // flüchtige Datei-Übertragungen
 	fileCaps *fileCapHub // Datei-Capabilities des nativen Viewers (Token→Gerät)
 	router   http.Handler
+
+	tzMu   sync.RWMutex   // schützt den Zeitzonen-Cache (siehe timezone.go)
+	tzName string         // zuletzt gelesener IANA-Name aus app_settings
+	tzLoc  *time.Location // dazu aufgelöste Zone
 }
 
 // New erstellt den Server und registriert alle Routen.
@@ -177,6 +182,11 @@ func (s *Server) routes() http.Handler {
 						r.Get("/proxmox/hosts/{id}/guests", s.handleListProxmoxGuests)
 					})
 
+					// Allgemeine Einstellungen lesen: für die Einstellungen-Seite ODER den
+					// Richtlinien-Editor (der beschriftet die Zeitfelder mit der Zone).
+					r.With(s.requirePermAny(model.PermSettings, model.PermPolicies)).
+						Get("/settings/general", s.handleGetGeneralSettings)
+
 					// --- Einstellungen lesen (page.settings) ---
 					r.Group(func(r chi.Router) {
 						r.Use(s.requirePerm(model.PermSettings))
@@ -258,6 +268,7 @@ func (s *Server) routes() http.Handler {
 					// --- Einstellungen/Verwaltung (page.settings) ---
 					r.Group(func(r chi.Router) {
 						r.Use(s.requirePerm(model.PermSettings))
+						r.Put("/settings/general", s.handleSetGeneralSettings)
 						r.Get("/audit", s.handleListAudit)
 						r.Get("/reports/health", s.handleHealthReport)
 						r.Get("/report-schedules", s.handleListReportSchedules)

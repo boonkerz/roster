@@ -70,6 +70,10 @@ type CheckinResponse struct {
 type PolicyBundle struct {
 	Checks []CheckSpec `json:"checks"`
 	Tasks  []TaskSpec  `json:"tasks"`
+	// Timezone ist der zentral eingestellte IANA-Name ("Europe/Berlin"), in dem der Agent
+	// seine Zeitpläne rechnet (daily/weekly, Wochen- und Monatsgrenzen). Leer = lokale
+	// Zeit des Geräts, wie vor Einführung der Einstellung. Ältere Agenten ignorieren es.
+	Timezone string `json:"timezone,omitempty"`
 }
 
 // CheckSpec beschreibt einen auszuführenden Check.
@@ -237,8 +241,17 @@ func (f Fan) Problem() string {
 
 // ProxmoxInfo beschreibt einen Proxmox-VE-Host (bzw. dessen Cluster).
 type ProxmoxInfo struct {
-	Version string         `json:"version"` // pve-manager-Version, z. B. "8.2.4"
-	Guests  []ProxmoxGuest `json:"guests"`  // clusterweit (pvesh /cluster/resources)
+	Version  string           `json:"version"`            // pve-manager-Version, z. B. "8.2.4"
+	Guests   []ProxmoxGuest   `json:"guests"`             // clusterweit (pvesh /cluster/resources)
+	Storages []ProxmoxStorage `json:"storages,omitempty"` // Speicher, die Backups aufnehmen
+}
+
+// ProxmoxStorage ist ein Speicher mit Backup-Inhalt – Futter für die Zielauswahl im
+// Backup-Formular, damit der Speichername dort kein Freitext sein muss.
+type ProxmoxStorage struct {
+	Name   string `json:"name"`
+	Node   string `json:"node"`
+	Shared bool   `json:"shared,omitempty"`
 }
 
 // ProxmoxGuest ist eine VM (qemu) oder ein Container (lxc) samt Backup-Status.

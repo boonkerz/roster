@@ -20,6 +20,7 @@ directly — everything travels through the agent's normal check-in and command 
 | Latest backup per guest (time, size, storage, count) | content of every storage with `backup` content (local, NFS, **PBS** …) |
 | Result of the last backup run per guest | vzdump tasks; job runs are parsed from their task log (`Finished` / `failed - …`) |
 | Guest not in any backup job | `/cluster/backup-info/not-backed-up` (PVE ≥ 7.1) |
+| Backup-capable storages (name, node, shared) | `/cluster/resources?type=storage`, everything with `backup` content — this fills the target dropdown in the backup form |
 
 The guest list is fetched on every check-in so the status is right straight after an
 action. Backup information changes rarely and is cached for **10 minutes**; parsed task
@@ -45,7 +46,9 @@ check-in that immediately follows. Every action is written to the audit log.
 
 Beyond watching backups, Roster can **run** them: a policy's [Backups](backups.md) section
 schedules `vzdump` for the guests you pick, waits for the backup target to be reachable,
-and can run a script on another device afterwards.
+and can run a script on another device afterwards. Each guest may have **its own target
+storage**, so one entry with one schedule can feed two different backup disks; the agent
+then issues one `vzdump` per node and target.
 
 ## Backup check
 

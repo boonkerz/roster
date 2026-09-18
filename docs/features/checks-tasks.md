@@ -30,6 +30,19 @@ Scheduled scripts with a frequency (interval / daily / weekly / …), keeping th
 per task plus a full run history. You can also **re-run** any check or task on demand with
 the ↻ button.
 
+### Time zone
+
+A task set to *daily 02:00* runs at 02:00 **in the time zone configured under Settings →
+General**. The server sends that zone down with the policy and the agent schedules in it —
+otherwise every machine would use its own clock and the same schedule would mean a
+different moment on each of them (a Raspberry Pi on `Europe/London`, a container on UTC, a
+workstation on local time).
+
+Leave the setting empty to keep the old behaviour: each device uses its own system time.
+Agents older than 0.16.0 ignore the zone and always use their own clock. Changing the
+setting shifts existing fixed-time schedules once — that is the point, but worth knowing
+before you switch it on. Backups use the same zone; see [Backups](backups.md).
+
 !!! tip "Tasks or backups?"
     Tasks are scheduled by the agent and run on the device itself. Scheduled **backups**
     live in their own section of a policy — they are scheduled by the server and can wait

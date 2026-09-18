@@ -14,6 +14,9 @@ import (
 	"os"
 	"strings"
 	"time"
+	// Zeitzonen-Datenbank einbetten: die eingestellte Zone muss auch in schlanken
+	// Containern ohne /usr/share/zoneinfo auflösbar sein.
+	_ "time/tzdata"
 
 	"github.com/kardianos/service"
 

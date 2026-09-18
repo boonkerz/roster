@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n, gt } from "../i18n";
 import { BackupSection } from "../components/BackupSection";
-import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, ProxmoxHost, ProxmoxGuest } from "../types";
+import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, GeneralSettings, ProxmoxHost, ProxmoxGuest } from "../types";
 
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 function weekdayLabel(s: string): string {
@@ -153,6 +153,13 @@ function PolicyEditor({
 }) {
   const { t } = useI18n();
   const delPolicy = useMutation({ mutationFn: () => api.del(`/policies/${policy.id}`), onSuccess: onDeleted });
+  // Zeitzone nur zum Beschriften der Uhrzeit-Felder (leer = Systemzeit des Geräts).
+  const { data: general } = useQuery<GeneralSettings>({
+    queryKey: ["settings", "general"],
+    queryFn: () => api.get("/settings/general"),
+    staleTime: 5 * 60 * 1000,
+  });
+  const tz = general?.timezone ?? "";
 
   // Check anlegen
   const [cName, setCName] = useState("");
@@ -591,7 +598,13 @@ function PolicyEditor({
             {FREQ.map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
           </select>
           {isCalendar(tFreq) && (
-            <label className="num">{t("Uhrzeit")}<input type="time" value={tDaily} onChange={(e) => setTDaily(e.target.value)} /></label>
+            <>
+              <label className="num">{t("Uhrzeit")}<input type="time" value={tDaily} onChange={(e) => setTDaily(e.target.value)} /></label>
+              {/* Ohne zentrale Zeitzone rechnet jeder Agent in seiner eigenen Systemzeit. */}
+              <span className="muted small" title={t("Einzustellen unter Einstellungen → Allgemein → Zeitzone.")}>
+                {tz ? `(${tz})` : t("(Systemzeit des Geräts)")}
+              </span>
+            </>
           )}
           {tFreq === "weekly" && (
             <input style={{ width: 130 }} placeholder={t("Wochentage 1,3,5")} value={tWeekdays} onChange={(e) => setTWeekdays(e.target.value)} />

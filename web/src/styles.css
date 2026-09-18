@@ -432,7 +432,12 @@ label input, label select { color: var(--text); }
 
 /* Backup-Bereich der Richtlinien */
 .backup-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
-.backup-guests { display: flex; flex-wrap: wrap; gap: 6px; max-height: 160px; overflow-y: auto; }
+.backup-guests { max-height: 220px; overflow-y: auto; }
+.backup-guest-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.backup-guest-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 2px 8px 4px 0; }
+.backup-guest-table td { padding: 2px 8px 2px 0; vertical-align: middle; }
+.backup-guest-table td:last-child, .backup-guest-table th:last-child { width: 1%; text-align: center; }
+.backup-guest-table select { min-width: 160px; }
 
 /* Smart-Group-Regel-Editor */
 .rule-editor { margin-top: 10px; padding: 10px; border: 1px solid var(--border, #26304a); border-radius: 8px; background: #0d111a; }

@@ -1,7 +1,9 @@
 package collect
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -164,11 +166,12 @@ func TestGroupBackupGuests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("groupBackupGuests: %v", err)
 	}
-	if len(got) != 2 || len(got["pve1"]) != 2 || got["pve1"][0] != 100 || got["pve1"][1] != 101 {
+	pve1, pve2 := backupGroup{node: "pve1"}, backupGroup{node: "pve2"}
+	if len(got) != 2 || len(got[pve1]) != 2 || got[pve1][0] != 100 || got[pve1][1] != 101 {
 		t.Fatalf("Gruppierung/Sortierung falsch: %+v", got)
 	}
-	if len(got["pve2"]) != 1 || got["pve2"][0] != 110 {
-		t.Errorf("zweiter Node: %+v", got["pve2"])
+	if len(got[pve2]) != 1 || got[pve2][0] != 110 {
+		t.Errorf("zweiter Node: %+v", got[pve2])
 	}
 }
 
@@ -205,5 +208,58 @@ func TestProxmoxBackupValidation(t *testing.T) {
 	}
 	if code, msg := ProxmoxBackup(t.Context(), BackupSpec{Guests: []BackupGuest{{Node: "pve", VMID: 100}}}, nil); code == 0 {
 		t.Errorf("ohne pvesh darf nichts als erfolgreich gelten: %q", msg)
+	}
+}
+
+func TestParseBackupStorages(t *testing.T) {
+	res := []pveResource{
+		{Type: "storage", Node: "pve", Storage: "local", Content: "iso,vztmpl"},
+		{Type: "storage", Node: "pve", Storage: "backup-pi_2", Content: "backup", Status: "available"},
+		{Type: "storage", Node: "pve", Storage: "backup-pi_1", Content: "images,backup", Status: "unavailable"},
+		{Type: "storage", Node: "pve2", Storage: "backup-pi_1", Content: "backup", Shared: 1},
+		{Type: "qemu", Node: "pve", VMID: 107},
+	}
+	got := parseBackupStorages(res)
+	if len(got) != 2 {
+		t.Fatalf("erwartet 2 Speicher, bekam %d: %+v", len(got), got)
+	}
+	// Nach Namen sortiert, je Name einmal – und "unavailable" bleibt drin (ein NFS-Ziel
+	// auf einem schlafenden Rechner soll wählbar bleiben).
+	if got[0].Name != "backup-pi_1" || got[1].Name != "backup-pi_2" {
+		t.Errorf("falsche Reihenfolge/Namen: %+v", got)
+	}
+}
+
+func TestGroupBackupGuestsByStorage(t *testing.T) {
+	// Ohne pvesh bleibt die Migrationsprüfung wirkungslos – der Node aus dem Inventar gilt.
+	guests := []BackupGuest{
+		{Node: "pve", VMID: 107},
+		{Node: "pve", VMID: 110, Storage: "backup-pi_2"},
+		{Node: "pve", VMID: 105},
+		{Node: "pve2", VMID: 200, Storage: "backup-pi_2"},
+		{Node: "pve", VMID: 99},                         // zu kleine VMID
+		{Node: "pve", VMID: 120, Storage: "böser;name"}, // ungültiger Speichername
+	}
+	got, err := groupBackupGuests(context.Background(), guests)
+	if err != nil {
+		t.Fatalf("unerwarteter Fehler: %v", err)
+	}
+	want := map[backupGroup][]int{
+		{node: "pve", storage: ""}:             {105, 107},
+		{node: "pve", storage: "backup-pi_2"}:  {110},
+		{node: "pve2", storage: "backup-pi_2"}: {200},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("erwartet %d Gruppen, bekam %d: %+v", len(want), len(got), got)
+	}
+	for k, v := range want {
+		if fmt.Sprint(got[k]) != fmt.Sprint(v) {
+			t.Errorf("Gruppe %+v: erwartet %v, bekam %v", k, v, got[k])
+		}
+	}
+	// Reihenfolge muss stabil sein (Node, dann Speicher).
+	order := sortedGroups(got)
+	if order[0].node != "pve" || order[0].storage != "" || order[2].node != "pve2" {
+		t.Errorf("unerwartete Reihenfolge: %+v", order)
 	}
 }

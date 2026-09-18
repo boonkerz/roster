@@ -130,7 +130,7 @@ export interface PolicyBackup {
   config: Record<string, unknown>;
   script_id?: string | null;
   weekdays: string;   // "1,3,5" (0 = Sonntag), leer = täglich
-  at_time: string;    // "18:00" (Serverzeit)
+  at_time: string;    // "18:00" in der zentral eingestellten Zeitzone
   catch_up_minutes: number;
   wait_device_id?: string | null;
   wait_minutes: number;
@@ -178,6 +178,14 @@ export interface ProxmoxHost {
   base_url: string;
   token_id: string;
   verify_tls: boolean;
+}
+
+// ProxmoxStorage ist ein backup-fähiger Speicher des PVE-Clusters – die Zielauswahl
+// im Backup-Formular.
+export interface ProxmoxStorage {
+  name: string;
+  node: string;
+  shared?: boolean;
 }
 
 // ProxmoxGuest ist ein Container/VM eines Proxmox-Hosts. Aus der API-Integration
@@ -441,6 +449,7 @@ export interface Device {
   fans?: Fan[];
   proxmox_version?: string; // gesetzt = Agent läuft auf einem Proxmox-VE-Host
   proxmox_guests?: ProxmoxGuest[];
+  proxmox_storages?: ProxmoxStorage[];
   mute_software_alerts?: boolean;
   groups?: Group[];
   software?: SoftwarePackage[];
@@ -580,4 +589,11 @@ export interface EnrollmentToken {
   used_count: number;
   created_by: string;
   created_at: string;
+}
+
+// GeneralSettings sind die globalen Einstellungen (bislang nur die Zeitzone).
+export interface GeneralSettings {
+  timezone: string;     // IANA-Name, leer = Systemzeit des jeweiligen Geräts
+  server_now?: string;  // aktuelle Zeit in der wirksamen Zone (nur lesend)
+  effective?: string;   // tatsächlich verwendete Zone
 }

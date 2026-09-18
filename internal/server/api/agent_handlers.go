@@ -127,6 +127,10 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Error("effektive policy", "err", err)
 	}
+	if policy != nil {
+		// Zeitpläne des Agents laufen in der zentral eingestellten Zone (leer = lokal).
+		policy.Timezone = s.timezoneName(r.Context())
+	}
 	commands, err := s.store.PendingCommands(r.Context(), device.ID)
 	if err != nil {
 		s.log.Error("offene befehle", "err", err)

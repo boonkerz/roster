@@ -105,8 +105,9 @@ type pveBackupState struct {
 type pveBackups struct {
 	version   string
 	state     map[int]*pveBackupState
-	jobsKnown bool         // not-backed-up abrufbar (PVE ≥ 7.1)?
-	notInJob  map[int]bool // Gäste, die in keinem Backup-Job stecken
+	jobsKnown bool                    // not-backed-up abrufbar (PVE ≥ 7.1)?
+	notInJob  map[int]bool            // Gäste, die in keinem Backup-Job stecken
+	storages  []shared.ProxmoxStorage // Speicher, die Backups aufnehmen
 }
 
 // parseGuests filtert qemu/lxc aus /cluster/resources und sortiert nach VMID.
@@ -126,6 +127,25 @@ func parseGuests(res []pveResource) []shared.ProxmoxGuest {
 		out = append(out, g)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].VMID < out[j].VMID })
+	return out
+}
+
+// parseBackupStorages liefert die backup-fähigen Speicher, je Name einmal. Anders als
+// backupStorages geht es hier nicht ums Abfragen, sondern um die Liste für die
+// Zielauswahl im Backup-Formular – deshalb auch geteilte Speicher nur einmal und ohne
+// Status-Filter: ein NFS-Ziel auf einem nachts schlafenden Backup-Rechner ist gerade
+// dann "unavailable", wenn man es auswählen will.
+func parseBackupStorages(res []pveResource) []shared.ProxmoxStorage {
+	seen := map[string]bool{}
+	var out []shared.ProxmoxStorage
+	for _, r := range res {
+		if r.Type != "storage" || !hasContent(r.Content, "backup") || seen[r.Storage] {
+			continue
+		}
+		seen[r.Storage] = true
+		out = append(out, shared.ProxmoxStorage{Name: r.Storage, Node: r.Node, Shared: r.Shared == 1})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
@@ -268,7 +288,7 @@ func Proxmox(ctx context.Context) *shared.ProxmoxInfo {
 			g.BackupJob = &inJob
 		}
 	}
-	return &shared.ProxmoxInfo{Version: b.version, Guests: guests}
+	return &shared.ProxmoxInfo{Version: b.version, Guests: guests, Storages: b.storages}
 }
 
 // mergeBackupState überträgt den Backup-Stand auf einen Gast.
@@ -311,6 +331,7 @@ func proxmoxBackups(ctx context.Context) *pveBackups {
 	// 1) Vorhandene Backups auf allen Backup-Speichern.
 	var storages []pveResource
 	if err := pveshGet(ctx, &storages, "/cluster/resources", "--type", "storage"); err == nil {
+		b.storages = parseBackupStorages(storages)
 		seen := map[string]bool{}
 		for _, ns := range backupStorages(storages) {
 			var items []pveContent
@@ -439,6 +460,9 @@ type BackupGuest struct {
 	Node string `json:"node"`
 	VMID int    `json:"vmid"`
 	Type string `json:"type"`
+	// Storage ist das Ziel dieses Gasts. Leer = Vorgabe des Eintrags (BackupSpec.Storage).
+	// So kann ein Eintrag mehrere Gäste auf verschiedene Speicher sichern.
+	Storage string `json:"storage,omitempty"`
 }
 
 // BackupSpec beschreibt einen Backup-Lauf, wie ihn der Server schickt.
@@ -497,17 +521,26 @@ func ProxmoxBackup(ctx context.Context, spec BackupSpec, progress func(string)) 
 	results := map[int]vzdumpResult{}
 	var logs []string
 	failed := false
-	for _, node := range sortedKeys(byNode) {
-		vmids := byNode[node]
+	for _, grp := range sortedGroups(byNode) {
+		node, vmids := grp.node, byNode[grp]
+		// Leeres Gruppen-Ziel heißt "Vorgabe des Eintrags"; ist auch die leer, entscheidet
+		// die Speicher-Vorgabe von PVE selbst.
+		storage := grp.storage
+		if storage == "" {
+			storage = spec.Storage
+		}
 		args := []string{"create", "/nodes/" + node + "/vzdump",
 			"--vmid", joinInts(vmids), "--mode", mode, "--compress", compress}
-		if spec.Storage != "" {
-			args = append(args, "--storage", spec.Storage)
+		if storage != "" {
+			args = append(args, "--storage", storage)
 		}
 		if strings.TrimSpace(spec.Notes) != "" {
 			args = append(args, "--notes-template", spec.Notes)
 		}
 		note := fmt.Sprintf("%s: vzdump %s gestartet", node, joinInts(vmids))
+		if storage != "" {
+			note += " → " + storage
+		}
 		report(progress, note)
 
 		out, err := exec.CommandContext(cctx, "pvesh", args...).CombinedOutput()
@@ -550,9 +583,32 @@ func ProxmoxBackup(ctx context.Context, spec BackupSpec, progress func(string)) 
 	return exit, summary + "\n" + tailLines(logs, 120)
 }
 
-// groupBackupGuests gruppiert die Gäste nach Node und korrigiert den Node anhand des
-// aktuellen Clusterzustands – ein Gast kann seit der Planung migriert worden sein.
-func groupBackupGuests(ctx context.Context, guests []BackupGuest) (map[string][]int, error) {
+// backupGroup ist ein vzdump-Aufruf: alle Gäste eines Nodes mit demselben Ziel. Ohne die
+// Gruppierung nach Speicher könnte ein Eintrag nur ein einziges Ziel bedienen.
+type backupGroup struct {
+	node    string
+	storage string // "" = Vorgabe des Eintrags
+}
+
+// sortedGroups liefert die Gruppen in fester Reihenfolge (Node, dann Speicher), damit
+// Ausgabe und Tests reproduzierbar sind.
+func sortedGroups(m map[backupGroup][]int) []backupGroup {
+	out := make([]backupGroup, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].node != out[j].node {
+			return out[i].node < out[j].node
+		}
+		return out[i].storage < out[j].storage
+	})
+	return out
+}
+
+// groupBackupGuests gruppiert die Gäste nach Node und Ziel und korrigiert den Node anhand
+// des aktuellen Clusterzustands – ein Gast kann seit der Planung migriert worden sein.
+func groupBackupGuests(ctx context.Context, guests []BackupGuest) (map[backupGroup][]int, error) {
 	current := map[int]string{}
 	var res []pveResource
 	if err := pveshGet(ctx, &res, "/cluster/resources", "--type", "vm"); err == nil {
@@ -562,7 +618,7 @@ func groupBackupGuests(ctx context.Context, guests []BackupGuest) (map[string][]
 			}
 		}
 	}
-	byNode := map[string][]int{}
+	byNode := map[backupGroup][]int{}
 	for _, g := range guests {
 		if g.VMID < 100 {
 			continue
@@ -574,10 +630,15 @@ func groupBackupGuests(ctx context.Context, guests []BackupGuest) (map[string][]
 		if !pveNodeName.MatchString(node) {
 			continue
 		}
-		byNode[node] = append(byNode[node], g.VMID)
+		storage := strings.TrimSpace(g.Storage)
+		if storage != "" && !pveStorageName.MatchString(storage) {
+			continue // ungültiger Speichername – Gast überspringen statt irgendwohin sichern
+		}
+		key := backupGroup{node: node, storage: storage}
+		byNode[key] = append(byNode[key], g.VMID)
 	}
-	for node := range byNode {
-		sort.Ints(byNode[node])
+	for k := range byNode {
+		sort.Ints(byNode[k])
 	}
 	return byNode, nil
 }

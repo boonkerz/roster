@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { Device, Policy, PolicyBackup, Script } from "../types";
+import type { Device, GeneralSettings, Policy, PolicyBackup, Script } from "../types";
 
 // Backup-Bereich einer Richtlinie: was gesichert wird, wann, und was danach passiert.
-// Anders als Tasks planen Backups SERVERSEITIG – deshalb die Uhrzeit in Serverzeit, die
-// Startbedingung („erst wenn Gerät X erreichbar ist") und die Folgeaktion, die auf einem
-// anderen Gerät läuft.
+// Anders als Tasks plant der SERVER die Backups – nur so gehen die Startbedingung
+// („erst wenn Gerät X erreichbar ist") und die Folgeaktion auf einem anderen Gerät.
+// Die Uhrzeit gilt in der zentral eingestellten Zeitzone (Einstellungen → Zeitzone).
 
 const WD: [number, string][] = [[1, "Mo"], [2, "Di"], [3, "Mi"], [4, "Do"], [5, "Fr"], [6, "Sa"], [0, "So"]];
 const MODES: [string, string][] = [["snapshot", "Snapshot (laufend)"], ["suspend", "Suspend"], ["stop", "Stop"]];
@@ -21,7 +21,8 @@ type Draft = {
   host: string;        // nur zur Gastauswahl im Formular
   all: boolean;
   vmids: number[];
-  storage: string;
+  storage: string;                    // Vorgabe für alle Gäste
+  targets: Record<number, string>;    // abweichendes Ziel je VMID
   mode: string;
   scriptId: string;
   weekdays: number[];
@@ -35,7 +36,7 @@ type Draft = {
 };
 
 const emptyDraft = (): Draft => ({
-  name: "", type: "proxmox", enabled: true, host: "", all: true, vmids: [], storage: "", mode: "snapshot",
+  name: "", type: "proxmox", enabled: true, host: "", all: true, vmids: [], storage: "", targets: {}, mode: "snapshot",
   scriptId: "", weekdays: [], atTime: "18:00", waitDeviceId: "", waitMinutes: "30", timeoutMinutes: "720",
   afterDeviceId: "", afterScriptId: "", afterWhen: "always",
 });
@@ -48,7 +49,8 @@ function draftFrom(b: PolicyBackup, hosts: Device[]): Draft {
   const host = hosts.find((h) => (h.proxmox_guests ?? []).some((g) => vmids.includes(g.vmid)))?.id ?? hosts[0]?.id ?? "";
   return {
     id: b.id, name: b.name, type: b.type, enabled: b.enabled, host,
-    all: cfg.all === true, vmids, storage: String(cfg.storage ?? ""), mode: String(cfg.mode ?? "snapshot"),
+    all: cfg.all === true, vmids, storage: String(cfg.storage ?? ""), targets: targetsFrom(cfg.targets),
+    mode: String(cfg.mode ?? "snapshot"),
     scriptId: b.script_id ?? "",
     weekdays: b.weekdays ? b.weekdays.split(",").map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n)) : [],
     atTime: b.at_time || "18:00",
@@ -58,12 +60,24 @@ function draftFrom(b: PolicyBackup, hosts: Device[]): Draft {
   };
 }
 
+// targetsFrom liest die Ziel-Zuordnung aus der gespeicherten Config ({"110": "…"}).
+function targetsFrom(raw: unknown): Record<number, string> {
+  const out: Record<number, string> = {};
+  if (raw && typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      const vmid = Number(k);
+      if (!Number.isNaN(vmid) && typeof v === "string" && v.trim()) out[vmid] = v.trim();
+    }
+  }
+  return out;
+}
+
 // scheduleLabel beschreibt den Zeitplan eines Eintrags in einer Zeile.
-function scheduleLabel(b: PolicyBackup, t: (s: string) => string): string {
+function scheduleLabel(b: PolicyBackup, t: (s: string) => string, tz: string): string {
   const days = b.weekdays
     ? b.weekdays.split(",").map((n) => WD.find(([v]) => v === Number(n.trim()))?.[1] ?? n).join(", ")
     : t("täglich");
-  return `${days}, ${b.at_time} ${t("(Serverzeit)")}`;
+  return `${days}, ${b.at_time} ${tz ? `(${tz})` : t("(Serverzeit)")}`;
 }
 
 export function BackupSection({ policy, scripts, devices }: { policy: Policy; scripts: Script[]; devices: Device[] }) {
@@ -73,12 +87,23 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
   const [err, setErr] = useState("");
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
+  // Zeitzone nur zum Beschriften – leer heißt "Serverzeit wie bisher".
+  const { data: general } = useQuery<GeneralSettings>({
+    queryKey: ["settings", "general"],
+    queryFn: () => api.get("/settings/general"),
+    staleTime: 5 * 60 * 1000,
+  });
+  const tz = general?.timezone ?? "";
+
   const pveHosts = devices.filter((d) => d.proxmox_version);
-  const guests = (devices.find((d) => d.id === draft?.host)?.proxmox_guests ?? []).filter((g) => !g.template);
-  // Speicher-Vorschläge aus den bekannten Backup-Ständen der Gäste.
-  const storages = Array.from(new Set(
-    pveHosts.flatMap((h) => (h.proxmox_guests ?? []).map((g) => g.backup_storage).filter(Boolean) as string[]),
-  )).sort();
+  const host = devices.find((d) => d.id === draft?.host);
+  const guests = (host?.proxmox_guests ?? []).filter((g) => !g.template);
+  // Die backup-fähigen Speicher meldet der Agent (proxmox_storages). Ältere Agenten
+  // kennen das Feld nicht – dann bleiben die Speicher aus den letzten Backups übrig.
+  const storages = Array.from(new Set([
+    ...(host?.proxmox_storages ?? []).map((st) => st.name),
+    ...pveHosts.flatMap((h) => (h.proxmox_guests ?? []).map((g) => g.backup_storage).filter(Boolean) as string[]),
+  ])).sort();
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["policies"] });
   const save = useMutation({
@@ -86,7 +111,14 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
       const body = {
         name: d.name.trim(), type: d.type, enabled: d.enabled,
         config: d.type === "proxmox"
-          ? { all: d.all, vmids: d.all ? [] : d.vmids, storage: d.storage.trim(), mode: d.mode }
+          ? {
+            all: d.all, vmids: d.all ? [] : d.vmids, storage: d.storage.trim(), mode: d.mode,
+            // Nur echte Abweichungen speichern – sonst wäre jeder Eintrag auf einen
+            // Agenten ab 0.16.0 angewiesen.
+            targets: Object.fromEntries(
+              Object.entries(d.targets).filter(([, v]) => v && v !== d.storage.trim()),
+            ),
+          }
           : {},
         script_id: d.type === "script" ? d.scriptId : null,
         weekdays: d.weekdays.slice().sort().join(","),
@@ -129,7 +161,7 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
             {b.type === "proxmox"
               ? ` · ${b.config?.all ? t("alle Gäste") : `${(b.config?.vmids as number[] ?? []).length} ${t("Gäste")}`}${b.config?.storage ? ` → ${b.config.storage}` : ""}`
               : ` · ${scriptName(b.script_id)}`}
-            {" · "}{scheduleLabel(b, t)}
+            {" · "}{scheduleLabel(b, t, tz)}
             {b.wait_device_id ? ` · ${t("wartet auf")} ${deviceName(b.wait_device_id)}` : ""}
             {b.after_device_id ? ` · ${t("danach")} ${scriptName(b.after_script_id)} ${t("auf")} ${deviceName(b.after_device_id)}` : ""}
             {!b.enabled && ` · ${t("deaktiviert")}`}
@@ -166,25 +198,57 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
                 <label className="chip">
                   <input type="checkbox" checked={draft.all} onChange={(e) => set({ all: e.target.checked })} /> {t("alle Gäste des Hosts")}
                 </label>
-                <input list="backup-storages" placeholder={t("Speicher (z. B. backup-pi_1)")} value={draft.storage}
-                  onChange={(e) => set({ storage: e.target.value })} style={{ minWidth: 170 }} />
+                <input list="backup-storages" placeholder={t("Ziel als Vorgabe (z. B. backup-pi_1)")} value={draft.storage}
+                  onChange={(e) => set({ storage: e.target.value })} style={{ minWidth: 190 }} />
                 <datalist id="backup-storages">{storages.map((s) => <option key={s} value={s} />)}</datalist>
                 <select value={draft.mode} onChange={(e) => set({ mode: e.target.value })} title={t("Sicherungsmodus")}>
                   {MODES.map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
                 </select>
               </div>
-              {!draft.all && (
-                <div className="backup-guests">
-                  {guests.length === 0 && <span className="muted small">{t("Host wählen, um Gäste anzuzeigen.")}</span>}
-                  {guests.map((g) => (
-                    <label key={g.vmid} className="chip">
-                      <input type="checkbox" checked={draft.vmids.includes(g.vmid)}
-                        onChange={(e) => set({ vmids: e.target.checked ? [...draft.vmids, g.vmid] : draft.vmids.filter((v) => v !== g.vmid) })} />
-                      {g.vmid} {g.name}
-                    </label>
-                  ))}
-                </div>
-              )}
+              {/* Ein Eintrag, mehrere Ziele: je Gast lässt sich ein abweichender Speicher
+                  wählen – sonst bräuchte man je Ziel einen eigenen Eintrag mit eigenem
+                  Zeitplan. Leeres Ziel heißt: Vorgabe von oben. */}
+              <div className="backup-guests">
+                {guests.length === 0 ? (
+                  <span className="muted small">{t("Host wählen, um Gäste anzuzeigen.")}</span>
+                ) : (
+                  <table className="backup-guest-table">
+                    <thead>
+                      <tr>
+                        <th>{t("Gast")}</th>
+                        <th>{t("Ziel")}</th>
+                        <th>{draft.all ? t("gesichert") : t("An")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {guests.map((g) => {
+                        const on = draft.all || draft.vmids.includes(g.vmid);
+                        return (
+                          <tr key={g.vmid} className={on ? "" : "muted"}>
+                            <td>{g.vmid} {g.name}</td>
+                            <td>
+                              <select value={draft.targets[g.vmid] ?? ""} disabled={!on}
+                                onChange={(e) => {
+                                  const next = { ...draft.targets };
+                                  if (e.target.value) next[g.vmid] = e.target.value; else delete next[g.vmid];
+                                  set({ targets: next });
+                                }}>
+                                <option value="">{draft.storage ? `${t("Vorgabe")} (${draft.storage})` : t("(Vorgabe)")}</option>
+                                {storages.map((st) => <option key={st} value={st}>{st}</option>)}
+                              </select>
+                            </td>
+                            <td>
+                              <input type="checkbox" checked={on} disabled={draft.all}
+                                title={draft.all ? t("Auswahl steht auf „alle Gäste des Hosts“.") : ""}
+                                onChange={(e) => set({ vmids: e.target.checked ? [...draft.vmids, g.vmid] : draft.vmids.filter((v) => v !== g.vmid) })} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </>
           ) : (
             <div className="inline-form">
@@ -205,7 +269,9 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
               </label>
             ))}
             <label className="num">{t("Uhrzeit")}<input type="time" value={draft.atTime} onChange={(e) => set({ atTime: e.target.value })} /></label>
-            <span className="muted small">{t("(Serverzeit; keine Auswahl = täglich)")}</span>
+            <span className="muted small">
+              {tz ? `(${tz}${t("; keine Auswahl = täglich")})` : t("(Serverzeit; keine Auswahl = täglich)")}
+            </span>
           </div>
 
           <div className="inline-form">
