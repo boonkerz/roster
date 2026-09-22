@@ -108,6 +108,10 @@ type pveBackups struct {
 	jobsKnown bool                    // not-backed-up abrufbar (PVE ≥ 7.1)?
 	notInJob  map[int]bool            // Gäste, die in keinem Backup-Job stecken
 	storages  []shared.ProxmoxStorage // Speicher, die Backups aufnehmen
+	// blind: mindestens ein Backup-Speicher war nicht lesbar (z. B. NFS-Ziel auf einem
+	// schlafenden Backup-Rechner). Dann fehlen dessen Archive im Listing, und ein
+	// erfolgreicher vzdump-Lauf ist der einzige Beleg für das Backup.
+	blind bool
 }
 
 // parseGuests filtert qemu/lxc aus /cluster/resources und sortiert nach VMID.
@@ -282,7 +286,7 @@ func Proxmox(ctx context.Context) *shared.ProxmoxInfo {
 	b := proxmoxBackups(ctx)
 	for i := range guests {
 		g := &guests[i]
-		mergeBackupState(g, b.state[g.VMID])
+		mergeBackupState(g, b.state[g.VMID], b.blind)
 		if b.jobsKnown {
 			inJob := !b.notInJob[g.VMID]
 			g.BackupJob = &inJob
@@ -292,7 +296,13 @@ func Proxmox(ctx context.Context) *shared.ProxmoxInfo {
 }
 
 // mergeBackupState überträgt den Backup-Stand auf einen Gast.
-func mergeBackupState(g *shared.ProxmoxGuest, st *pveBackupState) {
+// blind heißt: nicht jeder Backup-Speicher war lesbar. Dann zählt ein erfolgreicher
+// vzdump-Lauf als Backup, auch wenn das Archiv gerade nicht zu sehen ist – vzdump meldet
+// "Finished Backup" erst, wenn das Archiv geschrieben ist. Typischer Fall: das NFS-Ziel
+// liegt auf einem Rechner, der sich nach dem Backup schlafen legt. BackupStorage bleibt
+// dann leer; daran erkennen Oberfläche und Check, dass der Stand aus dem Protokoll kommt.
+// Sind alle Speicher lesbar, gilt nur das Listing – fehlt dort das Archiv, ist es weg.
+func mergeBackupState(g *shared.ProxmoxGuest, st *pveBackupState, blind bool) {
 	if st == nil {
 		return
 	}
@@ -307,8 +317,25 @@ func mergeBackupState(g *shared.ProxmoxGuest, st *pveBackupState) {
 		g.BackupTaskStatus = "failed"
 		if *st.taskOK {
 			g.BackupTaskStatus = "ok"
+			if blind && (g.BackupAt == nil || taskAt.After(*g.BackupAt)) {
+				// Neuer als das sichtbare Archiv (oder gar keins sichtbar): das
+				// frischere Backup liegt auf dem nicht lesbaren Speicher.
+				g.BackupAt, g.BackupSize, g.BackupStorage = &taskAt, 0, ""
+			}
 		}
 	}
+}
+
+// hasUnreadableBackupStorage meldet, ob ein aktiver Speicher mit Backup-Inhalt gerade
+// nicht verfügbar ist. Deaktivierte Speicher ("disable" in storage.cfg) tauchen in
+// /cluster/resources gar nicht erst auf und machen den Blick nicht blind.
+func hasUnreadableBackupStorage(res []pveResource) bool {
+	for _, r := range res {
+		if r.Type == "storage" && hasContent(r.Content, "backup") && r.Status != "available" {
+			return true
+		}
+	}
+	return false
 }
 
 // proxmoxBackups liefert Version und Backup-Stand, bei Bedarf frisch ermittelt.
@@ -332,12 +359,15 @@ func proxmoxBackups(ctx context.Context) *pveBackups {
 	var storages []pveResource
 	if err := pveshGet(ctx, &storages, "/cluster/resources", "--type", "storage"); err == nil {
 		b.storages = parseBackupStorages(storages)
+		b.blind = hasUnreadableBackupStorage(storages)
 		seen := map[string]bool{}
 		for _, ns := range backupStorages(storages) {
 			var items []pveContent
 			path := "/nodes/" + ns[0] + "/storage/" + ns[1] + "/content"
 			if err := pveshGet(ctx, &items, path, "--content", "backup"); err == nil {
 				applyBackupContents(state, ns[1], items, seen)
+			} else {
+				b.blind = true // als verfügbar gemeldet, aber Listing scheiterte
 			}
 		}
 	}

@@ -47,6 +47,7 @@ func evalProxmoxBackup(c shared.CheckSpec, guests []shared.ProxmoxGuest, now tim
 
 	var problems []string
 	checked := 0
+	fromLog := 0 // Stand nur aus dem vzdump-Protokoll (Archiv-Speicher nicht lesbar)
 	var oldest time.Duration
 	for _, g := range guests {
 		switch {
@@ -79,6 +80,12 @@ func evalProxmoxBackup(c shared.CheckSpec, guests []shared.ProxmoxGuest, now tim
 			if age := now.Sub(*g.BackupAt); age > oldest {
 				oldest = age
 			}
+			// Der Collector lässt BackupStorage leer, wenn er den Stand aus einem
+			// erfolgreichen vzdump-Lauf ableitet, weil der Zielspeicher gerade nicht
+			// lesbar ist (z. B. Backup-Rechner schläft).
+			if g.BackupStorage == "" {
+				fromLog++
+			}
 		}
 	}
 
@@ -90,6 +97,9 @@ func evalProxmoxBackup(c shared.CheckSpec, guests []shared.ProxmoxGuest, now tim
 		return shared.CheckResult{CheckID: c.ID, Status: "failing", Value: float64(len(problems)), Output: trunc(out)}
 	}
 	out := fmt.Sprintf("%d Gäste gesichert, ältestes Backup vor %s", checked, ageText(oldest))
+	if fromLog > 0 {
+		out += fmt.Sprintf(" – %d davon laut vzdump-Protokoll (Backup-Ziel gerade nicht erreichbar)", fromLog)
+	}
 	return shared.CheckResult{CheckID: c.ID, Status: "passing", Value: 0, Output: out}
 }
 

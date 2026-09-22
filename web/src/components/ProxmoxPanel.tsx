@@ -83,6 +83,9 @@ export function ProxmoxPanel({ device, canOperate }: { device: Device; canOperat
     const detail = [
       g.backup_at && `${t("Letztes Backup")}: ${new Date(g.backup_at).toLocaleString()}`,
       g.backup_storage && `${t("Speicher")}: ${g.backup_storage}`,
+      // Kein Speicher, aber ein Zeitpunkt: der Agent leitet den Stand aus einem
+      // erfolgreichen vzdump-Lauf ab, weil das Ziel gerade nicht lesbar ist.
+      g.backup_at && !g.backup_storage && t("laut vzdump-Protokoll – Backup-Ziel gerade nicht erreichbar"),
       g.backup_count && `${t("Anzahl")}: ${g.backup_count}`,
       g.backup_task_at && `${t("Letzter Lauf")}: ${new Date(g.backup_task_at).toLocaleString()}`,
       g.backup_task_msg,

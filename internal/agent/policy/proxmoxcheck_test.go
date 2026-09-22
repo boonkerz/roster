@@ -55,3 +55,23 @@ func TestEvalProxmoxBackup(t *testing.T) {
 		t.Errorf("leere Auswahl: %s – %s", r.Status, r.Output)
 	}
 }
+
+// Der Backup-Rechner schläft nach dem Lauf: der Collector liefert den Stand dann aus dem
+// vzdump-Protokoll (BackupStorage leer). Der Check soll grün sein und das dazusagen.
+func TestEvalProxmoxBackupFromLog(t *testing.T) {
+	now := time.Date(2026, 9, 22, 9, 57, 0, 0, time.UTC)
+	night := time.Date(2026, 9, 22, 0, 58, 0, 0, time.UTC)
+	yes := true
+	guests := []shared.ProxmoxGuest{
+		{VMID: 107, Name: "caddy", Status: "running", BackupAt: &night, BackupTaskStatus: "ok", BackupJob: &yes},
+		{VMID: 200, Name: "immich", Status: "running", BackupAt: &night, BackupTaskStatus: "ok", BackupJob: &yes},
+		{VMID: 105, Name: "pcinventory", Status: "running", BackupAt: &night, BackupStorage: "local", BackupTaskStatus: "ok", BackupJob: &yes},
+	}
+	r := evalProxmoxBackup(shared.CheckSpec{ID: "c1", Config: map[string]any{}}, guests, now)
+	if r.Status != "passing" {
+		t.Fatalf("erfolgreicher Lauf bei schlafendem Ziel muss grün sein: %s – %s", r.Status, r.Output)
+	}
+	if !strings.Contains(r.Output, "2 davon laut vzdump-Protokoll") {
+		t.Errorf("Ausgabe sollte die Herkunft nennen: %s", r.Output)
+	}
+}

@@ -131,7 +131,7 @@ func TestMergeBackupState(t *testing.T) {
 	no := false
 	st := &pveBackupState{at: at, size: 42, storage: "pbs", count: 7, taskOK: &no, taskAt: at, taskMsg: "kaputt"}
 	var g shared.ProxmoxGuest
-	mergeBackupState(&g, st)
+	mergeBackupState(&g, st, false)
 	if g.BackupAt == nil || !g.BackupAt.Equal(at) || g.BackupSize != 42 || g.BackupStorage != "pbs" || g.BackupCount != 7 {
 		t.Errorf("Backup nicht übernommen: %+v", g)
 	}
@@ -139,9 +139,72 @@ func TestMergeBackupState(t *testing.T) {
 		t.Errorf("Laufstatus nicht übernommen: %+v", g)
 	}
 	var empty shared.ProxmoxGuest
-	mergeBackupState(&empty, nil)
+	mergeBackupState(&empty, nil, false)
 	if empty.BackupAt != nil || empty.BackupTaskStatus != "" {
 		t.Error("ohne Stand darf nichts gesetzt werden")
+	}
+}
+
+// Das NFS-Ziel schläft nach dem Backup: das Archiv ist nicht zu sehen, der vzdump-Lauf
+// war aber erfolgreich. Dann muss der Lauf als Backup zählen – sonst meldet der Check
+// jeden Tag "kein Backup", obwohl die Sicherung heute Nacht durchlief.
+func TestMergeBackupStateBlindStorage(t *testing.T) {
+	ok, fail := true, false
+	night := time.Date(2026, 9, 22, 0, 58, 0, 0, time.UTC)
+	older := night.Add(-72 * time.Hour)
+
+	// Kein Archiv sichtbar, Lauf ok, Speicher nicht lesbar → Stand aus dem Protokoll.
+	var g shared.ProxmoxGuest
+	mergeBackupState(&g, &pveBackupState{taskOK: &ok, taskAt: night}, true)
+	if g.BackupAt == nil || !g.BackupAt.Equal(night) || g.BackupStorage != "" {
+		t.Errorf("erfolgreicher Lauf hätte zählen müssen: %+v", g)
+	}
+
+	// Älteres Archiv auf einem lesbaren Speicher, neuerer Lauf auf dem schlafenden:
+	// der neuere gilt.
+	g = shared.ProxmoxGuest{}
+	mergeBackupState(&g, &pveBackupState{at: older, storage: "backup-pi_1", size: 9, taskOK: &ok, taskAt: night}, true)
+	if g.BackupAt == nil || !g.BackupAt.Equal(night) || g.BackupStorage != "" {
+		t.Errorf("neuerer Lauf hätte das ältere Archiv ablösen müssen: %+v", g)
+	}
+
+	// Alle Speicher lesbar, Archiv fehlt trotz erfolgreichem Lauf: dann ist es wirklich
+	// weg (z. B. von Hand gelöscht) – kein Backup.
+	g = shared.ProxmoxGuest{}
+	mergeBackupState(&g, &pveBackupState{taskOK: &ok, taskAt: night}, false)
+	if g.BackupAt != nil {
+		t.Errorf("bei lesbaren Speichern zählt nur das Listing: %+v", g)
+	}
+
+	// Fehlgeschlagener Lauf ist kein Beleg, auch wenn der Speicher schläft.
+	g = shared.ProxmoxGuest{}
+	mergeBackupState(&g, &pveBackupState{taskOK: &fail, taskAt: night, taskMsg: "device busy"}, true)
+	if g.BackupAt != nil || g.BackupTaskStatus != "failed" {
+		t.Errorf("fehlgeschlagener Lauf darf nicht als Backup zählen: %+v", g)
+	}
+}
+
+// Statuswerte wie auf dem echten PVE 9.2 beobachtet: ein schlafendes NFS-Ziel meldet
+// "unknown", deaktivierte Speicher fehlen in /cluster/resources ganz.
+func TestHasUnreadableBackupStorage(t *testing.T) {
+	awake := []pveResource{
+		{Type: "storage", Storage: "local", Content: "vztmpl,backup,import,iso", Status: "available"},
+		{Type: "storage", Storage: "local-lvm", Content: "images,rootdir", Status: "available"},
+		{Type: "storage", Storage: "backup-pi_1", Content: "backup", Status: "available", Shared: 1},
+	}
+	if hasUnreadableBackupStorage(awake) {
+		t.Error("alle Backup-Speicher verfügbar – nicht blind")
+	}
+	asleep := append(awake[:2:2],
+		pveResource{Type: "storage", Storage: "backup-pi_1", Content: "backup", Status: "unknown", Shared: 1})
+	if !hasUnreadableBackupStorage(asleep) {
+		t.Error("schlafendes NFS-Ziel muss erkannt werden")
+	}
+	// Ein nicht verfügbarer Speicher OHNE Backup-Inhalt spielt keine Rolle.
+	other := append(awake[:1:1],
+		pveResource{Type: "storage", Storage: "iso-nfs", Content: "iso", Status: "unknown"})
+	if hasUnreadableBackupStorage(other) {
+		t.Error("Speicher ohne Backup-Inhalt darf den Blick nicht trüben")
 	}
 }
 

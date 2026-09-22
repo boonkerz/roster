@@ -908,4 +908,5 @@ export const EN: Record<string, string> = {
   "Vorgabe": "Default",
   "(Vorgabe)": "(default)",
   "Auswahl steht auf „alle Gäste des Hosts“.": "Selection is set to “all guests of the host”.",
+  "laut vzdump-Protokoll – Backup-Ziel gerade nicht erreichbar": "per vzdump log – backup target currently unreachable",
 };
