@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/boonkerz/roster/internal/server/agentdist"
+	"github.com/boonkerz/roster/internal/server/traydist"
 	"github.com/boonkerz/roster/internal/server/viewerdist"
 )
 
@@ -33,11 +34,7 @@ func (s *Server) handleAgentDownload(w http.ResponseWriter, r *http.Request) {
 // handleViewerList liefert die eingebetteten Viewer-Pakete (Plattform, Dateiname,
 // Größe) für die Download-Übersicht in den Einstellungen.
 func (s *Server) handleViewerList(w http.ResponseWriter, r *http.Request) {
-	list := viewerdist.List()
-	if list == nil {
-		list = []viewerdist.Entry{}
-	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"platforms": list, "version": s.version})
+	s.writeJSON(w, http.StatusOK, map[string]any{"platforms": viewerdist.List(), "version": s.version})
 }
 
 // handleViewerDownload streamt das native Fernsteuerungs-Viewer-Binary (roster-viewer)
@@ -50,6 +47,30 @@ func (s *Server) handleViewerDownload(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusNotFound, "viewer für plattform nicht verfügbar: "+platform)
 		return
 	}
+	serveEmbedded(w, r, data, filename)
+}
+
+// handleTrayList liefert die eingebetteten Pakete der Taskleisten-App (roster-tray)
+// für die Download-Übersicht in den Einstellungen.
+func (s *Server) handleTrayList(w http.ResponseWriter, r *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]any{"platforms": traydist.List(), "version": s.version})
+}
+
+// handleTrayDownload streamt die Taskleisten-App einer Plattform. Wie der Viewer
+// öffentlich: das Binary enthält keine Geheimnisse, Zugangsdaten legt der Nutzer
+// erst beim Anmelden in der App an.
+func (s *Server) handleTrayDownload(w http.ResponseWriter, r *http.Request) {
+	platform := chi.URLParam(r, "platform")
+	data, filename, ok := traydist.Read(platform)
+	if !ok {
+		s.writeErr(w, http.StatusNotFound, "taskleisten-app für plattform nicht verfügbar: "+platform)
+		return
+	}
+	serveEmbedded(w, r, data, filename)
+}
+
+// serveEmbedded liefert ein eingebettetes Paket als Datei-Download aus.
+func serveEmbedded(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	http.ServeContent(w, r, filename, time.Time{}, bytes.NewReader(data))

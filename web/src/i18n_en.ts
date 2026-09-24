@@ -840,6 +840,13 @@ export const EN: Record<string, string> = {
   "ZIP entpacken; roster-viewer.exe und SDL3.dll müssen zusammen bleiben.": "Unzip; roster-viewer.exe and SDL3.dll must stay together.",
   "ZIP entpacken; roster-viewer und libSDL3.dylib müssen zusammen bleiben.": "Unzip; roster-viewer and libSDL3.dylib must stay together.",
   "Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.": "The macOS package is not shipped with the server (building it needs a Mac) – it is attached to the GitHub release.",
+  "Taskleisten-App": "Taskbar app",
+  "Die Taskleisten-App (roster-tray) zeigt alle Server mit Check- und Task-Status im Tray und öffnet je Gerät Terminal, Viewer und SFTP. Beim ersten Start meldet sie sich mit Benutzer, Passwort und TOTP an und legt sich ein eigenes API-Token an – Passwort und Sitzung werden nicht gespeichert.": "The taskbar app (roster-tray) shows every server with its check and task status in the tray and opens a terminal, the viewer or SFTP per device. On first start it signs in with user, password and TOTP and creates its own API token – password and session are not stored.",
+  "Für diesen Server wurden keine Pakete der Taskleisten-App mitgebaut (Build-Schritt tray-embed).": "No taskbar-app packages were built into this server (build step tray-embed).",
+  "Selbsttest für SDL3, Fenster und Tray-Symbol auf diesem Desktop:": "Self-test for SDL3, window and tray icon on this desktop:",
+  "chmod +x roster-tray, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution. Menüeintrag und Autostart richtet make install-tray ein.": "chmod +x roster-tray, then move it to ~/.local/bin/ – SDL3 comes from your distribution. make install-tray adds the launcher entry and autostart.",
+  "ZIP entpacken; roster-tray.exe und SDL3.dll müssen zusammen bleiben.": "Unzip; roster-tray.exe and SDL3.dll must stay together.",
+  "ZIP entpacken; roster-tray und libSDL3.dylib müssen zusammen bleiben.": "Unzip; roster-tray and libSDL3.dylib must stay together.",
 
   // --- Backup-Bereich ---
   "Backups": "Backups",

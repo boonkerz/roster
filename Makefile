@@ -111,6 +111,33 @@ viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als 
 	mv $(BIN)/roster-viewer-darwin-arm64.zip internal/server/viewerdist/bin/roster-viewer-darwin-arm64.zip
 	rm -f $(BIN)/roster-viewer $(BIN)/libSDL3.dylib
 
+# Taskleisten-App (roster-tray) ins Server-Embed – gleiches Schema wie der Viewer,
+# Download in den Einstellungen unter „Downloads“.
+tray-embed: ## Linux-Taskleisten-App ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
+	mkdir -p internal/server/traydist/bin
+	$(GOFLAGS) GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/traydist/bin/roster-tray-linux-amd64 ./cmd/tray
+
+tray-embed-arm64: ## Linux-ARM64-Taskleisten-App ins Server-Embed bauen (Raspberry Pi & Co.)
+	mkdir -p internal/server/traydist/bin
+	$(GOFLAGS) GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o internal/server/traydist/bin/roster-tray-linux-arm64 ./cmd/tray
+
+
+tray-embed-windows: ## Windows-Taskleisten-App (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
+	mkdir -p internal/server/traydist/bin
+	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray.exe ./cmd/tray
+	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
+	cd $(BIN) && rm -f roster-tray-windows-amd64.zip && zip -j roster-tray-windows-amd64.zip roster-tray.exe SDL3.dll
+	mv $(BIN)/roster-tray-windows-amd64.zip internal/server/traydist/bin/roster-tray-windows-amd64.zip
+	rm -f $(BIN)/roster-tray.exe $(BIN)/SDL3.dll
+
+tray-embed-darwin: ## macOS-Taskleisten-App (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
+	mkdir -p internal/server/traydist/bin
+	$(GOFLAGS) GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray ./cmd/tray
+	cp "$(SDL3_MAC_DYLIB)" $(BIN)/libSDL3.dylib
+	cd $(BIN) && rm -f roster-tray-darwin-arm64.zip && zip -j roster-tray-darwin-arm64.zip roster-tray libSDL3.dylib
+	mv $(BIN)/roster-tray-darwin-arm64.zip internal/server/traydist/bin/roster-tray-darwin-arm64.zip
+	rm -f $(BIN)/roster-tray $(BIN)/libSDL3.dylib
+
 build: server agent ## Server und Agent bauen
 
 test: ## Tests ausführen

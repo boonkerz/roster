@@ -27,5 +27,6 @@ docker/windows/shared/*
 /agent
 /server
 /internal/server/viewerdist/bin/roster-viewer-*
+/internal/server/traydist/bin/roster-tray-*
 /third_party/sdl3/*.dll
 /third_party/sdl3/*.dylib

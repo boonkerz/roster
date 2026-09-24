@@ -98,6 +98,8 @@ func (s *Server) routes() http.Handler {
 			r.Get("/agents/{platform}", s.handleAgentDownload)
 			// --- Nativer Fernsteuerungs-Viewer (öffentlich; enthält keine Geheimnisse) ---
 			r.Get("/viewer/{platform}", s.handleViewerDownload)
+			// --- Taskleisten-App (öffentlich; enthält keine Geheimnisse) ---
+			r.Get("/tray/{platform}", s.handleTrayDownload)
 
 			// --- Auth ---
 			r.Post("/auth/login", s.handleLogin)
@@ -123,6 +125,7 @@ func (s *Server) routes() http.Handler {
 					r.Use(s.scopeDevice)                 // Daten-Scope für /devices/{id}/… erzwingen
 					r.Get("/agents", s.handleAgentList)  // harmlose Plattform-Liste
 					r.Get("/viewer", s.handleViewerList) // Viewer-Pakete für die Download-Seite
+					r.Get("/tray", s.handleTrayList)     // Taskleisten-App-Pakete für die Download-Seite
 
 					// --- API-Tokens (Bearer) für native Clients / Mobile-App ---
 					// Jeder voll authentifizierte Nutzer verwaltet seine eigenen Tokens.

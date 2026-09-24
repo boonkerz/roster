@@ -77,6 +77,22 @@ revokes the token on the server.
 | `sftp_command` | Program for the SFTP button instead of the desktop handler; placeholders `{{host}}` `{{user}}` `{{url}}` `{{name}}` |
 | `ui_scale` | Fixed UI scale (0 / absent = auto-detect). `Ctrl` `+` / `Ctrl` `-` change it live and save it, `Ctrl` `0` returns to auto |
 
+## Download
+
+**Settings → Downloads** in the web UI offers ready-built packages straight from your
+server — the same way the remote-control viewer is shipped:
+
+| Platform | Package | After downloading |
+| -------- | ------- | ----------------- |
+| Linux x86-64 / ARM64 | `roster-tray` | `chmod +x`, move it to `~/.local/bin/`; SDL3 comes from your distribution |
+| Windows x86-64 | `roster-tray-windows.zip` | unzip; `roster-tray.exe` and `SDL3.dll` must stay together |
+| macOS (Apple Silicon) | `roster-tray-macos.zip` | attached to the [GitHub release](https://github.com/boonkerz/roster/releases) only (building it needs a Mac); unzip, keep `libSDL3.dylib` next to the binary |
+
+The download is public (`/api/v1/tray/<os>-<arch>`) — the binary holds no secrets; you sign
+in on first start and the app keeps only its own API token. Which platforms appear depends
+on what was built into the server (`make tray-embed`, `tray-embed-arm64`,
+`tray-embed-windows`, `tray-embed-darwin`); the release workflow builds all of them.
+
 ## Application launcher
 
 `make install-tray` puts everything where the desktop expects it — no root, no packaging:

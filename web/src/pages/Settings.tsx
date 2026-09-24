@@ -110,38 +110,44 @@ function Timezone() {
   );
 }
 
-// VIEWER_PLATFORMS beschreibt die Plattformen für die Download-Übersicht: Bezeichnung
+// PlatformInfo beschreibt die Plattformen für die Download-Übersicht: Bezeichnung
 // und was nach dem Herunterladen zu tun ist.
-const VIEWER_PLATFORMS: Record<string, { name: string; hint: string }> = {
+type PlatformInfo = Record<string, { name: string; hint: string }>;
+
+const VIEWER_PLATFORMS: PlatformInfo = {
   "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-viewer, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution." },
   "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-viewer, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution." },
   "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken; roster-viewer.exe und SDL3.dll müssen zusammen bleiben." },
   "darwin-arm64": { name: "macOS (Apple Silicon)", hint: "ZIP entpacken; roster-viewer und libSDL3.dylib müssen zusammen bleiben." },
 };
 
+const TRAY_PLATFORMS: PlatformInfo = {
+  "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-tray, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution. Menüeintrag und Autostart richtet make install-tray ein." },
+  "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-tray, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution. Menüeintrag und Autostart richtet make install-tray ein." },
+  "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken; roster-tray.exe und SDL3.dll müssen zusammen bleiben." },
+  "darwin-arm64": { name: "macOS (Apple Silicon)", hint: "ZIP entpacken; roster-tray und libSDL3.dylib müssen zusammen bleiben." },
+};
+
 function fmtMB(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// Downloads listet die Client-Programme, die dieser Server mitbringt. Der
-// Fernsteuerungs-Viewer ist im Server-Binary eingebettet; welche Plattformen es gibt,
-// hängt davon ab, was beim Server-Build mitgebaut wurde.
-function Downloads() {
+type DownloadList = { platforms: { platform: string; filename: string; size: number }[]; version: string };
+
+// DownloadTable listet die eingebetteten Pakete eines Client-Programms (Endpunkt
+// /api/v1/<endpoint>) mit Download-Knopf; darunter Version und ein optionaler Hinweis.
+function DownloadTable({ endpoint, info, empty, note }: { endpoint: string; info: PlatformInfo; empty: string; note?: React.ReactNode }) {
   const { t } = useI18n();
   const { data } = useQuery({
-    queryKey: ["viewer-downloads"],
-    queryFn: () => api.get<{ platforms: { platform: string; filename: string; size: number }[]; version: string }>("/viewer"),
+    queryKey: ["downloads", endpoint],
+    queryFn: () => api.get<DownloadList>(`/${endpoint}`),
   });
   const platforms = data?.platforms ?? [];
 
   return (
-    <section className="card">
-      <h2>{t("Fernsteuerungs-Viewer")}</h2>
-      <p className="muted small">
-        {t("Der native Viewer (roster-viewer) zeigt die Fernsteuerung außerhalb des Browsers und erfasst auf Wayland alle Tasten (Win+T, Alt+Tab …). Er enthält keine Zugangsdaten – die Berechtigung steckt im Startcode, den der Knopf „Im Viewer öffnen“ je Sitzung erzeugt.")}
-      </p>
+    <>
       {platforms.length === 0 ? (
-        <p className="muted small">{t("Für diesen Server wurden keine Viewer-Pakete mitgebaut (Build-Schritt viewer-embed).")}</p>
+        <p className="muted small">{t(empty)}</p>
       ) : (
         <table className="table">
           <thead><tr><th>{t("Plattform")}</th><th>{t("Datei")}</th><th>{t("Größe")}</th><th></th></tr></thead>
@@ -149,13 +155,13 @@ function Downloads() {
             {platforms.map((p) => (
               <tr key={p.platform}>
                 <td>
-                  <span className="link-strong">{t(VIEWER_PLATFORMS[p.platform]?.name ?? p.platform)}</span>
-                  <div className="muted small">{t(VIEWER_PLATFORMS[p.platform]?.hint ?? "")}</div>
+                  <span className="link-strong">{t(info[p.platform]?.name ?? p.platform)}</span>
+                  <div className="muted small">{t(info[p.platform]?.hint ?? "")}</div>
                 </td>
                 <td className="mono small">{p.filename}</td>
                 <td className="muted small">{fmtMB(p.size)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <a className="btn sm" href={`/api/v1/viewer/${p.platform}`} download style={{ whiteSpace: "nowrap" }}>⭳ {t("Herunterladen")}</a>
+                  <a className="btn sm" href={`/api/v1/${endpoint}/${p.platform}`} download style={{ whiteSpace: "nowrap" }}>⭳ {t("Herunterladen")}</a>
                 </td>
               </tr>
             ))}
@@ -163,15 +169,55 @@ function Downloads() {
         </table>
       )}
       <p className="muted small" style={{ marginTop: 8 }}>
-        {t("Version")}: {data?.version ?? "—"} · {t("Einmalig den Protokoll-Handler registrieren, damit der Knopf „Im Viewer öffnen“ den Viewer direkt startet:")} <code>roster-viewer --register</code>
+        {t("Version")}: {data?.version ?? "—"}{note ? <> · {note}</> : null}
       </p>
-      <p className="muted small">
-        {t("Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.")}
-      </p>
+    </>
+  );
+}
+
+// Downloads listet die Client-Programme, die dieser Server mitbringt. Viewer und
+// Taskleisten-App sind im Server-Binary eingebettet; welche Plattformen es gibt,
+// hängt davon ab, was beim Server-Build mitgebaut wurde.
+function Downloads() {
+  const { t } = useI18n();
+  return (
+    <>
+      <section className="card">
+        <h2>{t("Fernsteuerungs-Viewer")}</h2>
+        <p className="muted small">
+          {t("Der native Viewer (roster-viewer) zeigt die Fernsteuerung außerhalb des Browsers und erfasst auf Wayland alle Tasten (Win+T, Alt+Tab …). Er enthält keine Zugangsdaten – die Berechtigung steckt im Startcode, den der Knopf „Im Viewer öffnen“ je Sitzung erzeugt.")}
+        </p>
+        <DownloadTable
+          endpoint="viewer"
+          info={VIEWER_PLATFORMS}
+          empty="Für diesen Server wurden keine Viewer-Pakete mitgebaut (Build-Schritt viewer-embed)."
+          note={<>{t("Einmalig den Protokoll-Handler registrieren, damit der Knopf „Im Viewer öffnen“ den Viewer direkt startet:")} <code>roster-viewer --register</code></>}
+        />
+        <p className="muted small">
+          {t("Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.")}
+        </p>
+      </section>
+
+      <section className="card">
+        <h2>{t("Taskleisten-App")}</h2>
+        <p className="muted small">
+          {t("Die Taskleisten-App (roster-tray) zeigt alle Server mit Check- und Task-Status im Tray und öffnet je Gerät Terminal, Viewer und SFTP. Beim ersten Start meldet sie sich mit Benutzer, Passwort und TOTP an und legt sich ein eigenes API-Token an – Passwort und Sitzung werden nicht gespeichert.")}
+        </p>
+        <DownloadTable
+          endpoint="tray"
+          info={TRAY_PLATFORMS}
+          empty="Für diesen Server wurden keine Pakete der Taskleisten-App mitgebaut (Build-Schritt tray-embed)."
+          note={<>{t("Selbsttest für SDL3, Fenster und Tray-Symbol auf diesem Desktop:")} <code>roster-tray --selftest</code></>}
+        />
+        <p className="muted small">
+          {t("Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.")}
+        </p>
+      </section>
+
       <p className="muted small">
         {t("Den Agent für neue Geräte gibt es unter „Geräte → + Computer hinzufügen“ als Ein-Zeilen-Befehl je Betriebssystem.")}
       </p>
-    </section>
+    </>
   );
 }
 

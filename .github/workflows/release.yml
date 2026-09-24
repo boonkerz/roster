@@ -50,6 +50,9 @@ jobs:
           make viewer-embed               # Linux-Viewer (cgo-frei) ins Embed
           make viewer-embed-arm64         # Linux-ARM64-Viewer ins Embed
           make viewer-embed-windows       # Windows-Viewer (.exe + SDL3.dll) ins Embed
+          make tray-embed                 # Taskleisten-App (Linux) ins Embed
+          make tray-embed-arm64           # Taskleisten-App (Linux-ARM64) ins Embed
+          make tray-embed-windows         # Taskleisten-App (.exe + SDL3.dll) ins Embed
           make server                     # Frontend + Agents-Embed + Linux-Server
           mkdir -p dist
           cp bin/server dist/roster-server-linux-amd64
@@ -58,6 +61,9 @@ jobs:
           cp internal/server/viewerdist/bin/roster-viewer-linux-amd64      dist/roster-viewer-linux-amd64
           cp internal/server/viewerdist/bin/roster-viewer-linux-arm64      dist/roster-viewer-linux-arm64
           cp internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip dist/roster-viewer-windows-amd64.zip
+          cp internal/server/traydist/bin/roster-tray-linux-amd64          dist/roster-tray-linux-amd64
+          cp internal/server/traydist/bin/roster-tray-linux-arm64          dist/roster-tray-linux-arm64
+          cp internal/server/traydist/bin/roster-tray-windows-amd64.zip    dist/roster-tray-windows-amd64.zip
           ls -la dist
 
       - name: Ans Release hängen
@@ -67,8 +73,8 @@ jobs:
           files: dist/*
           fail_on_unmatched_files: true
 
-  # macOS-Viewer separat auf einem macOS-Runner: dort liefert Homebrew die
-  # libSDL3.dylib zum Bündeln (der Viewer selbst ist weiterhin cgo-frei).
+  # macOS-Viewer und -Taskleisten-App separat auf einem macOS-Runner: dort liefert
+  # Homebrew die libSDL3.dylib zum Bündeln (beide bleiben cgo-frei).
   macos-viewer:
     runs-on: macos-latest
     steps:
@@ -87,7 +93,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: SDL3 (Homebrew) + Viewer bauen
+      - name: SDL3 (Homebrew) + Viewer/Taskleisten-App bauen
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
@@ -95,8 +101,10 @@ jobs:
           echo "$VERSION" > VERSION
           brew install sdl3
           make viewer-embed-darwin SDL3_MAC_DYLIB="$(brew --prefix sdl3)/lib/libSDL3.dylib"
+          make tray-embed-darwin   SDL3_MAC_DYLIB="$(brew --prefix sdl3)/lib/libSDL3.dylib"
           mkdir -p dist
           cp internal/server/viewerdist/bin/roster-viewer-darwin-arm64.zip dist/roster-viewer-darwin-arm64.zip
+          cp internal/server/traydist/bin/roster-tray-darwin-arm64.zip     dist/roster-tray-darwin-arm64.zip
           ls -la dist
 
       - name: Ans Release hängen
