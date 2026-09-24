@@ -215,6 +215,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/bulk/run-script", s.handleBulkRunScript)
 						r.Post("/bulk/scan-updates", s.handleBulkScanUpdates)
 						r.Post("/bulk/install-updates", s.handleBulkInstallUpdates)
+						r.Post("/bulk/reboot", s.handleBulkReboot)
 						r.Get("/software-packages", s.handleListPackages)
 						r.Post("/bulk/install-package", s.handleBulkInstallPackage)
 						r.Post("/devices/{id}/scan-updates", s.handleScanUpdates)

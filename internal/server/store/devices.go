@@ -648,6 +648,58 @@ func (s *Store) InventoryHistory(ctx context.Context, deviceID string, limit int
 	return out, rows.Err()
 }
 
+// FailingChecksByDevice liefert je Gerät die gerade fehlschlagenden Policy-Checks
+// (eine Abfrage für die ganze Liste; nur failing-Zeilen, daher klein).
+func (s *Store) FailingChecksByDevice(ctx context.Context) (map[string][]model.FailingCheck, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT cr.device_id, pc.id, pc.name, pc.type
+		FROM check_results cr JOIN policy_checks pc ON pc.id=cr.check_id
+		WHERE cr.status='failing' ORDER BY pc.name`))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]model.FailingCheck{}
+	for rows.Next() {
+		var dev string
+		var fc model.FailingCheck
+		if err := rows.Scan(&dev, &fc.ID, &fc.Name, &fc.Type); err != nil {
+			return nil, err
+		}
+		out[dev] = append(out[dev], fc)
+	}
+	return out, rows.Err()
+}
+
+// ManagedDeviceIDs filtert eine Liste von Geräte-IDs auf verwaltete, nicht
+// widerrufene Geräte – bei gesetztem allowed zusätzlich auf erlaubte Standorte
+// (Daten-Scope; nil = unbeschränkt). Unbekannte IDs fallen stillschweigend weg.
+func (s *Store) ManagedDeviceIDs(ctx context.Context, ids []string, allowed map[string]bool) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	marks, args := placeholders(ids)
+	rows, err := s.db.QueryContext(ctx, s.rebind(
+		`SELECT id, site_id FROM devices WHERE id IN (`+marks+`) AND revoked=0 AND managed=1`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		var site sql.NullString
+		if err := rows.Scan(&id, &site); err != nil {
+			return nil, err
+		}
+		if allowed != nil && !(site.Valid && allowed[site.String]) {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // DevicesForTarget liefert die IDs aller (nicht widerrufenen) Geräte eines Ziels
 // für Sammelaktionen: device | site | client | group | all.
 func (s *Store) DevicesForTarget(ctx context.Context, targetType, targetID string, offlineCutoff time.Time) ([]string, error) {

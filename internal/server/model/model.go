@@ -53,6 +53,13 @@ type CustomRole struct {
 	UserCount   int       `json:"user_count"` // Anzahl zugeordneter Benutzer (nur lesend)
 }
 
+// FailingCheck ist ein fehlschlagender Policy-Check in der Geräteliste.
+type FailingCheck struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 // Device ist ein inventarisiertes Gerät = genau ein Agent.
 type Device struct {
 	ID           string     `json:"id"`
@@ -102,6 +109,10 @@ type Device struct {
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
 	ChecksFailing int `json:"checks_failing"`
+	// FailingChecks nennt die gerade fehlschlagenden Checks (Liste): damit lässt
+	// sich die Geräteliste nach einem bestimmten Check filtern (z. B. „Neustart
+	// ausstehend“) und die Treffer per Sammelaktion behandeln.
+	FailingChecks []FailingCheck `json:"failing_checks,omitempty"`
 
 	// Task-Zusammenfassung (für Task-Badge in der Liste): Gesamt = Tasks mit
 	// mindestens einem Lauf, Failing = letzter Lauf mit exit_code != 0.

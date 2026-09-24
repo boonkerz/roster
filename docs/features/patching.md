@@ -17,6 +17,21 @@ site or tag** at once.
 
 ![Bulk action](../screenshots/bulk-action.png){ .shadow }
 
+### On a hand-picked selection
+
+The device list has a **checkbox per row** (header checkbox = everything currently shown).
+As soon as something is ticked, a bar offers **Reboot**, **Check updates** and **Install
+updates** for exactly those devices. Combine it with the filters and a typical chore
+becomes three clicks:
+
+1. **Failing check…** dropdown (or a *Check → failing* condition in the filter builder,
+   or `?filter=check:<id>` in the URL) → only devices where e.g. **Reboot pending** fails.
+2. Header checkbox → all of them selected.
+3. **Reboot** → confirm → queued on every device; offline ones pick it up at their next check-in.
+
+Only managed, non-revoked devices can be ticked, and the server re-checks the selection
+against your data scope.
+
 ## Tags & smart groups
 
 Free-form **tags** plus **rule-based smart groups** — dynamic membership from expressions

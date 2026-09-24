@@ -360,6 +360,12 @@ export interface Policy {
   assignments?: Assignment[];
 }
 
+export interface FailingCheck {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export interface CheckResult {
   check_id: string;
   status: string;
@@ -429,6 +435,7 @@ export interface Device {
   client_name?: string;
   checks_total?: number;
   checks_failing?: number;
+  failing_checks?: FailingCheck[]; // gerade fehlschlagende Checks (für Filter „Check fehlerhaft“)
   tasks_total?: number;
   tasks_failing?: number;
   vuln_count?: number;

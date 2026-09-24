@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
-import type { Device, ClientTree as Tree } from "../types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, ApiError } from "../api";
+import type { Device, Policy, ClientTree as Tree } from "../types";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, relTime } from "../components/StatusBadge";
 import { ClientTree, OrgFilter } from "../components/ClientTree";
 import { AddComputerDialog } from "../components/AddComputerDialog";
 import { DevicePanel } from "../components/DevicePanel";
 import { CopyText } from "../components/CopyText";
-import { DeviceFilter, evalFilter, DFilter } from "../components/DeviceFilter";
+import { DeviceFilter, evalFilter, DFilter, CheckOption } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
@@ -116,11 +116,33 @@ export function Devices() {
     refetchInterval: 15000,
   });
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<Tree>("/clients") });
+  // Alle Policy-Checks (für die Check-Bedingung im Filter); ohne Rechte auf die
+  // Richtlinien bleiben die gerade fehlschlagenden Checks aus der Liste als Auswahl.
+  const { data: policies } = useQuery({ queryKey: ["policies"], queryFn: () => api.get<Policy[]>("/policies"), retry: false });
 
-  // Zustands-Filter über die URL (z. B. Klick auf eine Dashboard-Kachel).
+  // Fehlschlagende Checks über alle geladenen Geräte: Name + Anzahl betroffener Geräte.
+  const failingChecks = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; count: number }>();
+    for (const d of data ?? []) for (const fc of d.failing_checks ?? []) {
+      const e = m.get(fc.id) ?? { id: fc.id, name: fc.name, count: 0 };
+      e.count++; m.set(fc.id, e);
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [data]);
+  const checkOptions = useMemo<CheckOption[]>(() => {
+    const m = new Map<string, CheckOption>();
+    for (const p of policies ?? []) for (const c of p.checks ?? []) m.set(c.id, { id: c.id, name: `${c.name} (${p.name})` });
+    for (const fc of failingChecks) if (!m.has(fc.id)) m.set(fc.id, { id: fc.id, name: fc.name });
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [policies, failingChecks]);
+
+  // Zustands-Filter über die URL (z. B. Klick auf eine Dashboard-Kachel oder
+  // „Fehlerhafter Check…“: filter=check:<id>).
   const [params, setParams] = useSearchParams();
   const health = params.get("filter") || "";
+  const healthCheck = health.startsWith("check:") ? health.slice(6) : "";
   const matchesHealth = (d: Device) => {
+    if (healthCheck) return (d.failing_checks ?? []).some((fc) => fc.id === healthCheck);
     switch (health) {
       case "failing-checks": return (d.checks_failing ?? 0) > 0;
       case "failing-tasks": return (d.tasks_failing ?? 0) > 0;
@@ -133,7 +155,12 @@ export function Devices() {
     "failing-tasks": t("Nur Geräte mit fehlerhaften Tasks"),
     "vulns": t("Nur Geräte mit Schwachstellen"),
   };
-  const clearHealth = () => { const p = new URLSearchParams(params); p.delete("filter"); setParams(p, { replace: true }); };
+  if (healthCheck) {
+    const name = failingChecks.find((fc) => fc.id === healthCheck)?.name ?? checkOptions.find((c) => c.id === healthCheck)?.name ?? healthCheck;
+    healthLabel[health] = t("Check fehlerhaft: {name}", { name });
+  }
+  const setHealth = (v: string) => { const p = new URLSearchParams(params); if (v) p.set("filter", v); else p.delete("filter"); setParams(p, { replace: true }); };
+  const clearHealth = () => setHealth("");
 
   // Eigener, benannter Filter (clientseitig, Bedingungen mit UND/ODER).
   const [filter, setFilter] = useState<DFilter>({ match: "all", conditions: [] });
@@ -143,6 +170,45 @@ export function Devices() {
   const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d) && evalFilter(d, filter));
 
   const online = devices.filter((d) => d.status === "online").length;
+
+  // Mehrfachauswahl (Checkbox je Zeile) für Sammelaktionen auf genau diesen Geräten –
+  // typisch: nach „Neustart ausstehend“ filtern, alle markieren, neu starten.
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const selectable = (d: Device) => d.managed !== false && !d.revoked && d.status !== "unmanaged";
+  const visibleIds = devices.filter(selectable).map((d) => d.id);
+  const allVisible = visibleIds.length > 0 && visibleIds.every((id) => sel.has(id));
+  const toggleOne = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setSel((s) => {
+    const n = new Set(s);
+    if (allVisible) visibleIds.forEach((id) => n.delete(id)); else visibleIds.forEach((id) => n.add(id));
+    return n;
+  });
+  // Geräte, die aus der Liste verschwinden (gelöscht, widerrufen), fallen aus der Auswahl.
+  useEffect(() => {
+    if (!data) return;
+    const known = new Set(data.map((d) => d.id));
+    setSel((s) => { const n = new Set([...s].filter((id) => known.has(id))); return n.size === s.size ? s : n; });
+  }, [data]);
+
+  const qc = useQueryClient();
+  const [bulkMsg, setBulkMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const bulk = useMutation({
+    mutationFn: (action: "reboot" | "scan-updates" | "install-updates") =>
+      api.post<{ queued: number }>(`/bulk/${action}`, { target_type: "devices", device_ids: [...sel] }),
+    onSuccess: (r) => {
+      setBulkMsg({ ok: true, text: t("Auf {n} Gerät(en) eingereiht. Offline-Geräte holen den Befehl beim nächsten Checkin ab.", { n: r.queued }) });
+      setSel(new Set());
+      qc.invalidateQueries({ queryKey: ["devices"] });
+    },
+    onError: (e) => setBulkMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") }),
+  });
+  const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
+    setBulkMsg(null);
+    const n = sel.size;
+    if (action === "reboot" && !window.confirm(t("{n} ausgewählte Geräte jetzt neu starten?", { n }))) return;
+    if (action === "install-updates" && !window.confirm(t("Updates auf {n} ausgewählten Geräten installieren? Das kann Neustarts auslösen.", { n }))) return;
+    bulk.mutate(action);
+  };
 
   return (
     <div className="page devices-layout">
@@ -172,12 +238,34 @@ export function Devices() {
           </div>
           <div className="head-actions">
             <input className="search" placeholder={t("Suche: Hostname, IP, OS, Software, Custom Fields…")} value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 280 }} />
+            {failingChecks.length > 0 && (
+              <select value={healthCheck ? health : ""} onChange={(e) => setHealth(e.target.value)} title={t("Nur Geräte anzeigen, bei denen dieser Check fehlschlägt")}>
+                <option value="">{t("Fehlerhafter Check…")}</option>
+                {failingChecks.map((fc) => <option key={fc.id} value={`check:${fc.id}`}>{fc.name} ({fc.count})</option>)}
+              </select>
+            )}
             <button className={`btn ghost${filterActive ? " active" : ""}`} onClick={() => setShowFilter((v) => !v)}>⛃ {t("Filter")}</button>
             {isAdmin && <button className="btn primary" onClick={() => setShowAdd(true)}>{t("+ Neuer Computer")}</button>}
           </div>
         </header>
 
-        {showFilter && <DeviceFilter value={filter} onChange={setFilter} />}
+        {showFilter && <DeviceFilter value={filter} onChange={setFilter} checks={checkOptions} />}
+
+        {(sel.size > 0 || bulkMsg) && (
+          <div className="bulk-bar">
+            {sel.size > 0 && <strong>{t("{n} ausgewählt", { n: sel.size })}</strong>}
+            {sel.size > 0 && (
+              <>
+                <button className="btn sm" disabled={bulk.isPending} onClick={() => runBulk("reboot")}>⟳ {t("Neustart")}</button>
+                <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("scan-updates")}>{t("Updates prüfen")}</button>
+                <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("install-updates")}>{t("Updates durchführen")}</button>
+                <button className="btn sm ghost" onClick={() => { setSel(new Set()); setBulkMsg(null); }}>{t("Auswahl aufheben")}</button>
+              </>
+            )}
+            {bulkMsg && <span className={bulkMsg.ok ? "form-ok" : "form-err"}>{bulkMsg.text}</span>}
+            {bulkMsg && sel.size === 0 && <button className="btn sm ghost" onClick={() => setBulkMsg(null)}>✕</button>}
+          </div>
+        )}
 
         {showAdd && <AddComputerDialog onClose={() => setShowAdd(false)} />}
         {isLoading && <div className="muted">{t("Lädt…")}</div>}
@@ -189,6 +277,11 @@ export function Devices() {
               <table className="table selectable">
                 <thead>
                   <tr>
+                    <th className="sel">
+                      <input type="checkbox" checked={allVisible} disabled={visibleIds.length === 0} title={t("Alle sichtbaren auswählen")}
+                        ref={(el) => { if (el) el.indeterminate = !allVisible && visibleIds.some((id) => sel.has(id)); }}
+                        onChange={toggleAll} />
+                    </th>
                     <th>{t("Status")}</th>
                     <th>Hostname</th>
                     <th>{t("Benutzer")}</th>
@@ -207,6 +300,9 @@ export function Devices() {
                 <tbody>
                   {devices.map((d) => (
                     <tr key={d.id} className={selectedId === d.id ? "row-selected" : ""} onClick={() => setSelectedId(d.id)}>
+                      <td className="sel" onClick={(e) => e.stopPropagation()}>
+                        {selectable(d) && <input type="checkbox" checked={sel.has(d.id)} onChange={() => toggleOne(d.id)} />}
+                      </td>
                       <td><StatusBadge status={d.status} /></td>
                       <td>
                         <span className="link-strong">{d.hostname || t("(unbenannt)")}</span>
@@ -236,7 +332,7 @@ export function Devices() {
                     </tr>
                   ))}
                   {devices.length === 0 && (
-                    <tr><td colSpan={13} className="empty">{t("Keine Geräte gefunden.")}</td></tr>
+                    <tr><td colSpan={14} className="empty">{t("Keine Geräte gefunden.")}</td></tr>
                   )}
                 </tbody>
               </table>

@@ -9,14 +9,32 @@ import (
 )
 
 type bulkRequest struct {
-	TargetType string `json:"target_type"` // device | site | client | group | all
-	TargetID   string `json:"target_id"`
-	ScriptID   string `json:"script_id"`  // nur bei run-script
-	PackageID  string `json:"package_id"` // nur bei install-package
+	TargetType string   `json:"target_type"` // device | devices | site | client | group | all
+	TargetID   string   `json:"target_id"`
+	DeviceIDs  []string `json:"device_ids"` // nur bei devices: Auswahl aus der Geräteliste
+	ScriptID   string   `json:"script_id"`  // nur bei run-script
+	PackageID  string   `json:"package_id"` // nur bei install-package
 }
 
 // resolveBulkDevices löst die Zielgeräte auf oder schreibt eine Fehlerantwort.
+// Bei einer expliziten Auswahl (devices) greift der Daten-Scope des Nutzers.
 func (s *Server) resolveBulkDevices(w http.ResponseWriter, r *http.Request, req bulkRequest) ([]string, bool) {
+	if req.TargetType == "devices" {
+		if len(req.DeviceIDs) == 0 {
+			s.writeErr(w, http.StatusBadRequest, "device_ids fehlt")
+			return nil, false
+		}
+		sites, unrestricted := s.allowedSites(r.Context())
+		if unrestricted {
+			sites = nil
+		}
+		ids, err := s.store.ManagedDeviceIDs(r.Context(), req.DeviceIDs, sites)
+		if err != nil {
+			s.mapStoreErr(w, err)
+			return nil, false
+		}
+		return ids, true
+	}
 	if req.TargetType != "all" && req.TargetID == "" {
 		s.writeErr(w, http.StatusBadRequest, "target_id fehlt")
 		return nil, false
@@ -82,6 +100,26 @@ func (s *Server) handleBulkScanUpdates(w http.ResponseWriter, r *http.Request) {
 	queued := 0
 	for _, dev := range ids {
 		if _, err := s.queueCommand(r.Context(), dev, "scan_updates", "Update-Scan", nil); err == nil {
+			queued++
+		}
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued})
+}
+
+// handleBulkReboot reiht einen Neustart für alle Geräte eines Ziels ein – typisch
+// für die Auswahl „alle mit fehlerhaftem Check ‚Neustart ausstehend‘“ in der Liste.
+func (s *Server) handleBulkReboot(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	ids, ok := s.resolveBulkDevices(w, r, req)
+	if !ok {
+		return
+	}
+	queued := 0
+	for _, dev := range ids {
+		if _, err := s.queueCommand(r.Context(), dev, "reboot", "Neustart", nil); err == nil {
 			queued++
 		}
 	}

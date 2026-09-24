@@ -5,7 +5,8 @@ import type { Device } from "../types";
 export interface FCond { field: string; op: string; value: string; }
 export interface DFilter { match: "all" | "any"; conditions: FCond[]; }
 
-type Kind = "text" | "num" | "enum";
+type Kind = "text" | "num" | "enum" | "check";
+export interface CheckOption { id: string; name: string; }
 const FIELDS: { v: string; label: string; kind: Kind; values?: string[] }[] = [
   { v: "hostname", label: "Hostname", kind: "text" },
   { v: "os", label: "OS", kind: "text" },
@@ -18,9 +19,10 @@ const FIELDS: { v: string; label: string; kind: Kind; values?: string[] }[] = [
   { v: "tasks_failing", label: "Fehlerhafte Tasks", kind: "num" },
   { v: "vuln_count", label: "Schwachstellen", kind: "num" },
   { v: "updates_count", label: "Offene Updates", kind: "num" },
+  { v: "check", label: "Check", kind: "check" }, // Wert = Check-ID, Vergleich fehlerhaft / nicht fehlerhaft
 ];
-const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"] };
-const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<" };
+const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"], check: ["failing", "ok"] };
+const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<", failing: "fehlerhaft", ok: "nicht fehlerhaft" };
 
 const fieldOf = (v: string) => FIELDS.find((f) => f.v === v) ?? FIELDS[0];
 
@@ -30,6 +32,10 @@ export function evalFilter(d: Device, f: DFilter): boolean {
   const rec = d as unknown as Record<string, unknown>;
   const test = (c: FCond) => {
     const fld = fieldOf(c.field);
+    if (fld.kind === "check") {
+      const hit = (d.failing_checks ?? []).some((fc) => fc.id === c.value);
+      return c.op === "failing" ? hit : !hit;
+    }
     if (fld.kind === "num") {
       const dv = Number(rec[c.field] ?? 0), cv = Number(c.value || 0);
       return c.op === "gt" ? dv > cv : c.op === "lt" ? dv < cv : dv === cv;
@@ -46,7 +52,7 @@ function loadSaved(): Saved[] { try { return JSON.parse(localStorage.getItem(STO
 function storeSaved(s: Saved[]) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
 
 // DeviceFilter ist ein Builder für eigene, benannte Geräte-Filter (clientseitig).
-export function DeviceFilter({ value, onChange }: { value: DFilter; onChange: (f: DFilter) => void }) {
+export function DeviceFilter({ value, onChange, checks = [] }: { value: DFilter; onChange: (f: DFilter) => void; checks?: CheckOption[] }) {
   const { t } = useI18n();
   const [saved, setSaved] = useState<Saved[]>(loadSaved);
   const [name, setName] = useState("");
@@ -85,13 +91,18 @@ export function DeviceFilter({ value, onChange }: { value: DFilter; onChange: (f
         const f = fieldOf(c.field);
         return (
           <div className="inline-form" key={i} style={{ marginTop: 6 }}>
-            <select value={c.field} onChange={(e) => { const nf = fieldOf(e.target.value); setCond(i, { field: e.target.value, op: OPS[nf.kind][0], value: nf.values ? nf.values[0] : "" }); }}>
+            <select value={c.field} onChange={(e) => { const nf = fieldOf(e.target.value); setCond(i, { field: e.target.value, op: OPS[nf.kind][0], value: nf.values ? nf.values[0] : nf.kind === "check" ? (checks[0]?.id ?? "") : "" }); }}>
               {FIELDS.map((ff) => <option key={ff.v} value={ff.v}>{ff.label}</option>)}
             </select>
             <select value={c.op} onChange={(e) => setCond(i, { op: e.target.value })}>
               {OPS[f.kind].map((o) => <option key={o} value={o}>{OP_LABEL[o]}</option>)}
             </select>
-            {f.kind === "enum" ? (
+            {f.kind === "check" ? (
+              <select value={c.value} onChange={(e) => setCond(i, { value: e.target.value })} style={{ minWidth: 200 }}>
+                {checks.length === 0 && <option value="">{t("— keine Checks —")}</option>}
+                {checks.map((ck) => <option key={ck.id} value={ck.id}>{ck.name}</option>)}
+              </select>
+            ) : f.kind === "enum" ? (
               <select value={c.value} onChange={(e) => setCond(i, { value: e.target.value })}>
                 {f.values!.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>

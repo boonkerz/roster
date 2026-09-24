@@ -45,8 +45,14 @@ func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
 		s.mapStoreErr(w, err)
 		return
 	}
+	failing, err := s.store.FailingChecksByDevice(r.Context())
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
 	for i := range devices {
 		devices[i].Status = s.computeStatus(&devices[i])
+		devices[i].FailingChecks = failing[devices[i].ID]
 	}
 	s.writeJSON(w, http.StatusOK, devices)
 }

@@ -83,7 +83,8 @@ getting started, all features, configuration and security.
 - **Custom fields** – TRMM-style custom fields on client/site/device, JSON collector
   tasks, Twig-like placeholders with filters (`{{ agent.domains | first }}`).
 - **Bulk actions** – run a script, update-scan/install, or install software across a whole
-  client / site / tag.
+  client / site / tag — or reboot / update a hand-picked selection straight from the device
+  list (e.g. filter by failing check "Reboot pending", tick all, reboot).
 - **Tags & Smart Groups** – free labels plus **rule-based** dynamic groups
   (e.g. `OS contains windows AND updates > 0`).
 - **Saved filters** – build custom device-list filters (any field, AND/OR) and save them.
@@ -252,7 +253,9 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit.
 - **Custom Fields** – eigene Felder auf Client/Site/Gerät, JSON-Collector-Tasks,
   Twig-artige Platzhalter mit Filtern (`{{ agent.domains | first }}`).
 - **Sammelaktionen** – Skript, Update-Scan/-Installation oder Software-Installation auf
-  ganze Clients / Standorte / Tags.
+  ganze Clients / Standorte / Tags – oder Neustart / Updates für eine markierte Auswahl
+  direkt aus der Geräteliste (z. B. nach Check „Neustart ausstehend“ filtern, alle
+  markieren, neu starten).
 - **Tags & Smart Groups** – freie Labels plus **regelbasierte** dynamische Gruppen
   (z. B. `OS enthält windows UND Updates > 0`).
 - **Eigene Filter** – Geräteliste per Bedingungen (beliebige Felder, UND/ODER) filtern und
