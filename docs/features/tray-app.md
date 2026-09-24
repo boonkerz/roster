@@ -21,6 +21,16 @@ no runtime to install, cross-builds for Linux/Windows/macOS without a toolchain.
 - The tray icon itself turns **red** when anything fails and **amber** when a device drops
   offline, with a summary in the tooltip — so a glance at the taskbar is enough.
 
+## Device details
+
+A **click on a row** opens a panel next to the list with everything you would otherwise
+open the web UI for: system, hardware, addresses, logged-in users, last contact, tags —
+and, first and foremost, the device's **custom fields** (lists and checkboxes rendered
+readably), followed by the current **check results**, disks and notes. The panel refreshes
+with every list poll; `Esc` or the ✕ closes it, a second click on the same row too.
+
+![Device details in the taskbar app](../screenshots/tray-detail.png){ .shadow }
+
 Proxmox hosts can be expanded to show their VMs and containers with backup badge and
 start/stop buttons — see [Proxmox VE](proxmox.md#in-the-taskbar-app).
 
@@ -141,11 +151,13 @@ make tray                 # builds bin/roster-tray
 bin/roster-tray           # window + tray icon
 bin/roster-tray --hidden  # start into the tray only (autostart)
 bin/roster-tray --selftest # check SDL3, window and tray support on this desktop
+bin/roster-tray --screenshot shot.png --select srv01  # render one frame (with the details panel) for docs
 ```
 
 | Key | Action |
 | --- | ------ |
-| type anything | filter the list · `Esc` clears it, then hides to the tray |
+| click a row | open / close the details panel · double-click opens the device in the web UI |
+| type anything | filter the list · `Esc` closes the panel, then clears the filter, then hides to the tray |
 | `F5` / `Ctrl` `R` | refresh now |
 | `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` | UI scale up / down / auto |
 | `Ctrl` `Q` | quit |

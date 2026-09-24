@@ -48,6 +48,22 @@ type device struct {
 	Temperatures []shared.Temperature `json:"temperatures"`
 	Fans         []shared.Fan         `json:"fans"`
 
+	// Detailansicht (GET /devices/{id}; in der Liste teils ebenfalls gefüllt).
+	OSVersion     string        `json:"os_version"`
+	Vendor        string        `json:"vendor"`
+	Model         string        `json:"model"`
+	Serial        string        `json:"serial"`
+	CPUModel      string        `json:"cpu_model"`
+	CPUCores      int           `json:"cpu_cores"`
+	MemoryBytes   uint64        `json:"memory_bytes"`
+	AgentVersion  string        `json:"agent_version"`
+	LoggedInUsers []string      `json:"logged_in_users"`
+	UpdatesCount  *int          `json:"updates_count"`
+	Notes         string        `json:"notes"`
+	Groups        []namedThing  `json:"groups"`
+	Disks         []diskInfo    `json:"disks"`
+	CheckResults  []checkResult `json:"check_results"`
+
 	ProxmoxVersion string     `json:"proxmox_version"` // gesetzt = Agent läuft auf einem PVE-Host
 	ProxmoxGuests  []pveGuest `json:"proxmox_guests"`
 	PublicIP       string     `json:"public_ip"`
@@ -74,6 +90,24 @@ type pveGuest struct {
 	BackupTaskStatus string     `json:"backup_task_status"`
 	BackupTaskMsg    string     `json:"backup_task_msg"`
 	BackupJob        *bool      `json:"backup_job"`
+}
+
+type namedThing struct {
+	Name string `json:"name"`
+}
+
+type diskInfo struct {
+	Name        string  `json:"name"`
+	SizeBytes   uint64  `json:"size_bytes"`
+	FreeBytes   uint64  `json:"free_bytes"`
+	UsedPercent float64 `json:"used_percent"`
+}
+
+// checkResult ist das aktuelle Ergebnis eines Policy-Checks (Detailansicht).
+type checkResult struct {
+	Name   string `json:"name"`
+	Status string `json:"status"` // passing | failing | warning | unknown
+	Output string `json:"output"`
 }
 
 // iface ist eine Netzwerkschnittstelle des Geräts – Quelle der Adresse für SFTP.

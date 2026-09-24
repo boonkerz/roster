@@ -7,6 +7,7 @@ package sdlui
 import (
 	"image"
 	"image/color"
+	"math"
 	"unsafe"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
@@ -91,20 +92,28 @@ func (t *Text) get(s string) *textTex {
 	tex := sdl.CreateTexture(t.renderer, sdl.PixelFormatABGR8888, sdl.TextureAccessStatic, int32(w), int32(h))
 	sdl.UpdateTexture(tex, nil, unsafe.Pointer(&img.Pix[0]), int32(img.Stride))
 	sdl.SetTextureBlendMode(tex, sdl.BlendModeBlend)
-	sdl.SetTextureScaleMode(tex, sdl.ScaleModeLinear)
+	// Die Textur wird 1:1 in Pixeln gezeichnet – Nearest vermeidet, dass der
+	// Renderer die Glyphen noch einmal weichzeichnet.
+	sdl.SetTextureScaleMode(tex, sdl.ScaleModeNearest)
 	tt := &textTex{tex: tex, w: int32(w), h: int32(h)}
 	t.cache[s] = tt
 	return tt
 }
 
 // Draw zeichnet s linksbündig mit Oberkante bei (x,y) in Farbe (r,g,b) und liefert die Breite.
+// Die Position wird auf ganze Pixel gerastet: Layout-Rechnungen mit Skalierung
+// (z. B. 1,75×) landen sonst auf Bruchteilen, und die Textur würde beim Blit
+// zwischen zwei Pixelspalten interpoliert – das ist der „verschwommene" Text.
 func (t *Text) Draw(s string, x, y float32, r, g, b uint8) float32 {
 	tt := t.get(s)
 	sdl.SetTextureColorMod(tt.tex, r, g, b)
-	dst := sdl.FRect{X: x, Y: y, W: float32(tt.w), H: float32(tt.h)}
+	dst := sdl.FRect{X: snap(x), Y: snap(y), W: float32(tt.w), H: float32(tt.h)}
 	sdl.RenderTexture(t.renderer, tt.tex, nil, &dst)
 	return float32(tt.w)
 }
+
+// snap rundet auf ganze Pixel.
+func snap(v float32) float32 { return float32(math.Round(float64(v))) }
 
 func (t *Text) Width(s string) float32 { return float32(t.get(s).w) }
 func (t *Text) LineH() float32         { return float32(t.height) }

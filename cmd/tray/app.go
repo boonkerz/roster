@@ -55,9 +55,18 @@ type app struct {
 	expanded map[string]bool // Proxmox-Host (Geräte-ID) aufgeklappt?
 	armed    string          // scharf geschalteter Stopp-/Neustart-Knopf (Hit-ID)
 	armedAt  time.Time
-	form     loginForm
-	visible  bool
-	quitting bool
+	// Detail-Panel: gewähltes Gerät, geladener Stand, Scrollposition und der beim
+	// Zeichnen ermittelte Bereich (fürs Mausrad) samt Inhaltshöhe.
+	selected       string
+	detail         *deviceDetail
+	detailScroll   float32
+	detailRect     hitRect
+	detailContentH float32
+	selectedRow    string // Kopie von selected fürs Zeichnen (ohne Lock je Zeile)
+	shotW, shotH   int32  // Screenshot-Modus: Größe des Render-Ziels statt des Fensters
+	form           loginForm
+	visible        bool
+	quitting       bool
 
 	dirty      atomic.Bool
 	refreshNow chan struct{}
@@ -183,6 +192,7 @@ func (a *app) reload() {
 	case isUnauthorized(err):
 		a.cli = nil
 		a.devices = nil
+		a.selected, a.detail = "", nil
 		a.username = ""
 		a.status, a.statusBad = "Anmeldung abgelaufen – bitte neu anmelden.", true
 		a.view = viewLogin
@@ -194,6 +204,9 @@ func (a *app) reload() {
 	a.mu.Unlock()
 	a.markDirty()
 	a.trayDirty.Store(true)
+	if err == nil {
+		a.refreshDetail()
+	}
 }
 
 // summary zählt Geräte, Offline-Geräte und rote Checks/Tasks für Tray und Kopfzeile.

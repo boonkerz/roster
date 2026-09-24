@@ -39,6 +39,10 @@ func (a *app) handleEvent(ev *sdl.Event) {
 
 	case sdl.EventMouseWheel:
 		w := ev.Wheel()
+		if r := a.detailRect; r.w > 0 && w.MouseX*a.pxRatio >= r.x {
+			a.scrollDetail(-w.Y * float32(rowHeight) * a.s() / 2)
+			return
+		}
 		a.scroll -= w.Y * float32(rowHeight) * a.s() / 2
 		if a.scroll < 0 {
 			a.scroll = 0
@@ -103,10 +107,14 @@ func (a *app) click(id string, clicks uint8) {
 		if d, ok := a.deviceByID(strings.TrimPrefix(id, "web:")); ok {
 			a.actWeb(d)
 		}
+	case id == "detail:close":
+		a.closeDetail()
 	case strings.HasPrefix(id, "row:") && clicks >= 2:
 		if d, ok := a.deviceByID(strings.TrimPrefix(id, "row:")); ok {
 			a.actWeb(d)
 		}
+	case strings.HasPrefix(id, "row:"):
+		a.selectDevice(strings.TrimPrefix(id, "row:"))
 	}
 }
 
@@ -156,12 +164,18 @@ func (a *app) keyDown(ke sdl.KeyboardEvent) {
 
 	switch ke.Key {
 	case sdl.KeycodeEscape:
+		// Reihenfolge: erst Detail-Panel zu, dann Suche leeren, dann ins Tray.
 		a.mu.Lock()
-		hadFilter := !login && a.filter != ""
+		hadDetail := !login && a.detail != nil
+		hadFilter := !login && !hadDetail && a.filter != ""
 		if hadFilter {
 			a.filter = ""
 		}
 		a.mu.Unlock()
+		if hadDetail {
+			a.closeDetail()
+			return
+		}
 		if hadFilter {
 			a.markDirty()
 			return

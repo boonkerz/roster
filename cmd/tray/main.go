@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
@@ -39,6 +40,7 @@ func main() {
 		showVer    = flag.Bool("version", false, "Version ausgeben")
 		hidden     = flag.Bool("hidden", false, "Nur ins Tray starten, ohne Fenster (Autostart)")
 		shot       = flag.String("screenshot", "", "Einen Frame als PNG speichern und beenden (Doku/Diagnose)")
+		shotSel    = flag.String("select", "", "Mit --screenshot: Detail-Panel für diesen Hostnamen öffnen")
 		selftest   = flag.Bool("selftest", false, "SDL3, Fenster und Tray-Symbol prüfen und beenden")
 		writeIcon  = flag.String("write-icon", "", "Anwendungssymbol als PNG schreiben (Paketierung/Desktop-Eintrag)")
 		iconSize   = flag.Int("icon-size", 256, "Kantenlänge für --write-icon")
@@ -100,12 +102,12 @@ func main() {
 		return
 	}
 
-	if err := runUI(cfg, *hidden, *shot); err != nil {
+	if err := runUI(cfg, *hidden, *shot, *shotSel); err != nil {
 		log.Fatalf("roster-tray: %v", err)
 	}
 }
 
-func runUI(cfg *config, startHidden bool, screenshot string) error {
+func runUI(cfg *config, startHidden bool, screenshot, screenshotSelect string) error {
 	// Auf Wayland-Sitzungen den Wayland-Treiber bevorzugen: der x11-Treiber meldet
 	// unter XWayland keine Skalierung, wodurch die Oberfläche auf HiDPI winzig wird.
 	if !sdlui.InitVideo(appID) {
@@ -176,13 +178,26 @@ func runUI(cfg *config, startHidden bool, screenshot string) error {
 			a.render()
 			a.mu.Lock()
 			ready := a.cli == nil || !a.lastUpdate.IsZero()
+			if ready && screenshotSelect != "" {
+				// Detail-Panel für das gewünschte Gerät öffnen und auf die Daten warten.
+				if a.selected == "" {
+					for _, d := range a.devices {
+						if strings.EqualFold(d.Hostname, screenshotSelect) {
+							a.mu.Unlock()
+							a.selectDevice(d.ID)
+							a.mu.Lock()
+							break
+						}
+					}
+				}
+				ready = a.detail != nil && !a.detail.loading
+			}
 			a.mu.Unlock()
 			if ready {
 				break
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		a.draw() // ohne Present – RenderReadPixels liest den Backbuffer
 		return a.saveScreenshot(screenshot)
 	}
 

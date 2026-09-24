@@ -24,7 +24,10 @@ var (
 	colRed    = [3]uint8{0x9c, 0x2b, 0x2b}
 	colAmber  = [3]uint8{0x9a, 0x6b, 0x1f}
 	colAccent = [3]uint8{0x2f, 0x5a, 0x8f}
-	colWhite  = [3]uint8{0xff, 0xff, 0xff}
+	// colAccentText: Abschnittstitel im Detail-Panel (heller Akzent, lesbar auf dunkel).
+	colAccentText = [3]uint8{0x7f, 0xb0, 0xf0}
+	colSelected   = [3]uint8{0x1a, 0x2a, 0x3d}
+	colWhite      = [3]uint8{0xff, 0xff, 0xff}
 )
 
 const (
@@ -51,6 +54,9 @@ func (a *app) draw() {
 	// events.go mit a.pxRatio umgerechnet.
 	var wpx, hpx int32
 	sdl.GetWindowSizeInPixels(a.win, &wpx, &hpx)
+	if a.shotW > 0 { // Screenshot-Modus: feste Größe des Render-Ziels
+		wpx, hpx = a.shotW, a.shotH
+	}
 	w, h := float32(wpx), float32(hpx)
 
 	a.hits = a.hits[:0]
@@ -174,6 +180,18 @@ func (a *app) drawList(w, h float32) {
 	// --- Geräteliste (mit aufgeklappten Proxmox-Gästen) ---
 	listY := sy + searchH*s + 6*s
 	listH := h - listY - footerH*s
+	// Detail-Panel rechts, sobald ein Gerät gewählt ist – die Liste rückt zusammen.
+	a.mu.Lock()
+	hasDetail := a.detail != nil
+	selected := a.selected
+	a.mu.Unlock()
+	a.detailRect = hitRect{}
+	if hasDetail {
+		dw := minF(detailW*s, w*0.45)
+		a.drawDetail(w-12*s-dw, listY, dw, listH)
+		w -= dw + 8*s
+	}
+	a.selectedRow = selected
 	rows := a.filtered()
 	items := a.listItems(rows)
 	var listTotal float32
@@ -272,7 +290,13 @@ func (a *app) drawRow(d device, x, y, w, h float32) {
 	if a.hover == rowID || strings.HasSuffix(a.hover, ":"+d.ID) {
 		bg = colHover
 	}
+	if a.selectedRow == d.ID {
+		bg = colSelected
+	}
 	sdlui.FillRound(a.rn, x, y, w, h, 8*s, bg[0], bg[1], bg[2], 0xff)
+	if a.selectedRow == d.ID { // Markierungsbalken links
+		sdlui.FillRound(a.rn, x, y+6*s, 3*s, h-12*s, 1.5*s, colAccentText[0], colAccentText[1], colAccentText[2], 0xff)
+	}
 	a.addHit(rowID, x, y, w, h)
 
 	// Statuspunkt.
