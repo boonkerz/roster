@@ -11,6 +11,8 @@
 //
 // Start: der Browser-Button „Im Viewer öffnen" ruft roster://<code>; alternativ
 // „Kopieren" + roster-viewer <code>, oder roster-viewer ohne Argumente → Dialog.
+// Einrichtung: roster-viewer --install [--prefix DIR] kopiert das Binary ins
+// Programmverzeichnis und registriert den roster://-Handler; --uninstall räumt auf.
 package main
 
 import (
@@ -61,13 +63,25 @@ func main() {
 		}
 		return
 	}
-	for _, a := range os.Args[1:] {
+	prefix, args := extractPrefix(os.Args[1:])
+	for _, a := range args {
 		switch a {
 		case "--register", "-register":
-			if err := registerScheme(); err != nil {
+			if err := registerScheme(selfPath()); err != nil {
 				log.Fatalf("roster-viewer: register: %v", err)
 			}
 			log.Println("roster://-Handler registriert – der Browser-Button „Im Viewer öffnen\" funktioniert jetzt.")
+			return
+		case "--install", "-install":
+			// Kopiert nach <prefix>/bin bzw. %LOCALAPPDATA%\Programs\Roster und registriert.
+			if err := installViewer(prefix); err != nil {
+				log.Fatalf("roster-viewer: install: %v", err)
+			}
+			return
+		case "--uninstall", "-uninstall":
+			if err := uninstallViewer(prefix); err != nil {
+				log.Fatalf("roster-viewer: uninstall: %v", err)
+			}
 			return
 		case "--selftest", "-selftest":
 			// Lädt die SDL3-Laufzeit und initialisiert das Video-Subsystem (kein Fenster).

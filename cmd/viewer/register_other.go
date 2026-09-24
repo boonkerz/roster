@@ -5,6 +5,10 @@ package main
 import "fmt"
 
 // registerScheme ist auf anderen Plattformen (z. B. macOS) noch nicht implementiert.
-func registerScheme() error {
-	return fmt.Errorf("--register wird auf dieser Plattform nicht unterstützt")
+func registerScheme(string) error {
+	return fmt.Errorf("--register/--install wird auf dieser Plattform nicht unterstützt")
+}
+
+func unregisterScheme() error {
+	return fmt.Errorf("--uninstall wird auf dieser Plattform nicht unterstützt")
 }

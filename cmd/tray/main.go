@@ -23,8 +23,8 @@ import (
 
 var version = "dev"
 
-// appID muss zum Dateinamen des Desktop-Eintrags passen (deploy/linux/
-// de.boonkerz.roster.tray.desktop) – sonst findet die Leiste kein Symbol.
+// appID muss zum Dateinamen des Desktop-Eintrags passen (install_unix.go legt
+// <appID>.desktop an) – sonst findet die Leiste kein Symbol.
 const appID = "de.boonkerz.roster.tray"
 
 func main() {
@@ -42,8 +42,25 @@ func main() {
 		selftest   = flag.Bool("selftest", false, "SDL3, Fenster und Tray-Symbol prüfen und beenden")
 		writeIcon  = flag.String("write-icon", "", "Anwendungssymbol als PNG schreiben (Paketierung/Desktop-Eintrag)")
 		iconSize   = flag.Int("icon-size", 256, "Kantenlänge für --write-icon")
+		install    = flag.Bool("install", false, "Ins Programmverzeichnis kopieren und Anwendungsmenü-Eintrag anlegen")
+		autostart  = flag.Bool("autostart", false, "Mit --install: zusätzlich beim Anmelden ins Tray starten")
+		uninstall  = flag.Bool("uninstall", false, "Installation samt Menü-/Autostart-Eintrag wieder entfernen")
+		prefix     = flag.String("prefix", "", "Installationspräfix für --install/--uninstall (Linux: ~/.local, Windows: %LOCALAPPDATA%\\Programs\\Roster)")
 	)
 	flag.Parse()
+
+	if *install {
+		if err := installTray(*prefix, *autostart); err != nil {
+			log.Fatalf("roster-tray: install: %v", err)
+		}
+		return
+	}
+	if *uninstall {
+		if err := uninstallTray(*prefix); err != nil {
+			log.Fatalf("roster-tray: uninstall: %v", err)
+		}
+		return
+	}
 
 	if *showVer {
 		fmt.Println("roster-tray " + version)

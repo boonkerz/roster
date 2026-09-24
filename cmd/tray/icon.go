@@ -85,7 +85,7 @@ func iconImage(st iconState, size int) *image.RGBA {
 }
 
 // writeIconPNG legt das Anwendungssymbol als PNG ab (für Paketierung und den
-// Desktop-Eintrag – siehe deploy/linux).
+// Desktop-Eintrag – siehe --install in install_unix.go).
 func writeIconPNG(path string, size int) error {
 	f, err := os.Create(path)
 	if err != nil {

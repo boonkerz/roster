@@ -42,38 +42,19 @@ tray-cross: ## Taskleisten-App für Linux/Windows/macOS bauen (SDL3 wird zur Lau
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-windows-amd64.exe ./cmd/tray
 	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-darwin-arm64     ./cmd/tray
 
-# Benutzer-Installation der Taskleisten-App (kein root nötig). PREFIX überschreibbar,
-# z. B. `sudo make install-tray PREFIX=/usr/local` für alle Benutzer.
+# Benutzer-Installation der Taskleisten-App (kein root nötig) – dünne Hülle um
+# `roster-tray --install`, das auch ohne Quellbaum funktioniert (Download aus den
+# Einstellungen). PREFIX überschreibbar, z. B. `sudo make install-tray PREFIX=/usr/local`.
 PREFIX ?= $(HOME)/.local
-APP_ID := de.boonkerz.roster.tray
 
 install-tray: tray ## roster-tray + Desktop-Eintrag/Symbol installieren (Anwendungsmenü)
-	install -Dm755 $(BIN)/roster-tray $(PREFIX)/bin/roster-tray
-	$(BIN)/roster-tray --write-icon $(BIN)/$(APP_ID).png --icon-size 256
-	install -Dm644 $(BIN)/$(APP_ID).png $(PREFIX)/share/icons/hicolor/256x256/apps/$(APP_ID).png
-	install -Dm644 deploy/linux/roster-tray.png $(PREFIX)/share/pixmaps/$(APP_ID).png
-	mkdir -p $(PREFIX)/share/applications
-	sed 's|^Exec=roster-tray|Exec=$(PREFIX)/bin/roster-tray|' deploy/linux/$(APP_ID).desktop \
-		> $(PREFIX)/share/applications/$(APP_ID).desktop
-	-update-desktop-database $(PREFIX)/share/applications 2>/dev/null
-	-gtk-update-icon-cache -f -t $(PREFIX)/share/icons/hicolor 2>/dev/null
-	@echo "installiert: $(PREFIX)/bin/roster-tray + Anwendungsmenü-Eintrag ($(APP_ID))"
+	$(BIN)/roster-tray --install --prefix "$(PREFIX)"
 
-install-tray-autostart: install-tray ## Zusätzlich beim Anmelden ins Tray starten
-	mkdir -p $(HOME)/.config/autostart
-	sed -e 's|^Exec=roster-tray|Exec=$(PREFIX)/bin/roster-tray --hidden|' \
-	    -e 's|^Name=Roster|Name=Roster (Taskleiste)|' deploy/linux/$(APP_ID).desktop \
-		> $(HOME)/.config/autostart/$(APP_ID).desktop
-	@echo "Autostart eingerichtet: $(HOME)/.config/autostart/$(APP_ID).desktop"
+install-tray-autostart: tray ## Zusätzlich beim Anmelden ins Tray starten
+	$(BIN)/roster-tray --install --autostart --prefix "$(PREFIX)"
 
 uninstall-tray: ## Taskleisten-App und Desktop-Eintrag wieder entfernen
-	rm -f $(PREFIX)/bin/roster-tray \
-		$(PREFIX)/share/applications/$(APP_ID).desktop \
-		$(PREFIX)/share/icons/hicolor/256x256/apps/$(APP_ID).png \
-		$(PREFIX)/share/pixmaps/$(APP_ID).png \
-		$(HOME)/.config/autostart/$(APP_ID).desktop
-	-update-desktop-database $(PREFIX)/share/applications 2>/dev/null
-	@echo "entfernt"
+	$(BIN)/roster-tray --uninstall --prefix "$(PREFIX)"
 
 viewer-embed: ## Linux-Viewer ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
 	mkdir -p internal/server/viewerdist/bin

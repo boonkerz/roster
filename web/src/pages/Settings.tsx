@@ -115,16 +115,16 @@ function Timezone() {
 type PlatformInfo = Record<string, { name: string; hint: string }>;
 
 const VIEWER_PLATFORMS: PlatformInfo = {
-  "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-viewer, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution." },
-  "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-viewer, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution." },
-  "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken; roster-viewer.exe und SDL3.dll müssen zusammen bleiben." },
+  "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-viewer && ./roster-viewer --install – kopiert nach ~/.local/bin und registriert den roster://-Handler. SDL3 kommt aus der Distribution." },
+  "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-viewer && ./roster-viewer --install – kopiert nach ~/.local/bin und registriert den roster://-Handler. SDL3 kommt aus der Distribution." },
+  "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken, dann roster-viewer.exe --install – kopiert .exe und SDL3.dll nach %LOCALAPPDATA%\\Programs\\Roster und registriert den roster://-Handler." },
   "darwin-arm64": { name: "macOS (Apple Silicon)", hint: "ZIP entpacken; roster-viewer und libSDL3.dylib müssen zusammen bleiben." },
 };
 
 const TRAY_PLATFORMS: PlatformInfo = {
-  "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-tray, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution. Menüeintrag und Autostart richtet make install-tray ein." },
-  "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-tray, dann nach ~/.local/bin/ verschieben – SDL3 kommt aus der Distribution. Menüeintrag und Autostart richtet make install-tray ein." },
-  "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken; roster-tray.exe und SDL3.dll müssen zusammen bleiben." },
+  "linux-amd64": { name: "Linux (x86-64)", hint: "chmod +x roster-tray && ./roster-tray --install --autostart – kopiert nach ~/.local/bin, legt Menüeintrag, Symbol und Autostart an. SDL3 kommt aus der Distribution." },
+  "linux-arm64": { name: "Linux (ARM64)", hint: "chmod +x roster-tray && ./roster-tray --install --autostart – kopiert nach ~/.local/bin, legt Menüeintrag, Symbol und Autostart an. SDL3 kommt aus der Distribution." },
+  "windows-amd64": { name: "Windows (x86-64)", hint: "ZIP entpacken, dann roster-tray.exe --install --autostart – kopiert .exe und SDL3.dll nach %LOCALAPPDATA%\\Programs\\Roster und legt Startmenü- und Autostart-Eintrag an." },
   "darwin-arm64": { name: "macOS (Apple Silicon)", hint: "ZIP entpacken; roster-tray und libSDL3.dylib müssen zusammen bleiben." },
 };
 
@@ -191,7 +191,7 @@ function Downloads() {
           endpoint="viewer"
           info={VIEWER_PLATFORMS}
           empty="Für diesen Server wurden keine Viewer-Pakete mitgebaut (Build-Schritt viewer-embed)."
-          note={<>{t("Einmalig den Protokoll-Handler registrieren, damit der Knopf „Im Viewer öffnen“ den Viewer direkt startet:")} <code>roster-viewer --register</code></>}
+          note={<>{t("--install erledigt Kopieren und Handler-Registrierung in einem Schritt; --uninstall räumt wieder auf. Nur registrieren, ohne zu kopieren:")} <code>roster-viewer --register</code></>}
         />
         <p className="muted small">
           {t("Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.")}
@@ -207,7 +207,7 @@ function Downloads() {
           endpoint="tray"
           info={TRAY_PLATFORMS}
           empty="Für diesen Server wurden keine Pakete der Taskleisten-App mitgebaut (Build-Schritt tray-embed)."
-          note={<>{t("Selbsttest für SDL3, Fenster und Tray-Symbol auf diesem Desktop:")} <code>roster-tray --selftest</code></>}
+          note={<>{t("--install erledigt Kopieren, Menüeintrag und Symbol in einem Schritt (--autostart dazu für den Start beim Anmelden); --uninstall räumt wieder auf. Selbsttest für SDL3, Fenster und Tray-Symbol:")} <code>roster-tray --selftest</code></>}
         />
         <p className="muted small">
           {t("Das macOS-Paket wird nicht mit ausgeliefert (es braucht einen Mac zum Bauen) – es hängt am GitHub-Release.")}

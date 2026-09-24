@@ -60,7 +60,8 @@ getting started, all features, configuration and security.
   emulator on the remote shell), a **Viewer** button (native remote control) and an **SFTP**
   button (hands `sftp://` to your file manager / FileZilla / WinSCP) per row.
   Same cgo-free SDL3 stack as the viewer; the icon turns red when a check or task fails.
-  `make install-tray` adds it to the application launcher (autostart optional).
+  `roster-tray --install [--autostart]` adds it to the application launcher / Start menu;
+  `roster-viewer --install` registers the `roster://` handler the same way.
 - **File browser & transfer** – browse the agent's filesystem, download / upload (≤ 32 MB).
 - **Services & processes** – list + start/stop/restart services, kill processes.
 - **Storage explorer** – TreeSize-style live directory scan with a pie chart.
@@ -228,8 +229,8 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit.
   Remote-Shell im eigenen Terminal-Emulator), ein **Viewer**-Knopf (native Fernsteuerung)
   und ein **SFTP**-Knopf (übergibt `sftp://` an Dateimanager/FileZilla/WinSCP). Gleiche
   cgo-freie SDL3-Basis wie der Viewer; das Symbol wird rot, sobald ein Check oder Task
-  fehlschlägt. `make install-tray` trägt sie ins Anwendungsmenü ein
-  (Autostart optional).
+  fehlschlägt. `roster-tray --install [--autostart]` trägt sie ins Anwendungsmenü bzw.
+  Startmenü ein; `roster-viewer --install` registriert ebenso den `roster://`-Handler.
 - **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (≤ 32 MB).
 - **Dienste & Prozesse** – auflisten + Start/Stop/Neustart, Prozesse beenden.
 - **Speicher-Explorer** – TreeSize-artiger Live-Scan mit Tortendiagramm.
