@@ -30,6 +30,11 @@ const minAgentVersionBackup = "0.15.0"
 // auf alten Agenten gar nicht erst gestartet.
 const minAgentVersionTargets = "0.16.0"
 
+// minAgentVersionKeepLast: ab hier kennt der Agent keep_last (vzdump --prune-backups)
+// und den Befehl proxmox_prune. Ältere Agenten würden die Aufbewahrung still
+// ignorieren – und genau dann läuft der Speicher voll.
+const minAgentVersionKeepLast = "0.16.2"
+
 // RunBackupLoop prüft jede Minute Zeitpläne und offene Läufe. Wird beim Serverstart
 // als Goroutine gestartet (wie RunReportLoop / RunOfflineLoop).
 func (s *Server) RunBackupLoop(ctx context.Context) {
@@ -156,6 +161,11 @@ func (s *Server) tryStartRun(ctx context.Context, b model.PolicyBackup, run mode
 				"Ziel je Gast braucht Agent "+minAgentVersionTargets+" (installiert: "+device.AgentVersion+")", "")
 			return
 		}
+		if cfgInt(b.Config, "keep_last") > 0 && !agentSupportsVersion(device.AgentVersion, minAgentVersionKeepLast) {
+			s.finishRun(ctx, run, b, "failed", 1,
+				"Aufbewahrung (behalte N) braucht Agent "+minAgentVersionKeepLast+" (installiert: "+device.AgentVersion+")", "")
+			return
+		}
 	}
 
 	payload, label, cmdType, err := s.backupCommand(ctx, b, device)
@@ -195,6 +205,7 @@ func (s *Server) backupCommand(ctx context.Context, b model.PolicyBackup, d *mod
 			"compress":    cfgStringOr(b.Config, "compress", "zstd"),
 			"notes":       cfgString(b.Config, "notes"),
 			"max_minutes": maxInt(b.TimeoutMinutes, 60),
+			"keep_last":   cfgInt(b.Config, "keep_last"),
 		}
 		return payload, "Backup: " + b.Name, "proxmox_backup", nil
 
@@ -343,6 +354,21 @@ func cfgStringOr(cfg map[string]any, key, def string) string {
 func cfgBool(cfg map[string]any, key string) bool {
 	b, _ := cfg[key].(bool)
 	return b
+}
+
+// cfgInt liest eine Zahl (JSON liefert float64; Strings aus alten Formularen gelten auch).
+func cfgInt(cfg map[string]any, key string) int {
+	switch n := cfg[key].(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(n)); err == nil {
+			return i
+		}
+	}
+	return 0
 }
 
 func cfgInts(cfg map[string]any, key string) []int {

@@ -206,6 +206,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/checks/{checkID}/run", s.handleRunCheck)
 						r.Post("/devices/{id}/tasks/{taskID}/run", s.handleRunTask)
 						r.Post("/backups/{id}/run", s.handleRunBackup)
+						r.Post("/backups/{id}/prune", s.handlePruneBackup)
 						r.Post("/devices/{id}/external-scan", s.handleExternalScan)
 						r.Post("/devices/{id}/service-control", s.handleServiceControl)
 						r.Post("/devices/{id}/process-kill", s.handleProcessKill)

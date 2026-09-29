@@ -25,6 +25,7 @@ they fall back to the server's own clock — which in a container is usually UTC
 | ----- | ------- |
 | Type | *Proxmox*: guests (all, or picked from the host's inventory), storage, mode. *Script*: a script from the library. |
 | Target per guest | Each guest can override the default storage, so one entry can write guest 107 to `backup-pi_1` and guest 110 to `backup-pi_2`. The agent then runs one `vzdump` per node **and** target. Needs agent 0.16.0 — with an older one the run fails with a clear message instead of quietly using the default storage. |
+| Keep the last N | Retention per guest on the target. After a successful backup `vzdump` prunes older archives of that guest (`--prune-backups keep-last=N`) until N remain. Empty = the storage's own retention in Proxmox applies, and without one there Proxmox keeps **everything** — which is how a backup storage fills up. Needs agent 0.16.2; an older agent fails the run with a clear message instead of silently keeping all. |
 | Schedule | Weekdays (none = daily) and a time. A run that is missed — server down — is caught up for up to 6 hours, never later. |
 | Start condition | Wait until a device is online, up to N minutes; after that the run counts as failed. |
 | Time limit | Aborts a run that takes longer. |
@@ -86,6 +87,22 @@ Every run is recorded: status, start, duration, per-guest summary and the tail o
 vzdump log. The device page has a **Backups** tab with the history and a *Run now* button
 (needs the *Operate devices* permission). A failed or timed-out run raises an alert
 through the configured channels, respecting maintenance windows and minimum severity.
+
+### Pruning a full storage
+
+`vzdump` prunes **after** it has written the new archive, so the target briefly needs room
+for one more backup per guest. If a storage is already full, the next run fails before any
+pruning happens. For that case the **Backups** tab of the Proxmox host offers
+**Prune old backups** for every entry that has *keep the last N* set:
+
+- **preview** asks Proxmox what would be removed (`GET …/prunebackups`) and lists every
+  archive as *keep* / *would remove* / *protected* — nothing is touched.
+- **prune** removes the archives (`DELETE …/prunebackups`, one call per guest and storage),
+  waits for the Proxmox task and reports the result the same way.
+
+Protected backups are never removed. Pruning refuses to run while a backup is in progress on
+that host, and it only ever touches archives of the guests in the entry, on their configured
+target.
 
 !!! note "Proxmox jobs and the backup check"
     Roster starts `vzdump` with its own selection, so the guests are not part of a PVE

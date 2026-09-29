@@ -24,6 +24,7 @@ type Draft = {
   storage: string;                    // Vorgabe für alle Gäste
   targets: Record<number, string>;    // abweichendes Ziel je VMID
   mode: string;
+  keepLast: string;                   // "" = Aufbewahrung des Speichers (PVE) gilt
   scriptId: string;
   weekdays: number[];
   atTime: string;
@@ -36,7 +37,7 @@ type Draft = {
 };
 
 const emptyDraft = (): Draft => ({
-  name: "", type: "proxmox", enabled: true, host: "", all: true, vmids: [], storage: "", targets: {}, mode: "snapshot",
+  name: "", type: "proxmox", enabled: true, host: "", all: true, vmids: [], storage: "", targets: {}, mode: "snapshot", keepLast: "",
   scriptId: "", weekdays: [], atTime: "18:00", waitDeviceId: "", waitMinutes: "30", timeoutMinutes: "720",
   afterDeviceId: "", afterScriptId: "", afterWhen: "always",
 });
@@ -51,6 +52,7 @@ function draftFrom(b: PolicyBackup, hosts: Device[]): Draft {
     id: b.id, name: b.name, type: b.type, enabled: b.enabled, host,
     all: cfg.all === true, vmids, storage: String(cfg.storage ?? ""), targets: targetsFrom(cfg.targets),
     mode: String(cfg.mode ?? "snapshot"),
+    keepLast: Number(cfg.keep_last) > 0 ? String(cfg.keep_last) : "",
     scriptId: b.script_id ?? "",
     weekdays: b.weekdays ? b.weekdays.split(",").map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n)) : [],
     atTime: b.at_time || "18:00",
@@ -113,6 +115,7 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
         config: d.type === "proxmox"
           ? {
             all: d.all, vmids: d.all ? [] : d.vmids, storage: d.storage.trim(), mode: d.mode,
+            keep_last: Math.max(0, Math.floor(Number(d.keepLast) || 0)),
             // Nur echte Abweichungen speichern – sonst wäre jeder Eintrag auf einen
             // Agenten ab 0.16.0 angewiesen.
             targets: Object.fromEntries(
@@ -159,7 +162,7 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
           <span className="muted small">
             {b.type === "proxmox" ? "Proxmox" : t("Skript")}
             {b.type === "proxmox"
-              ? ` · ${b.config?.all ? t("alle Gäste") : `${(b.config?.vmids as number[] ?? []).length} ${t("Gäste")}`}${b.config?.storage ? ` → ${b.config.storage}` : ""}`
+              ? ` · ${b.config?.all ? t("alle Gäste") : `${(b.config?.vmids as number[] ?? []).length} ${t("Gäste")}`}${b.config?.storage ? ` → ${b.config.storage}` : ""}${Number(b.config?.keep_last) > 0 ? ` · ${t("behält {n}", { n: Number(b.config?.keep_last) })}` : ""}`
               : ` · ${scriptName(b.script_id)}`}
             {" · "}{scheduleLabel(b, t, tz)}
             {b.wait_device_id ? ` · ${t("wartet auf")} ${deviceName(b.wait_device_id)}` : ""}
@@ -204,7 +207,17 @@ export function BackupSection({ policy, scripts, devices }: { policy: Policy; sc
                 <select value={draft.mode} onChange={(e) => set({ mode: e.target.value })} title={t("Sicherungsmodus")}>
                   {MODES.map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
                 </select>
+                <label className="chip" title={t("Nach jedem Lauf entfernt vzdump ältere Sicherungen desselben Gasts auf dem Ziel, bis nur noch so viele übrig sind. Leer = Aufbewahrung des Speichers in Proxmox gilt (ohne Einstellung dort: alles behalten).")}>
+                  {t("behalte die letzten")}
+                  <input type="number" min={1} max={365} placeholder="∞" value={draft.keepLast}
+                    onChange={(e) => set({ keepLast: e.target.value })} style={{ width: 64, marginLeft: 6 }} />
+                </label>
               </div>
+              {draft.keepLast !== "" && (
+                <p className="muted small" style={{ margin: "4px 0 0" }}>
+                  {t("Aufgeräumt wird erst nach einer erfolgreichen Sicherung – auf dem Ziel muss also kurz Platz für eine Sicherung mehr sein. Ist der Speicher schon voll: beim Proxmox-Host unter Backups „Aufräumen“ nutzen.")}
+                </p>
+              )}
               {/* Ein Eintrag, mehrere Ziele: je Gast lässt sich ein abweichender Speicher
                   wählen – sonst bräuchte man je Ziel einen eigenen Eintrag mit eigenem
                   Zeitplan. Leeres Ziel heißt: Vorgabe von oben. */}

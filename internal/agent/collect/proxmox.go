@@ -503,6 +503,10 @@ type BackupSpec struct {
 	Compress   string        `json:"compress"` // zstd | gzip | lzo | 0
 	Notes      string        `json:"notes"`    // notes-template, z. B. {{guestname}}
 	MaxMinutes int           `json:"max_minutes"`
+	// KeepLast > 0: vzdump entfernt nach dem Lauf ältere Archive desselben Gasts auf
+	// dem Ziel, bis noch KeepLast übrig sind (--prune-backups keep-last=N). 0 = die
+	// Aufbewahrung des Speichers in PVE gilt (ohne Einstellung: alles behalten).
+	KeepLast int `json:"keep_last"`
 }
 
 var (
@@ -566,6 +570,9 @@ func ProxmoxBackup(ctx context.Context, spec BackupSpec, progress func(string)) 
 		}
 		if strings.TrimSpace(spec.Notes) != "" {
 			args = append(args, "--notes-template", spec.Notes)
+		}
+		if spec.KeepLast > 0 {
+			args = append(args, "--prune-backups", pruneOption(spec.KeepLast))
 		}
 		note := fmt.Sprintf("%s: vzdump %s gestartet", node, joinInts(vmids))
 		if storage != "" {

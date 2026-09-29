@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { relTime } from "./StatusBadge";
-import type { BackupRun, Device, Policy } from "../types";
+import type { BackupRun, Command, Device, Policy, PolicyBackup } from "../types";
 
 // Lauf-Historie der Backups eines Geräts, plus „Jetzt starten" für die Einträge, die
 // auf dieses Gerät zutreffen. Läuft ein Backup gerade, zeigt die Zeile den Zwischenstand
@@ -52,6 +52,35 @@ export function BackupRuns({ device, canOperate }: { device: Device; canOperate?
     onError: (e: Error) => setMsg(e.message),
   });
 
+  // Aufräumen: Proxmox-Einträge mit Aufbewahrung („behalte N") können alte Archive
+  // sofort entfernen – erst als Trockenlauf, dann echt. Das Ergebnis kommt als
+  // Befehl zurück und wird hier abgefragt, bis der Agent fertig ist.
+  const pruneable = entries.filter((b) => b.type === "proxmox" && Number(b.config?.keep_last) > 0);
+  const [prune, setPrune] = useState<{ id: string; dry: boolean; name: string } | null>(null);
+  const [pruneCmd, setPruneCmd] = useState<Command | null>(null);
+  const runPrune = useMutation({
+    mutationFn: (p: { id: string; dry: boolean }) =>
+      api.post<{ command_id: string }>(`/backups/${p.id}/prune`, { device_id: device.id, dry_run: p.dry }),
+    onSuccess: (r, p) => { setPrune({ id: r.command_id, dry: p.dry, name: "" }); setPruneCmd(null); setMsg(""); },
+    onError: (e: Error) => setMsg(e.message),
+  });
+  useEffect(() => {
+    if (!prune || pruneCmd?.status === "done") return;
+    const tick = async () => {
+      try {
+        const c = await api.get<Command>(`/commands/${prune.id}`);
+        setPruneCmd(c);
+      } catch { /* nächster Versuch */ }
+    };
+    tick();
+    const h = setInterval(tick, 3000);
+    return () => clearInterval(h);
+  }, [prune, pruneCmd?.status]);
+  const startPrune = (b: PolicyBackup, dry: boolean) => {
+    if (!dry && !window.confirm(t("Alte Sicherungen von „{name}“ auf diesem Host jetzt löschen? Je Gast bleiben die letzten {n}.", { name: b.name, n: Number(b.config?.keep_last) }))) return;
+    runPrune.mutate({ id: b.id, dry });
+  };
+
   return (
     <section className="card" style={{ marginTop: 12 }}>
       <h3 className="muted small" style={{ margin: 0 }}>{t("Backups")}</h3>
@@ -63,6 +92,28 @@ export function BackupRuns({ device, canOperate }: { device: Device; canOperate?
               ▶ {b.name}
             </button>
           ))}
+        </div>
+      )}
+      {canOperate && pruneable.length > 0 && (
+        <div className="inline-form" style={{ marginTop: 6 }}>
+          <span className="muted small" title={t("Entfernt je Gast alle Sicherungen bis auf die letzten N (Aufbewahrung des Eintrags) – ohne vorher neu zu sichern.")}>{t("Alte Sicherungen aufräumen")}:</span>
+          {pruneable.map((b) => (
+            <span key={b.id} className="inline-form" style={{ gap: 4 }}>
+              <button className="btn ghost sm" disabled={runPrune.isPending} onClick={() => startPrune(b, true)}>{b.name} · {t("prüfen")}</button>
+              <button className="btn ghost sm" disabled={runPrune.isPending} onClick={() => startPrune(b, false)}>{t("aufräumen")}</button>
+            </span>
+          ))}
+        </div>
+      )}
+      {prune && (
+        <div className="small" style={{ marginTop: 6 }}>
+          {!pruneCmd || pruneCmd.status !== "done"
+            ? <span className="muted">{t("Aufräumen läuft …")}{pruneCmd?.output ? ` ${pruneCmd.output}` : ""}</span>
+            : <>
+              <span className={pruneCmd.exit_code === 0 ? "form-ok" : "form-err"}>{(pruneCmd.output ?? "").split("\n")[0]}</span>
+              <button className="btn ghost sm" style={{ marginLeft: 6 }} onClick={() => setPrune(null)}>✕</button>
+              <pre className="code-block">{pruneCmd.output}</pre>
+            </>}
         </div>
       )}
       {msg && <p className="muted small">{msg}</p>}

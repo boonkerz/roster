@@ -73,3 +73,15 @@ func TestAgentSupportsVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestCfgInt(t *testing.T) {
+	if got := cfgInt(map[string]any{"keep_last": float64(2)}, "keep_last"); got != 2 {
+		t.Fatalf("float: %d", got)
+	}
+	if got := cfgInt(map[string]any{"keep_last": "3"}, "keep_last"); got != 3 {
+		t.Fatalf("string: %d", got)
+	}
+	if got := cfgInt(map[string]any{}, "keep_last"); got != 0 {
+		t.Fatalf("fehlend: %d", got)
+	}
+}

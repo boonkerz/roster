@@ -177,6 +177,68 @@ func (s *Server) handleRunBackup(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusCreated, map[string]string{"run_id": runID, "status": "gestartet"})
 }
 
+// handlePruneBackup räumt die Backups eines Proxmox-Eintrags auf einem Host sofort
+// auf (Befehl proxmox_prune): je Gast bleiben die letzten keep_last Archive auf dem
+// Ziel, alles Ältere geht weg. dry_run zeigt nur, was passieren würde. Nötig, wenn
+// ein Speicher schon voll ist – vzdump selbst räumt erst nach dem Sichern auf.
+func (s *Server) handlePruneBackup(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DeviceID string `json:"device_id"`
+		DryRun   bool   `json:"dry_run"`
+	}
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	b, err := s.store.GetBackup(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	if b.Type != "proxmox" {
+		s.writeErr(w, http.StatusBadRequest, "Aufräumen gibt es nur für Proxmox-Einträge")
+		return
+	}
+	keep := cfgInt(b.Config, "keep_last")
+	if keep <= 0 {
+		s.writeErr(w, http.StatusBadRequest, "im Eintrag ist keine Aufbewahrung gesetzt (behalte die letzten N)")
+		return
+	}
+	device, err := s.store.GetDevice(r.Context(), req.DeviceID)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	if device.ProxmoxVersion == "" {
+		s.writeErr(w, http.StatusBadRequest, "das Gerät ist kein Proxmox-Host")
+		return
+	}
+	if !agentSupportsVersion(device.AgentVersion, minAgentVersionKeepLast) {
+		s.writeErr(w, http.StatusBadRequest, "Aufräumen braucht Agent "+minAgentVersionKeepLast+" (installiert: "+device.AgentVersion+")")
+		return
+	}
+	guests := proxmoxBackupGuests(*b, device)
+	if len(guests) == 0 {
+		s.writeErr(w, http.StatusBadRequest, "keine passenden Gäste auf "+device.Hostname)
+		return
+	}
+	payload := map[string]any{
+		"guests":    guests,
+		"storage":   cfgString(b.Config, "storage"),
+		"keep_last": keep,
+		"dry_run":   req.DryRun,
+	}
+	label := "Backups aufräumen: " + b.Name
+	if req.DryRun {
+		label = "Backups aufräumen (Trockenlauf): " + b.Name
+	}
+	cmdID, err := s.queueCommand(r.Context(), device.ID, "proxmox_prune", label, payload)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, map[string]string{"command_id": cmdID, "status": "eingereiht"})
+}
+
 // handleDeviceBackupRuns liefert die Lauf-Historie eines Geräts.
 func (s *Server) handleDeviceBackupRuns(w http.ResponseWriter, r *http.Request) {
 	limit := 50

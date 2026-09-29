@@ -455,6 +455,14 @@ func (p *program) runPolicy(ctx context.Context) {
 			}
 			go p.proxmoxBackup(ctx, cmd.ID, spec)
 			continue
+		case "proxmox_prune":
+			// Löschen großer Archive auf NFS kann dauern -> asynchron wie das Backup.
+			var spec collect.PruneSpec
+			if raw, err := json.Marshal(cmd.Payload); err == nil {
+				_ = json.Unmarshal(raw, &spec)
+			}
+			go p.proxmoxPrune(ctx, cmd.ID, spec)
+			continue
 		case "proxmox_start", "proxmox_stop", "proxmox_shutdown", "proxmox_reboot":
 			// Herunterfahren kann Minuten dauern -> asynchron, Ergebnis + frisches
 			// Inventar (neuer Gast-Status) kommen mit dem nächsten Checkin.
@@ -775,6 +783,31 @@ func (p *program) proxmoxBackup(ctx context.Context, cmdID string, spec collect.
 		_ = p.client.ReportProgress(pctx, p.agentToken, cmdID, note)
 	})
 	p.log.Info("backup beendet", "command", cmdID, "exit", exit)
+	p.finishCommand(cmdID, exit, output)
+}
+
+// proxmoxPrune räumt alte Backups auf. Nicht parallel zu einem Backup-Lauf: vzdump
+// könnte sonst gerade das Archiv schreiben, das hier bewertet wird.
+func (p *program) proxmoxPrune(ctx context.Context, cmdID string, spec collect.PruneSpec) {
+	p.mu.Lock()
+	busy := p.backupRunning
+	p.backupRunning = true
+	p.mu.Unlock()
+	if busy {
+		p.finishCommand(cmdID, 1, "auf diesem Host läuft gerade ein Backup – später erneut versuchen")
+		return
+	}
+	defer func() {
+		p.mu.Lock()
+		p.backupRunning = false
+		p.mu.Unlock()
+	}()
+	p.log.Info("backup-aufräumen gestartet", "command", cmdID, "gäste", len(spec.Guests), "trockenlauf", spec.DryRun)
+	exit, output := collect.ProxmoxPrune(ctx, spec, func(note string) {
+		pctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		_ = p.client.ReportProgress(pctx, p.agentToken, cmdID, note)
+	})
 	p.finishCommand(cmdID, exit, output)
 }
 
