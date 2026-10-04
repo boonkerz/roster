@@ -53,6 +53,24 @@ before you switch it on. Backups use the same zone; see [Backups](backups.md).
 Automatic remediation: run a script or restart a service **when a check fails** — so common
 problems fix themselves before anyone gets paged.
 
+Literally: a check with a remediation does **not** alert when it fails. The alert is
+**deferred** until the remediation has had its chance:
+
+- the remediation script has finished (or 5 minutes have passed after a Proxmox reboot)
+  **and** the check has reported again — still failing → one alert, marked
+  *Auto-Remediation hat nicht geholfen*;
+- the check is passing again → nothing at all, not even a *recovered* message, because the
+  failure was never announced.
+
+A remediation that is skipped because of the 30-minute cool-down (flapping check) alerts
+immediately as before. If the script never finishes, the alert goes out after two hours
+regardless.
+
+Prefer to hear about every failure, even the ones that heal themselves? Switch off
+**With auto-remediation, alert only if it did not help** under *Settings → Notifications* —
+then a failing check alerts immediately and the remediation runs alongside, as it did
+before 0.16.3.
+
 ## Scripts
 
 A reusable **script library** (shell / PowerShell, with platform targeting) powers script

@@ -468,16 +468,19 @@ type CustomFieldValue struct {
 // Modularisierung wird nur noch Enabled (Master-Schalter) genutzt; die smtp_*-
 // Felder bleiben für Abwärtskompatibilität der Tabelle erhalten.
 type AlertConfig struct {
-	Enabled       bool   `json:"enabled"`
-	AlertSoftware bool   `json:"alert_software"` // bei Software-Änderungen benachrichtigen
-	SMTPHost      string `json:"smtp_host,omitempty"`
-	SMTPPort      int    `json:"smtp_port,omitempty"`
-	SMTPUser      string `json:"smtp_user,omitempty"`
-	SMTPPass      string `json:"smtp_pass,omitempty"`
-	SMTPFrom      string `json:"smtp_from,omitempty"`
-	SMTPTLS       bool   `json:"smtp_tls,omitempty"`
-	Recipient     string `json:"recipient,omitempty"`
-	WebhookURL    string `json:"webhook_url,omitempty"`
+	Enabled       bool `json:"enabled"`
+	AlertSoftware bool `json:"alert_software"` // bei Software-Änderungen benachrichtigen
+	// AlertAfterRemediation: Checks mit Auto-Remediation erst melden, wenn sie nach der
+	// Remediation immer noch fehlschlagen (false = sofort melden wie vor 0.16.3).
+	AlertAfterRemediation bool   `json:"alert_after_remediation"`
+	SMTPHost              string `json:"smtp_host,omitempty"`
+	SMTPPort              int    `json:"smtp_port,omitempty"`
+	SMTPUser              string `json:"smtp_user,omitempty"`
+	SMTPPass              string `json:"smtp_pass,omitempty"`
+	SMTPFrom              string `json:"smtp_from,omitempty"`
+	SMTPTLS               bool   `json:"smtp_tls,omitempty"`
+	Recipient             string `json:"recipient,omitempty"`
+	WebhookURL            string `json:"webhook_url,omitempty"`
 }
 
 // AlertChannel ist eine konfigurierte Instanz eines Benachrichtigungs-Providers.
@@ -547,6 +550,20 @@ type CheckEvent struct {
 	Notified   bool       `json:"notified"`
 	NotifiedAt *time.Time `json:"notified_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// DeferredAlert ist ein aufgeschobener Check-Alarm: der Check ist auf „failing"
+// gewechselt und eine Auto-Remediation läuft. Gemeldet wird erst, wenn der Check
+// danach immer noch fehlschlägt (siehe api.resolveDeferredAlerts).
+type DeferredAlert struct {
+	ID        string    `json:"id"`
+	DeviceID  string    `json:"device_id"`
+	CheckID   string    `json:"check_id"`
+	CheckName string    `json:"check_name"`
+	EventID   string    `json:"event_id"`   // ursprünglicher Statuswechsel (wird bei Meldung als benachrichtigt markiert)
+	CommandID string    `json:"command_id"` // Remediation-Skript; leer = nur Proxmox-Reboot
+	NotBefore time.Time `json:"not_before"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // ReportSchedule versendet regelmäßig einen Health-Bericht über einen Alarm-Kanal.

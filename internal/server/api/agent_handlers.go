@@ -105,9 +105,15 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		events, err := s.store.SaveCheckResults(r.Context(), device.ID, req.CheckResults)
 		if err != nil {
 			s.log.Error("check-ergebnisse speichern", "err", err)
-		} else if len(events) > 0 {
-			s.alertTransitions(r.Context(), device, events)
-			s.runRemediations(r.Context(), device, events)
+		} else {
+			if len(events) > 0 {
+				// Erst die Remediation anstoßen: für Checks mit Selbstheilung wird der
+				// Alarm aufgeschoben, bis klar ist, ob sie geholfen hat.
+				triggers := s.runRemediations(r.Context(), device, events)
+				skip := s.deferAlerts(r.Context(), device, triggers)
+				s.alertTransitions(r.Context(), device, events, skip)
+			}
+			s.resolveDeferredAlerts(r.Context(), device, req.CheckResults)
 		}
 	}
 	if len(req.TaskResults) > 0 {
@@ -234,7 +240,8 @@ const remediationCooldown = 30 * time.Minute
 // runRemediations führt bei Checks, die neu auf „failing" wechseln, ein hinterlegtes
 // Remediation-Skript aus und/oder rebootet einen zugeordneten Proxmox-Gast
 // (Self-Healing) – mit gemeinsamem Cooldown je Gerät/Check.
-func (s *Server) runRemediations(ctx context.Context, device *model.Device, events []model.CheckEvent) {
+func (s *Server) runRemediations(ctx context.Context, device *model.Device, events []model.CheckEvent) []remediationTrigger {
+	var triggers []remediationTrigger
 	for _, ev := range events {
 		if ev.NewStatus != "failing" {
 			continue
@@ -252,6 +259,7 @@ func (s *Server) runRemediations(ctx context.Context, device *model.Device, even
 			name = ev.CheckID
 		}
 		ran := false
+		cmdID := ""
 
 		// (1) Remediation-Skript auf dem Gerät ausführen.
 		if scErr == nil {
@@ -260,10 +268,11 @@ func (s *Server) runRemediations(ctx context.Context, device *model.Device, even
 				content = store.SubstituteFields(content, agent, client, site)
 			}
 			payload := map[string]any{"shell": sc.Shell, "script": content, "platforms": sc.Platforms}
-			if _, err := s.queueCommand(ctx, device.ID, "run_script", "Auto-Remediation: "+name, payload); err != nil {
+			if id, err := s.queueCommand(ctx, device.ID, "run_script", "Auto-Remediation: "+name, payload); err != nil {
 				s.log.Warn("remediation einreihen", "check", ev.CheckID, "err", err)
 			} else {
 				ran = true
+				cmdID = id
 				_ = s.store.InsertAudit(ctx, model.AuditEntry{
 					TS: time.Now().UTC(), Username: "system",
 					Action: "Auto-Remediation ausgelöst (" + name + ")", Method: "AUTO",
@@ -282,8 +291,10 @@ func (s *Server) runRemediations(ctx context.Context, device *model.Device, even
 
 		if ran {
 			_ = s.store.MarkRemediation(ctx, device.ID, ev.CheckID, time.Now())
+			triggers = append(triggers, remediationTrigger{event: ev, commandID: cmdID})
 		}
 	}
+	return triggers
 }
 
 // proxmoxReboot rebootet einen Gast als Auto-Remediation (eigener Timeout, Audit).
@@ -348,7 +359,37 @@ func (s *Server) alertSoftwareChanges(ctx context.Context, device *model.Device,
 	}
 }
 
-func (s *Server) alertTransitions(ctx context.Context, device *model.Device, events []model.CheckEvent) {
+// skip enthält Ereignisse, deren Alarm aufgeschoben ist (Remediation läuft).
+func (s *Server) alertTransitions(ctx context.Context, device *model.Device, events []model.CheckEvent, skip map[string]bool) {
+	// Nur „meldewürdige" Statuswechsel: nach failing/warning oder Wiederherstellung
+	// aus einem dieser Zustände. unbekannt-Übergänge lösen keine Meldung aus.
+	var notify []model.CheckEvent
+	for _, ev := range events {
+		if skip[ev.ID] {
+			continue
+		}
+		switch {
+		case ev.NewStatus == "failing" || ev.NewStatus == "warning":
+			notify = append(notify, ev)
+		case ev.NewStatus == "passing" && (ev.OldStatus == "failing" || ev.OldStatus == "warning"):
+			// Lag für diesen Check ein aufgeschobener Alarm vor, hat die Selbstheilung
+			// gewirkt: nichts melden – der Fehler war nie gemeldet.
+			if deferred, _ := s.store.DeleteDeferredAlertFor(ctx, device.ID, ev.CheckID); deferred {
+				s.log.Info("auto-remediation erfolgreich – kein alarm", "device", device.Hostname, "check", ev.CheckName)
+				continue
+			}
+			notify = append(notify, ev)
+		}
+	}
+	if len(notify) == 0 {
+		return
+	}
+	s.notifyCheckEvents(ctx, device, notify)
+}
+
+// notifyCheckEvents verschickt die Ereignisse an die Kanäle des Geräts (Mindest-
+// Schweregrad je Kanal, Wartungsfenster) und markiert sie als benachrichtigt.
+func (s *Server) notifyCheckEvents(ctx context.Context, device *model.Device, notify []model.CheckEvent) {
 	cfg, err := s.store.GetAlertConfig(ctx)
 	if err != nil || !cfg.Enabled {
 		return
@@ -359,20 +400,6 @@ func (s *Server) alertTransitions(ctx context.Context, device *model.Device, eve
 	}
 	channels, err := s.store.ChannelsForDevice(ctx, device.ID)
 	if err != nil || len(channels) == 0 {
-		return
-	}
-	// Nur „meldewürdige" Statuswechsel: nach failing/warning oder Wiederherstellung
-	// aus einem dieser Zustände. unbekannt-Übergänge lösen keine Meldung aus.
-	var notify []model.CheckEvent
-	for _, ev := range events {
-		switch {
-		case ev.NewStatus == "failing" || ev.NewStatus == "warning":
-			notify = append(notify, ev)
-		case ev.NewStatus == "passing" && (ev.OldStatus == "failing" || ev.OldStatus == "warning"):
-			notify = append(notify, ev)
-		}
-	}
-	if len(notify) == 0 {
 		return
 	}
 	ids := make([]string, 0, len(notify))

@@ -5,6 +5,8 @@
 Modular notification channels — **email, webhook, Pushover, Telegram, ntfy** — scoped to a
 company/site/device with a severity filter. Roster sends when a check newly fails and again
 on **recovery**, and honors **maintenance windows** so planned work doesn't page anyone.
+Checks with [self-healing](checks-tasks.md#self-healing) stay quiet until the remediation
+has run — only a failure that survives it is reported.
 Optional software-change alerts notify you when installed software changes.
 
 ## Reports

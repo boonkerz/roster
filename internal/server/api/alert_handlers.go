@@ -13,9 +13,10 @@ import (
 // --- Modulares Alerting: Master-Schalter + Provider-Katalog + Kanal-CRUD ---
 
 type alertsResponse struct {
-	Enabled       bool                 `json:"enabled"`
-	AlertSoftware bool                 `json:"alert_software"`
-	Channels      []model.AlertChannel `json:"channels"`
+	Enabled               bool                 `json:"enabled"`
+	AlertSoftware         bool                 `json:"alert_software"`
+	AlertAfterRemediation bool                 `json:"alert_after_remediation"`
+	Channels              []model.AlertChannel `json:"channels"`
 }
 
 // handleGetAlerts liefert den Master-Schalter und alle Kanäle (Secrets maskiert).
@@ -33,14 +34,16 @@ func (s *Server) handleGetAlerts(w http.ResponseWriter, r *http.Request) {
 	for i := range channels {
 		maskSecrets(&channels[i])
 	}
-	s.writeJSON(w, http.StatusOK, alertsResponse{Enabled: cfg.Enabled, AlertSoftware: cfg.AlertSoftware, Channels: channels})
+	s.writeJSON(w, http.StatusOK, alertsResponse{Enabled: cfg.Enabled, AlertSoftware: cfg.AlertSoftware,
+		AlertAfterRemediation: cfg.AlertAfterRemediation, Channels: channels})
 }
 
 // handleSetAlertsEnabled schaltet das Alerting global an/aus (inkl. Software-Alarm).
 func (s *Server) handleSetAlertsEnabled(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Enabled       bool  `json:"enabled"`
-		AlertSoftware *bool `json:"alert_software"`
+		Enabled               bool  `json:"enabled"`
+		AlertSoftware         *bool `json:"alert_software"`
+		AlertAfterRemediation *bool `json:"alert_after_remediation"`
 	}
 	if !s.decodeJSON(w, r, &req) {
 		return
@@ -53,6 +56,9 @@ func (s *Server) handleSetAlertsEnabled(w http.ResponseWriter, r *http.Request) 
 	cfg.Enabled = req.Enabled
 	if req.AlertSoftware != nil {
 		cfg.AlertSoftware = *req.AlertSoftware
+	}
+	if req.AlertAfterRemediation != nil {
+		cfg.AlertAfterRemediation = *req.AlertAfterRemediation
 	}
 	if err := s.store.SaveAlertConfig(r.Context(), cfg); err != nil {
 		s.mapStoreErr(w, err)

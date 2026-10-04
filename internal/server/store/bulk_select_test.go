@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/boonkerz/roster/internal/server/auth"
 	"github.com/boonkerz/roster/internal/server/model"
@@ -82,5 +83,33 @@ func TestFailingChecksAndManagedIDs(t *testing.T) {
 	}
 	if ids, _ := st.ManagedDeviceIDs(ctx, nil, nil); len(ids) != 0 {
 		t.Fatalf("leere Auswahl: %v", ids)
+	}
+}
+
+func TestDeferredAlerts(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "a", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("a")); err != nil {
+		t.Fatal(err)
+	}
+	d := &model.DeferredAlert{DeviceID: dev.ID, CheckID: "chk", CheckName: "Cron", EventID: "ev1", CommandID: "cmd1", NotBefore: time.Now().Add(time.Minute)}
+	if err := st.UpsertDeferredAlert(ctx, d); err != nil {
+		t.Fatal(err)
+	}
+	// Zweiter Fehlschlag desselben Checks ersetzt die Zeile (eine je Gerät/Check).
+	d2 := &model.DeferredAlert{DeviceID: dev.ID, CheckID: "chk", CheckName: "Cron", EventID: "ev2", NotBefore: time.Now().Add(time.Minute)}
+	if err := st.UpsertDeferredAlert(ctx, d2); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.DeferredAlertsForDevice(ctx, dev.ID)
+	if err != nil || len(got) != 1 || got[0].EventID != "ev2" || got[0].CommandID != "" {
+		t.Fatalf("DeferredAlertsForDevice = %+v, %v", got, err)
+	}
+	if ok, err := st.DeleteDeferredAlertFor(ctx, dev.ID, "chk"); err != nil || !ok {
+		t.Fatalf("DeleteDeferredAlertFor: %v %v", ok, err)
+	}
+	if ok, _ := st.DeleteDeferredAlertFor(ctx, dev.ID, "chk"); ok {
+		t.Fatal("zweites Löschen darf nichts finden")
 	}
 }

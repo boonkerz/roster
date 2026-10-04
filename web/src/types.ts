@@ -328,6 +328,7 @@ export interface AlertChannel {
 export interface AlertsResponse {
   enabled: boolean;
   alert_software: boolean;
+  alert_after_remediation: boolean; // Checks mit Auto-Remediation erst nach deren Lauf melden
   channels: AlertChannel[];
 }
 

@@ -578,6 +578,8 @@ export const EN: Record<string, string> = {
   "Kanal hinzufügen": "Add channel",
   "Alerting aktiviert": "Alerting enabled",
   "Auch bei Software-Änderungen benachrichtigen": "Also notify on software changes",
+  "Bei Auto-Remediation erst melden, wenn sie nicht geholfen hat": "With auto-remediation, alert only if it did not help",
+  "An: Ein Check mit Auto-Remediation meldet erst, wenn er nach dem Remediation-Lauf immer noch fehlschlägt; heilt er sich selbst, bleibt es still. Aus: jeder Fehlschlag wird sofort gemeldet, auch wenn gerade eine Remediation läuft (Verhalten vor 0.16.3).": "On: a check with auto-remediation alerts only if it still fails after the remediation ran; if it heals itself, nothing is sent. Off: every failure is reported immediately, even while a remediation is running (behaviour before 0.16.3).",
   "Neuer Kanal": "New channel",
   "Kanal bearbeiten": "Edit channel",
   "Name (frei wählbar)": "Name (freely chosen)",

@@ -13,11 +13,11 @@ import (
 func (s *Store) GetAlertConfig(ctx context.Context) (model.AlertConfig, error) {
 	var c model.AlertConfig
 	err := s.db.QueryRowContext(ctx, `
-		SELECT enabled, alert_software, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, smtp_tls, recipient, webhook_url
+		SELECT enabled, alert_software, alert_after_remediation, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, smtp_tls, recipient, webhook_url
 		FROM alert_config WHERE id=1`).
-		Scan(&c.Enabled, &c.AlertSoftware, &c.SMTPHost, &c.SMTPPort, &c.SMTPUser, &c.SMTPPass, &c.SMTPFrom, &c.SMTPTLS, &c.Recipient, &c.WebhookURL)
+		Scan(&c.Enabled, &c.AlertSoftware, &c.AlertAfterRemediation, &c.SMTPHost, &c.SMTPPort, &c.SMTPUser, &c.SMTPPass, &c.SMTPFrom, &c.SMTPTLS, &c.Recipient, &c.WebhookURL)
 	if errors.Is(err, sql.ErrNoRows) {
-		return model.AlertConfig{SMTPPort: 587, SMTPTLS: true}, nil
+		return model.AlertConfig{SMTPPort: 587, SMTPTLS: true, AlertAfterRemediation: true}, nil
 	}
 	return c, err
 }
@@ -25,17 +25,17 @@ func (s *Store) GetAlertConfig(ctx context.Context) (model.AlertConfig, error) {
 // SaveAlertConfig speichert die Alert-Konfiguration (Upsert auf id=1).
 func (s *Store) SaveAlertConfig(ctx context.Context, c model.AlertConfig) error {
 	res, err := s.db.ExecContext(ctx, s.rebind(`
-		UPDATE alert_config SET enabled=?, alert_software=?, smtp_host=?, smtp_port=?, smtp_user=?, smtp_pass=?,
+		UPDATE alert_config SET enabled=?, alert_software=?, alert_after_remediation=?, smtp_host=?, smtp_port=?, smtp_user=?, smtp_pass=?,
 			smtp_from=?, smtp_tls=?, recipient=?, webhook_url=? WHERE id=1`),
-		c.Enabled, c.AlertSoftware, c.SMTPHost, c.SMTPPort, c.SMTPUser, c.SMTPPass, c.SMTPFrom, c.SMTPTLS, c.Recipient, c.WebhookURL)
+		c.Enabled, c.AlertSoftware, c.AlertAfterRemediation, c.SMTPHost, c.SMTPPort, c.SMTPUser, c.SMTPPass, c.SMTPFrom, c.SMTPTLS, c.Recipient, c.WebhookURL)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		_, err = s.db.ExecContext(ctx, s.rebind(`
-			INSERT INTO alert_config (id, enabled, alert_software, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, smtp_tls, recipient, webhook_url)
-			VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-			c.Enabled, c.AlertSoftware, c.SMTPHost, c.SMTPPort, c.SMTPUser, c.SMTPPass, c.SMTPFrom, c.SMTPTLS, c.Recipient, c.WebhookURL)
+			INSERT INTO alert_config (id, enabled, alert_software, alert_after_remediation, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, smtp_tls, recipient, webhook_url)
+			VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			c.Enabled, c.AlertSoftware, c.AlertAfterRemediation, c.SMTPHost, c.SMTPPort, c.SMTPUser, c.SMTPPass, c.SMTPFrom, c.SMTPTLS, c.Recipient, c.WebhookURL)
 	}
 	return err
 }

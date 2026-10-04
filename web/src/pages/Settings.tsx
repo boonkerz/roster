@@ -779,6 +779,7 @@ function Alerts() {
 
   const setEnabled = useMutation({ mutationFn: (en: boolean) => api.put("/settings/alerts", { enabled: en, alert_software: alerts?.alert_software ?? false }), onSuccess: inval });
   const setSoftware = useMutation({ mutationFn: (on: boolean) => api.put("/settings/alerts", { enabled: alerts?.enabled ?? false, alert_software: on }), onSuccess: inval });
+  const setAfterRemediation = useMutation({ mutationFn: (on: boolean) => api.put("/settings/alerts", { enabled: alerts?.enabled ?? false, alert_after_remediation: on }), onSuccess: inval });
   const toggleCh = useMutation({
     mutationFn: (ch: AlertChannel) => api.put(`/settings/alert-channels/${ch.id}`, { name: ch.name, enabled: !ch.enabled, config: ch.config }),
     onSuccess: inval,
@@ -801,8 +802,12 @@ function Alerts() {
       <label className="chip" style={{ width: "fit-content", marginBottom: 8 }}>
         <input type="checkbox" checked={alerts?.enabled ?? false} onChange={(e) => setEnabled.mutate(e.target.checked)} /> {t("Alerting aktiviert")}
       </label>
-      <label className="chip" style={{ width: "fit-content", marginBottom: 12 }}>
+      <label className="chip" style={{ width: "fit-content", marginBottom: 8 }}>
         <input type="checkbox" checked={alerts?.alert_software ?? false} disabled={!alerts?.enabled} onChange={(e) => setSoftware.mutate(e.target.checked)} /> {t("Auch bei Software-Änderungen benachrichtigen")}
+      </label>
+      <label className="chip" style={{ width: "fit-content", marginBottom: 12 }}
+        title={t("An: Ein Check mit Auto-Remediation meldet erst, wenn er nach dem Remediation-Lauf immer noch fehlschlägt; heilt er sich selbst, bleibt es still. Aus: jeder Fehlschlag wird sofort gemeldet, auch wenn gerade eine Remediation läuft (Verhalten vor 0.16.3).")}>
+        <input type="checkbox" checked={alerts?.alert_after_remediation ?? true} disabled={!alerts?.enabled} onChange={(e) => setAfterRemediation.mutate(e.target.checked)} /> {t("Bei Auto-Remediation erst melden, wenn sie nicht geholfen hat")}
       </label>
 
       <table className="table">
