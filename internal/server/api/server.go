@@ -391,5 +391,14 @@ func (s *Server) serveSPA(w http.ResponseWriter, r *http.Request) {
 	if _, err := fs.Stat(s.webFS, p); err != nil {
 		p = "index.html" // SPA-Fallback
 	}
+	// Cache-Regeln: index.html darf nie veraltet aus dem Cache kommen (sie verweist
+	// auf die gehashten Assets des jeweiligen Builds), die Assets selbst sind durch
+	// den Hash im Namen unveränderlich und dürfen lange gecacht werden.
+	switch {
+	case p == "index.html":
+		w.Header().Set("Cache-Control", "no-cache")
+	case strings.HasPrefix(p, "assets/"):
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 	http.ServeFileFS(w, r, s.webFS, p)
 }
