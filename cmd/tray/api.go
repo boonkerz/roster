@@ -226,6 +226,11 @@ func (c *client) proxmoxControl(ctx context.Context, deviceID string, g pveGuest
 	return out.CommandID, err
 }
 
+// reboot reiht einen Neustart des Geräts ein (wie der Knopf im Web-UI).
+func (c *client) reboot(ctx context.Context, deviceID string) error {
+	return c.do(ctx, http.MethodPost, "/devices/"+url.PathEscape(deviceID)+"/reboot", nil, nil)
+}
+
 func (c *client) command(ctx context.Context, id string) (*commandState, error) {
 	var out commandState
 	err := c.do(ctx, http.MethodGet, "/commands/"+url.PathEscape(id), nil, &out)

@@ -25,6 +25,14 @@ type config struct {
 	// statt des Desktop-Handlers. Platzhalter: {{host}}, {{user}}, {{url}}, {{name}}.
 	SFTPUser    string `json:"sftp_user,omitempty"`
 	SFTPCommand string `json:"sftp_command,omitempty"`
+	// SFTPKey: privater SSH-Schlüssel für den SFTP-Knopf (leer = Agent/Standard).
+	// Platzhalter {{key}} im sftp_command; ohne eigenes Programm öffnet der Knopf
+	// dann „sftp -i <key>" im Terminal, weil Dateimanager keinen Schlüssel über die
+	// sftp://-Adresse annehmen (dort hilft nur ~/.ssh/config).
+	SFTPKey string `json:"sftp_key,omitempty"`
+
+	// Theme: "dark" (Vorgabe) oder "light".
+	Theme string `json:"theme,omitempty"`
 
 	// Aufgeklappte Proxmox-Hosts (Geräte-IDs) – bleibt über Neustarts erhalten.
 	ExpandedHosts []string `json:"expanded_hosts,omitempty"`

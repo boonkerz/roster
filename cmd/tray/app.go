@@ -19,6 +19,7 @@ type viewMode int
 const (
 	viewLogin viewMode = iota
 	viewList
+	viewSettings
 )
 
 // app hält den kompletten Zustand der Taskleisten-App. Alles unter mu wird auch von
@@ -65,6 +66,7 @@ type app struct {
 	selectedRow    string // Kopie von selected fürs Zeichnen (ohne Lock je Zeile)
 	shotW, shotH   int32  // Screenshot-Modus: Größe des Render-Ziels statt des Fensters
 	form           loginForm
+	sform          settingsForm
 	visible        bool
 	quitting       bool
 
@@ -89,6 +91,15 @@ type loginForm struct {
 	needsCode bool
 	busy      bool
 	err       string
+}
+
+// settingsForm ist die Einstellungen-Ansicht (Erscheinungsbild, SFTP).
+type settingsForm struct {
+	fields [2]string // 0 = SFTP-Benutzer, 1 = SFTP-Programm (optional)
+	focus  int
+	theme  string   // dark | light (Vorschau sofort, gespeichert erst mit „Speichern")
+	key    string   // gewählter privater Schlüssel ("" = keiner)
+	keys   []string // in ~/.ssh gefundene Schlüssel
 }
 
 type hitRect struct {

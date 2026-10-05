@@ -41,6 +41,7 @@ func main() {
 		hidden     = flag.Bool("hidden", false, "Nur ins Tray starten, ohne Fenster (Autostart)")
 		shot       = flag.String("screenshot", "", "Einen Frame als PNG speichern und beenden (Doku/Diagnose)")
 		shotSel    = flag.String("select", "", "Mit --screenshot: Detail-Panel für diesen Hostnamen öffnen")
+		shotView   = flag.String("view", "", "Mit --screenshot: Ansicht statt der Liste (settings)")
 		selftest   = flag.Bool("selftest", false, "SDL3, Fenster und Tray-Symbol prüfen und beenden")
 		writeIcon  = flag.String("write-icon", "", "Anwendungssymbol als PNG schreiben (Paketierung/Desktop-Eintrag)")
 		iconSize   = flag.Int("icon-size", 256, "Kantenlänge für --write-icon")
@@ -102,12 +103,12 @@ func main() {
 		return
 	}
 
-	if err := runUI(cfg, *hidden, *shot, *shotSel); err != nil {
+	if err := runUI(cfg, *hidden, *shot, *shotSel, *shotView); err != nil {
 		log.Fatalf("roster-tray: %v", err)
 	}
 }
 
-func runUI(cfg *config, startHidden bool, screenshot, screenshotSelect string) error {
+func runUI(cfg *config, startHidden bool, screenshot, screenshotSelect, screenshotView string) error {
 	// Auf Wayland-Sitzungen den Wayland-Treiber bevorzugen: der x11-Treiber meldet
 	// unter XWayland keine Skalierung, wodurch die Oberfläche auf HiDPI winzig wird.
 	if !sdlui.InitVideo(appID) {
@@ -116,6 +117,7 @@ func runUI(cfg *config, startHidden bool, screenshot, screenshotSelect string) e
 	defer sdl.Quit()
 
 	a := newApp(cfg)
+	applyTheme(cfg.Theme)
 
 	// HighPixelDensity: auf HiDPI bekommt das Fenster den vollen Pixel-Backbuffer,
 	// wir zeichnen in Pixeln und skalieren Schrift/Maße entsprechend – scharf statt
@@ -193,6 +195,9 @@ func runUI(cfg *config, startHidden bool, screenshot, screenshotSelect string) e
 				ready = a.detail != nil && !a.detail.loading
 			}
 			a.mu.Unlock()
+			if ready && screenshotView == "settings" {
+				a.openSettings()
+			}
 			if ready {
 				break
 			}

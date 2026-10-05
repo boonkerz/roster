@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -83,7 +88,60 @@ func openSFTP(cfg *config, d device) (string, error) {
 		}
 		return args[0], spawn(args[0], args[1:]...)
 	}
+	if key := strings.TrimSpace(cfg.SFTPKey); key != "" {
+		return spawnSFTPWithKey(cfg, d, target, key)
+	}
 	return spawnSFTP(target)
+}
+
+// spawnSFTPWithKey öffnet die Verbindung mit einem bestimmten Schlüssel. Eine
+// sftp://-Adresse transportiert keinen Schlüssel, deshalb: WinSCP (kennt
+// /privatekey=) oder sonst der sftp-Client von OpenSSH im System-Terminal.
+func spawnSFTPWithKey(cfg *config, d device, target, key string) (string, error) {
+	if _, err := os.Stat(key); err != nil {
+		return "", fmt.Errorf("SSH-Schlüssel %s: %v", key, err)
+	}
+	if runtime.GOOS == "windows" {
+		for _, cand := range []string{"WinSCP.exe", `C:\Program Files (x86)\WinSCP\WinSCP.exe`, `C:\Program Files\WinSCP\WinSCP.exe`} {
+			if p, err := exec.LookPath(cand); err == nil {
+				return "WinSCP", spawn(p, target, "/privatekey="+key)
+			}
+		}
+	}
+	userHost := deviceAddress(d)
+	if user := strings.TrimSpace(cfg.SFTPUser); user != "" {
+		userHost = user + "@" + userHost
+	}
+	title := "SFTP – " + d.Hostname
+	return "sftp (" + filepath.Base(key) + ")", spawnTerminal(cfg, title, "sftp", []string{"-i", key, userHost})
+}
+
+// sshKeys listet die privaten Schlüssel in ~/.ssh: alles, wozu ein .pub existiert
+// oder was id_… heißt – ohne known_hosts, config & Co.
+func sshKeys() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	dir := filepath.Join(home, ".ssh")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || strings.HasSuffix(n, ".pub") || strings.HasPrefix(n, "known_hosts") ||
+			n == "config" || n == "authorized_keys" || n == "environment" || n == "rc" {
+			continue
+		}
+		pub := filepath.Join(dir, n+".pub")
+		if _, err := os.Stat(pub); err == nil || strings.HasPrefix(n, "id_") {
+			out = append(out, filepath.Join(dir, n))
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // expandSFTPCommand füllt die Platzhalter des konfigurierten Kommandos.
@@ -93,6 +151,7 @@ func expandSFTPCommand(tmpl string, cfg *config, d device, target string) []stri
 		"{{user}}", strings.TrimSpace(cfg.SFTPUser),
 		"{{url}}", target,
 		"{{name}}", d.Hostname,
+		"{{key}}", strings.TrimSpace(cfg.SFTPKey),
 	)
 	fields := strings.Fields(tmpl)
 	out := make([]string, 0, len(fields))

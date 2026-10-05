@@ -11,25 +11,6 @@ import (
 	"github.com/boonkerz/roster/internal/sdlui"
 )
 
-// Farbpalette – dieselbe Sprache wie Web-UI und Viewer (dunkel, ruhig, ein Akzent).
-var (
-	colBg     = [3]uint8{0x0b, 0x0e, 0x14}
-	colPanel  = [3]uint8{0x14, 0x1a, 0x22}
-	colRow    = [3]uint8{0x11, 0x17, 0x20}
-	colHover  = [3]uint8{0x1b, 0x24, 0x30}
-	colLine   = [3]uint8{0x23, 0x2b, 0x38}
-	colText   = [3]uint8{0xd7, 0xdc, 0xe5}
-	colMuted  = [3]uint8{0x84, 0x8e, 0x9f}
-	colGreen  = [3]uint8{0x2e, 0x7d, 0x32}
-	colRed    = [3]uint8{0x9c, 0x2b, 0x2b}
-	colAmber  = [3]uint8{0x9a, 0x6b, 0x1f}
-	colAccent = [3]uint8{0x2f, 0x5a, 0x8f}
-	// colAccentText: Abschnittstitel im Detail-Panel (heller Akzent, lesbar auf dunkel).
-	colAccentText = [3]uint8{0x7f, 0xb0, 0xf0}
-	colSelected   = [3]uint8{0x1a, 0x2a, 0x3d}
-	colWhite      = [3]uint8{0xff, 0xff, 0xff}
-)
-
 const (
 	baseFontPx = 14
 	rowHeight  = 46
@@ -66,9 +47,12 @@ func (a *app) draw() {
 	a.mu.Lock()
 	view := a.view
 	a.mu.Unlock()
-	if view == viewLogin {
+	switch view {
+	case viewLogin:
 		a.drawLogin(w, h)
-	} else {
+	case viewSettings:
+		a.drawSettings(w, h)
+	default:
 		a.drawList(w, h)
 	}
 	a.drawFooter(w, h)
@@ -99,22 +83,25 @@ func (a *app) button(id, label string, x, y, h float32, accent int) float32 {
 	var c [3]uint8
 	switch {
 	case accent == 1 && hovered:
-		c = [3]uint8{0x3b, 0x6f, 0xad}
+		c = colBtnAccentHover
 	case accent == 1:
 		c = colAccent
 	case accent == 2 && hovered:
-		c = [3]uint8{0xb8, 0x35, 0x35}
+		c = colBtnDangerHover
 	case accent == 2:
 		c = colRed
 	case hovered:
-		c = [3]uint8{0x2b, 0x36, 0x45}
+		c = colBtnHover
 	default:
-		c = [3]uint8{0x1e, 0x26, 0x31}
+		c = colBtn
 	}
 	sdlui.FillRound(a.rn, x, y, w, h, 6*s, c[0], c[1], c[2], 0xff)
 	tc := colText
-	if hovered || accent >= 1 {
-		tc = colWhite
+	switch {
+	case accent >= 1:
+		tc = colOnAccent
+	case hovered:
+		tc = colStrong
 	}
 	a.txt.Draw(label, x+padX*s, y+(h-a.txt.LineH())/2, tc[0], tc[1], tc[2])
 	a.addHit(id, x, y, w, h)
@@ -136,7 +123,7 @@ func (a *app) drawList(w, h float32) {
 
 	// --- Kopfzeile: Titel, Zusammenfassung, Aktionen ---
 	sdlui.FillRound(a.rn, 0, 0, w, headerH*s, 0, colPanel[0], colPanel[1], colPanel[2], 0xff)
-	a.txt.Draw("Roster", 12*s, (headerH*s-lineH)/2, colWhite[0], colWhite[1], colWhite[2])
+	a.txt.Draw("Roster", 12*s, (headerH*s-lineH)/2, colStrong[0], colStrong[1], colStrong[2])
 
 	bx := w - 12*s
 	bh := 24 * s
@@ -159,6 +146,8 @@ func (a *app) drawList(w, h float32) {
 	}
 	a.mu.Unlock()
 	bw = a.button("refresh", label, bx-a.txt.Width(label)-2*padX*s, by, bh, 0)
+	bx -= bw + 8*s
+	bw = a.button("settings", "Einstellungen", bx-a.txt.Width("Einstellungen")-2*padX*s, by, bh, 0)
 	bx -= bw + 8*s
 
 	sum := fmt.Sprintf("%d Server · %d offline · %d mit Fehlern", total, offline, failing)
@@ -324,6 +313,14 @@ func (a *app) drawRow(d device, x, y, w, h float32) {
 		bx -= a.txt.Width(lbl) + 2*padX*s
 		a.button("term:"+d.ID, lbl, bx, by, bh, 1)
 		bx -= 6 * s
+		// Neustart mit Bestätigung: erster Klick schaltet scharf (rot), zweiter löst aus.
+		lbl, accent := "Neustart", 0
+		if id := "reboot:" + d.ID; a.armed == id && time.Since(a.armedAt) <= confirmWindow {
+			lbl, accent = "Sicher?", 2
+		}
+		bx -= a.txt.Width(lbl) + 2*padX*s
+		a.button("reboot:"+d.ID, lbl, bx, by, bh, accent)
+		bx -= 6 * s
 	}
 	// SFTP geht nicht durch den Tunnel, sondern direkt per SSH – daher nur, wenn
 	// eine Adresse bekannt ist (gilt auch für Geräte ohne Agent aus dem Netz-Scan).
@@ -341,29 +338,37 @@ func (a *app) drawRow(d device, x, y, w, h float32) {
 	badgeH := 20 * s
 	badgeY := y + (h-badgeH)/2
 	// Plaketten ohne Aussage („keine Tasks", „keine Checks") weglassen – der Platz
-	// gehört dem Hostnamen.
+	// gehört dem Hostnamen. Wird die Zeile schmal (Detail-Panel offen), fallen die
+	// hinteren Plaketten weg, bevor der Name verschwindet: Checks/Tasks zuerst
+	// gezeichnet, Temperatur/Lüfter/Gäste nur, wenn noch Platz bleibt.
 	bx -= 4 * s
+	minName := x + 30*s + 120*s
+	fits := func(w float32) bool { return bx-6*s-w >= minName }
 	if d.TasksTotal > 0 {
 		tb := taskBadge(d)
-		bx -= 6 * s
-		bx -= a.txt.Width(tb.label) + 14*s
-		a.badge(tb.label, bx, badgeY, badgeH, tb.color)
+		if w := a.txt.Width(tb.label) + 14*s; fits(w) {
+			bx -= 6*s + w
+			a.badge(tb.label, bx, badgeY, badgeH, tb.color)
+		}
 	}
 	if d.ChecksTotal > 0 {
 		cb := checkBadge(d)
-		bx -= 6 * s
-		bx -= a.txt.Width(cb.label) + 14*s
-		a.badge(cb.label, bx, badgeY, badgeH, cb.color)
+		if w := a.txt.Width(cb.label) + 14*s; fits(w) {
+			bx -= 6*s + w
+			a.badge(cb.label, bx, badgeY, badgeH, cb.color)
+		}
 	}
 	if fb, ok := fanBadge(d.Fans); ok {
-		bx -= 6 * s
-		bx -= a.txt.Width(fb.label) + 14*s
-		a.badge(fb.label, bx, badgeY, badgeH, fb.color)
+		if w := a.txt.Width(fb.label) + 14*s; fits(w) {
+			bx -= 6*s + w
+			a.badge(fb.label, bx, badgeY, badgeH, fb.color)
+		}
 	}
 	if tb, ok := tempBadge(d.Temperatures); ok {
-		bx -= 6 * s
-		bx -= a.txt.Width(tb.label) + 14*s
-		a.badge(tb.label, bx, badgeY, badgeH, tb.color)
+		if w := a.txt.Width(tb.label) + 14*s; fits(w) {
+			bx -= 6*s + w
+			a.badge(tb.label, bx, badgeY, badgeH, tb.color)
+		}
 	}
 	if len(d.ProxmoxGuests) > 0 {
 		n, bad := pveSummary(d, time.Now())
@@ -371,9 +376,10 @@ func (a *app) drawRow(d device, x, y, w, h float32) {
 		if bad > 0 {
 			label, col = fmt.Sprintf("%d Gäste · %d ohne Backup", n, bad), colRed
 		}
-		bx -= 6 * s
-		bx -= a.pillWidth(label)
-		a.togglePill("pvetoggle:"+d.ID, label, bx, badgeY, badgeH, a.expanded[d.ID], col)
+		if w := a.pillWidth(label); fits(w) || len(d.ProxmoxGuests) > 0 && bx-6*s-w >= x+30*s+80*s {
+			bx -= 6*s + w // Gäste-Pille ist eine Aktion, sie bleibt länger als die Plaketten
+			a.togglePill("pvetoggle:"+d.ID, label, bx, badgeY, badgeH, a.expanded[d.ID], col)
+		}
 	}
 
 	// Links: Name und Zusatzzeile.
@@ -419,7 +425,7 @@ func (a *app) drawGuestRow(d device, g pveGuest, x, y, w, h float32) {
 	s := a.s()
 	lineH := a.txt.LineH()
 	key := guestKey(d.ID, g.VMID)
-	bg := [3]uint8{0x0e, 0x13, 0x1b}
+	bg := colGuestRow
 	if strings.HasSuffix(a.hover, ":"+key) {
 		bg = colHover
 	}
@@ -588,7 +594,7 @@ func (a *app) drawFooter(w, h float32) {
 	a.mu.Unlock()
 	col := colMuted
 	if bad {
-		col = [3]uint8{0xff, 0x8f, 0x8f}
+		col = colErrText
 	}
 	if msg == "" && !last.IsZero() {
 		msg = "Stand " + last.Format("15:04:05")
@@ -623,14 +629,14 @@ func (a *app) drawLogin(w, h float32) {
 	}
 	sdlui.FillRound(a.rn, px, py, pw, ph, 10*s, colPanel[0], colPanel[1], colPanel[2], 0xff)
 
-	a.txt.Draw("Bei Roster anmelden", px+18*s, py+16*s, colWhite[0], colWhite[1], colWhite[2])
+	a.txt.Draw("Bei Roster anmelden", px+18*s, py+16*s, colStrong[0], colStrong[1], colStrong[2])
 	y := py + 50*s
 	for i := 0; i < n; i++ {
 		a.txt.Draw(labels[i], px+18*s, y, colMuted[0], colMuted[1], colMuted[2])
 		fy := y + lineH + 4*s
 		bg := colRow
 		if form.focus == i {
-			bg = [3]uint8{0x18, 0x22, 0x2f}
+			bg = colFieldFocus
 		}
 		sdlui.FillRound(a.rn, px+18*s, fy, pw-36*s, fieldH, 6*s, bg[0], bg[1], bg[2], 0xff)
 		if form.focus == i {
@@ -656,7 +662,7 @@ func (a *app) drawLogin(w, h float32) {
 		label = "Anmeldung läuft …"
 	}
 	a.button("login", label, px+18*s, y, 32*s, 1)
-	msg, col := form.err, [3]uint8{0xff, 0x8f, 0x8f}
+	msg, col := form.err, colErrText
 	if msg == "" {
 		msg, col = "Zugang wird lokal als API-Token gespeichert.", colMuted
 	}

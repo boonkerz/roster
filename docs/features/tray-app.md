@@ -43,6 +43,7 @@ list polls on its own every 30 s (`refresh_sec`).
 | ------ | ------------ |
 | **Terminal** | Opens your normal terminal emulator (kitty, foot, alacritty, GNOME Terminal, Konsole, Windows Terminal …) running `roster-tray --term <device>`, which pipes stdin/stdout through the same on-demand terminal tunnel the web UI uses. You keep scrollback, copy & paste and colours — the app ships no terminal emulator of its own. |
 | **Viewer** | Requests a remote-control session and launches the native `roster-viewer` with the ready-made launch code — the same path as the browser's *Open in viewer* button, but without the detour. |
+| **Neustart** | Queues a reboot of the device — click, then confirm with the red *Sicher?* within four seconds, like the Proxmox guest buttons. |
 | **SFTP** | Hands `sftp://user@host/` to your desktop's registered program (Nautilus/Dolphin mount it via GVFS/KIO), or falls back to the first installed client it finds — FileZilla, Dolphin, Nautilus, Nemo, Thunar, Krusader, Konqueror, gftp; WinSCP on Windows. |
 | **Web** | Opens the device page in your browser (double-clicking the row does the same). |
 
@@ -84,7 +85,9 @@ revokes the token on the server.
 | `viewer_path` | Path to `roster-viewer` if it is not next to the binary or on `PATH` |
 | `shell` | Default shell for the remote terminal (`shell`, `bash`, `cmd`, `powershell`) |
 | `sftp_user` | Login name for the SFTP button (empty = none) |
-| `sftp_command` | Program for the SFTP button instead of the desktop handler; placeholders `{{host}}` `{{user}}` `{{url}}` `{{name}}` |
+| `sftp_command` | Program for the SFTP button instead of the desktop handler; placeholders `{{host}}` `{{user}}` `{{url}}` `{{name}}` `{{key}}` |
+| `sftp_key` | Private key for the SFTP button. A `sftp://` URL cannot carry a key, so with a key set the button opens `sftp -i <key> user@host` in your terminal (Windows: WinSCP with `/privatekey=`), or your `sftp_command` with `{{key}}`. File managers only take keys via `~/.ssh/config`. |
+| `theme` | `dark` (default) or `light` |
 | `ui_scale` | Fixed UI scale (0 / absent = auto-detect). `Ctrl` `+` / `Ctrl` `-` change it live and save it, `Ctrl` `0` returns to auto |
 
 ## Download
@@ -102,6 +105,14 @@ The download is public (`/api/v1/tray/<os>-<arch>`) — the binary holds no secr
 in on first start and the app keeps only its own API token. Which platforms appear depends
 on what was built into the server (`make tray-embed`, `tray-embed-arm64`,
 `tray-embed-windows`, `tray-embed-darwin`); the release workflow builds all of them.
+
+## Settings
+
+**Einstellungen** in the header opens an in-app settings page for the things you would
+otherwise edit in `tray.json`: **appearance** (dark / light — applied live as a preview,
+saved with *Speichern*), the **SFTP user**, the **SSH key** for SFTP (every private key found
+in `~/.ssh` is offered as a button; *keiner* leaves it to your agent / default key) and an
+optional **SFTP program**. `Esc` discards, `Enter` saves.
 
 ## Application launcher
 

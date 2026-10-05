@@ -163,7 +163,7 @@ func (a *app) drawDetail(x, y, w, h float32) {
 			title = dev.Hostname
 		}
 	}
-	a.txt.Draw(a.txt.Ellipsize(title, w-2*pad-closeW-10*s), x+pad, y+(headH-lineH)/2, colWhite[0], colWhite[1], colWhite[2])
+	a.txt.Draw(a.txt.Ellipsize(title, w-2*pad-closeW-10*s), x+pad, y+(headH-lineH)/2, colStrong[0], colStrong[1], colStrong[2])
 	sdl.SetRenderDrawColor(a.rn, colLine[0], colLine[1], colLine[2], 0xff)
 	sdl.RenderLine(a.rn, x, y+headH, x+w, y+headH)
 
@@ -186,7 +186,7 @@ func (a *app) drawDetail(x, y, w, h float32) {
 	p := &detailPainter{a: a, x: x + pad, y: cy + pad - scroll, w: w - 2*pad, keyW: detailKeyW * s, lineH: lineH, s: s}
 	dev := det.dev
 	if det.err != "" {
-		p.para(det.err, [3]uint8{0xff, 0x8f, 0x8f})
+		p.para(det.err, colErrText)
 		p.gap(6)
 	}
 
@@ -247,11 +247,11 @@ func (a *app) drawDetail(x, y, w, h float32) {
 			col := colMuted
 			switch r.Status {
 			case "failing":
-				col = [3]uint8{0xff, 0x8f, 0x8f}
+				col = colErrText
 			case "warning":
-				col = [3]uint8{0xf0, 0xc0, 0x60}
+				col = colWarnText
 			case "passing":
-				col = [3]uint8{0x8f, 0xd3, 0x8f}
+				col = colOkText
 			}
 			p.line(r.Name, checkStatusLabel(r.Status), col)
 		}
@@ -288,9 +288,9 @@ func (a *app) drawDetail(x, y, w, h float32) {
 // die eingebettete Schrift hat kein ✕-Zeichen. Liefert die Breite.
 func (a *app) closeButton(id string, x, y, size float32) float32 {
 	s := a.s()
-	c := [3]uint8{0x1e, 0x26, 0x31}
+	c := colBtn
 	if a.hover == id {
-		c = [3]uint8{0x2b, 0x36, 0x45}
+		c = colBtnHover
 	}
 	sdlui.FillRound(a.rn, x, y, size, size, 6*s, c[0], c[1], c[2], 0xff)
 	sdl.SetRenderDrawColor(a.rn, colText[0], colText[1], colText[2], 0xff)

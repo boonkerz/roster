@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/jupiterrider/purego-sdl3/sdl"
 )
@@ -78,6 +79,12 @@ func (a *app) click(id string, clicks uint8) {
 		a.requestRefresh()
 	case id == "logout":
 		a.logout()
+	case id == "settings":
+		a.openSettings()
+	case strings.HasPrefix(id, "set:"):
+		a.clickSettings(id)
+	case strings.HasPrefix(id, "reboot:"):
+		a.clickReboot(id)
 	case id == "login":
 		a.submitLogin()
 	case strings.HasPrefix(id, "f"):
@@ -125,9 +132,12 @@ func (a *app) typeText(s string) {
 		return
 	}
 	a.mu.Lock()
-	if a.view == viewLogin {
+	switch a.view {
+	case viewLogin:
 		a.form.fields[a.form.focus] += s
-	} else {
+	case viewSettings:
+		a.sform.fields[a.sform.focus] += s
+	default:
 		a.filter += s
 		a.scroll = 0
 	}
@@ -139,7 +149,12 @@ func (a *app) keyDown(ke sdl.KeyboardEvent) {
 	ctrl := ke.Mod&sdl.KeymodCtrl != 0
 	a.mu.Lock()
 	login := a.view == viewLogin
+	settings := a.view == viewSettings
 	a.mu.Unlock()
+	if settings {
+		a.settingsKey(ke)
+		return
+	}
 
 	switch {
 	case ctrl && ke.Key == sdl.KeycodeQ:
@@ -234,4 +249,47 @@ func (a *app) keyDown(ke sdl.KeyboardEvent) {
 		}
 		a.markDirty()
 	}
+}
+
+// settingsKey: Tastatur in den Einstellungen – Tippen ins fokussierte Feld,
+// Tab wechselt, Enter speichert, Esc verwirft.
+func (a *app) settingsKey(ke sdl.KeyboardEvent) {
+	switch ke.Key {
+	case sdl.KeycodeEscape:
+		a.clickSettings("set:cancel")
+	case sdl.KeycodeReturn, sdl.KeycodeKpEnter:
+		a.clickSettings("set:save")
+	case sdl.KeycodeTab:
+		a.mu.Lock()
+		a.sform.focus = (a.sform.focus + 1) % len(a.sform.fields)
+		a.mu.Unlock()
+		a.markDirty()
+	case sdl.KeycodeBackspace:
+		a.mu.Lock()
+		f := []rune(a.sform.fields[a.sform.focus])
+		if len(f) > 0 {
+			a.sform.fields[a.sform.focus] = string(f[:len(f)-1])
+		}
+		a.mu.Unlock()
+		a.markDirty()
+	case sdl.KeycodeV:
+		if ke.Mod&sdl.KeymodCtrl != 0 {
+			a.typeText(strings.TrimSpace(sdl.GetClipboardText()))
+		}
+	}
+}
+
+// clickReboot: Neustart eines Geräts mit Bestätigung wie bei Proxmox-Gästen.
+func (a *app) clickReboot(hit string) {
+	d, ok := a.deviceByID(strings.TrimPrefix(hit, "reboot:"))
+	if !ok {
+		return
+	}
+	if a.armed != hit || time.Since(a.armedAt) > confirmWindow {
+		a.armed, a.armedAt = hit, time.Now()
+		a.setStatus(d.Hostname+" nochmal „Sicher?“ klicken, um neu zu starten.", false)
+		return
+	}
+	a.armed = ""
+	a.actReboot(d)
 }

@@ -153,3 +153,23 @@ func (a *app) actViewer(d device) {
 		a.setStatus("Viewer für "+d.Hostname+" gestartet.", false)
 	}()
 }
+
+// actReboot reiht den Neustart beim Server ein; der Agent führt ihn beim nächsten
+// Checkin aus (offline: sobald er wieder da ist).
+func (a *app) actReboot(d device) {
+	a.mu.Lock()
+	cli := a.cli
+	a.mu.Unlock()
+	if cli == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := cli.reboot(ctx, d.ID); err != nil {
+			a.setStatus("Neustart "+d.Hostname+": "+err.Error(), true)
+			return
+		}
+		a.setStatus("Neustart für "+d.Hostname+" eingereiht.", false)
+	}()
+}
