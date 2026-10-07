@@ -74,6 +74,10 @@ type device struct {
 	TasksTotal     int        `json:"tasks_total"`
 	TasksFailing   int        `json:"tasks_failing"`
 	VulnCount      int        `json:"vuln_count"`
+
+	// fieldText: Werte der benutzerdefinierten Felder (kleingeschrieben, mit
+	// Leerzeichen verbunden) – nur für die Suche, kommt nicht aus /devices.
+	fieldText string
 }
 
 // pveGuest ist eine VM/ein Container auf einem Proxmox-Host samt Backup-Stand.
@@ -191,6 +195,40 @@ func (c *client) devices(ctx context.Context) ([]device, error) {
 	var out []device
 	err := c.do(ctx, http.MethodGet, "/devices", nil, &out)
 	return out, err
+}
+
+// entityFieldValue ist ein gesetzter Feldwert eines Geräts aus dem Sammelabruf
+// GET /custom-field-values?model=device (ohne entity_id).
+type entityFieldValue struct {
+	EntityID string      `json:"entity_id"`
+	Field    customField `json:"field"`
+	Value    string      `json:"value"`
+}
+
+// deviceFieldValues holt alle gesetzten Feldwerte aller Geräte auf einmal.
+func (c *client) deviceFieldValues(ctx context.Context) ([]entityFieldValue, error) {
+	var out []entityFieldValue
+	err := c.do(ctx, http.MethodGet, "/custom-field-values?model=device", nil, &out)
+	return out, err
+}
+
+// fieldSearchText baut je Gerät den durchsuchbaren Text aus seinen Feldwerten.
+// Checkboxen bleiben außen vor ("true" würde sonst praktisch jedes Gerät treffen);
+// Listen/Mehrfachauswahlen gehen als JSON-Text ein, die Einträge sind so enthalten.
+func fieldSearchText(vals []entityFieldValue) map[string]string {
+	out := map[string]string{}
+	for _, v := range vals {
+		val := strings.TrimSpace(v.Value)
+		if val == "" || v.Field.Type == "checkbox" {
+			continue
+		}
+		if cur := out[v.EntityID]; cur != "" {
+			out[v.EntityID] = cur + " " + strings.ToLower(val)
+		} else {
+			out[v.EntityID] = strings.ToLower(val)
+		}
+	}
+	return out
 }
 
 func (c *client) me(ctx context.Context) (*meResponse, error) {

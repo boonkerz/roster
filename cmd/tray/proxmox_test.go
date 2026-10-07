@@ -193,6 +193,44 @@ func TestListItemsSearchFindsGuests(t *testing.T) {
 	}
 }
 
+func TestFilterCustomFields(t *testing.T) {
+	a := testApp(t, &fakeServer{})
+	a.devices = append(a.devices, device{ID: "dev2", Hostname: "fileserver"})
+	text := fieldSearchText([]entityFieldValue{
+		{EntityID: "dev2", Field: customField{Name: "AnyDesk", Type: "text"}, Value: "123 456 789"},
+		{EntityID: "dev2", Field: customField{Name: "Tags", Type: "list"}, Value: `["Buchhaltung","Drucker"]`},
+		{EntityID: "dev2", Field: customField{Name: "Aktiv", Type: "checkbox"}, Value: "true"},
+		{EntityID: "dev1", Field: customField{Name: "Leer", Type: "text"}, Value: "  "},
+	})
+	for i := range a.devices {
+		a.devices[i].fieldText = text[a.devices[i].ID]
+	}
+	if a.devices[0].fieldText != "" {
+		t.Fatalf("leerer Wert darf keinen Suchtext ergeben: %q", a.devices[0].fieldText)
+	}
+
+	for _, tc := range []struct {
+		filter string
+		want   []string
+	}{
+		{"456", []string{"fileserver"}},
+		{"buchhalt", []string{"fileserver"}},
+		{"DRUCKER", []string{"fileserver"}},
+		{"true", nil},              // Checkbox-Werte werden nicht durchsucht
+		{"pve1", []string{"pve1"}}, // Stammdaten weiterhin
+		{"", []string{"pve1", "fileserver"}},
+	} {
+		a.filter = tc.filter
+		var got []string
+		for _, d := range a.filtered() {
+			got = append(got, d.Hostname)
+		}
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("Filter %q: got %v, want %v", tc.filter, got, tc.want)
+		}
+	}
+}
+
 func TestTempBadge(t *testing.T) {
 	if _, ok := tempBadge(nil); ok {
 		t.Error("ohne Sensoren keine Plakette")

@@ -117,9 +117,25 @@ func (s *Server) handleDeleteCustomField(w http.ResponseWriter, r *http.Request)
 
 // --- Werte ---
 
+// handleGetCustomFieldValues liefert die Werte einer Entität (model + entity_id).
+// Ohne entity_id gibt es für model=device alle gesetzten Werte im Daten-Scope des
+// Aufrufers auf einmal – die Taskleisten-App durchsucht sie lokal.
 func (s *Server) handleGetCustomFieldValues(w http.ResponseWriter, r *http.Request) {
 	mdl := r.URL.Query().Get("model")
 	entityID := r.URL.Query().Get("entity_id")
+	if validFieldModels[mdl] && entityID == "" && mdl == "device" {
+		sites, unrestricted := s.allowedSites(r.Context())
+		if unrestricted {
+			sites = nil
+		}
+		vals, err := s.store.AllCustomFieldValues(r.Context(), mdl, sites)
+		if err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, vals)
+		return
+	}
 	if !validFieldModels[mdl] || entityID == "" {
 		s.writeErr(w, http.StatusBadRequest, "model und entity_id erforderlich")
 		return

@@ -685,6 +685,20 @@ func TestCustomFieldsAndCollector(t *testing.T) {
 	if err != nil || len(vals) != 1 || vals[0].Value != `["a","b"]` {
 		t.Fatalf("CustomFieldValues: %v / %+v", err, vals)
 	}
+	// Sammelabruf: alle gesetzten Werte, wahlweise auf Standorte begrenzt.
+	all, err := st.AllCustomFieldValues(ctx, "device", nil)
+	if err != nil || len(all) != 1 || all[0].EntityID != dev.ID || all[0].Field.Name != "tags" || all[0].Value != `["a","b"]` {
+		t.Fatalf("AllCustomFieldValues: %v / %+v", err, all)
+	}
+	if all, err = st.AllCustomFieldValues(ctx, "device", map[string]bool{site.ID: true}); err != nil || len(all) != 1 {
+		t.Fatalf("AllCustomFieldValues(site): %v / %+v", err, all)
+	}
+	if all, err = st.AllCustomFieldValues(ctx, "device", map[string]bool{"other": true}); err != nil || len(all) != 0 {
+		t.Fatalf("AllCustomFieldValues(fremder Standort): %v / %+v", err, all)
+	}
+	if all, err = st.AllCustomFieldValues(ctx, "device", map[string]bool{}); err != nil || len(all) != 0 {
+		t.Fatalf("AllCustomFieldValues(leer): %v / %+v", err, all)
+	}
 
 	// JSON-Collector mit Typ-Inferenz und Auto-Anlage auf allen Ebenen.
 	out := `{"status":0,"agent":{"anydeskId":"123456","online":true,"hosts":["x","y"]},"client":{"vertrag":"Gold"},"site":{"vlan":"42"}}`

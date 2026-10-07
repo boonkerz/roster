@@ -464,6 +464,13 @@ type CustomFieldValue struct {
 	Value string      `json:"value"` // list/multiselect: JSON-Array, sonst String
 }
 
+// EntityFieldValue ist ein gesetzter Feldwert samt Entität – für den Sammelabruf
+// aller Werte eines Modells (z. B. Suche in der Taskleisten-App).
+type EntityFieldValue struct {
+	EntityID string `json:"entity_id"`
+	CustomFieldValue
+}
+
 // AlertConfig steuert Benachrichtigungen bei fehlschlagenden Checks. Nach der
 // Modularisierung wird nur noch Enabled (Master-Schalter) genutzt; die smtp_*-
 // Felder bleiben für Abwärtskompatibilität der Tabelle erhalten.

@@ -176,6 +176,14 @@ func (a *app) reload() {
 	devs, err := cli.devices(ctx)
 	var who string
 	if err == nil {
+		// Feldwerte fürs Suchfeld – optional: ein älterer Server ohne Sammelabruf
+		// antwortet mit 400, dann wird schlicht nur ohne Felder gesucht.
+		if vals, verr := cli.deviceFieldValues(ctx); verr == nil {
+			text := fieldSearchText(vals)
+			for i := range devs {
+				devs[i].fieldText = text[devs[i].ID]
+			}
+		}
 		a.mu.Lock()
 		known := a.username
 		a.mu.Unlock()
@@ -263,7 +271,8 @@ func (a *app) updateTray() {
 	a.tr.set(st, tip)
 }
 
-// filtered liefert die anzuzeigenden Geräte (Suchfeld über Name, Standort, Kunde).
+// filtered liefert die anzuzeigenden Geräte (Suchfeld über Name, Standort, Kunde,
+// OS und die Werte der benutzerdefinierten Felder).
 func (a *app) filtered() []device {
 	a.mu.Lock()
 	devs := append([]device(nil), a.devices...)
@@ -284,7 +293,7 @@ func (a *app) filtered() []device {
 // deviceMatches prüft den Suchbegriff gegen die Gerätedaten selbst.
 func deviceMatches(d device, f string) bool {
 	hay := strings.ToLower(d.Hostname + " " + d.SiteName + " " + d.ClientName + " " + d.OS)
-	return strings.Contains(hay, f)
+	return strings.Contains(hay, f) || strings.Contains(d.fieldText, f)
 }
 
 // anyGuestMatches: trifft der Suchbegriff eine VM/einen Container des Hosts?

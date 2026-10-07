@@ -34,8 +34,9 @@ with every list poll; `Esc` or the ✕ closes it, a second click on the same row
 Proxmox hosts can be expanded to show their VMs and containers with backup badge and
 start/stop buttons — see [Proxmox VE](proxmox.md#in-the-taskbar-app).
 
-Type anywhere to filter by name, site or company (and VMID / guest name); `F5` (or the tray menu) refreshes, and the
-list polls on its own every 30 s (`refresh_sec`).
+Type anywhere to filter by name, site, company or OS, by VMID / guest name, and by the
+values of the device's **custom fields** (an AnyDesk ID, a tag in a list field, …);
+`F5` (or the tray menu) refreshes, and the list polls on its own every 30 s (`refresh_sec`).
 
 ## Terminal and viewer buttons
 

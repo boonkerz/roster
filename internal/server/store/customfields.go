@@ -104,6 +104,48 @@ func (s *Store) CustomFieldValues(ctx context.Context, mdl, entityID string) ([]
 	return out, rows.Err()
 }
 
+// AllCustomFieldValues liefert alle gesetzten, nicht-leeren Werte eines Modells
+// (ohne Defaults). allowed begrenzt bei model=device auf Geräte der angegebenen
+// Standorte (nil = unbeschränkt, leere Map = keine).
+func (s *Store) AllCustomFieldValues(ctx context.Context, mdl string, allowed map[string]bool) ([]model.EntityFieldValue, error) {
+	q := `SELECT v.entity_id, f.id, f.model, f.name, f.type, f.options, f.default_value, f.required, f.managed, f.link, f.selection_field, v.value
+		FROM custom_field_values v
+		JOIN custom_fields f ON f.id=v.field_id`
+	args := []any{mdl}
+	where := ` WHERE f.model=? AND v.value<>''`
+	if allowed != nil && mdl == "device" {
+		if len(allowed) == 0 {
+			return []model.EntityFieldValue{}, nil
+		}
+		ids := make([]string, 0, len(allowed))
+		for id := range allowed {
+			ids = append(ids, id)
+		}
+		marks, a := placeholders(ids)
+		q += ` JOIN devices d ON d.id=v.entity_id`
+		where += ` AND d.site_id IN (` + marks + `)`
+		args = append(args, a...)
+	}
+	rows, err := s.db.QueryContext(ctx, s.rebind(q+where+` ORDER BY v.entity_id, f.name`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []model.EntityFieldValue{}
+	for rows.Next() {
+		var ev model.EntityFieldValue
+		var opts string
+		ev.Field.Options = []string{}
+		if err := rows.Scan(&ev.EntityID, &ev.Field.ID, &ev.Field.Model, &ev.Field.Name, &ev.Field.Type, &opts,
+			&ev.Field.Default, &ev.Field.Required, &ev.Field.Managed, &ev.Field.Link, &ev.Field.SelectionField, &ev.Value); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal([]byte(opts), &ev.Field.Options)
+		out = append(out, ev)
+	}
+	return out, rows.Err()
+}
+
 // SetCustomFieldValue setzt (Upsert) den Wert eines Feldes für eine Entität.
 func (s *Store) SetCustomFieldValue(ctx context.Context, fieldID, entityID, value string) error {
 	res, err := s.db.ExecContext(ctx, s.rebind(`
