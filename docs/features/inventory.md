@@ -62,6 +62,13 @@ and add **one column per custom field** — a field that a check fills with, say
 image version shows up right in the list and refreshes with it. Link fields render as
 links, lists are joined with commas, checkboxes as yes/no.
 
+The **filter builder** (Filter button) knows the same custom fields: pick one as the
+condition's field and compare it like any built-in column — *contains*, *=*, *≠* for text and
+lists, *>*/*<* for numbers, yes/no for checkboxes, the defined options for selections. Two
+extra operators, **set** and **not set**, catch devices where a collector task has (not yet)
+written the field. So *docker_version ≠ 1.27.2* lists every host still running an old
+image, and you can save that filter like any other.
+
 The column choice, your **saved filters** and the CSV export's column selection are stored
 in your **user account** on the server, not in the browser, so they follow you when you
 sign in somewhere else. Values that older versions kept in the browser are migrated the

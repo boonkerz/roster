@@ -6,7 +6,7 @@ import type { Device, Policy, ClientTree as Tree, CustomField } from "../types";
 import { ClientTree, OrgFilter } from "../components/ClientTree";
 import { AddComputerDialog } from "../components/AddComputerDialog";
 import { DevicePanel } from "../components/DevicePanel";
-import { DeviceFilter, evalFilter, DFilter, CheckOption } from "../components/DeviceFilter";
+import { DeviceFilter, evalFilter, hasFieldConditions, DFilter, FilterCtx, CheckOption } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { ExportDialog } from "../components/ExportDialog";
@@ -142,7 +142,35 @@ export function Devices() {
   const [showFilter, setShowFilter] = useState(false);
   const filterActive = filter.conditions.length > 0;
 
-  const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d) && evalFilter(d, filter));
+  const [colKeys, setColKeys] = usePref<string[]>("devices.columns", DEFAULT_COLUMNS);
+  const [colsOpen, setColsOpen] = useState(false);
+  const { data: fieldDefs } = useQuery({
+    queryKey: ["custom-fields", "device"],
+    queryFn: () => api.get<CustomField[]>("/custom-fields?model=device"),
+    retry: false,
+    staleTime: 60_000,
+  });
+  // Feldwerte werden geladen, sobald eine Feld-Spalte eingeblendet ist oder der Filter ein Feld prüft.
+  const anyFieldCol = colKeys.some((k) => k.startsWith(CF_PREFIX));
+  const { data: fieldVals } = useQuery({
+    queryKey: ["custom-field-values", "device", "all"],
+    queryFn: () => api.get<EntityFieldValue[]>("/custom-field-values?model=device"),
+    enabled: anyFieldCol || hasFieldConditions(filter),
+    retry: false,
+    refetchInterval: 15000,
+  });
+  const fieldMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const v of fieldVals ?? []) m.set(v.entity_id + "\0" + v.field.id, v.value);
+    return m;
+  }, [fieldVals]);
+  const filterCtx: FilterCtx = useMemo(() => ({
+    fields: fieldDefs ?? [],
+    fieldValue: (devID, fieldID) => fieldMap.get(devID + "\0" + fieldID),
+    t,
+  }), [fieldDefs, fieldMap, t]);
+  // Solange die Feldwerte noch laden, bleiben Feldbedingungen außen vor (keine leere Liste).
+  const devices = (data ?? []).filter((d) => matchesOrg(d, org) && matchesHealth(d) && evalFilter(d, filter, fieldVals ? filterCtx : undefined));
 
   const online = devices.filter((d) => d.status === "online").length;
 
@@ -183,33 +211,12 @@ export function Devices() {
   // Sichtbare Spalten (Benutzereinstellung, serverseitig). Benutzerdefinierte Felder
   // werden als Spalten angeboten; ihre Werte kommen aus dem Sammelabruf, der nur
   // läuft, wenn mindestens eine Feldspalte eingeblendet ist.
-  const [colKeys, setColKeys] = usePref<string[]>("devices.columns", DEFAULT_COLUMNS);
-  const [colsOpen, setColsOpen] = useState(false);
-  const { data: fieldDefs } = useQuery({
-    queryKey: ["custom-fields", "device"],
-    queryFn: () => api.get<CustomField[]>("/custom-fields?model=device"),
-    retry: false,
-    staleTime: 60_000,
-  });
-  const anyFieldCol = colKeys.some((k) => k.startsWith(CF_PREFIX));
-  const { data: fieldVals } = useQuery({
-    queryKey: ["custom-field-values", "device", "all"],
-    queryFn: () => api.get<EntityFieldValue[]>("/custom-field-values?model=device"),
-    enabled: anyFieldCol,
-    retry: false,
-    refetchInterval: 15000,
-  });
-  const fieldMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const v of fieldVals ?? []) m.set(v.entity_id + "\0" + v.field.id, v.value);
-    return m;
-  }, [fieldVals]);
   const allColumns = useMemo(() => [...baseDeviceColumns(t), ...fieldDeviceColumns(fieldDefs ?? [], t)], [t, fieldDefs]);
   const columns = useMemo(() => resolveColumns(colKeys, allColumns), [colKeys, allColumns]);
   const colCtx: ColumnCtx = {
     t,
     jump: (d, tab) => { setSelectedId(d.id); setJump({ tab, n: jump.n + 1 }); },
-    fieldValue: (devID, fieldID) => fieldMap.get(devID + "\0" + fieldID),
+    fieldValue: filterCtx.fieldValue,
   };
   const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
     setBulkMsg(null);
@@ -259,7 +266,7 @@ export function Devices() {
           </div>
         </header>
 
-        {showFilter && <DeviceFilter value={filter} onChange={setFilter} checks={checkOptions} />}
+        {showFilter && <DeviceFilter value={filter} onChange={setFilter} checks={checkOptions} fields={fieldDefs ?? []} />}
 
         {(sel.size > 0 || bulkMsg) && (
           <div className="bulk-bar">

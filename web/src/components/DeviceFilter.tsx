@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { usePref } from "../prefs";
-import type { Device } from "../types";
+import type { CustomField, Device } from "../types";
+import { fieldDisplay } from "../export";
 
 export interface FCond { field: string; op: string; value: string; }
 export interface DFilter { match: "all" | "any"; conditions: FCond[]; }
 
 type Kind = "text" | "num" | "enum" | "check";
 export interface CheckOption { id: string; name: string; }
-const FIELDS: { v: string; label: string; kind: Kind; values?: string[] }[] = [
+interface FieldDef { v: string; label: string; kind: Kind; values?: string[]; labels?: string[]; cf?: CustomField }
+const FIELDS: FieldDef[] = [
   { v: "hostname", label: "Hostname", kind: "text" },
   { v: "os", label: "OS", kind: "text" },
   { v: "os_version", label: "OS-Version", kind: "text" },
@@ -23,16 +25,55 @@ const FIELDS: { v: string; label: string; kind: Kind; values?: string[] }[] = [
   { v: "check", label: "Check", kind: "check" }, // Wert = Check-ID, Vergleich fehlerhaft / nicht fehlerhaft
 ];
 const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"], check: ["failing", "ok"] };
-const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<", failing: "fehlerhaft", ok: "nicht fehlerhaft" };
+// Benutzerdefinierte Felder haben zusätzlich „gesetzt“ / „nicht gesetzt“ – ein Feld, das ein
+// Collector-Task noch nie geschrieben hat, lässt sich sonst nicht greifen.
+const CF_OPS = ["set", "unset"];
+const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<", failing: "fehlerhaft", ok: "nicht fehlerhaft", set: "gesetzt", unset: "nicht gesetzt" };
 
-const fieldOf = (v: string) => FIELDS.find((f) => f.v === v) ?? FIELDS[0];
+// Filterbedingungen auf benutzerdefinierte Felder tragen die Feld-ID mit Präfix (wie die Spalten).
+export const CF_FILTER_PREFIX = "cf:";
+export const hasFieldConditions = (f: DFilter) => f.conditions.some((c) => c.field.startsWith(CF_FILTER_PREFIX));
+
+// fieldDefsFor baut aus den Felddefinitionen Filterfelder: Zahl → numerisch, Checkbox → Ja/Nein,
+// Auswahl → Optionen, alles andere (Text, Datum, Listen) → Textvergleich auf der Anzeigeform.
+function fieldDefsFor(fields: CustomField[], t: (s: string) => string): FieldDef[] {
+  return [...fields].sort((a, b) => a.name.localeCompare(b.name)).map((cf): FieldDef => {
+    const v = CF_FILTER_PREFIX + cf.id;
+    if (cf.type === "number") return { v, label: cf.name, kind: "num", cf };
+    if (cf.type === "checkbox") return { v, label: cf.name, kind: "enum", values: ["true", "false"], labels: [t("Ja"), t("Nein")], cf };
+    if (cf.type === "select" && cf.options?.length) return { v, label: cf.name, kind: "enum", values: cf.options, cf };
+    return { v, label: cf.name, kind: "text", cf };
+  });
+}
+
+const fieldOf = (v: string, extra: FieldDef[] = []) => FIELDS.find((f) => f.v === v) ?? extra.find((f) => f.v === v) ?? FIELDS[0];
+const opsOf = (f: FieldDef) => (f.cf ? [...OPS[f.kind], ...CF_OPS] : OPS[f.kind]);
+
+// FilterCtx liefert dem Filter die Werte benutzerdefinierter Felder (Gerät × Feld-ID).
+export interface FilterCtx { fields: CustomField[]; fieldValue: (devID: string, fieldID: string) => string | undefined; t: (s: string) => string }
 
 // evalFilter prüft, ob ein Gerät die Filterbedingungen erfüllt (clientseitig).
-export function evalFilter(d: Device, f: DFilter): boolean {
+export function evalFilter(d: Device, f: DFilter, ctx?: FilterCtx): boolean {
   if (!f.conditions.length) return true;
   const rec = d as unknown as Record<string, unknown>;
+  const extra = ctx ? fieldDefsFor(ctx.fields, ctx.t) : [];
   const test = (c: FCond) => {
-    const fld = fieldOf(c.field);
+    const fld = fieldOf(c.field, extra);
+    if (c.field.startsWith(CF_FILTER_PREFIX)) {
+      if (!ctx) return true; // Felder noch nicht geladen -> Bedingung nicht anwenden
+      const raw = ctx.fieldValue(d.id, c.field.slice(CF_FILTER_PREFIX.length));
+      if (c.op === "set") return raw !== undefined && raw !== "";
+      if (c.op === "unset") return raw === undefined || raw === "";
+      if (fld.v !== c.field) return false; // Feld existiert nicht mehr
+      if (fld.kind === "num") {
+        if (raw === undefined || raw === "") return false;
+        const dv = Number(raw), cv = Number(c.value || 0);
+        return c.op === "gt" ? dv > cv : c.op === "lt" ? dv < cv : dv === cv;
+      }
+      const shown = fld.cf ? fieldDisplay(fld.cf.type, raw ?? "", ctx.t) : (raw ?? "");
+      const dv = (fld.kind === "enum" ? (raw ?? "") : shown).toLowerCase(), cv = c.value.toLowerCase();
+      return c.op === "eq" ? dv === cv : c.op === "ne" ? dv !== cv : dv.includes(cv);
+    }
     if (fld.kind === "check") {
       const hit = (d.failing_checks ?? []).some((fc) => fc.id === c.value);
       return c.op === "failing" ? hit : !hit;
@@ -50,8 +91,9 @@ export function evalFilter(d: Device, f: DFilter): boolean {
 interface Saved { name: string; filter: DFilter; }
 
 // DeviceFilter ist ein Builder für eigene, benannte Geräte-Filter (clientseitig).
-export function DeviceFilter({ value, onChange, checks = [] }: { value: DFilter; onChange: (f: DFilter) => void; checks?: CheckOption[] }) {
+export function DeviceFilter({ value, onChange, checks = [], fields = [] }: { value: DFilter; onChange: (f: DFilter) => void; checks?: CheckOption[]; fields?: CustomField[] }) {
   const { t } = useI18n();
+  const cfDefs = fieldDefsFor(fields, t);
   // Gespeicherte Filter liegen im Benutzerkonto (früher nur im localStorage – wird übernommen).
   const [saved, setSaved] = usePref<Saved[]>("devices.saved_filters", [], "roster-saved-filters");
   const [name, setName] = useState("");
@@ -87,23 +129,29 @@ export function DeviceFilter({ value, onChange, checks = [] }: { value: DFilter;
       </div>
 
       {value.conditions.map((c, i) => {
-        const f = fieldOf(c.field);
+        const f = fieldOf(c.field, cfDefs);
+        const valueless = c.op === "set" || c.op === "unset";
         return (
           <div className="inline-form" key={i} style={{ marginTop: 6 }}>
-            <select value={c.field} onChange={(e) => { const nf = fieldOf(e.target.value); setCond(i, { field: e.target.value, op: OPS[nf.kind][0], value: nf.values ? nf.values[0] : nf.kind === "check" ? (checks[0]?.id ?? "") : "" }); }}>
-              {FIELDS.map((ff) => <option key={ff.v} value={ff.v}>{ff.label}</option>)}
+            <select value={c.field} onChange={(e) => { const nf = fieldOf(e.target.value, cfDefs); setCond(i, { field: e.target.value, op: OPS[nf.kind][0], value: nf.values ? nf.values[0] : nf.kind === "check" ? (checks[0]?.id ?? "") : "" }); }}>
+              {FIELDS.map((ff) => <option key={ff.v} value={ff.v}>{t(ff.label)}</option>)}
+              {cfDefs.length > 0 && (
+                <optgroup label={t("Benutzerdefinierte Felder")}>
+                  {cfDefs.map((ff) => <option key={ff.v} value={ff.v}>{ff.label}</option>)}
+                </optgroup>
+              )}
             </select>
             <select value={c.op} onChange={(e) => setCond(i, { op: e.target.value })}>
-              {OPS[f.kind].map((o) => <option key={o} value={o}>{OP_LABEL[o]}</option>)}
+              {opsOf(f).map((o) => <option key={o} value={o}>{t(OP_LABEL[o])}</option>)}
             </select>
-            {f.kind === "check" ? (
+            {valueless ? null : f.kind === "check" ? (
               <select value={c.value} onChange={(e) => setCond(i, { value: e.target.value })} style={{ minWidth: 200 }}>
                 {checks.length === 0 && <option value="">{t("— keine Checks —")}</option>}
                 {checks.map((ck) => <option key={ck.id} value={ck.id}>{ck.name}</option>)}
               </select>
             ) : f.kind === "enum" ? (
               <select value={c.value} onChange={(e) => setCond(i, { value: e.target.value })}>
-                {f.values!.map((v) => <option key={v} value={v}>{v}</option>)}
+                {f.values!.map((v, k) => <option key={v} value={v}>{f.labels?.[k] ?? v}</option>)}
               </select>
             ) : (
               <input value={c.value} type={f.kind === "num" ? "number" : "text"} placeholder={f.kind === "num" ? "0" : t("Wert")} onChange={(e) => setCond(i, { value: e.target.value })} />
