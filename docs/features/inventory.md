@@ -53,3 +53,16 @@ server. They use a pull model — only outbound connections, no inbound port on 
 
 Attach TRMM-style **custom fields** to a company, site or device, and populate them with
 JSON collector tasks and Twig-like placeholders (e.g. `{{ agent.domains | first }}`).
+
+## Choosing the list columns
+
+The **Columns** button above the device list opens a picker: tick or untick the built-in
+columns (company, site, vendor, model, serial, public IP, MAC, … on top of the defaults)
+and add **one column per custom field** — a field that a check fills with, say, a Docker
+image version shows up right in the list and refreshes with it. Link fields render as
+links, lists are joined with commas, checkboxes as yes/no.
+
+The column choice, your **saved filters** and the CSV export's column selection are stored
+in your **user account** on the server, not in the browser, so they follow you when you
+sign in somewhere else. Values that older versions kept in the browser are migrated the
+first time you open the list.

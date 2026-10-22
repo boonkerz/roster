@@ -113,6 +113,9 @@ func (s *Server) routes() http.Handler {
 				// Immer erlaubt – auch während der 2FA-Einrichtung:
 				r.Get("/auth/me", s.handleMe)
 				r.Put("/auth/me/theme", s.handleSetTheme)
+				r.Get("/auth/me/prefs", s.handleGetUserPrefs)
+				r.Put("/auth/me/prefs/{key}", s.handleSetUserPref)
+				r.Delete("/auth/me/prefs/{key}", s.handleDeleteUserPref)
 				r.Post("/auth/me/password", s.handleChangePassword)
 				r.Post("/auth/2fa/setup", s.handle2FASetup)
 				r.Post("/auth/2fa/enable", s.handle2FAEnable)

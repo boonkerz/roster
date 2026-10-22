@@ -129,8 +129,8 @@ func (s *Server) audit(next http.Handler) http.Handler {
 		if rc := chi.RouteContext(r.Context()); rc != nil {
 			pattern = strings.TrimPrefix(rc.RoutePattern(), "/api/v1")
 		}
-		if pattern == "/auth/me/theme" {
-			return // Theme-Wechsel ist nicht auditrelevant
+		if pattern == "/auth/me/theme" || pattern == "/auth/me/prefs/{key}" {
+			return // Theme-Wechsel und UI-Einstellungen sind nicht auditrelevant
 		}
 		var uid, uname string
 		if u := userFrom(r.Context()); u != nil {

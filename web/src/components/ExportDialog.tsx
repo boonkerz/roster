@@ -1,23 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { Device } from "../types";
 import { useI18n } from "../i18n";
+import { usePref } from "../prefs";
 import { baseColumns, fieldColumns, devicesCSV, downloadText, EntityFieldValue, ExportColumn } from "../export";
 
-const STORE_KEY = "roster-export-cols";
-
-// gemerkte Spaltenauswahl: Liste der abgewählten Schlüssel (neue Spalten/Felder sind
-// damit automatisch dabei, bis man sie bewusst abwählt).
-function loadOff(): Set<string> {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch { return new Set(); }
-}
-function saveOff(off: Set<string>) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify([...off])); } catch { /* egal */ }
-}
 
 // ExportDialog lässt die Spalten des CSV-Exports wählen – Stammdaten und die
 // benutzerdefinierten Felder, die bei den gewählten Geräten gesetzt sind.
@@ -32,7 +20,11 @@ export function ExportDialog({ devices, onClose, onDone }: { devices: Device[]; 
   });
   const base = useMemo(() => baseColumns(t), [t]);
   const custom = useMemo(() => fieldColumns(devices, fields.data ?? [], t), [devices, fields.data, t]);
-  const [off, setOff] = useState<Set<string>>(loadOff);
+  // Gemerkte Spaltenauswahl (Benutzerkonto): Liste der abgewählten Schlüssel – neue
+  // Spalten/Felder sind damit automatisch dabei, bis man sie bewusst abwählt.
+  const [offList, setOffList] = usePref<string[]>("export.columns_off", [], "roster-export-cols");
+  const off = useMemo(() => new Set(offList), [offList]);
+  const setOff = (fn: (s: Set<string>) => Set<string>) => setOffList([...fn(off)]);
 
   const toggle = (key: string) => setOff((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const setGroup = (cols: ExportColumn[], on: boolean) => setOff((s) => {
@@ -43,7 +35,6 @@ export function ExportDialog({ devices, onClose, onDone }: { devices: Device[]; 
   const chosen = [...base, ...custom].filter((c) => !off.has(c.key));
 
   const run = () => {
-    saveOff(off);
     const stamp = new Date().toISOString().slice(0, 10);
     downloadText(`roster-geraete-${stamp}.csv`, devicesCSV(devices, chosen));
     onDone(devices.length);

@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
-import type { Device, Policy, ClientTree as Tree } from "../types";
-import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, relTime } from "../components/StatusBadge";
+import type { Device, Policy, ClientTree as Tree, CustomField } from "../types";
 import { ClientTree, OrgFilter } from "../components/ClientTree";
 import { AddComputerDialog } from "../components/AddComputerDialog";
 import { DevicePanel } from "../components/DevicePanel";
-import { CopyText } from "../components/CopyText";
 import { DeviceFilter, evalFilter, DFilter, CheckOption } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { ExportDialog } from "../components/ExportDialog";
-import { primaryIPv4, formatBytes } from "../devutil";
+import { ColumnsDialog } from "../components/ColumnsDialog";
+import type { EntityFieldValue } from "../export";
+import { usePref } from "../prefs";
+import { baseDeviceColumns, fieldDeviceColumns, resolveColumns, ColumnCtx, CF_PREFIX, DEFAULT_COLUMNS } from "../deviceColumns";
 
 export { primaryIPv4, formatBytes } from "../devutil";
 
@@ -178,6 +179,38 @@ export function Devices() {
   });
   // Export der markierten Geräte als CSV: Dialog mit Spaltenauswahl.
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Sichtbare Spalten (Benutzereinstellung, serverseitig). Benutzerdefinierte Felder
+  // werden als Spalten angeboten; ihre Werte kommen aus dem Sammelabruf, der nur
+  // läuft, wenn mindestens eine Feldspalte eingeblendet ist.
+  const [colKeys, setColKeys] = usePref<string[]>("devices.columns", DEFAULT_COLUMNS);
+  const [colsOpen, setColsOpen] = useState(false);
+  const { data: fieldDefs } = useQuery({
+    queryKey: ["custom-fields", "device"],
+    queryFn: () => api.get<CustomField[]>("/custom-fields?model=device"),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const anyFieldCol = colKeys.some((k) => k.startsWith(CF_PREFIX));
+  const { data: fieldVals } = useQuery({
+    queryKey: ["custom-field-values", "device", "all"],
+    queryFn: () => api.get<EntityFieldValue[]>("/custom-field-values?model=device"),
+    enabled: anyFieldCol,
+    retry: false,
+    refetchInterval: 15000,
+  });
+  const fieldMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const v of fieldVals ?? []) m.set(v.entity_id + "\0" + v.field.id, v.value);
+    return m;
+  }, [fieldVals]);
+  const allColumns = useMemo(() => [...baseDeviceColumns(t), ...fieldDeviceColumns(fieldDefs ?? [], t)], [t, fieldDefs]);
+  const columns = useMemo(() => resolveColumns(colKeys, allColumns), [colKeys, allColumns]);
+  const colCtx: ColumnCtx = {
+    t,
+    jump: (d, tab) => { setSelectedId(d.id); setJump({ tab, n: jump.n + 1 }); },
+    fieldValue: (devID, fieldID) => fieldMap.get(devID + "\0" + fieldID),
+  };
   const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
     setBulkMsg(null);
     const n = sel.size;
@@ -221,6 +254,7 @@ export function Devices() {
               </select>
             )}
             <button className={`btn ghost${filterActive ? " active" : ""}`} onClick={() => setShowFilter((v) => !v)}>⛃ {t("Filter")}</button>
+            <button className="btn ghost" onClick={() => setColsOpen(true)} title={t("Spalten der Liste wählen")}>☷ {t("Spalten")}</button>
             {isAdmin && <button className="btn primary" onClick={() => setShowAdd(true)}>{t("+ Neuer Computer")}</button>}
           </div>
         </header>
@@ -245,6 +279,7 @@ export function Devices() {
         )}
 
         {showAdd && <AddComputerDialog onClose={() => setShowAdd(false)} />}
+        {colsOpen && <ColumnsDialog all={allColumns} value={columns.map((c) => c.key)} onChange={setColKeys} onClose={() => setColsOpen(false)} />}
         {exportOpen && (
           <ExportDialog devices={devices.filter((d) => sel.has(d.id))} onClose={() => setExportOpen(false)}
             onDone={(n) => { setExportOpen(false); setBulkMsg({ ok: true, text: t("{n} Gerät(e) als CSV exportiert.", { n }) }); }} />
@@ -263,19 +298,7 @@ export function Devices() {
                         ref={(el) => { if (el) el.indeterminate = !allVisible && visibleIds.some((id) => sel.has(id)); }}
                         onChange={toggleAll} />
                     </th>
-                    <th>{t("Status")}</th>
-                    <th>Hostname</th>
-                    <th>{t("Benutzer")}</th>
-                    <th>{t("Betriebssystem")}</th>
-                    <th>{t("IP-Adresse")}</th>
-                    <th>CPU</th>
-                    <th>RAM</th>
-                    <th>{t("Checks")}</th>
-                    <th>{t("Tasks")}</th>
-                    <th>{t("CVE")}</th>
-                    <th>{t("Updates")}</th>
-                    <th>{t("Agent")}</th>
-                    <th>{t("Zuletzt gesehen")}</th>
+                    {columns.map((c) => <th key={c.key}>{c.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -284,36 +307,11 @@ export function Devices() {
                       <td className="sel" onClick={(e) => e.stopPropagation()}>
                         {selectable(d) && <input type="checkbox" checked={sel.has(d.id)} onChange={() => toggleOne(d.id)} />}
                       </td>
-                      <td><StatusBadge status={d.status} /></td>
-                      <td>
-                        <span className="link-strong">{d.hostname || t("(unbenannt)")}</span>
-                        {d.revoked && <span className="badge badge-offline" style={{ marginLeft: 8 }}>{t("widerrufen")}</span>}
-                        {d.site_id && <div className="muted small">{d.client_name} › {d.site_name}</div>}
-                      </td>
-                      <td className="muted">{d.logged_in_users?.join(", ") || "—"}</td>
-                      <td>{d.os} {d.os_version}</td>
-                      <td className="mono"><CopyText value={primaryIPv4(d)} /></td>
-                      <td className="muted">{d.cpu_cores ? t("{n} Kerne", { n: d.cpu_cores }) : "—"}</td>
-                      <td className="muted">{formatBytes(d.memory_bytes)}</td>
-                      <td style={{ cursor: "pointer" }} title={t("Zu den Checks springen")}
-                        onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setJump({ tab: "checks", n: jump.n + 1 }); }}>
-                        <HealthBadge total={d.checks_total} failing={d.checks_failing} />
-                      </td>
-                      <td style={{ cursor: "pointer" }} title={t("Zu den Tasks springen")}
-                        onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setJump({ tab: "tasks", n: jump.n + 1 }); }}>
-                        <TaskHealthBadge total={d.tasks_total} failing={d.tasks_failing} />
-                      </td>
-                      <td style={{ cursor: "pointer" }} title={t("Zu den Schwachstellen springen")}
-                        onClick={(e) => { e.stopPropagation(); setSelectedId(d.id); setJump({ tab: "vulns", n: jump.n + 1 }); }}>
-                        {d.vuln_count ? <span className="badge badge-offline">{d.vuln_count}</span> : <span className="muted">—</span>}
-                      </td>
-                      <td><UpdatesBadge count={d.updates_count} /></td>
-                      <td className="muted mono">{d.agent_version || "—"}</td>
-                      <td className="muted">{relTime(d.last_seen)}</td>
+                      {columns.map((c) => <Fragment key={c.key}>{c.render(d, colCtx)}</Fragment>)}
                     </tr>
                   ))}
                   {devices.length === 0 && (
-                    <tr><td colSpan={14} className="empty">{t("Keine Geräte gefunden.")}</td></tr>
+                    <tr><td colSpan={columns.length + 1} className="empty">{t("Keine Geräte gefunden.")}</td></tr>
                   )}
                 </tbody>
               </table>

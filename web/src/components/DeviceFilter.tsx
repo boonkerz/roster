@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
+import { usePref } from "../prefs";
 import type { Device } from "../types";
 
 export interface FCond { field: string; op: string; value: string; }
@@ -46,15 +47,13 @@ export function evalFilter(d: Device, f: DFilter): boolean {
   return f.match === "any" ? f.conditions.some(test) : f.conditions.every(test);
 }
 
-const STORE_KEY = "roster-saved-filters";
 interface Saved { name: string; filter: DFilter; }
-function loadSaved(): Saved[] { try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { return []; } }
-function storeSaved(s: Saved[]) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
 
 // DeviceFilter ist ein Builder für eigene, benannte Geräte-Filter (clientseitig).
 export function DeviceFilter({ value, onChange, checks = [] }: { value: DFilter; onChange: (f: DFilter) => void; checks?: CheckOption[] }) {
   const { t } = useI18n();
-  const [saved, setSaved] = useState<Saved[]>(loadSaved);
+  // Gespeicherte Filter liegen im Benutzerkonto (früher nur im localStorage – wird übernommen).
+  const [saved, setSaved] = usePref<Saved[]>("devices.saved_filters", [], "roster-saved-filters");
   const [name, setName] = useState("");
 
   const setCond = (i: number, c: Partial<FCond>) =>
@@ -65,9 +64,9 @@ export function DeviceFilter({ value, onChange, checks = [] }: { value: DFilter;
   const save = () => {
     if (!name.trim()) return;
     const next = [...saved.filter((s) => s.name !== name.trim()), { name: name.trim(), filter: value }];
-    setSaved(next); storeSaved(next); setName("");
+    setSaved(next); setName("");
   };
-  const del = (n: string) => { const next = saved.filter((s) => s.name !== n); setSaved(next); storeSaved(next); };
+  const del = (n: string) => setSaved(saved.filter((s) => s.name !== n));
 
   return (
     <div className="card filter-builder">

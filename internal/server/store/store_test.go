@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -1338,5 +1339,43 @@ func TestProxmoxStoragesRoundTrip(t *testing.T) {
 	got, _ = st.GetDevice(ctx, dev.ID)
 	if len(got.ProxmoxStorages) != 0 {
 		t.Errorf("Speicher hätten geleert werden müssen: %+v", got.ProxmoxStorages)
+	}
+}
+
+func TestUserPrefs(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	u := &model.User{ID: store.NewID(), Username: "pref", Role: model.RoleAdmin, AuthSource: model.AuthLocal, PasswordHash: "x"}
+	if err := st.CreateUser(ctx, u); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if p, err := st.UserPrefs(ctx, u.ID); err != nil || len(p) != 0 {
+		t.Fatalf("leer erwartet: %v / %v", err, p)
+	}
+	if err := st.SetUserPref(ctx, u.ID, "devices.columns", json.RawMessage(`["hostname","os"]`)); err != nil {
+		t.Fatalf("SetUserPref: %v", err)
+	}
+	if err := st.SetUserPref(ctx, u.ID, "devices.columns", json.RawMessage(`["hostname"]`)); err != nil {
+		t.Fatalf("SetUserPref (update): %v", err)
+	}
+	if err := st.SetUserPref(ctx, u.ID, "export.off", json.RawMessage(`{"a":1}`)); err != nil {
+		t.Fatalf("SetUserPref 2: %v", err)
+	}
+	p, err := st.UserPrefs(ctx, u.ID)
+	if err != nil || len(p) != 2 || string(p["devices.columns"]) != `["hostname"]` || string(p["export.off"]) != `{"a":1}` {
+		t.Fatalf("UserPrefs: %v / %v", err, p)
+	}
+	if err := st.DeleteUserPref(ctx, u.ID, "export.off"); err != nil {
+		t.Fatalf("DeleteUserPref: %v", err)
+	}
+	if p, _ := st.UserPrefs(ctx, u.ID); len(p) != 1 {
+		t.Fatalf("nach Löschen 1 erwartet: %v", p)
+	}
+	// Benutzer löschen räumt die Einstellungen mit auf (FK CASCADE).
+	if err := st.DeleteUser(ctx, u.ID); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+	if p, _ := st.UserPrefs(ctx, u.ID); len(p) != 0 {
+		t.Fatalf("nach DeleteUser leer erwartet: %v", p)
 	}
 }
