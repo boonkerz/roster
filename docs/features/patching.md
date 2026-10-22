@@ -32,6 +32,12 @@ becomes three clicks:
 Only managed, non-revoked devices can be ticked, and the server re-checks the selection
 against your data scope.
 
+The same bar has an **Export (CSV)** button: it downloads the ticked devices as a
+semicolon-separated, UTF-8 CSV that Excel opens directly — hostname, status, company,
+site, OS, vendor/model/serial, CPU, RAM, IPs, MACs, logged-in users, agent version,
+update/check/task/CVE counts, last seen — plus **one column per custom field** that is
+set on at least one of the exported devices (lists joined with commas, checkboxes as yes/no).
+
 ## Tags & smart groups
 
 Free-form **tags** plus **rule-based smart groups** — dynamic membership from expressions

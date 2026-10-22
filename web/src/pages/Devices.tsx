@@ -11,36 +11,10 @@ import { CopyText } from "../components/CopyText";
 import { DeviceFilter, evalFilter, DFilter, CheckOption } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
+import { devicesCSV, downloadText, EntityFieldValue } from "../export";
+import { primaryIPv4, formatBytes } from "../devutil";
 
-// isPrivateIPv4 erkennt interne Adressen (RFC1918, Link-Local, Loopback, CGNAT).
-function isPrivateIPv4(ip: string): boolean {
-  const p = ip.split(".").map(Number);
-  if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
-  const [a, b] = p;
-  if (a === 10 || a === 127) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true; // Link-Local
-  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-  return false;
-}
-
-// primaryIPv4 liefert bevorzugt die erste öffentliche (nicht-interne) IPv4,
-// sonst die erste interne. Schnittstellen können mehrere IPs (komma-getrennt) haben.
-export function primaryIPv4(d: Device): string {
-  const all: string[] = [];
-  for (const i of d.interfaces ?? []) {
-    if (!i.ipv4) continue;
-    for (const ip of i.ipv4.split(",").map((s) => s.trim()).filter(Boolean)) all.push(ip);
-  }
-  return all.find((ip) => !isPrivateIPv4(ip)) ?? all[0] ?? "—";
-}
-
-export function formatBytes(n: number): string {
-  if (!n) return "—";
-  const gb = n / 1024 ** 3;
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(0)} MB`;
-}
+export { primaryIPv4, formatBytes } from "../devutil";
 
 function matchesOrg(d: Device, f: OrgFilter): boolean {
   switch (f.kind) {
@@ -202,6 +176,27 @@ export function Devices() {
     },
     onError: (e) => setBulkMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") }),
   });
+  // Export der markierten Geräte als CSV – Stammdaten aus der Liste plus die
+  // benutzerdefinierten Felder (Sammelabruf), eine Spalte je gesetztem Feld.
+  const [exporting, setExporting] = useState(false);
+  const exportSelected = async () => {
+    setBulkMsg(null);
+    setExporting(true);
+    try {
+      let fields: EntityFieldValue[] = [];
+      try {
+        fields = await api.get<EntityFieldValue[]>("/custom-field-values?model=device");
+      } catch { /* älterer Server ohne Sammelabruf: Export ohne Felder */ }
+      const chosen = devices.filter((d) => sel.has(d.id));
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadText(`roster-geraete-${stamp}.csv`, devicesCSV(chosen, fields, t));
+      setBulkMsg({ ok: true, text: t("{n} Gerät(e) als CSV exportiert.", { n: chosen.length }) });
+    } catch (e) {
+      setBulkMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") });
+    } finally {
+      setExporting(false);
+    }
+  };
   const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
     setBulkMsg(null);
     const n = sel.size;
@@ -259,6 +254,7 @@ export function Devices() {
                 <button className="btn sm" disabled={bulk.isPending} onClick={() => runBulk("reboot")}>⟳ {t("Neustart")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("scan-updates")}>{t("Updates prüfen")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("install-updates")}>{t("Updates durchführen")}</button>
+                <button className="btn sm ghost" disabled={exporting} onClick={exportSelected} title={t("Markierte Geräte als CSV-Datei herunterladen (Excel-kompatibel, inkl. benutzerdefinierter Felder)")}>⤓ {t("Export (CSV)")}</button>
                 <button className="btn sm ghost" onClick={() => { setSel(new Set()); setBulkMsg(null); }}>{t("Auswahl aufheben")}</button>
               </>
             )}
