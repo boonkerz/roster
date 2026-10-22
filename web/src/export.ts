@@ -10,6 +10,14 @@ export interface EntityFieldValue {
 
 type Tr = (key: string) => string;
 
+// ExportColumn ist eine wählbare Spalte: stabiler Schlüssel (für die gemerkte
+// Auswahl), Überschrift und Zellwert je Gerät.
+export interface ExportColumn {
+  key: string;
+  label: string;
+  value: (d: Device) => string;
+}
+
 // csvCell maskiert einen Wert für CSV: Anführungszeichen verdoppeln, bei
 // Trennzeichen/Zeilenumbruch/Anführungszeichen in Anführungszeichen setzen.
 export function csvCell(v: string): string {
@@ -29,45 +37,64 @@ export function fieldDisplay(type: string, value: string, t: Tr): string {
   return value;
 }
 
-// devicesCSV baut die Exportdatei: Stammdaten je Gerät plus eine Spalte je
-// benutzerdefiniertem Feld (nur Felder, die bei mindestens einem Gerät gesetzt sind).
-// Semikolon als Trennzeichen, damit Excel (de) die Datei per Doppelklick öffnet.
-export function devicesCSV(devices: Device[], fields: EntityFieldValue[], t: Tr): string {
+const num = (n?: number | null) => (n == null ? "" : String(n));
+
+// baseColumns sind die Stammdaten-Spalten aus der Geräteliste.
+export function baseColumns(t: Tr): ExportColumn[] {
+  return [
+    { key: "hostname", label: "Hostname", value: (d) => d.hostname },
+    { key: "status", label: t("Status"), value: (d) => d.status },
+    { key: "client", label: t("Firma"), value: (d) => d.client_name ?? "" },
+    { key: "site", label: t("Standort"), value: (d) => d.site_name ?? "" },
+    { key: "os", label: t("Betriebssystem"), value: (d) => d.os },
+    { key: "os_version", label: t("Version"), value: (d) => d.os_version },
+    { key: "vendor", label: t("Hersteller"), value: (d) => d.vendor },
+    { key: "model", label: t("Modell"), value: (d) => d.model },
+    { key: "serial", label: t("Seriennummer"), value: (d) => d.serial },
+    { key: "cpu", label: "CPU", value: (d) => d.cpu_model },
+    { key: "cores", label: t("Kerne"), value: (d) => (d.cpu_cores ? String(d.cpu_cores) : "") },
+    { key: "ram", label: "RAM", value: (d) => (d.memory_bytes ? formatBytes(d.memory_bytes) : "") },
+    { key: "ip", label: t("IP-Adresse"), value: (d) => primaryIPv4(d).replace("—", "") },
+    { key: "public_ip", label: t("Öffentliche IP"), value: (d) => d.public_ip ?? "" },
+    { key: "mac", label: "MAC", value: (d) => (d.interfaces ?? []).map((i) => i.mac).filter(Boolean).join(", ") },
+    { key: "users", label: t("Benutzer"), value: (d) => (d.logged_in_users ?? []).join(", ") },
+    { key: "agent", label: t("Agent"), value: (d) => d.agent_version },
+    { key: "updates", label: t("Updates"), value: (d) => num(d.updates_count) },
+    { key: "checks_failing", label: t("Checks fehlerhaft"), value: (d) => String(d.checks_failing ?? 0) },
+    { key: "tasks_failing", label: t("Tasks fehlerhaft"), value: (d) => String(d.tasks_failing ?? 0) },
+    { key: "vulns", label: t("CVE"), value: (d) => String(d.vuln_count ?? 0) },
+    { key: "last_seen", label: t("Zuletzt gesehen"), value: (d) => d.last_seen ?? "" },
+  ];
+}
+
+// fieldColumns liefert eine Spalte je benutzerdefiniertem Feld, das bei mindestens
+// einem der Geräte gesetzt ist (alphabetisch nach Feldname).
+export function fieldColumns(devices: Device[], fields: EntityFieldValue[], t: Tr): ExportColumn[] {
   const ids = new Set(devices.map((d) => d.id));
-  const fieldDefs = new Map<string, { name: string; type: string }>();
+  const defs = new Map<string, { name: string; type: string }>();
   const values = new Map<string, string>(); // deviceID + "\0" + fieldID -> Wert
   for (const v of fields) {
     if (!ids.has(v.entity_id) || v.value === "") continue;
-    fieldDefs.set(v.field.id, { name: v.field.name, type: v.field.type });
+    defs.set(v.field.id, { name: v.field.name, type: v.field.type });
     values.set(v.entity_id + "\0" + v.field.id, v.value);
   }
-  const fieldIDs = [...fieldDefs.keys()].sort((a, b) => fieldDefs.get(a)!.name.localeCompare(fieldDefs.get(b)!.name));
+  return [...defs.entries()]
+    .sort((a, b) => a[1].name.localeCompare(b[1].name))
+    .map(([id, f]) => ({
+      key: "cf:" + id,
+      label: f.name,
+      value: (d) => {
+        const raw = values.get(d.id + "\0" + id);
+        return raw == null ? "" : fieldDisplay(f.type, raw, t);
+      },
+    }));
+}
 
-  const head = [
-    "Hostname", t("Status"), t("Firma"), t("Standort"), t("Betriebssystem"), t("Version"),
-    t("Hersteller"), t("Modell"), t("Seriennummer"), "CPU", t("Kerne"), "RAM",
-    t("IP-Adresse"), t("Öffentliche IP"), "MAC", t("Benutzer"), t("Agent"),
-    t("Updates"), t("Checks fehlerhaft"), t("Tasks fehlerhaft"), t("CVE"), t("Zuletzt gesehen"),
-    ...fieldIDs.map((id) => fieldDefs.get(id)!.name),
-  ];
-  const rows = devices.map((d) => {
-    const macs = (d.interfaces ?? []).map((i) => i.mac).filter(Boolean).join(", ");
-    const base = [
-      d.hostname, d.status, d.client_name ?? "", d.site_name ?? "", d.os, d.os_version,
-      d.vendor, d.model, d.serial, d.cpu_model, d.cpu_cores ? String(d.cpu_cores) : "",
-      d.memory_bytes ? formatBytes(d.memory_bytes) : "",
-      primaryIPv4(d).replace("—", ""), d.public_ip ?? "", macs, (d.logged_in_users ?? []).join(", "), d.agent_version,
-      d.updates_count == null ? "" : String(d.updates_count),
-      String(d.checks_failing ?? 0), String(d.tasks_failing ?? 0), String(d.vuln_count ?? 0),
-      d.last_seen ?? "",
-    ];
-    const extra = fieldIDs.map((id) => {
-      const raw = values.get(d.id + "\0" + id);
-      return raw == null ? "" : fieldDisplay(fieldDefs.get(id)!.type, raw, t);
-    });
-    return [...base, ...extra];
-  });
-  // BOM, damit Excel UTF-8 (Umlaute) erkennt.
+// devicesCSV baut die Exportdatei aus den gewählten Spalten. Semikolon als
+// Trennzeichen und BOM, damit Excel (de) die Datei per Doppelklick samt Umlauten öffnet.
+export function devicesCSV(devices: Device[], columns: ExportColumn[]): string {
+  const head = columns.map((c) => c.label);
+  const rows = devices.map((d) => columns.map((c) => c.value(d)));
   return "﻿" + [head, ...rows].map((r) => r.map(csvCell).join(";")).join("\r\n") + "\r\n";
 }
 

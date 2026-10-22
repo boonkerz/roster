@@ -11,7 +11,7 @@ import { CopyText } from "../components/CopyText";
 import { DeviceFilter, evalFilter, DFilter, CheckOption } from "../components/DeviceFilter";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
-import { devicesCSV, downloadText, EntityFieldValue } from "../export";
+import { ExportDialog } from "../components/ExportDialog";
 import { primaryIPv4, formatBytes } from "../devutil";
 
 export { primaryIPv4, formatBytes } from "../devutil";
@@ -176,27 +176,8 @@ export function Devices() {
     },
     onError: (e) => setBulkMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") }),
   });
-  // Export der markierten Geräte als CSV – Stammdaten aus der Liste plus die
-  // benutzerdefinierten Felder (Sammelabruf), eine Spalte je gesetztem Feld.
-  const [exporting, setExporting] = useState(false);
-  const exportSelected = async () => {
-    setBulkMsg(null);
-    setExporting(true);
-    try {
-      let fields: EntityFieldValue[] = [];
-      try {
-        fields = await api.get<EntityFieldValue[]>("/custom-field-values?model=device");
-      } catch { /* älterer Server ohne Sammelabruf: Export ohne Felder */ }
-      const chosen = devices.filter((d) => sel.has(d.id));
-      const stamp = new Date().toISOString().slice(0, 10);
-      downloadText(`roster-geraete-${stamp}.csv`, devicesCSV(chosen, fields, t));
-      setBulkMsg({ ok: true, text: t("{n} Gerät(e) als CSV exportiert.", { n: chosen.length }) });
-    } catch (e) {
-      setBulkMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") });
-    } finally {
-      setExporting(false);
-    }
-  };
+  // Export der markierten Geräte als CSV: Dialog mit Spaltenauswahl.
+  const [exportOpen, setExportOpen] = useState(false);
   const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
     setBulkMsg(null);
     const n = sel.size;
@@ -254,7 +235,7 @@ export function Devices() {
                 <button className="btn sm" disabled={bulk.isPending} onClick={() => runBulk("reboot")}>⟳ {t("Neustart")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("scan-updates")}>{t("Updates prüfen")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("install-updates")}>{t("Updates durchführen")}</button>
-                <button className="btn sm ghost" disabled={exporting} onClick={exportSelected} title={t("Markierte Geräte als CSV-Datei herunterladen (Excel-kompatibel, inkl. benutzerdefinierter Felder)")}>⤓ {t("Export (CSV)")}</button>
+                <button className="btn sm ghost" onClick={() => { setBulkMsg(null); setExportOpen(true); }} title={t("Markierte Geräte als CSV-Datei herunterladen (Excel-kompatibel, inkl. benutzerdefinierter Felder)")}>⤓ {t("Export (CSV)")}</button>
                 <button className="btn sm ghost" onClick={() => { setSel(new Set()); setBulkMsg(null); }}>{t("Auswahl aufheben")}</button>
               </>
             )}
@@ -264,6 +245,10 @@ export function Devices() {
         )}
 
         {showAdd && <AddComputerDialog onClose={() => setShowAdd(false)} />}
+        {exportOpen && (
+          <ExportDialog devices={devices.filter((d) => sel.has(d.id))} onClose={() => setExportOpen(false)}
+            onDone={(n) => { setExportOpen(false); setBulkMsg({ ok: true, text: t("{n} Gerät(e) als CSV exportiert.", { n }) }); }} />
+        )}
         {isLoading && <div className="muted">{t("Lädt…")}</div>}
         {error && <div className="form-error">{t("Fehler beim Laden.")}</div>}
 
