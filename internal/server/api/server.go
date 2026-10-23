@@ -138,6 +138,8 @@ func (s *Server) routes() http.Handler {
 
 					// --- Übersicht (page.dashboard) ---
 					r.With(s.requirePerm(model.PermDashboard)).Get("/dashboard", s.handleDashboard)
+					r.With(s.requirePerm(model.PermDashboard)).Get("/dashboard/stats/sources", s.handleStatSources)
+					r.With(s.requirePerm(model.PermDashboard)).Get("/dashboard/stats", s.handleStats)
 
 					// --- Geräte lesen (page.devices) ---
 					r.Group(func(r chi.Router) {

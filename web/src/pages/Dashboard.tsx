@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { DashboardSummary } from "../types";
 import { CheckStatusBadge, relTime } from "../components/StatusBadge";
 import { useI18n } from "../i18n";
+import { DashWidgets } from "../components/DashWidgets";
 
 // Tile ist eine Kennzahl-Kachel; klickbar führt sie z.B. zur Geräteliste.
 function Tile({ label, value, sub, tone, onClick }: {
@@ -61,6 +62,8 @@ export function Dashboard() {
         <Tile label={t("Ausstehende Patches")} value={data.pending_patches} sub={t("{n} Gerät(e)", { n: data.devices_with_pending_patches })} tone={data.pending_patches > 0 ? "warn" : "ok"} onClick={() => nav("/devices")} />
         <Tile label={t("Schwachstellen")} value={data.vulnerabilities} sub={t("{n} Gerät(e)", { n: data.devices_with_vulns })} tone={data.vulnerabilities > 0 ? "bad" : "ok"} onClick={() => nav("/devices?filter=vulns")} />
       </div>
+
+      <DashWidgets />
 
       <div className="grid-2" style={{ marginTop: 18 }}>
         <section className="card">

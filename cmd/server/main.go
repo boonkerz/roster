@@ -136,6 +136,7 @@ func (p *program) Start(s service.Service) error {
 	go srv.RunOfflineLoop(context.Background())
 	go srv.RunBackupLoop(context.Background())
 	go p.cveScanLoop()
+	go p.statsLoop(srv)
 
 	go p.serve(cfg)
 	return nil
@@ -213,12 +214,33 @@ func (p *program) pruneLoop(retention time.Duration) {
 		// Backup-Läufe wie die übrige Historie aufräumen (Ausgabe steht in der Zeile,
 		// nicht im Befehl – der wird früher gelöscht).
 		_ = p.st.PruneBackupRuns(ctx, retention)
+		// Dashboard-Statistik (stündliche Snapshots) ein Jahr aufbewahren.
+		_ = p.st.PruneStats(ctx, 365*24*time.Hour)
 	}
 	prune()
 	t := time.NewTicker(6 * time.Hour)
 	defer t.Stop()
 	for range t.C {
 		prune()
+	}
+}
+
+// statsLoop schreibt die Dashboard-Statistik: kurz nach dem Start einmal, danach zu
+// jeder vollen Stunde (ein Snapshot je Stunde – Wiederholungen ersetzen ihn).
+func (p *program) statsLoop(srv *api.Server) {
+	snap := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if err := srv.SnapshotStats(ctx); err != nil {
+			p.log.Warn("statistik-snapshot fehlgeschlagen", "err", err)
+		}
+	}
+	time.Sleep(time.Minute)
+	snap()
+	for {
+		next := time.Now().Truncate(time.Hour).Add(time.Hour)
+		time.Sleep(time.Until(next) + 5*time.Second)
+		snap()
 	}
 }
 

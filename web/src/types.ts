@@ -605,3 +605,20 @@ export interface GeneralSettings {
   server_now?: string;  // aktuelle Zeit in der wirksamen Zone (nur lesend)
   effective?: string;   // tatsächlich verwendete Zone
 }
+
+// --- Dashboard-Diagramme (konfigurierbar, im Benutzerkonto gespeichert) ---
+export type StatSourceKind = "summary" | "check" | "field";
+export interface StatSource { id: string; name: string; type?: string }
+export interface StatSources { summary: string[]; checks: StatSource[]; fields: StatSource[] }
+export interface StatPoint { ts: number; label: string; value: number }
+export interface StatsResponse { current: { label: string; value: number }[]; history?: StatPoint[] }
+export type DashChart = "bar" | "donut" | "line";
+export type DashRange = "24h" | "7d" | "30d" | "90d" | "365d";
+export interface DashWidget {
+  id: string;
+  title: string;          // leer = Name der Quelle
+  source: StatSourceKind;
+  key: string;            // Kennzahl, Check-ID oder Feld-ID
+  chart: DashChart;
+  range: DashRange;       // nur für Verlauf
+}

@@ -54,6 +54,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Features:
+      - Dashboard: features/dashboard.md
       - Inventory: features/inventory.md
       - Checks & tasks: features/checks-tasks.md
       - Remote desktop & terminal: features/remote.md

@@ -8,6 +8,10 @@
 /* Dark-Theme (Default, auch ohne data-theme aktiv) */
 :root,
 :root[data-theme="dark"] {
+  --viz-status-ok: #34c759; --viz-status-warn: #ff9f0a; --viz-status-bad: #ff453a; --viz-status-unknown: #6b7280;
+  /* Diagramm-Reihen (kategorisch, feste Reihenfolge; auf dunkler Fläche geprüft) */
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
   --bg: #0f1117;
   --surface: #171a23;
   --surface-2: #1e222e;
@@ -24,6 +28,10 @@
 
 /* Light-Theme */
 :root[data-theme="light"] {
+  --viz-status-ok: #1f9d4d; --viz-status-warn: #c77700; --viz-status-bad: #d03b3b; --viz-status-unknown: #6b7280;
+  /* Diagramm-Reihen (kategorisch, feste Reihenfolge; auf heller Fläche geprüft) */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
   --bg: #f4f5f8;
   --surface: #ffffff;
   --surface-2: #eef0f5;
@@ -525,3 +533,33 @@ label input, label select { color: var(--text); }
 .scope-client-hint { color: var(--muted); font-size: 12px; }
 .scope-sites { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0 12px; padding-left: 14px; border-left: 2px solid var(--border); }
 .scope-sites .scope-empty { color: var(--muted); font-size: 12.5px; }
+
+/* --- Dashboard: eigene Diagramme --- */
+.dash-widgets-head { display: flex; align-items: baseline; gap: 12px; margin-top: 26px; margin-bottom: 10px; flex-wrap: wrap; }
+.dash-widgets-head h2 { margin: 0; font-size: 17px; }
+.dash-widgets { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.dash-widget-slot { position: relative; }
+.dash-widget { height: 100%; }
+.dash-widget-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.dash-widget-head .spacer, .dash-widgets-head .spacer { flex: 1; }
+.dash-widget-head h2 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-widget-move { position: absolute; right: 14px; bottom: 10px; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.dash-widget-slot:hover .dash-widget-move { opacity: 1; }
+.dash-widget-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.viz-wrap { position: relative; }
+.viz-svg { width: 100%; display: block; }
+.viz-label { fill: var(--text); font-size: 12px; }
+.viz-value { fill: var(--muted); font-size: 12px; }
+.viz-axis { fill: var(--muted); font-size: 10.5px; }
+.viz-grid { stroke: var(--border); stroke-width: 1; }
+.viz-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.viz-center { fill: var(--text); font-size: 20px; font-weight: 650; }
+.viz-center-sub { fill: var(--muted); font-size: 11px; }
+.viz-empty { padding: 18px 0; }
+.viz-donut { display: flex; align-items: center; gap: 20px; }
+.viz-donut .donut-legend { width: auto; min-width: 0; flex: 1; }
+.viz-legend { margin-top: 8px; flex-direction: row !important; flex-wrap: wrap; gap: 4px 14px !important; }
+.viz-legend li .small { margin-left: 4px !important; padding-left: 0 !important; }
+.viz-tip { position: absolute; top: 0; transform: translateX(8px); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; pointer-events: none; z-index: 5; min-width: 150px; }
+.viz-tip-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+.viz-tip-row span:last-child { margin-left: auto; padding-left: 10px; font-variant-numeric: tabular-nums; }

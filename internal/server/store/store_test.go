@@ -1379,3 +1379,77 @@ func TestUserPrefs(t *testing.T) {
 		t.Fatalf("nach DeleteUser leer erwartet: %v", p)
 	}
 }
+
+func TestStatSamples(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pc", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	// AllCheckStatuses liefert nur Ergebnisse zu Checks, die es noch gibt.
+	pol := &model.Policy{Name: "p"}
+	if err := st.CreatePolicy(ctx, pol); err != nil {
+		t.Fatalf("CreatePolicy: %v", err)
+	}
+	chk := &model.PolicyCheck{PolicyID: pol.ID, Name: "disk", Type: "disk", Config: map[string]any{}}
+	if err := st.AddCheck(ctx, chk); err != nil {
+		t.Fatalf("AddCheck: %v", err)
+	}
+	if _, err := st.SaveCheckResults(ctx, dev.ID, []shared.CheckResult{{CheckID: chk.ID, Status: "failing"}, {CheckID: "verwaist", Status: "passing"}}); err != nil {
+		t.Fatalf("SaveCheckResults: %v", err)
+	}
+	cs, err := st.AllCheckStatuses(ctx)
+	if err != nil {
+		t.Fatalf("AllCheckStatuses: %v", err)
+	}
+	if len(cs) != 1 || cs[0].CheckID != chk.ID || cs[0].Status != "failing" || cs[0].DeviceID != dev.ID {
+		t.Fatalf("erwartete genau den Disk-Check als failing, bekam %+v", cs)
+	}
+
+	// Snapshots: zwei Standorte, Ersetzen derselben Stunde, Summe im Scope, Pruning.
+	ts1, ts2 := int64(1_700_000_000_000), int64(1_700_003_600_000)
+	write := func(ts int64, s []store.StatSample) {
+		if err := st.ReplaceStatSamples(ctx, ts, s); err != nil {
+			t.Fatalf("ReplaceStatSamples: %v", err)
+		}
+	}
+	write(ts1, []store.StatSample{{SiteID: "a", Kind: "field", Key: "f", Label: "1.0", Value: 99}})
+	write(ts1, []store.StatSample{
+		{SiteID: "a", Kind: "field", Key: "f", Label: "1.0", Value: 2},
+		{SiteID: "b", Kind: "field", Key: "f", Label: "1.0", Value: 3},
+		{SiteID: "b", Kind: "field", Key: "f", Label: "2.0", Value: 1},
+		{SiteID: "a", Kind: "summary", Key: "devices_total", Label: "", Value: 2},
+	})
+	write(ts2, []store.StatSample{{SiteID: "a", Kind: "field", Key: "f", Label: "1.0", Value: 4}})
+
+	all, err := st.StatHistory(ctx, "field", "f", 0, nil)
+	if err != nil {
+		t.Fatalf("StatHistory: %v", err)
+	}
+	want := []store.StatPoint{{TS: ts1, Label: "1.0", Value: 5}, {TS: ts1, Label: "2.0", Value: 1}, {TS: ts2, Label: "1.0", Value: 4}}
+	if len(all) != len(want) {
+		t.Fatalf("erwartete %d Punkte, bekam %+v", len(want), all)
+	}
+	for i := range want {
+		if all[i] != want[i] {
+			t.Fatalf("punkt %d: erwartete %+v, bekam %+v", i, want[i], all[i])
+		}
+	}
+	onlyA, err := st.StatHistory(ctx, "field", "f", ts2, map[string]bool{"a": true})
+	if err != nil {
+		t.Fatalf("StatHistory(a): %v", err)
+	}
+	if len(onlyA) != 1 || onlyA[0].Value != 4 {
+		t.Fatalf("erwartete nur Standort a ab ts2, bekam %+v", onlyA)
+	}
+	if none, _ := st.StatHistory(ctx, "field", "f", 0, map[string]bool{}); len(none) != 0 {
+		t.Fatalf("leerer Scope muss leer liefern, bekam %+v", none)
+	}
+	if err := st.PruneStats(ctx, time.Hour); err != nil {
+		t.Fatalf("PruneStats: %v", err)
+	}
+	if rest, _ := st.StatHistory(ctx, "field", "f", 0, nil); len(rest) != 0 {
+		t.Fatalf("alte Samples müssen weg sein, bekam %+v", rest)
+	}
+}
