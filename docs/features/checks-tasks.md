@@ -24,6 +24,15 @@ Each check has its own frequency, severity, output comparison and platform targe
 Failing checks surface as a health badge in the device list and drive **alerting** and
 **self-healing**.
 
+### Check history
+
+Click a check's name on the device page to open its history: the measured value
+(disk %, ping ms, temperature °C, HTTP status, script number, …) as a line, with the
+status per time window as a colored strip below it. Ranges from 1 hour to 30 days;
+the raw resolution is the agent's check-in interval (every check-in adds one point),
+longer ranges are averaged per window and show the worst status in it. Samples are
+kept for 10 days by default (`ROSTER_CHECK_HISTORY_DAYS`).
+
 ## Tasks
 
 Scheduled scripts with a frequency (interval / daily / weekly / …), keeping the last run

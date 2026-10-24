@@ -130,7 +130,7 @@ func (p *program) Start(s service.Service) error {
 	}
 
 	if cfg.ResultRetention > 0 {
-		go p.pruneLoop(cfg.ResultRetention)
+		go p.pruneLoop(cfg.ResultRetention, cfg.CheckHistoryRetention)
 	}
 	go srv.RunReportLoop(context.Background())
 	go srv.RunOfflineLoop(context.Background())
@@ -196,7 +196,7 @@ func (p *program) cveScanLoop() {
 
 // pruneLoop löscht periodisch die Task-/Befehls-Historie, die älter als die
 // Aufbewahrungsdauer ist (einmal beim Start, danach alle 6 Stunden).
-func (p *program) pruneLoop(retention time.Duration) {
+func (p *program) pruneLoop(retention, checkHistory time.Duration) {
 	prune := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
@@ -216,6 +216,8 @@ func (p *program) pruneLoop(retention time.Duration) {
 		_ = p.st.PruneBackupRuns(ctx, retention)
 		// Dashboard-Statistik (stündliche Snapshots) ein Jahr aufbewahren.
 		_ = p.st.PruneStats(ctx, 365*24*time.Hour)
+		// Check-Verlauf (ein Punkt je Check und Checkin) nach eigener Aufbewahrung.
+		_ = p.st.PruneCheckSamples(ctx, checkHistory)
 	}
 	prune()
 	t := time.NewTicker(6 * time.Hour)

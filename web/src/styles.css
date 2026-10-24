@@ -568,3 +568,8 @@ label input, label select { color: var(--text); }
 .viz-tip { position: absolute; top: 0; transform: translateX(8px); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; pointer-events: none; z-index: 5; min-width: 150px; }
 .viz-tip-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
 .viz-tip-row span:last-child { margin-left: auto; padding-left: 10px; font-variant-numeric: tabular-nums; }
+
+/* Check-Verlauf (Dialog aus der Check-Liste) */
+.check-hist-now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.check-hist-now .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+.check-strip { display: block; width: 100%; height: 18px; border-radius: 4px; }

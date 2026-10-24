@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 export interface Datum { label: string; value: number; color?: string }
 export interface Series { label: string; color?: string; points: { ts: number; value: number }[] }
+// Band: farbiger Abschnitt unter der Zeitachse (z. B. Check-Status je Zeitfenster).
+export interface Band { from: number; to: number; color: string; label: string }
 
 export const seriesColor = (i: number) => `var(--series-${(i % 8) + 1})`;
 export const fmtNum = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
@@ -102,18 +104,20 @@ export function DonutChart({ data, empty }: { data: Datum[]; empty: string }) {
 }
 
 // LineChart: Verlauf mehrerer Reihen über eine gemeinsame Zeitachse, mit Fadenkreuz-Tooltip.
-export function LineChart({ series, from, to, empty, legend }: { series: Series[]; from: number; to: number; empty: string; legend?: boolean }) {
+export function LineChart({ series, from, to, empty, legend, bands, unit }: { series: Series[]; from: number; to: number; empty: string; legend?: boolean; bands?: Band[]; unit?: string }) {
   const [hoverTs, setHoverTs] = useState<number | null>(null);
   const [ref, w] = useWidth();
-  const h = 190, padL = 38, padR = 10, padT = 8, padB = 22;
+  const bandH = bands && bands.length > 0 ? 10 : 0;
+  const h = 190 + bandH, padL = 44, padR = 10, padT = 8, padB = 22 + bandH;
   const allTs = useMemo(() => Array.from(new Set(series.flatMap((s) => s.points.map((p) => p.ts)))).sort((a, b) => a - b), [series]);
-  if (series.length === 0 || allTs.length === 0) return <p className="muted small viz-empty">{empty}</p>;
+  if ((series.length === 0 || allTs.length === 0) && !bandH) return <p className="muted small viz-empty">{empty}</p>;
   const max = Math.max(1, ...series.flatMap((s) => s.points.map((p) => p.value)));
   const niceMax = niceCeil(max);
   const x = (ts: number) => padL + ((ts - from) / Math.max(to - from, 1)) * (w - padL - padR);
   const y = (v: number) => padT + (1 - v / niceMax) * (h - padT - padB);
   // Achsenwerte bleiben ganzzahlig (es sind Anzahlen): bei Maximum 1 nur 0 und 1.
-  const ticks = niceMax < 2 ? [0, niceMax] : [0, Math.round(niceMax / 2), niceMax];
+  const ticks = niceMax < 2 ? [0, niceMax] : [0, niceMax / 2, niceMax];
+  const fmtTick = (v: number) => fmtNum(v) + (unit ? ` ${unit}` : "");
   const span = to - from;
   const fmtTs = (ts: number) => {
     const d = new Date(ts);
@@ -123,23 +127,31 @@ export function LineChart({ series, from, to, empty, legend }: { series: Series[
     const rect = e.currentTarget.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width) * w;
     const ts = from + ((px - padL) / (w - padL - padR)) * span;
+    if (allTs.length === 0) { setHoverTs(Math.round(ts)); return; }
     let best = allTs[0];
     for (const t of allTs) if (Math.abs(t - ts) < Math.abs(best - ts)) best = t;
     setHoverTs(best);
   };
   const hoverVals = hoverTs === null ? [] : series.map((s) => ({ s, v: s.points.find((p) => p.ts === hoverTs)?.value }));
   const tipX = hoverTs === null ? 0 : (x(hoverTs) / w) * 100;
+  const hoverBand = hoverTs === null ? undefined : bands?.find((b) => hoverTs >= b.from && hoverTs < b.to);
+  const bandY = h - padB + 4;
   return (
     <div className="viz-wrap" ref={ref}>
       <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="viz-svg" role="img" onMouseMove={onMove} onMouseLeave={() => setHoverTs(null)}>
         {ticks.map((tv) => (
           <g key={tv}>
             <line x1={padL} x2={w - padR} y1={y(tv)} y2={y(tv)} className="viz-grid" />
-            <text x={padL - 6} y={y(tv) + 4} textAnchor="end" className="viz-axis">{fmtNum(tv)}</text>
+            <text x={padL - 6} y={y(tv) + 4} textAnchor="end" className="viz-axis">{fmtTick(tv)}</text>
           </g>
         ))}
         {[from, from + span / 2, to].map((ts, i) => (
           <text key={i} x={x(ts)} y={h - 6} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"} className="viz-axis">{fmtTs(ts)}</text>
+        ))}
+        {bands?.map((b, i) => (
+          <rect key={i} x={x(Math.max(b.from, from))} y={bandY} width={Math.max(1, x(Math.min(b.to, to)) - x(Math.max(b.from, from)))} height={6} rx={1} fill={b.color}>
+            <title>{b.label}</title>
+          </rect>
         ))}
         {series.map((s, i) => {
           const pts = [...s.points].sort((a, b) => a.ts - b.ts);
@@ -165,9 +177,15 @@ export function LineChart({ series, from, to, empty, legend }: { series: Series[
             <div key={s.label} className="viz-tip-row">
               <span className="donut-swatch" style={{ background: s.color ?? seriesColor(i) }} />
               <span className="donut-leg-name">{s.label}</span>
-              <span>{v === undefined ? "–" : fmtNum(v)}</span>
+              <span>{v === undefined ? "–" : fmtTick(v)}</span>
             </div>
           ))}
+          {hoverBand && (
+            <div className="viz-tip-row">
+              <span className="donut-swatch" style={{ background: hoverBand.color }} />
+              <span className="donut-leg-name">{hoverBand.label}</span>
+            </div>
+          )}
         </Tooltip>
       )}
       {(legend ?? series.length > 1) && (

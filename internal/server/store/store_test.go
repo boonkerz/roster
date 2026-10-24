@@ -1453,3 +1453,47 @@ func TestStatSamples(t *testing.T) {
 		t.Fatalf("alte Samples müssen weg sein, bekam %+v", rest)
 	}
 }
+
+func TestCheckHistory(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pc", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	// Drei Checkins: jedes Ergebnis landet im Verlauf, nicht nur Statuswechsel.
+	for _, r := range []shared.CheckResult{{CheckID: "c1", Status: "passing", Value: 40}, {CheckID: "c1", Status: "passing", Value: 60}, {CheckID: "c1", Status: "failing", Value: 95}} {
+		if _, err := st.SaveCheckResults(ctx, dev.ID, []shared.CheckResult{r}); err != nil {
+			t.Fatalf("SaveCheckResults: %v", err)
+		}
+	}
+	// Alles in einem großen Fenster: Mittel/Min/Max und schlechtester Status.
+	pts, err := st.CheckHistory(ctx, dev.ID, "c1", 0, 24*3600*1000)
+	if err != nil {
+		t.Fatalf("CheckHistory: %v", err)
+	}
+	if len(pts) != 1 || pts[0].N != 3 || pts[0].Min != 40 || pts[0].Max != 95 || pts[0].Value != 65 || pts[0].Status != "failing" {
+		t.Fatalf("unerwartete Zusammenfassung: %+v", pts)
+	}
+	// Anderer Check / Zeitraum in der Zukunft: leer.
+	if pts, _ := st.CheckHistory(ctx, dev.ID, "c2", 0, 0); len(pts) != 0 {
+		t.Fatalf("erwartete keine Punkte für c2, bekam %+v", pts)
+	}
+	if pts, _ := st.CheckHistory(ctx, dev.ID, "c1", time.Now().Add(time.Hour).UnixMilli(), 0); len(pts) != 0 {
+		t.Fatalf("erwartete keine Punkte in der Zukunft, bekam %+v", pts)
+	}
+	// Aufräumen: Retention greift, 0 lässt alles stehen.
+	if err := st.PruneCheckSamples(ctx, 0); err != nil {
+		t.Fatalf("PruneCheckSamples(0): %v", err)
+	}
+	if pts, _ := st.CheckHistory(ctx, dev.ID, "c1", 0, 0); len(pts) == 0 {
+		t.Fatal("Retention 0 darf nichts löschen")
+	}
+	time.Sleep(5 * time.Millisecond) // Samples liegen in Millisekunden – der Cutoff muss dahinter liegen
+	if err := st.PruneCheckSamples(ctx, time.Nanosecond); err != nil {
+		t.Fatalf("PruneCheckSamples: %v", err)
+	}
+	if pts, _ := st.CheckHistory(ctx, dev.ID, "c1", 0, 0); len(pts) != 0 {
+		t.Fatalf("erwartete leeren Verlauf nach Prune, bekam %+v", pts)
+	}
+}

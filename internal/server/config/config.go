@@ -49,20 +49,24 @@ type Config struct {
 	// ResultRetention: Aufbewahrungsdauer der Task-/Befehls-Historie; ältere Läufe
 	// werden periodisch gelöscht (0 = nie löschen). Default 30 Tage.
 	ResultRetention time.Duration `yaml:"result_retention"`
+	// CheckHistoryRetention: Aufbewahrungsdauer des Check-Verlaufs (ein Punkt je
+	// Check und Checkin, für Verlaufsdiagramme). Default 10 Tage, 0 = nie löschen.
+	CheckHistoryRetention time.Duration `yaml:"check_history_retention"`
 }
 
 // Default liefert eine sinnvolle Basiskonfiguration.
 func Default() Config {
 	return Config{
-		Addr:              ":8443",
-		DatabaseURL:       "sqlite://./inventory.db",
-		CheckinInterval:   5 * time.Minute,
-		OfflineAfter:      0, // 0 => abgeleitet aus CheckinInterval
-		SeedAdminUser:     "admin",
-		SeedAdminPassword: "",
-		SecureCookie:      true,
-		Require2FA:        true,
-		ResultRetention:   30 * 24 * time.Hour,
+		Addr:                  ":8443",
+		DatabaseURL:           "sqlite://./inventory.db",
+		CheckinInterval:       5 * time.Minute,
+		OfflineAfter:          0, // 0 => abgeleitet aus CheckinInterval
+		SeedAdminUser:         "admin",
+		SeedAdminPassword:     "",
+		SecureCookie:          true,
+		Require2FA:            true,
+		ResultRetention:       30 * 24 * time.Hour,
+		CheckHistoryRetention: 10 * 24 * time.Hour,
 	}
 }
 
@@ -160,6 +164,11 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("ROSTER_RESULT_RETENTION_DAYS"); v != "" {
 		if d, err := strconv.Atoi(v); err == nil && d >= 0 {
 			cfg.ResultRetention = time.Duration(d) * 24 * time.Hour
+		}
+	}
+	if v := os.Getenv("ROSTER_CHECK_HISTORY_DAYS"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d >= 0 {
+			cfg.CheckHistoryRetention = time.Duration(d) * 24 * time.Hour
 		}
 	}
 }

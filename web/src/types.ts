@@ -377,6 +377,10 @@ export interface CheckResult {
   type?: string;
 }
 
+// Verlauf eines Checks am Gerät (ein Punkt je Checkin bzw. je Zeitfenster).
+export interface CheckHistoryPoint { ts: number; value: number; min: number; max: number; status: string; n: number }
+export interface CheckHistoryResponse { from: number; to: number; bucket_ms: number; points: CheckHistoryPoint[] }
+
 export interface TaskResult {
   id: string;
   task_id: string;

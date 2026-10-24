@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import type { Device, Group, ClientTree, Script, CheckEvent, TaskResult, SoftwareEvent } from "../types";
+import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent } from "../types";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
@@ -18,6 +18,7 @@ import { BackupRuns } from "./BackupRuns";
 import { CopyText } from "./CopyText";
 import { LiveMetrics } from "./LiveMetrics";
 import { MetricsHistory } from "./MetricsHistory";
+import { CheckHistoryDialog } from "./CheckHistory";
 import { tempStatus } from "../temperature";
 import { fanProblem } from "../types";
 import { Vulnerabilities } from "./Vulnerabilities";
@@ -52,6 +53,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const [swFilter, setSwFilter] = useState("");
   const [runScriptId, setRunScriptId] = useState("");
+  const [histCheck, setHistCheck] = useState<CheckResult | null>(null);
   const [aptMode, setAptMode] = useState<"full" | "safe">("full");
   const [notes, setNotes] = useState<string | null>(null); // null = noch nicht bearbeitet
 
@@ -388,7 +390,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                   {device.check_results!.map((c) => (
                     <tr key={c.check_id}>
                       <td><CheckStatusBadge status={c.status} /></td>
-                      <td>{c.name || c.type}</td>
+                      <td><button className="btn-link" title={t("Verlauf anzeigen")} onClick={() => setHistCheck(c)}>{c.name || c.type}</button></td>
                       <td className="muted">{c.output}</td>
                       <td className="muted">{relTime(c.updated_at)}</td>
                       {canOperate && (
@@ -402,6 +404,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                 </tbody>
               </table>
             )}
+            {histCheck && <CheckHistoryDialog deviceId={id} check={histCheck} onClose={() => setHistCheck(null)} />}
           </section>
         )}
 

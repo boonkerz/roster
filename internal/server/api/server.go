@@ -150,6 +150,7 @@ func (s *Server) routes() http.Handler {
 						r.Get("/devices/{id}/events", s.handleDeviceEvents)
 						r.Get("/devices/{id}/remote-consent", s.handleGetDeviceConsent)
 						r.Get("/devices/{id}/metrics-history", s.handleMetricsHistory)
+						r.Get("/devices/{id}/checks/{checkID}/history", s.handleCheckHistory)
 						r.Get("/devices/{id}/vulnerabilities", s.handleDeviceVulns)
 						r.Get("/vulnerabilities", s.handleAllVulns)
 						r.Get("/sites/{id}/assets", s.handleListSiteAssets)

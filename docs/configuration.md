@@ -12,6 +12,7 @@ file wins over defaults). The most common settings:
 | `ROSTER_EXTERNAL_URL` | Public URL, used in generated install commands |
 | `ROSTER_REQUIRE_2FA` | Enforce TOTP for all users (default `true`) |
 | `ROSTER_RESULT_RETENTION_DAYS` | History retention (default `30`; `0` = keep forever) |
+| `ROSTER_CHECK_HISTORY_DAYS` | Check history (one sample per check-in) retention (default `10`; `0` = keep forever) |
 | `ROSTER_TLS_CERT` / `ROSTER_TLS_KEY` | Serve TLS directly (instead of a proxy) |
 
 !!! info "Legacy env names"

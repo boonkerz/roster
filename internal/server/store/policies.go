@@ -353,6 +353,7 @@ func (s *Store) DeleteCheck(ctx context.Context, id string) error {
 	if _, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM check_results WHERE check_id=?`), id); err != nil {
 		return err
 	}
+	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM check_samples WHERE check_id=?`), id)
 	if _, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM check_events WHERE check_id=?`), id); err != nil {
 		return err
 	}
@@ -530,6 +531,10 @@ func (s *Store) SaveCheckResults(ctx context.Context, deviceID string, results [
 				return nil, err
 			}
 			events = append(events, ev)
+		}
+		// Verlauf (für Diagramme am Gerät) – jedes Ergebnis, nicht nur Statuswechsel.
+		if err := s.insertCheckSample(ctx, deviceID, r.CheckID, now, r.Status, r.Value); err != nil {
+			return nil, err
 		}
 		// Upsert ohne ON CONFLICT (portabel): erst UPDATE, dann ggf. INSERT.
 		res, err := s.db.ExecContext(ctx, s.rebind(`

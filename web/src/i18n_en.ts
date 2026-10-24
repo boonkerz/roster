@@ -1001,4 +1001,9 @@ export const EN: Record<string, string> = {
   "(Vorgabe)": "(default)",
   "Auswahl steht auf „alle Gäste des Hosts“.": "Selection is set to “all guests of the host”.",
   "laut vzdump-Protokoll – Backup-Ziel gerade nicht erreichbar": "per vzdump log – backup target currently unreachable",
+  "Verlauf anzeigen": "Show history",
+  "Noch keine Verlaufsdaten – je Checkin kommt ein Punkt dazu.": "No history yet – one point is added per agent check-in.",
+  "Dieser Check liefert keinen Messwert – gezeigt wird der schlechteste Status je Zeitfenster.": "This check has no measured value – the worst status per time window is shown.",
+  "Werte sind je Zeitfenster gemittelt, der Status ist der schlechteste im Fenster.": "Values are averaged per time window; the status is the worst in the window.",
+  "Ein Punkt je Checkin des Agents.": "One point per agent check-in.",
 };

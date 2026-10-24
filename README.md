@@ -154,6 +154,7 @@ Config comes from a YAML file (`--config`) or environment variables. Common ones
 | `ROSTER_BEHIND_PROXY` | `true` when behind a TLS-terminating reverse proxy |
 | `ROSTER_REQUIRE_2FA` | Enforce TOTP for all users (default `true`) |
 | `ROSTER_RESULT_RETENTION_DAYS` | History retention (default 30; `0` = keep forever) |
+| `ROSTER_CHECK_HISTORY_DAYS` | Check history (one sample per check-in) retention (default `10`; `0` = keep forever) |
 
 **Production:** do **not** set a fixed seed enrollment token; create tokens in the UI.
 Behind a reverse proxy, forward WebSocket upgrades and use generous timeouts (≥ 60 s)
