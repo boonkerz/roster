@@ -607,12 +607,12 @@ export interface GeneralSettings {
 }
 
 // --- Dashboard-Diagramme (konfigurierbar, im Benutzerkonto gespeichert) ---
-export type StatSourceKind = "summary" | "check" | "field";
+export type StatSourceKind = "summary" | "check" | "field" | "events";
 export interface StatSource { id: string; name: string; type?: string }
 export interface StatSources { summary: string[]; checks: StatSource[]; fields: StatSource[] }
 export interface StatPoint { ts: number; label: string; value: number }
 export interface StatsResponse { current: { label: string; value: number }[]; history?: StatPoint[] }
-export type DashChart = "bar" | "donut" | "line";
+export type DashChart = "bar" | "donut" | "line" | "list";
 export type DashRange = "24h" | "7d" | "30d" | "90d" | "365d";
 export interface DashWidget {
   id: string;
@@ -621,4 +621,6 @@ export interface DashWidget {
   key: string;            // Kennzahl, Check-ID oder Feld-ID
   chart: DashChart;
   range: DashRange;       // nur für Verlauf
+  width?: DashWidth;      // Spalten von 4 (Standard 2 = halbe Zeile)
 }
+export type DashWidth = 1 | 2 | 3 | 4;

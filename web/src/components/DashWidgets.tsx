@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { usePref } from "../prefs";
-import type { DashChart, DashRange, DashWidget, StatSourceKind, StatSources, StatsResponse } from "../types";
+import type { CheckEvent, DashChart, DashRange, DashWidget, DashWidth, StatSourceKind, StatSources, StatsResponse } from "../types";
 import { BarChart, DonutChart, LineChart, seriesColor, type Datum, type Series } from "../charts";
+import { CheckStatusBadge, relTime } from "./StatusBadge";
 
 const RANGE_MS: Record<DashRange, number> = { "24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000, "90d": 90 * 86_400_000, "365d": 365 * 86_400_000 };
 const RANGE_LABEL: Record<DashRange, string> = { "24h": "24 Stunden", "7d": "7 Tage", "30d": "30 Tage", "90d": "90 Tage", "365d": "1 Jahr" };
@@ -17,10 +19,19 @@ const STATUS_COLOR: Record<string, string> = { passing: "var(--viz-status-ok)", 
 const STATUS_LABEL: Record<string, string> = { passing: "OK", warning: "Warnung", failing: "Fehlerhaft", unknown: "Unbekannt", online: "Online", offline: "Offline" };
 const MAX_SERIES = 7; // danach „Andere“ – mehr Farben lassen sich nicht sicher unterscheiden
 
+const WIDTH_LABEL: Record<DashWidth, string> = { 1: "Viertel", 2: "Halb", 3: "Dreiviertel", 4: "Voll" };
+
+// Standard-Kacheln für Nutzer ohne eigene Konfiguration: die bisherigen festen Bereiche.
+const DEFAULT_WIDGETS: DashWidget[] = [
+  { id: "status", title: "", source: "summary", key: "device_status", chart: "donut", range: "7d", width: 2 },
+  { id: "events", title: "", source: "events", key: "recent", chart: "list", range: "7d", width: 2 },
+];
+
 const newID = () => Math.random().toString(36).slice(2, 10);
 
 // sourceName liefert den Anzeigenamen einer Quelle (für Kacheltitel und Auswahl).
 function sourceName(w: Pick<DashWidget, "source" | "key">, src: StatSources | undefined, t: (s: string) => string): string {
+  if (w.source === "events") return t("Letzte Status-Wechsel");
   if (w.source === "summary") return t(SUMMARY_LABEL[w.key] ?? w.key);
   const list = w.source === "check" ? src?.checks : src?.fields;
   return list?.find((s) => s.id === w.key)?.name ?? w.key;
@@ -42,7 +53,32 @@ function topN<T extends { value: number }>(items: T[], n: number, other: (sum: n
   return [...keep, other(rest.reduce((a, x) => a + x.value, 0))];
 }
 
-function Widget({ w, sources, onEdit, onRemove }: { w: DashWidget; sources?: StatSources; onEdit: () => void; onRemove: () => void }) {
+// EventsList sind die letzten Check-Status-Wechsel (vorher fester Bereich der Übersicht).
+function EventsList({ events }: { events: CheckEvent[] }) {
+  const { t } = useI18n();
+  const nav = useNavigate();
+  if (events.length === 0) return <p className="muted viz-empty">{t("Keine Statuswechsel.")}</p>;
+  return (
+    <div className="scroll-list" style={{ maxHeight: 300 }}>
+      <table className="table">
+        <tbody>
+          {events.map((e) => (
+            <tr key={e.id} className="dash-click" onClick={() => nav(`/devices/${e.device_id}`)}>
+              <td className="muted" title={new Date(e.created_at).toLocaleString()} style={{ whiteSpace: "nowrap" }}>{relTime(e.created_at)}</td>
+              <td>{e.hostname || "—"}</td>
+              <td className="muted small">{e.check_name || e.check_id}</td>
+              <td style={{ whiteSpace: "nowrap" }}>
+                <CheckStatusBadge status={e.old_status} /> <span className="muted">→</span> <CheckStatusBadge status={e.new_status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Widget({ w, sources, events, onEdit, onRemove }: { w: DashWidget; sources?: StatSources; events: CheckEvent[]; onEdit: () => void; onRemove: () => void }) {
   const { t } = useI18n();
   const isLine = w.chart === "line";
   const since = isLine ? Date.now() - RANGE_MS[w.range] : 0;
@@ -51,6 +87,7 @@ function Widget({ w, sources, onEdit, onRemove }: { w: DashWidget; sources?: Sta
     queryFn: () => api.get<StatsResponse>(`/dashboard/stats?source=${encodeURIComponent(w.source)}&key=${encodeURIComponent(w.key)}${isLine ? `&since=${since}` : ""}`),
     refetchInterval: 60_000,
     retry: false,
+    enabled: w.source !== "events",
   });
   const statusColored = w.source === "check" || (w.source === "summary" && w.key === "device_status");
   const title = w.title.trim() || sourceName(w, sources, t);
@@ -91,13 +128,15 @@ function Widget({ w, sources, onEdit, onRemove }: { w: DashWidget; sources?: Sta
   return (
     <section className="card dash-widget">
       <header className="dash-widget-head">
+        <span className="dash-handle" title={t("Ziehen zum Verschieben")}>⠿</span>
         <h2 title={title}>{title}</h2>
         {isLine && <span className="muted small">{t(RANGE_LABEL[w.range])}</span>}
         <span className="spacer" />
         <button className="btn ghost sm" onClick={onEdit} title={t("Bearbeiten")}>✎</button>
         <button className="btn ghost sm" onClick={onRemove} title={t("Entfernen")}>✕</button>
       </header>
-      {isLoading ? <p className="muted small viz-empty">{t("Lädt…")}</p>
+      {w.source === "events" ? <EventsList events={events} />
+        : isLoading ? <p className="muted small viz-empty">{t("Lädt…")}</p>
         : isError ? <p className="muted small viz-empty">{t("Daten konnten nicht geladen werden.")}</p>
         : w.chart === "bar" ? <BarChart data={current} empty={t("Noch keine Werte.")} />
         : w.chart === "donut" ? <DonutChart data={current} empty={t("Noch keine Werte.")} />
@@ -113,10 +152,13 @@ function WidgetDialog({ initial, isNew, sources, onSave, onClose }: { initial: D
   const keys = w.source === "summary" ? (sources?.summary ?? []).map((k) => ({ id: k, name: t(SUMMARY_LABEL[k] ?? k) }))
     : w.source === "check" ? (sources?.checks ?? []) : (sources?.fields ?? []);
   const setSource = (source: StatSourceKind) => {
+    if (source === "events") { setW({ ...w, source, key: "recent", chart: "list" }); return; }
     const first = source === "summary" ? (sources?.summary[0] ?? "device_status") : source === "check" ? (sources?.checks[0]?.id ?? "") : (sources?.fields[0]?.id ?? "");
-    setW({ ...w, source, key: first });
+    setW({ ...w, source, key: first, chart: w.chart === "list" ? "donut" : w.chart });
   };
-  const chartHint: Record<DashChart, string> = {
+  const isEvents = w.source === "events";
+  const srcLabel: Record<StatSourceKind, string> = { summary: "Kennzahl", check: "Check", field: "Feld", events: "Status-Wechsel" };
+  const chartHint: Partial<Record<DashChart, string>> = {
     bar: "Aktuelle Verteilung als Balken – gut für viele Werte, z. B. Versionen.",
     donut: "Aktuelle Anteile als Ring – gut für wenige Kategorien, z. B. Check-Status.",
     line: "Verlauf über die Zeit – je Wert eine Linie, stündliche Snapshots.",
@@ -131,21 +173,21 @@ function WidgetDialog({ initial, isNew, sources, onSave, onClose }: { initial: D
         <div className="form-grid" style={{ marginTop: 10 }}>
           <div>{t("Quelle")}
             <div className="chip-row" style={{ marginTop: 6 }}>
-              {(["summary", "check", "field"] as StatSourceKind[]).map((s) => (
+              {(["summary", "check", "field", "events"] as StatSourceKind[]).map((s) => (
                 <label key={s} className={`chip${w.source === s ? " chip-on" : ""}`}>
                   <input type="radio" name="src" checked={w.source === s} onChange={() => setSource(s)} />
-                  {s === "summary" ? t("Kennzahl") : s === "check" ? t("Check") : t("Feld")}
+                  {t(srcLabel[s])}
                 </label>
               ))}
             </div>
           </div>
-          <label>{w.source === "summary" ? t("Kennzahl") : w.source === "check" ? t("Check") : t("Feld")}
+          {!isEvents && <label>{t(srcLabel[w.source])}
             <select value={w.key} onChange={(e) => setW({ ...w, key: e.target.value })}>
               {keys.length === 0 && <option value="">{w.source === "check" ? t("— keine Checks —") : t("— keine Felder —")}</option>}
               {keys.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
-          </label>
-          <div>{t("Darstellung")}
+          </label>}
+          {!isEvents && <div>{t("Darstellung")}
             <div className="chip-row" style={{ marginTop: 6 }}>
               {(["bar", "donut", "line"] as DashChart[]).map((c) => (
                 <label key={c} className={`chip${w.chart === c ? " chip-on" : ""}`}>
@@ -154,8 +196,8 @@ function WidgetDialog({ initial, isNew, sources, onSave, onClose }: { initial: D
                 </label>
               ))}
             </div>
-            <div className="muted small" style={{ marginTop: 6 }}>{t(chartHint[w.chart])}</div>
-          </div>
+            <div className="muted small" style={{ marginTop: 6 }}>{t(chartHint[w.chart] ?? "")}</div>
+          </div>}
           {w.chart === "line" && (
             <label>{t("Zeitraum")}
               <select value={w.range} onChange={(e) => setW({ ...w, range: e.target.value as DashRange })}>
@@ -163,13 +205,23 @@ function WidgetDialog({ initial, isNew, sources, onSave, onClose }: { initial: D
               </select>
             </label>
           )}
+          <div>{t("Breite")}
+            <div className="chip-row" style={{ marginTop: 6 }}>
+              {([1, 2, 3, 4] as DashWidth[]).map((n) => (
+                <label key={n} className={`chip${(w.width ?? 2) === n ? " chip-on" : ""}`}>
+                  <input type="radio" name="width" checked={(w.width ?? 2) === n} onChange={() => setW({ ...w, width: n })} />
+                  {t(WIDTH_LABEL[n])}
+                </label>
+              ))}
+            </div>
+          </div>
           <label>{t("Titel")} <span className="muted small">({t("optional")})</span>
             <input value={w.title} placeholder={sourceName(w, sources, t)} onChange={(e) => setW({ ...w, title: e.target.value })} />
           </label>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
           <button className="btn ghost" onClick={onClose}>{t("Abbrechen")}</button>
-          <button className="btn primary" disabled={!w.key} onClick={() => onSave(w)}>{t("Speichern")}</button>
+          <button className="btn primary" disabled={!w.key} onClick={() => onSave({ ...w, width: w.width ?? 2 })}>{t("Speichern")}</button>
         </div>
       </div>
     </div>
@@ -179,32 +231,36 @@ function WidgetDialog({ initial, isNew, sources, onSave, onClose }: { initial: D
 // DashWidgets ist der Bereich „Eigene Diagramme“ der Übersicht: frei konfigurierbare
 // Kacheln über Kennzahlen, Check-Status und benutzerdefinierte Felder, gespeichert im
 // Benutzerkonto (folgen dem Nutzer auf jeden Browser).
-export function DashWidgets() {
+export function DashWidgets({ events }: { events: CheckEvent[] }) {
   const { t } = useI18n();
-  const [widgets, setWidgets] = usePref<DashWidget[]>("dashboard.widgets", []);
+  const [widgets, setWidgets] = usePref<DashWidget[]>("dashboard.widgets", DEFAULT_WIDGETS);
   const [editing, setEditing] = useState<{ w: DashWidget; isNew: boolean } | null>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const [over, setOver] = useState<number | null>(null);
   const { data: sources } = useQuery({
     queryKey: ["dash-stat-sources"],
     queryFn: () => api.get<StatSources>("/dashboard/stats/sources"),
     staleTime: 60_000,
     retry: false,
   });
-  const add = () => setEditing({ w: { id: newID(), title: "", source: "summary", key: "device_status", chart: "donut", range: "7d" }, isNew: true });
+  const add = () => setEditing({ w: { id: newID(), title: "", source: "summary", key: "device_status", chart: "donut", range: "7d", width: 2 }, isNew: true });
   const save = (w: DashWidget) => {
     setWidgets(widgets.some((x) => x.id === w.id) ? widgets.map((x) => (x.id === w.id ? w : x)) : [...widgets, w]);
     setEditing(null);
   };
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= widgets.length) return;
-    const next = [...widgets]; [next[i], next[j]] = [next[j], next[i]];
-    setWidgets(next);
+  // Drag-and-drop: die gezogene Kachel wird an der Stelle der Zielkachel eingefügt.
+  const drop = (to: number) => {
+    if (drag === null || drag === to) { setDrag(null); setOver(null); return; }
+    const next = [...widgets];
+    const [moved] = next.splice(drag, 1);
+    next.splice(to, 0, moved);
+    setWidgets(next); setDrag(null); setOver(null);
   };
   return (
     <>
       <div className="dash-widgets-head">
         <h2>{t("Eigene Diagramme")}</h2>
-        <span className="muted small">{t("Kennzahlen, Check-Status und Feldwerte – aktuell oder im Verlauf.")}</span>
+        <span className="muted small">{t("Kennzahlen, Check-Status, Feldwerte und Status-Wechsel – aktuell oder im Verlauf. Kacheln lassen sich ziehen.")}</span>
         <span className="spacer" />
         <button className="btn ghost sm" onClick={add}>+ {t("Diagramm")}</button>
       </div>
@@ -216,14 +272,12 @@ export function DashWidgets() {
       ) : (
         <div className="dash-widgets">
           {widgets.map((w, i) => (
-            <div key={w.id} className="dash-widget-slot">
-              <Widget w={w} sources={sources} onEdit={() => setEditing({ w, isNew: false })} onRemove={() => setWidgets(widgets.filter((x) => x.id !== w.id))} />
-              {widgets.length > 1 && (
-                <div className="dash-widget-move">
-                  <button className="btn ghost sm" disabled={i === 0} onClick={() => move(i, -1)} title={t("Nach vorn")}>←</button>
-                  <button className="btn ghost sm" disabled={i === widgets.length - 1} onClick={() => move(i, 1)} title={t("Nach hinten")}>→</button>
-                </div>
-              )}
+            <div key={w.id} className={`dash-widget-slot dash-w${w.width ?? 2}${drag === i ? " dragging" : ""}${over === i && drag !== i ? " drag-over" : ""}`}
+              draggable onDragStart={(e) => { setDrag(i); e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (over !== i) setOver(i); }}
+              onDragLeave={() => { if (over === i) setOver(null); }}
+              onDrop={(e) => { e.preventDefault(); drop(i); }} onDragEnd={() => { setDrag(null); setOver(null); }}>
+              <Widget w={w} sources={sources} events={events} onEdit={() => setEditing({ w, isNew: false })} onRemove={() => setWidgets(widgets.filter((x) => x.id !== w.id))} />
             </div>
           ))}
         </div>
