@@ -1,6 +1,6 @@
 site_name: Roster
 site_description: Self-hosted, TacticalRMM-style inventory & remote management for Windows/Linux/macOS.
-site_url: https://boonkerz.github.io/roster/
+site_url: https://roster-rmm.dev/
 repo_url: https://github.com/boonkerz/roster
 repo_name: boonkerz/roster
 copyright: MIT-licensed · one Go binary · React UI · bilingual (EN/DE)

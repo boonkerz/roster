@@ -15,9 +15,9 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
 
 ## 📖 Documentation
 
-**Full documentation lives at [boonkerz.github.io/roster](https://boonkerz.github.io/roster/)** —
+**Full documentation lives at [roster-rmm.dev](https://roster-rmm.dev/)** —
 getting started, all features, configuration and security. Also available in
-[German](https://boonkerz.github.io/roster/de/).
+[German](https://roster-rmm.dev/de/).
 
 ## Screenshots
 
@@ -37,7 +37,7 @@ getting started, all features, configuration and security. Also available in
 
 ![Remote control](docs/screenshots/remote-control.png)
 
-More screenshots of every feature are in the [documentation](https://boonkerz.github.io/roster/).
+More screenshots of every feature are in the [documentation](https://roster-rmm.dev/).
 
 ---
 
@@ -209,9 +209,9 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
 
 ## 📖 Dokumentation
 
-**Vollständige Dokumentation unter [boonkerz.github.io/roster/de](https://boonkerz.github.io/roster/de/)** —
+**Vollständige Dokumentation unter [roster-rmm.dev/de](https://roster-rmm.dev/de/)** —
 Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
-[Englisch](https://boonkerz.github.io/roster/)).
+[Englisch](https://roster-rmm.dev/)).
 
 ## Funktionen
 
