@@ -734,8 +734,8 @@ function CustomFields() {
               <td className="muted small">{f.options.join(", ") || "—"}</td>
               <td>{f.required ? "ja" : "—"}</td>
               <td>
-                <button className="btn ghost sm" onClick={() => startEdit(f)}>Bearbeiten</button>
-                <button className="btn ghost sm" onClick={() => remove.mutate(f.id)}>Löschen</button>
+                <button className="btn ghost sm" onClick={() => startEdit(f)}>{t("Bearbeiten")}</button>
+                <button className="btn ghost sm" onClick={() => remove.mutate(f.id)}>{t("Löschen")}</button>
               </td>
             </tr>
           ))}
@@ -745,11 +745,11 @@ function CustomFields() {
 
       <form className="inline-form" style={{ marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (name) save.mutate(); }}>
         <select value={model} onChange={(e) => setModel(e.target.value as "device" | "client" | "site")} disabled={!!editId}>
-          {Object.entries(FIELD_MODELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(FIELD_MODELS).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
         </select>
         <input placeholder={t("Feldname")} value={name} onChange={(e) => setName(e.target.value)} />
         <select value={type} onChange={(e) => setType(e.target.value as CustomFieldType)}>
-          {Object.entries(FIELD_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(FIELD_TYPES).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
         </select>
         {needsOptions && <input placeholder={t("Optionen (kommagetrennt)")} value={options} onChange={(e) => setOptions(e.target.value)} />}
         <input placeholder={t("Standardwert")} value={def} onChange={(e) => setDef(e.target.value)} />
@@ -761,7 +761,7 @@ function CustomFields() {
             <label className="chip" title={t("Einträge lassen sich anhaken; die Auswahl landet im Feld „<name>_selected\".")}><input type="checkbox" checked={selectable} onChange={(e) => setSelectable(e.target.checked)} /> {t("Auswählbar")}</label>
           </>
         )}
-        <button className="btn primary" type="submit" disabled={save.isPending}>{editId ? "Speichern" : "+ Feld"}</button>
+        <button className="btn primary" type="submit" disabled={save.isPending}>{editId ? t("Speichern") : t("+ Feld")}</button>
         {editId && <button type="button" className="btn ghost" onClick={reset}>Abbrechen</button>}
       </form>
     </section>

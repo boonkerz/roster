@@ -16,17 +16,28 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
 ## 📖 Documentation
 
 **Full documentation lives at [boonkerz.github.io/roster](https://boonkerz.github.io/roster/)** —
-getting started, all features, configuration and security.
+getting started, all features, configuration and security. Also available in
+[German](https://boonkerz.github.io/roster/de/).
 
 ## Screenshots
 
-**Dashboard**
+**Dashboard** with configurable charts
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
 **Device detail**
 
 ![Device detail](docs/screenshots/device-detail.png)
+
+**Check history** — every result is kept, one click opens the chart
+
+![Check history](docs/screenshots/check-history.png)
+
+**Remote control** in the browser
+
+![Remote control](docs/screenshots/remote-control.png)
+
+More screenshots of every feature are in the [documentation](https://boonkerz.github.io/roster/).
 
 ---
 
@@ -198,8 +209,9 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
 
 ## 📖 Dokumentation
 
-**Vollständige Dokumentation unter [boonkerz.github.io/roster](https://boonkerz.github.io/roster/)** —
-Einstieg, alle Funktionen, Konfiguration und Sicherheit.
+**Vollständige Dokumentation unter [boonkerz.github.io/roster/de](https://boonkerz.github.io/roster/de/)** —
+Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
+[Englisch](https://boonkerz.github.io/roster/)).
 
 ## Funktionen
 

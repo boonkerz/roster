@@ -54,6 +54,8 @@ server. They use a pull model — only outbound connections, no inbound port on 
 Attach TRMM-style **custom fields** to a company, site or device, and populate them with
 JSON collector tasks and Twig-like placeholders (e.g. `{{ agent.domains | first }}`).
 
+![Custom fields on a device](../screenshots/fields.png){ .shadow }
+
 ## Choosing the list columns
 
 The **Columns** button above the device list opens a picker: tick or untick the built-in
@@ -61,6 +63,8 @@ columns (company, site, vendor, model, serial, public IP, MAC, … on top of the
 and add **one column per custom field** — a field that a check fills with, say, a Docker
 image version shows up right in the list and refreshes with it. Link fields render as
 links, lists are joined with commas, checkboxes as yes/no.
+
+![Device list with custom columns and the filter builder](../screenshots/devices-filter.png){ .shadow }
 
 The **filter builder** (Filter button) knows the same custom fields: pick one as the
 condition's field and compare it like any built-in column — *contains*, *=*, *≠* for text and

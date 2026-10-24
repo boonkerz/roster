@@ -9,6 +9,8 @@ Checks with [self-healing](checks-tasks.md#self-healing) stay quiet until the re
 has run — only a failure that survives it is reported.
 Optional software-change alerts notify you when installed software changes.
 
+![Notification settings](../screenshots/alerting.png){ .shadow }
+
 ## Reports
 
 Scheduled **health reports** summarizing the fleet, delivered on a cron-like schedule.

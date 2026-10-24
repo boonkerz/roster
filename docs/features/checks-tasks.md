@@ -3,11 +3,13 @@
 Policies bundle **checks** (monitoring) and **tasks** (scheduled automation) and are
 assigned to a company, site or device with inheritance (device → site → company).
 
-![Policies](../screenshots/policies.png){ .shadow }
+![Policies](../screenshots/policy-detail.png){ .shadow }
 
 ## Checks
 
 Each check has its own frequency, severity, output comparison and platform targeting:
+
+![Checks of a device](../screenshots/checks.png){ .shadow }
 
 - **Thresholds**: `disk`, `memory`, `cpu`, pending `updates`.
 - **Script**: run a shell/PowerShell script and evaluate its result.
@@ -33,11 +35,15 @@ the raw resolution is the agent's check-in interval (every check-in adds one poi
 longer ranges are averaged per window and show the worst status in it. Samples are
 kept for 10 days by default (`ROSTER_CHECK_HISTORY_DAYS`).
 
+![Check history](../screenshots/check-history.png){ .shadow }
+
 ## Tasks
 
 Scheduled scripts with a frequency (interval / daily / weekly / …), keeping the last run
 per task plus a full run history. You can also **re-run** any check or task on demand with
 the ↻ button.
+
+![Tasks of a device](../screenshots/tasks.png){ .shadow }
 
 ### Time zone
 
@@ -84,6 +90,8 @@ before 0.16.3.
 
 A reusable **script library** (shell / PowerShell, with platform targeting) powers script
 checks, tasks, self-healing and ad-hoc "run script" actions.
+
+![Script library](../screenshots/scripts.png){ .shadow }
 
 !!! warning "Script checks/tasks are remote code"
     Anything that runs scripts on endpoints is powerful. Grant the `Scripts` and

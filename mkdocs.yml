@@ -23,7 +23,6 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
-    - navigation.instant
     - navigation.tracking
     - navigation.sections
     - navigation.top
@@ -33,6 +32,40 @@ theme:
 
 extra_css:
   - stylesheets/extra.css
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: de
+          name: Deutsch
+          build: true
+          site_description: Selbst gehostetes Inventar & Fernwartung im Stil von TacticalRMM für Windows/Linux/macOS.
+          nav_translations:
+            Home: Start
+            Getting started: Erste Schritte
+            Features: Funktionen
+            Dashboard: Übersicht
+            Inventory: Inventar
+            Checks & tasks: Checks & Tasks
+            Remote desktop & terminal: Fernsteuerung & Terminal
+            Taskbar app: Taskleisten-App
+            Proxmox VE: Proxmox VE
+            Backups: Backups
+            Roles & permissions: Rollen & Berechtigungen
+            Network & discovery: Netzwerk & Erkennung
+            Patching & software: Patches & Software
+            Alerting & reports: Alarme & Berichte
+            Configuration: Konfiguration
+            Security: Sicherheit
 
 markdown_extensions:
   - admonition

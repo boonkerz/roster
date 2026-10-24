@@ -1006,4 +1006,5 @@ export const EN: Record<string, string> = {
   "Dieser Check liefert keinen Messwert – gezeigt wird der schlechteste Status je Zeitfenster.": "This check has no measured value – the worst status per time window is shown.",
   "Werte sind je Zeitfenster gemittelt, der Status ist der schlechteste im Fenster.": "Values are averaged per time window; the status is the worst in the window.",
   "Ein Punkt je Checkin des Agents.": "One point per agent check-in.",
+  "+ Feld": "+ Field",
 };

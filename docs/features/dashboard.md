@@ -9,6 +9,8 @@ changes, both of which you can remove, resize or re-add like any other widget.
 
 Click **+ Chart** and pick a source, a chart type and (for history) a time range:
 
+![Dashboard with custom charts](../screenshots/dashboard.png){ .shadow }
+
 | Source | What it counts |
 |---|---|
 | **Metric** | the dashboard numbers — devices total/online/offline, failing checks and tasks, pending patches, vulnerabilities — or the device-status split |

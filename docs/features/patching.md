@@ -5,6 +5,8 @@
 Scan for available OS updates, **approve** them, and install — with a selectable strategy
 on Linux (`apt upgrade` vs `dist-upgrade`) and an optional reboot afterwards.
 
+![Patches of a device](../screenshots/patches.png){ .shadow }
+
 ## Software distribution
 
 Maintain a catalog of deployable packages (winget / choco / apt / dnf / brew) and roll one
@@ -58,3 +60,5 @@ list and start/stop/restart **services**, kill **processes**, and run a TreeSize
 
 Antivirus / Defender status, **BitLocker** (with recovery-key escrow), **SMART** disk
 health, and a Windows Event Log / journald viewer.
+
+![Security overview of a device](../screenshots/security.png){ .shadow }
