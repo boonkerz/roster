@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Kleine, abhängigkeitsfreie SVG-Diagramme für das Dashboard. Farben kommen aus den
 // CSS-Variablen --series-1…8 (kategorisch, feste Reihenfolge) bzw. --viz-status-* –
@@ -10,6 +10,23 @@ export interface Series { label: string; color?: string; points: { ts: number; v
 export const seriesColor = (i: number) => `var(--series-${(i % 8) + 1})`;
 export const fmtNum = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 
+// useWidth misst die Breite des umgebenden Elements, damit Balken und Verläufe die Kachel
+// genau ausfüllen (statt ein festes Koordinatensystem zu skalieren).
+function useWidth(min = 260): [React.RefObject<HTMLDivElement>, number] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setW(Math.floor(el.getBoundingClientRect().width));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, Math.max(w, min)];
+}
+
 // Tooltip ist die schwebende Werteanzeige über einem Diagramm.
 function Tooltip({ left, children }: { left: string; children: React.ReactNode }) {
   return <div className="viz-tip" style={{ left }}>{children}</div>;
@@ -18,12 +35,13 @@ function Tooltip({ left, children }: { left: string; children: React.ReactNode }
 // BarChart: horizontale Balken, eine Farbe (die Identität steht am Balken, nicht in der Farbe).
 export function BarChart({ data, empty }: { data: Datum[]; empty: string }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [ref, w] = useWidth();
   if (data.length === 0) return <p className="muted small viz-empty">{empty}</p>;
   const max = Math.max(...data.map((d) => d.value), 1);
-  const rowH = 26, labelW = 150, w = 520, h = data.length * rowH + 4;
+  const rowH = 26, labelW = Math.min(150, Math.round(w * 0.3)), h = data.length * rowH + 4;
   return (
-    <div className="viz-wrap">
-      <svg viewBox={`0 0 ${w} ${h}`} className="viz-svg" style={{ height: h }} role="img">
+    <div className="viz-wrap" ref={ref}>
+      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="viz-svg" role="img">
         {data.map((d, i) => {
           const bw = Math.max(((w - labelW - 50) * d.value) / max, d.value > 0 ? 3 : 0);
           const y = i * rowH + 2;
@@ -86,7 +104,8 @@ export function DonutChart({ data, empty }: { data: Datum[]; empty: string }) {
 // LineChart: Verlauf mehrerer Reihen über eine gemeinsame Zeitachse, mit Fadenkreuz-Tooltip.
 export function LineChart({ series, from, to, empty, legend }: { series: Series[]; from: number; to: number; empty: string; legend?: boolean }) {
   const [hoverTs, setHoverTs] = useState<number | null>(null);
-  const w = 520, h = 190, padL = 38, padR = 10, padT = 8, padB = 22;
+  const [ref, w] = useWidth();
+  const h = 190, padL = 38, padR = 10, padT = 8, padB = 22;
   const allTs = useMemo(() => Array.from(new Set(series.flatMap((s) => s.points.map((p) => p.ts)))).sort((a, b) => a - b), [series]);
   if (series.length === 0 || allTs.length === 0) return <p className="muted small viz-empty">{empty}</p>;
   const max = Math.max(1, ...series.flatMap((s) => s.points.map((p) => p.value)));
@@ -111,8 +130,8 @@ export function LineChart({ series, from, to, empty, legend }: { series: Series[
   const hoverVals = hoverTs === null ? [] : series.map((s) => ({ s, v: s.points.find((p) => p.ts === hoverTs)?.value }));
   const tipX = hoverTs === null ? 0 : (x(hoverTs) / w) * 100;
   return (
-    <div className="viz-wrap">
-      <svg viewBox={`0 0 ${w} ${h}`} className="viz-svg" style={{ height: h }} role="img" onMouseMove={onMove} onMouseLeave={() => setHoverTs(null)}>
+    <div className="viz-wrap" ref={ref}>
+      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="viz-svg" role="img" onMouseMove={onMove} onMouseLeave={() => setHoverTs(null)}>
         {ticks.map((tv) => (
           <g key={tv}>
             <line x1={padL} x2={w - padR} y1={y(tv)} y2={y(tv)} className="viz-grid" />

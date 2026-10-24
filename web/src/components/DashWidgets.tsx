@@ -135,6 +135,7 @@ function Widget({ w, sources, events, onEdit, onRemove }: { w: DashWidget; sourc
         <button className="btn ghost sm" onClick={onEdit} title={t("Bearbeiten")}>✎</button>
         <button className="btn ghost sm" onClick={onRemove} title={t("Entfernen")}>✕</button>
       </header>
+      <div className="dash-widget-body">
       {w.source === "events" ? <EventsList events={events} />
         : isLoading ? <p className="muted small viz-empty">{t("Lädt…")}</p>
         : isError ? <p className="muted small viz-empty">{t("Daten konnten nicht geladen werden.")}</p>
@@ -142,6 +143,7 @@ function Widget({ w, sources, events, onEdit, onRemove }: { w: DashWidget; sourc
         : w.chart === "donut" ? <DonutChart data={current} empty={t("Noch keine Werte.")} />
         : <LineChart series={series} from={since} to={Date.now()} legend={series.length > 1 || (series.length === 1 && series[0].label !== title)}
             empty={t("Noch keine Historie – der erste Snapshot entsteht zur nächsten vollen Stunde.")} />}
+      </div>
     </section>
   );
 }
