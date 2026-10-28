@@ -17,6 +17,7 @@ allen Agents, ein schlanker Agent pro Rechner, sonst nichts zu installieren.
 
 [Erste Schritte](getting-started.md){ .md-button .md-button--primary }
 [GitHub](https://github.com/boonkerz/roster){ .md-button }
+[Changelog](changelog.md){ .md-button }
 
 ```bash
 curl -LO https://github.com/boonkerz/roster/releases/latest/download/roster-server-linux-amd64

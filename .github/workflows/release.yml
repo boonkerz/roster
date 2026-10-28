@@ -66,10 +66,26 @@ jobs:
           cp internal/server/traydist/bin/roster-tray-windows-amd64.zip    dist/roster-tray-windows-amd64.zip
           ls -la dist
 
+      # Release-Notizen = Abschnitt dieser Version aus CHANGELOG.md und CHANGELOG.de.md.
+      # Fehlt der Abschnitt, bricht der Lauf ab (kein Release ohne Notizen).
+      - name: Release-Notizen aus dem Changelog
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          extract() { awk -v v="$1" '/^## \[/{p=($0 ~ "\\[" v "\\]")} p' "$2"; }
+          en="$(extract "$VERSION" CHANGELOG.md)"; de="$(extract "$VERSION" CHANGELOG.de.md)"
+          if [ -z "$en" ] || [ -z "$de" ]; then
+            echo "::error::Kein Abschnitt [$VERSION] in CHANGELOG.md / CHANGELOG.de.md"; exit 1
+          fi
+          { printf '%s\n\n---\n\n%s\n' "$en" "$de"; } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - name: Ans Release hängen
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
+          body_path: ${{ runner.temp }}/notes.md
           files: dist/*
           fail_on_unmatched_files: true
 

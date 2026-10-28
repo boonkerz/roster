@@ -66,6 +66,7 @@ plugins:
             Alerting & reports: Alarme & Berichte
             Configuration: Konfiguration
             Security: Sicherheit
+            Changelog: Changelog
 
 markdown_extensions:
   - admonition
@@ -100,3 +101,4 @@ nav:
       - Alerting & reports: features/alerting.md
   - Configuration: configuration.md
   - Security: security.md
+  - Changelog: changelog.md

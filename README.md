@@ -17,7 +17,7 @@ as **one binary**; the UI is fully **bilingual (English / German)**.
 
 **Full documentation lives at [roster-rmm.dev](https://roster-rmm.dev/)** —
 getting started, all features, configuration and security. Also available in
-[German](https://roster-rmm.dev/de/).
+[German](https://roster-rmm.dev/de/). Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Screenshots
 
@@ -211,7 +211,7 @@ Oberfläche ist vollständig **zweisprachig (Deutsch / Englisch)**.
 
 **Vollständige Dokumentation unter [roster-rmm.dev/de](https://roster-rmm.dev/de/)** —
 Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
-[Englisch](https://roster-rmm.dev/)).
+[Englisch](https://roster-rmm.dev/)). Versionshistorie: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## Funktionen
 

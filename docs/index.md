@@ -17,6 +17,7 @@ embedded, a lightweight agent per machine, nothing else to install.
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
 [GitHub](https://github.com/boonkerz/roster){ .md-button }
+[Changelog](changelog.md){ .md-button }
 
 ```bash
 curl -LO https://github.com/boonkerz/roster/releases/latest/download/roster-server-linux-amd64

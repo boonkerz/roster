@@ -130,6 +130,9 @@ vet: ## go vet
 tidy: ## go mod tidy
 	go mod tidy
 
+release: ## Version freigeben: Changelog-Abschnitt, VERSION, Commit + Tag (make release VERSION=0.17.0)
+	./scripts/release.sh $(VERSION)
+
 run-server: ## Server lokal starten (SQLite, ohne TLS – nur Entwicklung)
 	ROSTER_DB=sqlite://./inventory.db ROSTER_ADDR=:8443 ROSTER_SECURE_COOKIE=false go run ./cmd/server run
 
