@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent } from "../types";
+import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts } from "../types";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
@@ -100,9 +100,14 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     mutationFn: (v: string) => api.put(`/devices/${id}/notes`, { notes: v }),
     onSuccess: () => { setNotes(null); invalidate(); },
   });
-  const muteSoftware = useMutation({
-    mutationFn: (mute: boolean) => api.put(`/devices/${id}/mute-software`, { mute }),
-    onSuccess: invalidate,
+  const { data: swAlerts } = useQuery({
+    queryKey: ["device-software-alerts", id],
+    queryFn: () => api.get<DeviceSoftwareAlerts>(`/devices/${id}/software-alerts`),
+    enabled: tab === "summary",
+  });
+  const setSoftwareAlerts = useMutation({
+    mutationFn: (mode: string) => api.put(`/devices/${id}/software-alerts`, { mode }),
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["device-software-alerts", id] }); },
   });
   const wake = useMutation({
     mutationFn: () => api.post<{ mac: string; via: string[] }>(`/devices/${id}/wake`),
@@ -308,12 +313,27 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
               )}
 
               <h2 style={{ marginTop: 18 }}>{t("Benachrichtigungen")}</h2>
-              <label className="chip" style={{ width: "fit-content" }} title={t("Keine Alarme bei Software-Änderungen für dieses Gerät (z. B. bei „flappenden“ Versionen).")}>
-                <input type="checkbox" disabled={!canOperate || muteSoftware.isPending}
-                  checked={device.mute_software_alerts ?? false}
-                  onChange={(e) => muteSoftware.mutate(e.target.checked)} />
-                {" "}{t("Software-Änderungen nicht melden")}
-              </label>
+              <p className="muted small" title={t("Überschreibt die Richtlinie bzw. die globale Einstellung nur für dieses Gerät (z. B. bei „flappenden“ Versionen).")}>
+                {t("Software-Änderungen")}:{" "}
+                <select value={device.software_alerts ?? ""} disabled={!canOperate || setSoftwareAlerts.isPending}
+                  onChange={(e) => setSoftwareAlerts.mutate(e.target.value)}>
+                  <option value="">
+                    {t("Wie Richtlinie")}
+                    {swAlerts && ` (${swAlerts.inherited ? t("wirksam: melden") : t("wirksam: nicht melden")} – ${
+                      swAlerts.policy_name ? t("Richtlinie {name}", { name: swAlerts.policy_name }) : t("globale Einstellung")})`}
+                  </option>
+                  <option value="on">{t("Melden")}</option>
+                  <option value="off">{t("Nicht melden")}</option>
+                </select>
+                {swAlerts && swAlerts.enabled && (swAlerts.kinds.length > 0 || swAlerts.ignore.length > 0) && (
+                  <>
+                    <br />
+                    {t("Filter aus Richtlinie {name}", { name: swAlerts.policy_name ?? "" })}: {" "}
+                    {(swAlerts.kinds.length > 0 ? swAlerts.kinds : ["added", "removed", "updated"]).map((k) => t({ added: "installiert", removed: "entfernt", updated: "aktualisiert" }[k] ?? k)).join(", ")}
+                    {swAlerts.ignore.length > 0 && `; ${t("ignoriert")}: ${swAlerts.ignore.join(", ")}`}
+                  </>
+                )}
+              </p>
             </section>
           </div>
           {(device.disks ?? []).length > 0 && (

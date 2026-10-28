@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/boonkerz/roster/internal/server/model"
+	"github.com/boonkerz/roster/internal/server/store"
 )
 
 // computeStatus leitet online/offline aus last_seen und der Offline-Schwelle ab.
@@ -143,19 +144,44 @@ func (s *Server) handleSetDeviceNotes(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleSetDeviceMuteSoftware (de)aktiviert Software-Benachrichtigungen für ein Gerät.
-func (s *Server) handleSetDeviceMuteSoftware(w http.ResponseWriter, r *http.Request) {
+// handleSetDeviceSoftwareAlerts setzt den Geräte-Override für Software-Änderungs-
+// Benachrichtigungen: "" = wie Richtlinie/Standard, "on" = melden, "off" = nicht melden.
+func (s *Server) handleSetDeviceSoftwareAlerts(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Mute bool `json:"mute"`
+		Mode string `json:"mode"`
 	}
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	if err := s.store.SetDeviceMuteSoftware(r.Context(), chi.URLParam(r, "id"), req.Mute); err != nil {
+	if req.Mode != "" && req.Mode != "on" && req.Mode != "off" {
+		s.writeErr(w, http.StatusBadRequest, "mode muss on|off (oder leer) sein")
+		return
+	}
+	if err := s.store.SetDeviceSoftwareAlerts(r.Context(), chi.URLParam(r, "id"), req.Mode); err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleGetDeviceSoftwareAlerts liefert den eigenen Wert des Geräts und die wirksame
+// Einstellung (Quelle: Gerät, Richtlinie oder globaler Standard, samt Filtern).
+func (s *Server) handleGetDeviceSoftwareAlerts(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	dev, err := s.store.GetDevice(r.Context(), id)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	eff, err := s.store.ResolveSoftwareAlerts(r.Context(), id)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, struct {
+		Device string `json:"device"`
+		store.SoftwareAlertSetting
+	}{dev.SoftwareAlerts, eff})
 }
 
 // handleDeviceEvents liefert den Check-Statuswechsel-Verlauf eines Geräts.

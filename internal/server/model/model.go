@@ -86,8 +86,9 @@ type Device struct {
 	// Freitext-Notizen zum Gerät (Doku).
 	Notes string `json:"notes"`
 
-	// MuteSoftwareAlerts unterdrückt Software-Änderungs-Benachrichtigungen für dieses Gerät.
-	MuteSoftwareAlerts bool `json:"mute_software_alerts"`
+	// SoftwareAlerts überschreibt die Software-Änderungs-Benachrichtigung für dieses
+	// Gerät: "" = wie Richtlinie/Standard, "on" = melden, "off" = nicht melden.
+	SoftwareAlerts string `json:"software_alerts"`
 
 	// Organisations-Zuordnung (Client -> Site). SiteID nil = nicht zugeordnet.
 	SiteID     *string `json:"site_id,omitempty"`
@@ -328,16 +329,30 @@ type Script struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Policy bündelt Checks und Tasks und wird Clients/Sites/Geräten zugewiesen.
+// Policy bündelt Checks, Tasks, Backups und Benachrichtigungs-Einstellungen und wird
+// Clients/Sites/Geräten zugewiesen.
 type Policy struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Checks      []PolicyCheck  `json:"checks,omitempty"`
-	Tasks       []PolicyTask   `json:"tasks,omitempty"`
-	Backups     []PolicyBackup `json:"backups,omitempty"`
-	Assignments []Assignment   `json:"assignments,omitempty"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Description   string              `json:"description"`
+	Checks        []PolicyCheck       `json:"checks,omitempty"`
+	Tasks         []PolicyTask        `json:"tasks,omitempty"`
+	Backups       []PolicyBackup      `json:"backups,omitempty"`
+	Notifications PolicyNotifications `json:"notifications"`
+	Assignments   []Assignment        `json:"assignments,omitempty"`
 }
+
+// PolicyNotifications ist der Bereich „Benachrichtigungen“ einer Richtlinie.
+// Bei mehreren zugewiesenen Richtlinien gewinnt die ranghöchste, die etwas regelt
+// (Gerät > Standort > Client); sie liefert Schalter und Filter.
+type PolicyNotifications struct {
+	SoftwareAlerts     string   `json:"software_alerts"`      // "" = Standard (globaler Schalter) | on | off
+	SoftwareAlertKinds []string `json:"software_alert_kinds"` // added | removed | updated
+	SoftwareIgnore     []string `json:"software_ignore"`      // Glob-Muster auf den Programmnamen, Groß/Klein egal
+}
+
+// AllSoftwareAlertKinds sind die Änderungsarten, über die berichtet werden kann.
+var AllSoftwareAlertKinds = []string{"added", "removed", "updated"}
 
 // PolicyBackup ist ein Backup-Eintrag einer Richtlinie: was gesichert wird, wann, und
 // was danach passiert. Geplant wird serverseitig (siehe RunBackupLoop), ausgeführt über

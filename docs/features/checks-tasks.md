@@ -1,6 +1,7 @@
 # Checks & tasks
 
-Policies bundle **checks** (monitoring) and **tasks** (scheduled automation) and are
+Policies bundle **checks** (monitoring), **tasks** (scheduled automation),
+[backups](backups.md) and [notification settings](alerting.md#software-change-alerts) and are
 assigned to a company, site or device with inheritance (device → site → company).
 
 ![Policies](../screenshots/policy-detail.png){ .shadow }

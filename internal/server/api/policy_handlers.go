@@ -2,7 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"path"
+	"slices"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -111,6 +116,57 @@ func (s *Server) handleUpdatePolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, p)
+}
+
+// validateNotifications prüft und normalisiert den Bereich „Benachrichtigungen“.
+func validateNotifications(n model.PolicyNotifications) (model.PolicyNotifications, error) {
+	if n.SoftwareAlerts != "" && n.SoftwareAlerts != "on" && n.SoftwareAlerts != "off" {
+		return n, errors.New("software_alerts muss on|off (oder leer) sein")
+	}
+	seen := map[string]bool{}
+	kinds := []string{}
+	for _, k := range n.SoftwareAlertKinds {
+		k = strings.TrimSpace(k)
+		if !slices.Contains(model.AllSoftwareAlertKinds, k) {
+			return n, fmt.Errorf("unbekannte Änderungsart %q", k)
+		}
+		if !seen[k] {
+			seen[k] = true
+			kinds = append(kinds, k)
+		}
+	}
+	n.SoftwareAlertKinds = kinds
+	ignore := []string{}
+	for _, p := range n.SoftwareIgnore {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, err := path.Match(p, ""); err != nil {
+			return n, fmt.Errorf("ungültiges Muster %q", p)
+		}
+		ignore = append(ignore, p)
+	}
+	n.SoftwareIgnore = ignore
+	return n, nil
+}
+
+// handleSetPolicyNotifications speichert den Bereich „Benachrichtigungen“ einer Richtlinie.
+func (s *Server) handleSetPolicyNotifications(w http.ResponseWriter, r *http.Request) {
+	var req model.PolicyNotifications
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	n, err := validateNotifications(req)
+	if err != nil {
+		s.writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := s.store.SetPolicyNotifications(r.Context(), chi.URLParam(r, "id"), n); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, n)
 }
 
 func (s *Server) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {

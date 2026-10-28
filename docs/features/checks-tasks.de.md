@@ -1,7 +1,9 @@
 # Checks & Tasks
 
-Richtlinien bündeln **Checks** (Monitoring) und **Tasks** (geplante Automatisierung) und werden
-einer Firma, einem Standort oder einem Gerät zugewiesen – mit Vererbung (Gerät → Standort → Firma).
+Richtlinien bündeln **Checks** (Monitoring), **Tasks** (geplante Automatisierung),
+[Backups](backups.md) und [Benachrichtigungs-Einstellungen](alerting.md#software-anderungsalarme)
+und werden einer Firma, einem Standort oder einem Gerät zugewiesen – mit Vererbung
+(Gerät → Standort → Firma).
 
 ![Richtlinien](../screenshots/policy-detail.png){ .shadow }
 

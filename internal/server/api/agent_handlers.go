@@ -319,19 +319,25 @@ func (s *Server) proxmoxReboot(host *model.ProxmoxHost, pr *model.ProxmoxRemedia
 	s.log.Info("proxmox-remediation ausgelöst", "device", deviceName, "check", checkName, "target", target)
 }
 
-// alertSoftwareChanges benachrichtigt über seit `since` erfasste Software-Änderungen,
-// sofern in den Alarm-Einstellungen aktiviert. Behandelt als Warnung (informativ).
+// alertSoftwareChanges benachrichtigt über seit `since` erfasste Software-Änderungen.
+// Ob und was gemeldet wird, entscheidet ResolveSoftwareAlerts (Geräte-Override >
+// Richtlinie > globaler Standard, inkl. Filter nach Änderungsart und Ignorier-Mustern).
+// Behandelt als Warnung (informativ).
 func (s *Server) alertSoftwareChanges(ctx context.Context, device *model.Device, since time.Time) {
 	cfg, err := s.store.GetAlertConfig(ctx)
-	if err != nil || !cfg.Enabled || !cfg.AlertSoftware {
-		return
+	if err != nil || !cfg.Enabled {
+		return // Alarmierung insgesamt aus
 	}
-	if s.store.DeviceMuteSoftware(ctx, device.ID) {
-		return // für dieses Gerät stummgeschaltet
+	setting, err := s.store.ResolveSoftwareAlerts(ctx, device.ID)
+	if err != nil || !setting.Enabled {
+		return
 	}
 	events, err := s.store.SoftwareEventsSince(ctx, device.ID, since)
-	if err != nil || len(events) == 0 {
+	if err != nil {
 		return
+	}
+	if events = setting.Filter(events); len(events) == 0 {
+		return // nach Filter nichts Meldenswertes
 	}
 	if inMaint, err := s.store.DeviceInMaintenance(ctx, device.ID, time.Now()); err == nil && inMaint {
 		return

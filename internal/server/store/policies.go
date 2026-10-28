@@ -81,7 +81,8 @@ func (s *Store) DeleteScript(ctx context.Context, id string) error {
 // --- Policies ---
 
 func (s *Store) ListPolicies(ctx context.Context) ([]model.Policy, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, description FROM policies ORDER BY name`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, description, software_alerts, software_alert_kinds, software_ignore
+		FROM policies ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +90,17 @@ func (s *Store) ListPolicies(ctx context.Context) ([]model.Policy, error) {
 	var out []model.Policy
 	for rows.Next() {
 		var p model.Policy
-		if err := rows.Scan(&p.ID, &p.Name, &p.Description); err != nil {
+		var kinds, ignore string
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Notifications.SoftwareAlerts, &kinds, &ignore); err != nil {
 			return nil, err
+		}
+		p.Notifications.SoftwareAlertKinds = kindsSplit(kinds)
+		p.Notifications.SoftwareIgnore = ignoreSplit(ignore)
+		if p.Notifications.SoftwareAlertKinds == nil {
+			p.Notifications.SoftwareAlertKinds = []string{}
+		}
+		if p.Notifications.SoftwareIgnore == nil {
+			p.Notifications.SoftwareIgnore = []string{}
 		}
 		out = append(out, p)
 	}

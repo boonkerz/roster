@@ -358,7 +358,27 @@ export interface Policy {
   checks?: PolicyCheck[];
   tasks?: PolicyTask[];
   backups?: PolicyBackup[];
+  notifications?: PolicyNotifications;
   assignments?: Assignment[];
+}
+
+// Bereich „Benachrichtigungen“ einer Richtlinie.
+export interface PolicyNotifications {
+  software_alerts: "" | "on" | "off"; // "" = Standard (globale Einstellung)
+  software_alert_kinds: string[];      // added | removed | updated
+  software_ignore: string[];           // Glob-Muster auf Programmnamen
+}
+
+// Wirksame Software-Alarm-Einstellung eines Geräts (GET /devices/{id}/software-alerts).
+export interface DeviceSoftwareAlerts {
+  device: "" | "on" | "off";
+  enabled: boolean;
+  inherited: boolean; // Wert ohne Geräte-Override
+  source: "device" | "policy" | "global";
+  policy_id?: string;
+  policy_name?: string;
+  kinds: string[];
+  ignore: string[];
 }
 
 export interface FailingCheck {
@@ -462,7 +482,7 @@ export interface Device {
   proxmox_version?: string; // gesetzt = Agent läuft auf einem Proxmox-VE-Host
   proxmox_guests?: ProxmoxGuest[];
   proxmox_storages?: ProxmoxStorage[];
-  mute_software_alerts?: boolean;
+  software_alerts?: "" | "on" | "off"; // Override: "" = wie Richtlinie/Standard
   groups?: Group[];
   software?: SoftwarePackage[];
   printers?: Printer[];

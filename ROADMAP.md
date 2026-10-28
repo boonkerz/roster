@@ -66,7 +66,8 @@ Alle folgenden Punkte sind umgesetzt und live.
 
 - [x] **Software-Änderungs-Tracking** – Software-Inventar zwischen Checkins diffen,
   neu installierte / entfernte / aktualisierte Programme protokollieren (Verlauf).
-  Offen: optional alarmieren.
+  Alarmierung global, per Richtlinie (Vorrang Gerät > Standort > Client, Filter nach
+  Änderungsart und Ignorier-Mustern) oder per Gerät steuerbar.
 - [x] **Übersichts-Dashboard** – Health-Zusammenfassung über alle Geräte: fehlschlagende
   Checks, ausstehende Patches, Offline-Geräte, Task-Fehler; Status-Donut + letzte Wechsel.
 
