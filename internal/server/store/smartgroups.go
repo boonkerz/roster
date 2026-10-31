@@ -82,7 +82,23 @@ func condSQL(c ruleCond, offlineCutoff time.Time) (string, []any, bool) {
 			return "d.site_id NOT IN (SELECT id FROM sites WHERE client_id = ?)", []any{c.Value}, true
 		}
 		return "d.site_id IN (SELECT id FROM sites WHERE client_id = ?)", []any{c.Value}, true
-	case "updates_count", "security_updates_count":
+	case "updates_count", "security_updates_count", "compliance_score", "incidents_open":
+		if c.Field == "incidents_open" {
+			n, err := strconv.Atoi(c.Value)
+			if err != nil {
+				return "", nil, false
+			}
+			sub := "(SELECT COUNT(*) FROM security_incidents i WHERE i.device_id=d.id AND i.status='open')"
+			switch c.Op {
+			case "gt":
+				return sub + " > ?", []any{n}, true
+			case "lt":
+				return sub + " < ?", []any{n}, true
+			case "eq":
+				return sub + " = ?", []any{n}, true
+			}
+			return "", nil, false
+		}
 		n, err := strconv.Atoi(c.Value)
 		if err != nil {
 			return "", nil, false

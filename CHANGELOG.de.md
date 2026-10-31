@@ -61,6 +61,19 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   Quell-IPs) und „Anmeldungen“, Geräte-Tab „Anmeldungen“, Zähler offener Vorfälle in Navigation,
   Geräteliste und Übersicht. Neuer Einstellungsbereich „Sicherheitsüberwachung“ (Schwellwerte,
   Lernphase, Nie-sperren-Liste, Cooldown).
+- Sicherheit: **Compliance-/Baseline-Prüfung** – CIS-artiger Regelkatalog (Linux: SSH-Einstellungen,
+  Rechte von /etc/shadow und /etc/passwd, leere Passwörter, weitere UID 0, sudo NOPASSWD, Passwort-
+  alter, Firewall, auditd, NTP, SELinux/AppArmor, ASLR, IP-Forwarding, ICMP-Redirects, SYN-Cookies,
+  weltweit beschreibbares /etc, telnet/rsh, Core-Dumps; Windows: UAC, SMBv1, RDP-NLA/aus, Gast- und
+  Administratorkonto, Firewall-Profile, Defender, BitLocker, AutoPlay, LLMNR, Kennwortrichtlinie,
+  Kontosperre, PowerShell 2.0, WDigest, LSA-PPL; macOS: FileVault, Firewall, Tarnmodus, Gatekeeper,
+  SIP, Bildschirmschoner-Passwort, Gast, Remote Login; alle: automatische Updates, ausstehender
+  Neustart). Je Richtlinie aktivierbar mit Profil (Server/Arbeitsplatz), Intervall und Regelauswahl;
+  der Agent wertet aus und meldet einen Score. Geräte-Tab „Compliance“ (Befunde, Empfehlungen, neu
+  prüfen), Flottenansicht nach Gerät und nach Regel auf der Sicherheitsseite, Listen-Spalte, Filter
+  und Smart-Group-Feld `compliance_score`, Übersichts-Kachel sowie der neue Check-Typ
+  **Compliance-Score** (Mindest-Score, optional Fehler bei jeder Regel mit Schwere „hoch“) für
+  Alarme und Remediation.
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät

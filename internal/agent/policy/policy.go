@@ -76,6 +76,8 @@ func evalOne(ctx context.Context, c shared.CheckSpec, updatesCount *int) shared.
 		return zfsCheck(ctx, c)
 	case "reboot":
 		return rebootCheck(ctx, c)
+	case "compliance":
+		return complianceCheck(c)
 	default:
 		return shared.CheckResult{CheckID: c.ID, Status: "unknown", Output: "unbekannter Checktyp: " + c.Type}
 	}

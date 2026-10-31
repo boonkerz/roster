@@ -6,6 +6,7 @@ import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskRe
 import { PatchHistoryTable } from "./PatchHistoryTable";
 import { DeviceFim } from "./DeviceFim";
 import { DeviceAuth } from "./DeviceAuth";
+import { DeviceCompliance } from "./Compliance";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, AutoUpdatesBadge, KernelBadge, EolBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
@@ -29,7 +30,7 @@ import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "backups" | "history" | "storage" | "system" | "security" | "vulns" | "fim" | "authlog" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "backups" | "history" | "storage" | "system" | "security" | "vulns" | "fim" | "authlog" | "compliance" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -158,6 +159,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     vulns: { label: "Schwachstellen", icon: "🐞" },
     fim: { label: "Datei-Integrität", icon: "🗂" },
     authlog: { label: "Anmeldungen", icon: "🔑" },
+    compliance: { label: "Compliance", icon: "📋" },
     events: { label: "Ereignisse", icon: "📃" },
     software: { label: "Software", icon: "📦" },
     updates: { label: "Patches", icon: "⬇" },
@@ -182,7 +184,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "backups", "history"] },
     { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), ...(hasProxmox ? ["proxmox" as Tab] : []), "fields"] },
     { name: "System", icon: "⚙", tabs: ["system", "events"] },
-    { name: "Sicherheit", icon: "🛡", tabs: ["authlog", "fim", "vulns", "security"] },
+    { name: "Sicherheit", icon: "🛡", tabs: ["authlog", "fim", "compliance", "vulns", "security"] },
   ];
   if (canOperate) tabGroups.push({ name: "Zugriff", icon: "❯_", tabs: ["files", "run", "terminal", "remote"] });
 
@@ -195,6 +197,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
       {k === "software" && <span className="tab-count">{(device.software ?? []).length}</span>}
       {k === "fim" && (device.fim_open ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.fim_open}</span>}
       {k === "authlog" && (device.incidents_open ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.incidents_open}</span>}
+      {k === "compliance" && device.compliance_score !== undefined && device.compliance_score !== null && <span className={`tab-count ${device.compliance_score < 80 ? "tab-count-bad" : ""}`}>{device.compliance_score}%</span>}
       {k === "vulns" && (device.vuln_count ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.vuln_count}</span>}
       {k === "docker" && <span className="tab-count">{(device.docker_containers ?? []).length}</span>}
       {k === "proxmox" && (
@@ -593,6 +596,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
         {tab === "vulns" && <Vulnerabilities deviceId={id} />}
         {tab === "fim" && <DeviceFim deviceId={id} canOperate={canOperate} />}
         {tab === "authlog" && <DeviceAuth deviceId={id} canOperate={canOperate} />}
+        {tab === "compliance" && <DeviceCompliance deviceId={id} canOperate={canOperate} score={device.compliance_score} checkedAt={device.compliance_checked_at} />}
 
         {tab === "security" && (
           <SecurityPanel deviceId={id} />

@@ -25,6 +25,7 @@ import (
 
 	"github.com/boonkerz/roster/internal/agent/authlog"
 	"github.com/boonkerz/roster/internal/agent/collect"
+	"github.com/boonkerz/roster/internal/agent/compliance"
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/fim"
 	"github.com/boonkerz/roster/internal/agent/policy"
@@ -114,6 +115,10 @@ type program struct {
 	fimReset  bool
 	// Anmeldungs-Überwachung: wartende Ereignisse (Cursor hält das authlog-Paket).
 	authEvents []shared.AuthEvent
+	// Compliance: letzter Bericht (für den Check-Typ) und ob er noch zu senden ist.
+	compliance        *shared.ComplianceReport
+	compliancePending bool
+	complianceNow     chan struct{}
 
 	policy            *shared.PolicyBundle   // zuletzt empfangene Policy
 	pendingChecks     []shared.CheckResult   // beim nächsten Checkin zu meldende Check-Ergebnisse
@@ -197,6 +202,13 @@ func (p *program) run(ctx context.Context) {
 	p.fimNow = make(chan struct{}, 1)
 	go p.fimLoop(ctx)
 	go p.authLoop(ctx)
+	p.complianceNow = make(chan struct{}, 1)
+	policy.ComplianceReport = func() *shared.ComplianceReport {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return p.compliance
+	}
+	go p.complianceLoop(ctx)
 	if !cfg.DisableUpdateCheck {
 		go p.updateChecker(ctx, cfg.UpdateCheckInterval)
 	}
@@ -301,6 +313,11 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	} else {
 		p.authEvents = nil
 	}
+	var compliance *shared.ComplianceReport
+	if p.compliancePending {
+		compliance = p.compliance
+		p.compliancePending = false
+	}
 	p.pendingChecks, p.pendingTasks, p.pendingCmdResults, p.patchHistory = nil, nil, nil, nil
 	p.mu.Unlock()
 
@@ -310,7 +327,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	}
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
-		Sample: sample, PatchHistory: history, FIMEvents: fimEv, AuthEvents: authEv,
+		Sample: sample, PatchHistory: history, FIMEvents: fimEv, AuthEvents: authEv, Compliance: compliance,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -323,6 +340,9 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 		}
 		p.fimEvents = append(fimEv, p.fimEvents...)
 		p.authEvents = append(authEv, p.authEvents...)
+		if compliance != nil {
+			p.compliancePending = true
+		}
 		p.mu.Unlock()
 		return 0, ""
 	}
@@ -559,6 +579,12 @@ func (p *program) runPolicy(ctx context.Context) {
 			} else {
 				output = "Gelöscht"
 			}
+		case "compliance_scan":
+			select {
+			case p.complianceNow <- struct{}{}:
+			default:
+			}
+			exit, output = 0, "Compliance-Prüfung angestoßen"
 		case "fim_rescan", "fim_reset":
 			p.mu.Lock()
 			if cmd.Type == "fim_reset" {
@@ -1140,5 +1166,53 @@ func (p *program) authLoop(ctx context.Context) {
 		p.mu.Unlock()
 		p.log.Info("auth-ereignisse gelesen", "n", len(events))
 		p.requestCheckin()
+	}
+}
+
+// complianceLoop prüft die Baseline-Regeln nach dem Intervall der wirksamen Richtlinie
+// (Standard 24 h), auf Anstoß sofort; der Bericht geht beim nächsten Checkin mit und
+// speist den Check-Typ „compliance“.
+func (p *program) complianceLoop(ctx context.Context) {
+	var last time.Time
+	run := func(force bool) {
+		p.mu.Lock()
+		var spec *shared.ComplianceSpec
+		if p.policy != nil && p.policy.Security != nil {
+			spec = p.policy.Security.Compliance
+		}
+		p.mu.Unlock()
+		if spec == nil || !spec.Enabled {
+			return
+		}
+		interval := time.Duration(spec.IntervalH) * time.Hour
+		if interval < time.Hour {
+			interval = 24 * time.Hour
+		}
+		if !force && time.Since(last) < interval {
+			return
+		}
+		cctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		rep := compliance.Run(cctx, spec, compliance.NewEnv(cctx))
+		cancel()
+		last = time.Now()
+		score, pass, fail := compliance.Score(rep.Results)
+		p.log.Info("compliance-prüfung", "profil", rep.Profile, "score", score, "bestanden", pass, "fehlgeschlagen", fail)
+		p.mu.Lock()
+		p.compliance = &rep
+		p.compliancePending = true
+		p.mu.Unlock()
+		p.requestCheckin()
+	}
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-p.complianceNow:
+			run(true)
+		case <-t.C:
+			run(false)
+		}
 	}
 }

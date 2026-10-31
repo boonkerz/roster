@@ -46,6 +46,7 @@ var auditActions = map[string]string{
 	"PUT /security/fim/ack":                   "Datei-Änderungen bestätigt",
 	"PUT /security/incidents/{id}":            "Sicherheitsvorfall bearbeitet",
 	"PUT /settings/security":                  "Sicherheitsüberwachung konfiguriert",
+	"POST /devices/{id}/compliance-scan":      "Compliance-Prüfung angestoßen",
 	"POST /devices/{id}/fim/rescan":           "Datei-Integrität geprüft",
 	"POST /devices/{id}/fim/reset":            "Datei-Integrität: Baseline neu gesetzt",
 	"PUT /devices/{id}/site":                  "Standort geändert",

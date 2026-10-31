@@ -384,6 +384,22 @@ export interface PolicyFIMRule {
   alert: boolean;
 }
 
+// Compliance-Regelkatalog und Ergebnisse.
+export interface ComplianceRule {
+  id: string;
+  title: string;
+  title_en: string;
+  description: string;
+  severity: "low" | "medium" | "high";
+  category: string;
+  platforms: string[];
+  profiles: string[];
+  remediation: string;
+}
+export interface ComplianceResult { device_id: string; hostname?: string; rule_id: string; status: "pass" | "fail" | "na" | "error"; evidence?: string; checked_at: string; }
+export interface ComplianceDevice { device_id: string; hostname: string; os: string; client_name?: string; site_name?: string; score: number; profile: string; passed: number; failed: number; skipped: number; checked_at: string; }
+export interface ComplianceRuleStat { rule_id: string; passed: number; failed: number; skipped: number; }
+
 // AuthEvent ist ein Anmelde-/Kontoereignis (Anmeldungs-Überwachung).
 export interface AuthEvent {
   id: string;
@@ -643,6 +659,8 @@ export interface Device {
   eol_date?: string;
   fim_open?: number;
   incidents_open?: number;
+  compliance_score?: number | null;
+  compliance_checked_at?: string;
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];
@@ -732,6 +750,9 @@ export interface DashboardSummary {
   devices_eol_soon?: number;
   open_incidents?: number;
   failed_logins_24h?: number;
+  compliance_avg?: number;
+  devices_low_compliance?: number;
+  devices_compliance_checked?: number;
   devices_with_vulns: number;
   vulnerabilities: number;
   recent_events: CheckEvent[];

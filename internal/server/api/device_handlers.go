@@ -126,10 +126,20 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		case "soon":
 			sum.DevicesEOLSoon++
 		}
+		if d.ComplianceScore != nil {
+			sum.DevicesComplianceChecked++
+			sum.ComplianceAvg += *d.ComplianceScore
+			if *d.ComplianceScore < 80 {
+				sum.DevicesLowCompliance++
+			}
+		}
 		if d.VulnCount > 0 {
 			sum.DevicesWithVulns++
 			sum.Vulnerabilities += d.VulnCount
 		}
+	}
+	if sum.DevicesComplianceChecked > 0 {
+		sum.ComplianceAvg /= sum.DevicesComplianceChecked
 	}
 	if events, err := s.store.RecentCheckEvents(r.Context(), 20); err == nil {
 		sum.RecentEvents = events

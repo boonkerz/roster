@@ -95,6 +95,11 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if len(req.AuthEvents) > 0 {
 		s.processAuthEvents(r.Context(), device, req.AuthEvents)
 	}
+	if req.Compliance != nil {
+		if err := s.store.ReplaceCompliance(r.Context(), device.ID, req.Compliance); err != nil {
+			s.log.Error("compliance speichern", "err", err)
+		}
+	}
 	if len(req.FIMEvents) > 0 {
 		if err := s.store.InsertFIMEvents(r.Context(), device.ID, req.FIMEvents); err != nil {
 			s.log.Error("fim-ereignisse speichern", "err", err)

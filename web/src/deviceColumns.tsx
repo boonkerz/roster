@@ -66,6 +66,7 @@ export function baseDeviceColumns(t: Tr): DevColumn[] {
     { key: "kernel", label: t("Kernel"), render: (d) => <td><KernelBadge running={d.kernel_running} installed={d.kernel_installed} /></td> },
     { key: "os_build", label: t("OS-Build"), render: (d) => <td className="muted mono">{d.os_build || d.os_codename || "—"}</td> },
     { key: "eol", label: t("Support-Ende"), render: (d) => <td><EolBadge status={d.eol_status} date={d.eol_date} /></td> },
+    { key: "compliance", label: t("Compliance"), render: (d, ctx) => jumpCell(d, ctx, "compliance", ctx.t("Zur Compliance springen"), d.compliance_score === undefined || d.compliance_score === null ? dash : <span className={`badge ${d.compliance_score >= 90 ? "badge-online" : d.compliance_score >= 70 ? "badge-warn" : "badge-offline"}`}>{d.compliance_score}%</span>) },
     { key: "incidents", label: t("Vorfälle"), render: (d, ctx) => jumpCell(d, ctx, "authlog", ctx.t("Zu den Vorfällen springen"), d.incidents_open ? <span className="badge badge-offline">{d.incidents_open}</span> : dash) },
     { key: "agent", label: t("Agent"), render: (d) => <td className="muted mono">{d.agent_version || "—"}</td> },
     { key: "last_seen", label: t("Zuletzt gesehen"), render: (d) => <td className="muted">{relTime(d.last_seen)}</td> },

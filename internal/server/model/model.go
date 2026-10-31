@@ -125,6 +125,9 @@ type Device struct {
 	FIMOpen int `json:"fim_open"`
 	// IncidentsOpen zählt offene Sicherheitsvorfälle.
 	IncidentsOpen int `json:"incidents_open"`
+	// Compliance-Score (0–100, nil = nie geprüft) und Zeitpunkt der letzten Prüfung.
+	ComplianceScore     *int       `json:"compliance_score,omitempty"`
+	ComplianceCheckedAt *time.Time `json:"compliance_checked_at,omitempty"`
 
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
@@ -487,6 +490,39 @@ type PolicyFIMRule struct {
 	Exclude   []string `json:"exclude"`
 	Platforms []string `json:"platforms"`
 	Alert     bool     `json:"alert"`
+}
+
+// ComplianceResult ist das gespeicherte Ergebnis einer Regel auf einem Gerät.
+type ComplianceResult struct {
+	DeviceID  string    `json:"device_id"`
+	Hostname  string    `json:"hostname,omitempty"`
+	RuleID    string    `json:"rule_id"`
+	Status    string    `json:"status"` // pass | fail | na | error
+	Evidence  string    `json:"evidence,omitempty"`
+	CheckedAt time.Time `json:"checked_at"`
+}
+
+// ComplianceDevice ist die Flottenzeile eines geprüften Geräts.
+type ComplianceDevice struct {
+	DeviceID   string    `json:"device_id"`
+	Hostname   string    `json:"hostname"`
+	OS         string    `json:"os"`
+	ClientName string    `json:"client_name,omitempty"`
+	SiteName   string    `json:"site_name,omitempty"`
+	Score      int       `json:"score"`
+	Profile    string    `json:"profile"`
+	Passed     int       `json:"passed"`
+	Failed     int       `json:"failed"`
+	Skipped    int       `json:"skipped"`
+	CheckedAt  time.Time `json:"checked_at"`
+}
+
+// ComplianceRuleStat zählt je Regel die Geräte nach Status.
+type ComplianceRuleStat struct {
+	RuleID  string `json:"rule_id"`
+	Passed  int    `json:"passed"`
+	Failed  int    `json:"failed"`
+	Skipped int    `json:"skipped"`
 }
 
 // AuthEvent ist ein gespeichertes Anmelde-/Kontoereignis.
@@ -861,6 +897,9 @@ type DashboardSummary struct {
 	DevicesEOLSoon             int          `json:"devices_eol_soon"` // Support-Ende innerhalb der Vorwarnzeit
 	OpenIncidents              int          `json:"open_incidents"`   // offene Sicherheitsvorfälle
 	FailedLogins24h            int          `json:"failed_logins_24h"`
+	ComplianceAvg              int          `json:"compliance_avg"`         // Ø-Score geprüfter Geräte
+	DevicesLowCompliance       int          `json:"devices_low_compliance"` // Score < 80
+	DevicesComplianceChecked   int          `json:"devices_compliance_checked"`
 	DevicesWithVulns           int          `json:"devices_with_vulns"`
 	Vulnerabilities            int          `json:"vulnerabilities"`
 	RecentEvents               []CheckEvent `json:"recent_events"`

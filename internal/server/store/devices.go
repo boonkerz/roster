@@ -184,7 +184,8 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 	(SELECT e.status FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),
 	(SELECT e.eol_date FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),
 	(SELECT COUNT(*) FROM fim_events f WHERE f.device_id=d.id AND f.acknowledged=FALSE),
-	(SELECT COUNT(*) FROM security_incidents i WHERE i.device_id=d.id AND i.status='open')`
+	(SELECT COUNT(*) FROM security_incidents i WHERE i.device_id=d.id AND i.status='open'),
+	d.compliance_score, d.compliance_checked_at`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -1135,7 +1136,8 @@ func scanDevice(row scanner) (*model.Device, error) {
 	var users string
 	var updatesCount, securityCount sql.NullInt64
 	var siteID, siteName, clientID, clientName, eolStatus sql.NullString
-	var eolDate sql.NullTime
+	var eolDate, compAt sql.NullTime
+	var compScore sql.NullInt64
 	var proxmoxStorages string
 	err := row.Scan(&d.ID, &d.Hostname, &d.OS, &d.OSVersion, &d.Vendor, &d.Model, &d.Serial,
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
@@ -1144,9 +1146,17 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.SoftwareAlerts,
 		&d.ProxmoxVersion, &proxmoxStorages, &securityCount,
 		&d.AutoUpdates, &d.KernelRunning, &d.KernelInstalled, &d.OSBuild, &d.OSCodename, &d.OSEdition,
-		&eolStatus, &eolDate, &d.FIMOpen, &d.IncidentsOpen)
+		&eolStatus, &eolDate, &d.FIMOpen, &d.IncidentsOpen, &compScore, &compAt)
 	if err != nil {
 		return nil, err
+	}
+	if compScore.Valid {
+		n := int(compScore.Int64)
+		d.ComplianceScore = &n
+	}
+	if compAt.Valid {
+		t := compAt.Time
+		d.ComplianceCheckedAt = &t
 	}
 	d.EOLStatus = eolStatus.String
 	if eolDate.Valid {

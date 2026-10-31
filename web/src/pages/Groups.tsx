@@ -23,6 +23,8 @@ const FIELDS: { v: string; label: string; ops: string[]; values?: string[]; numb
   { v: "os_edition", label: "OS-Edition", ops: ["eq", "ne", "contains"] },
   { v: "kernel_pending", label: "Kernel-Neustart ausstehend", ops: ["eq"], values: ["true", "false"] },
   { v: "eol_status", label: "Support-Ende", ops: ["eq", "ne"], values: ["ok", "soon", "eol", "unknown"] },
+  { v: "compliance_score", label: "Compliance-Score", ops: ["gt", "lt", "eq"], number: true },
+  { v: "incidents_open", label: "Offene Vorfälle", ops: ["gt", "lt", "eq"], number: true },
 ];
 const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<" };
 

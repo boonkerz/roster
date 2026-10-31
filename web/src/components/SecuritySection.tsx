@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import type { Policy, PolicyFIMRule, PolicySecurity } from "../types";
+import { CATEGORY_LABEL, SEVERITY_LABEL, ruleTitle, useComplianceRules } from "./Compliance";
 
 // Sicherheitsüberwachung einer Richtlinie: Datei-Integrität (überwachte Pfade, Intervall)
 // und Anmeldungs-Überwachung. Bei mehreren Richtlinien werden die Regeln vereinigt, die
@@ -30,12 +31,19 @@ const emptyDraft = (): Draft => ({ path: "", recursive: true, exclude: "", platf
 const draftFrom = (r: PolicyFIMRule): Draft => ({ path: r.path, recursive: r.recursive, exclude: (r.exclude ?? []).join("\n"), platforms: r.platforms ?? [], alert: r.alert });
 
 export function SecuritySection({ policy }: { policy: Policy }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const qc = useQueryClient();
   const sec = policy.security;
   const rules = policy.fim_rules ?? [];
+  const catalog = useComplianceRules();
   const [interval, setInterval_] = useState(60);
   const [auth, setAuth] = useState(false);
+  const [compOn, setCompOn] = useState(false);
+  const [compProfile, setCompProfile] = useState<"server" | "workstation">("server");
+  const [compInterval, setCompInterval] = useState(24);
+  const [compDisabled, setCompDisabled] = useState<string[]>([]);
+  const [ruleFilter, setRuleFilter] = useState("");
+  const [showRules, setShowRules] = useState(false);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [editId, setEditId] = useState<string | null>(null);
@@ -44,12 +52,19 @@ export function SecuritySection({ policy }: { policy: Policy }) {
   useEffect(() => {
     setInterval_(sec?.fim_interval_min ?? 60);
     setAuth(sec?.auth_monitor ?? false);
+    setCompOn(sec?.compliance_enabled ?? false);
+    setCompProfile(sec?.compliance_profile ?? "server");
+    setCompInterval(sec?.compliance_interval_h ?? 24);
+    setCompDisabled(sec?.compliance_disabled ?? []);
     setErr("");
-  }, [policy.id, sec?.fim_interval_min, sec?.auth_monitor]);
+  }, [policy.id, sec?.fim_interval_min, sec?.auth_monitor, sec?.compliance_enabled, sec?.compliance_profile, sec?.compliance_interval_h, sec?.compliance_disabled]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["policies"] });
   const saveSec = useMutation({
-    mutationFn: (patch: Partial<PolicySecurity>) => api.put(`/policies/${policy.id}/security`, { ...(sec ?? {}), fim_interval_min: interval, auth_monitor: auth, ...patch }),
+    mutationFn: (patch: Partial<PolicySecurity>) => api.put(`/policies/${policy.id}/security`, {
+      ...(sec ?? {}), fim_interval_min: interval, auth_monitor: auth,
+      compliance_enabled: compOn, compliance_profile: compProfile, compliance_interval_h: compInterval, compliance_disabled: compDisabled, ...patch,
+    }),
     onSuccess: () => { setErr(""); invalidate(); },
     onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
   });
@@ -74,7 +89,12 @@ export function SecuritySection({ policy }: { policy: Policy }) {
     onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
   });
 
-  const dirtySec = interval !== (sec?.fim_interval_min ?? 60) || auth !== (sec?.auth_monitor ?? false);
+  const dirtySec = interval !== (sec?.fim_interval_min ?? 60) || auth !== (sec?.auth_monitor ?? false)
+    || compOn !== (sec?.compliance_enabled ?? false) || compProfile !== (sec?.compliance_profile ?? "server")
+    || compInterval !== (sec?.compliance_interval_h ?? 24) || compDisabled.join(",") !== (sec?.compliance_disabled ?? []).join(",");
+  const toggleRule = (id: string) => setCompDisabled((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
+  const visibleRules = catalog.filter((r) => (r.profiles.length === 0 || r.profiles.includes(compProfile)) && (!ruleFilter || `${r.id} ${r.title} ${r.title_en} ${r.category}`.toLowerCase().includes(ruleFilter.toLowerCase())));
+  const byCategory = visibleRules.reduce<Record<string, typeof visibleRules>>((acc, r) => { (acc[r.category] ??= []).push(r); return acc; }, {});
   const togglePlatform = (p: string) => setDraft((d) => ({ ...d, platforms: d.platforms.includes(p) ? d.platforms.filter((x) => x !== p) : [...d.platforms, p] }));
 
   return (
@@ -141,6 +161,41 @@ export function SecuritySection({ policy }: { policy: Policy }) {
         <input type="checkbox" checked={auth} onChange={(e) => setAuth(e.target.checked)} /> {t("Anmeldungen überwachen (SSH/RDP/Konsole, sudo, Kontoänderungen)")}
       </label>
       <p className="muted small">{t("Linux liest journald bzw. /var/log/auth.log, Windows das Sicherheitsprotokoll (Anmeldeüberwachung muss aktiv sein). Schwellwerte für Brute-Force stehen in den Einstellungen.")}</p>
+
+      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Compliance (Baseline-Regeln)")}</h3>
+      <div className="inline-form">
+        <label className="chip" style={{ display: "inline-flex", whiteSpace: "nowrap" }}><input type="checkbox" checked={compOn} onChange={(e) => setCompOn(e.target.checked)} /> {t("Compliance-Prüfung aktivieren")}</label>
+        <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Profil")}
+          <select value={compProfile} onChange={(e) => setCompProfile(e.target.value as "server" | "workstation")} disabled={!compOn}>
+            <option value="server">{t("Server")}</option>
+            <option value="workstation">{t("Arbeitsplatz")}</option>
+          </select>
+        </label>
+        <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{t("Prüfabstand (Std.)")}
+          <input type="number" min={1} max={168} value={compInterval} onChange={(e) => setCompInterval(Number(e.target.value))} disabled={!compOn} style={{ width: 70 }} />
+        </label>
+        <button className="btn ghost sm" type="button" onClick={() => setShowRules((v) => !v)} disabled={!compOn}>
+          {showRules ? t("Regeln ausblenden") : t("Regeln auswählen")} ({catalog.length - compDisabled.length}/{catalog.length})
+        </button>
+      </div>
+      <p className="muted small">{t("Der Agent prüft CIS-artige Regeln (SSH, Dateirechte, Firewall, sysctl; Windows: UAC, SMBv1, RDP-NLA, Firewall, Defender, LSA; macOS: FileVault, Firewall, Gatekeeper, SIP). Der Check-Typ „Compliance-Score“ alarmiert bei Unterschreitung.")}</p>
+      {showRules && compOn && (
+        <div style={{ marginTop: 8 }}>
+          <input className="search" placeholder={t("Regel suchen…")} value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)} />
+          {Object.entries(byCategory).map(([cat, rs]) => (
+            <div key={cat} style={{ marginTop: 8 }}>
+              <div className="muted small"><strong>{t(CATEGORY_LABEL[cat] ?? cat)}</strong></div>
+              <div className="chips">
+                {rs.map((r) => (
+                  <label key={r.id} className={`chip ${compDisabled.includes(r.id) ? "" : "chip-on"}`} title={`${r.description}\n${r.platforms.join(", ")} · ${t(SEVERITY_LABEL[r.severity])}`}>
+                    <input type="checkbox" checked={!compDisabled.includes(r.id)} onChange={() => toggleRule(r.id)} /> {ruleTitle(r, lang, r.id)} <span className="muted small">({r.platforms.map((p) => p[0].toUpperCase()).join("")})</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {err && <p className="error small">{err}</p>}
       {dirtySec && (

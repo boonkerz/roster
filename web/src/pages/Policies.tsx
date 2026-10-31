@@ -50,6 +50,7 @@ const CHECK_TYPES: Record<string, string> = {
   proxmox_backup: "Proxmox-Backups (aktuell?)",
   temperature: "Temperatur (°C)",
   fan: "Lüfter (Stillstand/Drehzahl)",
+  compliance: "Compliance-Score (Baseline)",
 };
 
 const ZFS_MODES: Record<string, string> = {
@@ -167,6 +168,8 @@ function PolicyEditor({
   const [cName, setCName] = useState("");
   const [cType, setCType] = useState("disk");
   const [cThreshold, setCThreshold] = useState(15);
+  const [cMinScore, setCMinScore] = useState("80");
+  const [cFailOnHigh, setCFailOnHigh] = useState(false);
   const [cScript, setCScript] = useState("");
   const [cSeverity, setCSeverity] = useState<"warning" | "critical">("critical");
   const [cFreq, setCFreq] = useState("");
@@ -227,6 +230,8 @@ function PolicyEditor({
         if (cDMode === "running") config.min = Number(cDMin || 1);
         else if (cDMode === "stopped") config.max = Number(cDMax || 0);
         else if (cDMode === "container") config.name = cDName.trim();
+      } else if (cType === "compliance") {
+        config = { min_score: Number(cMinScore) || 80, fail_on_high: cFailOnHigh };
       } else if (cType === "smart" || cType === "bitlocker" || cType === "reboot") {
         config = {};
       } else if (cType === "av") {
@@ -300,6 +305,7 @@ function PolicyEditor({
     setCRemediation(""); setCAllowed(""); setCProxHost(""); setCProxGuest("");
     setCDMode("running"); setCDMin("1"); setCDMax("0"); setCDName(""); setCAvAge("7");
     setCCertDays("14"); setCSvcName(""); setCUpDays("30");
+    setCMinScore("80"); setCFailOnHigh(false);
     setCZfsMode("health"); setCZfsPool(""); setCZfsMax("80");
   }
 
@@ -334,6 +340,7 @@ function PolicyEditor({
     setCCertDays(cfg.min_days !== undefined ? String(cfg.min_days) : "14");
     setCSvcName(str(cfg.name));
     setCUpDays(cfg.max_days !== undefined ? String(cfg.max_days) : "30");
+    setCMinScore(cfg.min_score !== undefined ? String(cfg.min_score) : "80"); setCFailOnHigh(!!cfg.fail_on_high);
     setCZfsMode(str(cfg.mode) || "health");
     setCZfsPool(str(cfg.pool));
     setCZfsMax(cfg.max !== undefined ? String(cfg.max) : "80");
@@ -413,6 +420,7 @@ function PolicyEditor({
                 : c.type === "cert" ? `Zertifikat: ${c.config?.host ?? ""}${c.config?.port ? `:${c.config.port}` : ""}${c.config?.min_days ? ` (≥${c.config.min_days}d)` : ""}`
                 : c.type === "service" || c.type === "process" ? `${t(CHECK_TYPES[c.type])}: ${c.config?.name ?? "—"}`
                 : c.type === "uptime" ? `Uptime ≤ ${c.config?.max_days ?? 30}d`
+                : c.type === "compliance" ? `${t("Compliance-Score")} ≥ ${c.config?.min_score ?? 80} %${c.config?.fail_on_high ? ` · ${t("hohe Regeln")}` : ""}`
                 : c.type === "fan" ? `${t("Lüfter")}${c.config?.sensor ? ` (${c.config.sensor})` : ""}${c.config?.min_rpm !== undefined ? ` ≥ ${c.config.min_rpm} ${t("U/min")}` : ` · ${t("Stillstand/Alarm")}`}`
                 : c.type === "temperature" ? `${t("Temperatur")}${c.config?.sensor ? ` (${c.config.sensor})` : ""}${c.config?.warn !== undefined || c.config?.crit !== undefined
                     ? `${c.config?.warn !== undefined ? ` ⚠ ≥ ${c.config.warn} °C` : ""}${c.config?.crit !== undefined ? ` ✖ ≥ ${c.config.crit} °C` : ""}`
@@ -477,6 +485,11 @@ function PolicyEditor({
             </>
           ) : cType === "service" || cType === "process" ? (
             <input placeholder={cType === "service" ? t("Dienst-Name (Teilstring)") : t("Prozess-Name (Teilstring)")} value={cSvcName} onChange={(e) => setCSvcName(e.target.value)} style={{ minWidth: 180 }} />
+          ) : cType === "compliance" ? (
+            <>
+              <label className="num">{t("Mindest-Score (%)")}<input type="number" min={0} max={100} value={cMinScore} onChange={(e) => setCMinScore(e.target.value)} /></label>
+              <label className="chip"><input type="checkbox" checked={cFailOnHigh} onChange={(e) => setCFailOnHigh(e.target.checked)} /> {t("auch bei fehlgeschlagener Regel mit Schwere „hoch“")}</label>
+            </>
           ) : cType === "uptime" ? (
             <label className="num" title={t("Failing, wenn die Uptime länger als so viele Tage ist (Neustart überfällig).")}>{t("max. Tage")}<input type="number" value={cUpDays} onChange={(e) => setCUpDays(e.target.value)} /></label>
           ) : cType === "zfs" ? (

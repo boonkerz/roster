@@ -22,7 +22,7 @@ const (
 
 // summaryKeys sind die Kennzahlen, die je Standort als eigene Reihe gezählt werden.
 var summaryKeys = []string{"devices_total", "devices_online", "devices_offline", "devices_unknown",
-	"failing_checks", "failing_tasks", "pending_patches", "security_patches", "vulnerabilities", "devices_eol", "open_incidents"}
+	"failing_checks", "failing_tasks", "pending_patches", "security_patches", "vulnerabilities", "devices_eol", "open_incidents", "low_compliance"}
 
 // computeStatSamples zählt den Ist-Zustand in Statistik-Zeilen (ohne Zeitstempel):
 // Kennzahlen und der Gerätestatus je Standort, der Status jedes Checks und die
@@ -73,6 +73,9 @@ func (s *Server) computeStatSamples(devices []model.Device, checks []store.Check
 			add(site, statKindSummary, "devices_eol", "", 1)
 		}
 		add(site, statKindSummary, "open_incidents", "", float64(d.IncidentsOpen))
+		if d.ComplianceScore != nil && *d.ComplianceScore < 80 {
+			add(site, statKindSummary, "low_compliance", "", 1)
+		}
 		add(site, statKindSummary, "vulnerabilities", "", float64(d.VulnCount))
 	}
 	// Alle Kennzahlen je Standort auch mit 0 ausgeben, damit Verläufe keine Lücken haben.

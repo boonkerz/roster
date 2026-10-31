@@ -60,6 +60,19 @@ All notable changes to Roster are documented here. The format follows
   "Incidents" (acknowledge/resolve, filters, top source IPs) and "Logins", device tab
   "Logins", open-incident counter in the navigation, device list and dashboard. New settings
   area "Security monitoring" (thresholds, learning phase, never-block list, cooldown).
+- Security: **compliance / baseline checks** – a CIS-style rule catalog (Linux: SSH settings,
+  /etc/shadow and /etc/passwd permissions, empty passwords, extra UID 0, sudo NOPASSWD, password
+  aging, firewall, auditd, NTP, SELinux/AppArmor, ASLR, IP forwarding, ICMP redirects, SYN
+  cookies, world-writable /etc, telnet/rsh, core dumps; Windows: UAC, SMBv1, RDP NLA/off,
+  guest and built-in admin, firewall profiles, Defender, BitLocker, AutoPlay, LLMNR, password
+  policy, lockout, PowerShell 2.0, WDigest, LSA PPL; macOS: FileVault, firewall, stealth mode,
+  Gatekeeper, SIP, screen-saver password, guest, remote login; all: automatic updates, reboot
+  pending). Enabled per policy with profile (server/workstation), interval and per-rule
+  selection; the agent evaluates them and reports a score. Device tab "Compliance" (findings,
+  recommendations, re-check), fleet view by device and by rule on the Security page, device
+  list column, filter and smart-group field `compliance_score`, dashboard tile, and the new
+  check type **Compliance score** (minimum score, optional fail on any high-severity rule)
+  for alerting and remediation.
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

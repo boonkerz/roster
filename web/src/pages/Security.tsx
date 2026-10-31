@@ -6,15 +6,17 @@ import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
+import { FleetCompliance } from "../components/Compliance";
 import type { AuthEvent, ClientTree, FIMEvent, SecurityIncident, SecuritySummary } from "../types";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
-type SecTab = "incidents" | "auth" | "fim";
+type SecTab = "incidents" | "auth" | "fim" | "compliance";
 const TABS: { key: SecTab; label: string }[] = [
   { key: "incidents", label: "Vorfälle" },
   { key: "auth", label: "Anmeldungen" },
   { key: "fim", label: "Datei-Integrität" },
+  { key: "compliance", label: "Compliance" },
 ];
 
 export function Security() {
@@ -36,6 +38,7 @@ export function Security() {
       {tab === "incidents" && <IncidentsTab />}
       {tab === "auth" && <AuthTab />}
       {tab === "fim" && <FimTab />}
+      {tab === "compliance" && <FleetCompliance />}
     </div>
   );
 }

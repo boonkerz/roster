@@ -36,6 +36,22 @@ type CheckinRequest struct {
 	FIMEvents []FIMEvent `json:"fim_events,omitempty"`
 	// AuthEvents sind neu gelesene Anmelde-/Kontoereignisse (Anmeldungs-Überwachung).
 	AuthEvents []AuthEvent `json:"auth_events,omitempty"`
+	// Compliance ist ein frischer Prüfbericht (nur mitgeschickt, wenn neu geprüft wurde).
+	Compliance *ComplianceReport `json:"compliance,omitempty"`
+}
+
+// ComplianceReport ist das Ergebnis einer Compliance-Prüfung.
+type ComplianceReport struct {
+	ScannedAt time.Time          `json:"scanned_at"`
+	Profile   string             `json:"profile"`
+	Results   []ComplianceResult `json:"results"`
+}
+
+// ComplianceResult ist das Ergebnis einer Regel.
+type ComplianceResult struct {
+	RuleID   string `json:"rule_id"`
+	Status   string `json:"status"` // pass | fail | na | error
+	Evidence string `json:"evidence,omitempty"`
 }
 
 // AuthEvent ist ein Anmelde- oder Kontoereignis (sshd, sudo, su, PAM, Windows-
