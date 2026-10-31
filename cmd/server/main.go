@@ -218,6 +218,8 @@ func (p *program) pruneLoop(retention, checkHistory time.Duration) {
 		_ = p.st.PruneStats(ctx, 365*24*time.Hour)
 		// Check-Verlauf (ein Punkt je Check und Checkin) nach eigener Aufbewahrung.
 		_ = p.st.PruneCheckSamples(ctx, checkHistory)
+		// Patch-Verlauf ein Jahr aufbewahren (Compliance-Nachweis).
+		_ = p.st.PrunePatchHistory(ctx, 365*24*time.Hour)
 	}
 	prune()
 	t := time.NewTicker(6 * time.Hour)

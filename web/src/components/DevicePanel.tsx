@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts } from "../types";
+import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts, PatchEvent } from "../types";
+import { PatchHistoryTable } from "./PatchHistoryTable";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
@@ -72,6 +73,12 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     queryFn: () => api.get<TaskResult[]>(`/devices/${id}/task-runs`),
     enabled: tab === "history",
     refetchInterval: 15000,
+  });
+  const { data: patchHistory } = useQuery({
+    queryKey: ["device-patch-history", id],
+    queryFn: () => api.get<PatchEvent[]>(`/devices/${id}/patch-history?days=90&limit=300`),
+    enabled: tab === "updates",
+    refetchInterval: 60000,
   });
   const { data: swEvents } = useQuery({
     queryKey: ["device-sw-events", id],
@@ -671,6 +678,11 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                 </table>
               </div>
             )}
+            <h3 className="muted small" style={{ marginTop: 18 }}>{t("Verlauf (90 Tage)")} <span className="tab-count">{(patchHistory ?? []).length}</span></h3>
+            {patchHistory === undefined ? <p className="muted small">{t("Lädt…")}</p>
+              : (patchHistory ?? []).length === 0
+                ? <p className="muted small">{t("Noch kein Patch-Verlauf – der Agent liest ihn beim nächsten Update-Check aus den Paketmanager-Logs bzw. der Windows-Update-Historie.")}</p>
+                : <PatchHistoryTable events={patchHistory ?? []} maxHeight={320} />}
           </section>
         )}
 

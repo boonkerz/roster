@@ -455,6 +455,22 @@ export interface PendingPatch {
   approved: boolean;
 }
 
+// PatchEvent ist ein Eintrag des Patch-Verlaufs (install | upgrade | remove).
+export interface PatchEvent {
+  id: string;
+  device_id: string;
+  hostname?: string;
+  client_name?: string;
+  site_name?: string;
+  ts: string;
+  action: "install" | "upgrade" | "remove";
+  name: string;
+  old_version?: string;
+  new_version?: string;
+  source?: string;
+  detail?: string;
+}
+
 export interface PatchSummary {
   devices_total: number;
   devices_checked: number;

@@ -21,6 +21,8 @@ type Row struct {
 	FailingChecks  int
 	FailingTasks   int
 	PendingPatches int
+	// PatchesInstalled zählt installierte/aktualisierte Patches der letzten 7 Tage.
+	PatchesInstalled int
 }
 
 // Report bündelt die Zeilen samt Gesamtsumme.
@@ -32,8 +34,9 @@ type Report struct {
 }
 
 // Build aggregiert die (mit Status versehenen) Geräte je Kunde. devices müssen ihr
-// Status-Feld gesetzt haben (online/offline/unknown).
-func Build(title string, devices []model.Device) Report {
+// Status-Feld gesetzt haben (online/offline/unknown). installed zählt je Geräte-ID die
+// in den letzten 7 Tagen installierten Patches (nil = unbekannt).
+func Build(title string, devices []model.Device, installed map[string]int) Report {
 	byClient := map[string]*Row{}
 	get := func(name string) *Row {
 		if name == "" {
@@ -71,6 +74,7 @@ func Build(title string, devices []model.Device) Report {
 			if d.UpdatesCount != nil && *d.UpdatesCount > 0 {
 				r.PendingPatches += *d.UpdatesCount
 			}
+			r.PatchesInstalled += installed[d.ID]
 		}
 		add(r)
 		add(&t)
@@ -87,15 +91,15 @@ func Build(title string, devices []model.Device) Report {
 func (r Report) Text() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\nErstellt: %s\n\n", r.Title, r.Generated.Format("02.01.2006 15:04"))
-	fmt.Fprintf(&b, "%-24s %6s %7s %8s %6s %6s %8s\n", "Kunde", "Geräte", "Online", "Offline", "Checks", "Tasks", "Patches")
+	fmt.Fprintf(&b, "%-24s %6s %7s %8s %6s %6s %8s %9s\n", "Kunde", "Geräte", "Online", "Offline", "Checks", "Tasks", "Patches", "Inst. 7T")
 	line := func(x Row) {
-		fmt.Fprintf(&b, "%-24s %6d %7d %8d %6d %6d %8d\n",
-			trunc(x.Client, 24), x.Total, x.Online, x.Offline, x.FailingChecks, x.FailingTasks, x.PendingPatches)
+		fmt.Fprintf(&b, "%-24s %6d %7d %8d %6d %6d %8d %9d\n",
+			trunc(x.Client, 24), x.Total, x.Online, x.Offline, x.FailingChecks, x.FailingTasks, x.PendingPatches, x.PatchesInstalled)
 	}
 	for _, row := range r.Rows {
 		line(row)
 	}
-	b.WriteString(strings.Repeat("-", 70) + "\n")
+	b.WriteString(strings.Repeat("-", 80) + "\n")
 	line(r.Totals)
 	return b.String()
 }
@@ -116,7 +120,7 @@ tfoot td{font-weight:700;border-top:2px solid #333}
 	b.WriteString("</style></head><body>")
 	fmt.Fprintf(&b, "<h1>%s</h1><p class=\"meta\">Erstellt: %s</p>",
 		html.EscapeString(r.Title), r.Generated.Format("02.01.2006 15:04"))
-	b.WriteString("<table><thead><tr><th>Kunde</th><th>Geräte</th><th>Online</th><th>Offline</th><th>Checks fehlerhaft</th><th>Tasks fehlerhaft</th><th>Ausstehende Patches</th></tr></thead><tbody>")
+	b.WriteString("<table><thead><tr><th>Kunde</th><th>Geräte</th><th>Online</th><th>Offline</th><th>Checks fehlerhaft</th><th>Tasks fehlerhaft</th><th>Ausstehende Patches</th><th>Installiert (7 Tage)</th></tr></thead><tbody>")
 	cell := func(n int, cls string) {
 		if n > 0 && cls != "" {
 			fmt.Fprintf(&b, "<td class=\"%s\">%d</td>", cls, n)
@@ -131,14 +135,15 @@ tfoot td{font-weight:700;border-top:2px solid #333}
 		cell(x.FailingChecks, "bad")
 		cell(x.FailingTasks, "warn")
 		cell(x.PendingPatches, "warn")
+		cell(x.PatchesInstalled, "")
 		b.WriteString("</tr>")
 	}
 	for _, row := range r.Rows {
 		rowHTML(row)
 	}
 	b.WriteString("</tbody><tfoot><tr><td>Gesamt</td>")
-	fmt.Fprintf(&b, "<td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr></tfoot></table>",
-		r.Totals.Total, r.Totals.Online, r.Totals.Offline, r.Totals.FailingChecks, r.Totals.FailingTasks, r.Totals.PendingPatches)
+	fmt.Fprintf(&b, "<td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr></tfoot></table>",
+		r.Totals.Total, r.Totals.Online, r.Totals.Offline, r.Totals.FailingChecks, r.Totals.FailingTasks, r.Totals.PendingPatches, r.Totals.PatchesInstalled)
 	b.WriteString("</body></html>")
 	return b.String()
 }

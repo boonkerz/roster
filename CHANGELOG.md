@@ -17,6 +17,12 @@ All notable changes to Roster are documented here. The format follows
   field `security_updates_count`, dashboard tile and statistics key `security_patches`.
 - Patches: "Install security updates" per device, in the device list bulk bar and in bulk
   actions (scope: all / approved / security only, apt strategy).
+- Patches: **patch history** – the agent reads what was installed, upgraded or removed from
+  the package manager logs (apt `history.log` incl. rotated files, `dnf.rpm.log`, `yum.log`,
+  `pacman.log`), the Windows Update history and `softwareupdate --history` (macOS). Fleet
+  timeline on the Patches page ("History" tab with period/action/client filters), 90-day
+  history per device in the Patches tab, kept for one year; the health report gains a
+  column "Installed (7 days)".
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

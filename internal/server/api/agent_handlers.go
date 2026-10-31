@@ -89,6 +89,13 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplaceProxmox(r.Context(), device.ID, req.Inventory.Proxmox); err != nil {
 		s.log.Error("proxmox-gäste speichern", "err", err)
 	}
+	if len(req.PatchHistory) > 0 {
+		if n, err := s.store.InsertPatchHistory(r.Context(), device.ID, req.PatchHistory); err != nil {
+			s.log.Error("patch-verlauf speichern", "err", err)
+		} else if n > 0 {
+			s.log.Info("patch-verlauf ergänzt", "device_id", device.ID, "neu", n)
+		}
+	}
 	// Nach dem Inventar (MAC/IP bekannt) etwaige Scan-Platzhalter desselben Hosts
 	// zusammenführen – z. B. wenn ein zuvor per Scan übernommenes Gerät jetzt einen
 	// Agenten bekommen hat.

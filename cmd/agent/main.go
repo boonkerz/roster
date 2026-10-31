@@ -100,6 +100,9 @@ type program struct {
 	mu       sync.Mutex
 	updates  *shared.OSUpdateInfo // zuletzt ermittelte OS-Updates (Cache)
 	publicIP string               // öffentliche IP (einmal ermittelt)
+	// patchHistory wartet auf den nächsten Checkin (vom Update-Check bzw. nach einer
+	// Installation neu gelesen); nach erfolgreichem Versand leer.
+	patchHistory []shared.PatchEvent
 
 	policy            *shared.PolicyBundle   // zuletzt empfangene Policy
 	pendingChecks     []shared.CheckResult   // beim nächsten Checkin zu meldende Check-Ergebnisse
@@ -269,7 +272,8 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	checks := p.pendingChecks
 	tasks := p.pendingTasks
 	cmds := p.pendingCmdResults
-	p.pendingChecks, p.pendingTasks, p.pendingCmdResults = nil, nil, nil
+	history := p.patchHistory
+	p.pendingChecks, p.pendingTasks, p.pendingCmdResults, p.patchHistory = nil, nil, nil, nil
 	p.mu.Unlock()
 
 	sample := collect.Sample(ctx)
@@ -278,7 +282,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	}
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
-		Sample: sample,
+		Sample: sample, PatchHistory: history,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -286,6 +290,9 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 		p.mu.Lock()
 		p.pendingTasks = append(tasks, p.pendingTasks...)
 		p.pendingCmdResults = append(cmds, p.pendingCmdResults...)
+		if p.patchHistory == nil {
+			p.patchHistory = history
+		}
 		p.mu.Unlock()
 		return 0, ""
 	}
@@ -835,9 +842,13 @@ func (p *program) proxmoxControl(ctx context.Context, cmdID, node, gtype string,
 func (p *program) installUpdates(ctx context.Context, cmdID string, names []string, full bool) {
 	exit, output := collect.InstallUpdates(ctx, names, full)
 	u := collect.OSUpdates(ctx)
+	hist := collect.PatchHistory(ctx) // frisch installierte Pakete sofort in den Verlauf
 	p.mu.Lock()
 	if u != nil {
 		p.updates = u
+	}
+	if len(hist) > 0 {
+		p.patchHistory = hist
 	}
 	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
 		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
@@ -955,12 +966,20 @@ func (p *program) updateChecker(ctx context.Context, interval time.Duration) {
 		interval = 6 * time.Hour
 	}
 	check := func() {
-		u := collect.OSUpdates(ctx)
+		// Verlauf zuerst (nur Dateien, schnell); der Paketmanager-Scan kann hängen
+		// (z. B. checkupdates ohne Netz) und bekommt deshalb eine Obergrenze.
+		hist := collect.PatchHistory(ctx)
+		uctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		u := collect.OSUpdates(uctx)
+		cancel()
 		p.mu.Lock()
 		p.updates = u
+		if len(hist) > 0 {
+			p.patchHistory = hist
+		}
 		p.mu.Unlock()
 		if u != nil {
-			p.log.Info("os-update-check", "verfügbar", u.Count)
+			p.log.Info("os-update-check", "verfügbar", u.Count, "sicherheit", u.SecurityCount, "verlauf", len(hist))
 		}
 	}
 	check()

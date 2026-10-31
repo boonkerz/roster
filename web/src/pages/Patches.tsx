@@ -5,16 +5,19 @@ import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { SeverityBadge } from "../components/StatusBadge";
-import type { ClientTree, PatchSummary, PendingPatch } from "../types";
+import { PatchHistoryTable } from "../components/PatchHistoryTable";
+import type { ClientTree, PatchEvent, PatchSummary, PendingPatch } from "../types";
 
 // Patches ist die flottenweite Patch-Seite (PatchMon-Stil): Kopfzahlen, ausstehende
 // Updates aller Geräte (Sicherheits-Updates hervorgehoben), Filter, Mehrfachauswahl
 // mit Genehmigen/Installieren. Weitere Tabs (Verlauf, Pakete, Repositories,
 // Lebenszyklus) hängen sich hier ein.
-type PatchTab = "pending";
+type PatchTab = "pending" | "history";
 const TABS: { key: PatchTab; label: string }[] = [
   { key: "pending", label: "Ausstehend" },
+  { key: "history", label: "Verlauf" },
 ];
+
 
 const rowKey = (p: PendingPatch) => `${p.device_id}\u0000${p.name}`;
 
@@ -38,7 +41,81 @@ export function Patches() {
         ))}
       </div>
       {tab === "pending" && <PendingTab />}
+      {tab === "history" && <HistoryTab />}
     </div>
+  );
+}
+
+// HistoryTab zeigt den flottenweiten Patch-Verlauf, nach Tag gruppiert.
+function HistoryTab() {
+  const { t } = useI18n();
+  const [params, setParams] = useSearchParams();
+  const days = params.get("days") || "30";
+  const action = params.get("action") || "";
+  const client = params.get("client") || "";
+  const site = params.get("site") || "";
+  const [q, setQ] = useState(params.get("q") || "");
+  const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
+  const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
+  const qs = new URLSearchParams({ days });
+  if (action) qs.set("action", action);
+  if (client) qs.set("client", client);
+  if (site) qs.set("site", site);
+  const key = qs.toString();
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ["patch-history", key],
+    queryFn: () => api.get<PatchEvent[]>(`/patches/history?${key}`),
+    refetchInterval: 60000,
+  });
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const all = rows ?? [];
+    return needle ? all.filter((e) => e.name.toLowerCase().includes(needle) || (e.hostname ?? "").toLowerCase().includes(needle)) : all;
+  }, [rows, q]);
+  const counts = useMemo(() => {
+    const c = { install: 0, upgrade: 0, remove: 0, devices: new Set<string>() };
+    for (const e of filtered) { c[e.action]++; c.devices.add(e.device_id); }
+    return c;
+  }, [filtered]);
+  const clients = tree?.clients ?? [];
+  const sites = (client ? clients.filter((c) => c.id === client) : clients).flatMap((c) => (c.sites ?? []).map((s) => ({ id: s.id, name: client ? s.name : `${c.name} › ${s.name}` })));
+
+  return (
+    <section className="card">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <div className="head-actions" style={{ flexWrap: "wrap" }}>
+          <input className="search" placeholder={t("Paket oder Host suchen…")} value={q} onChange={(e) => { setQ(e.target.value); setParam("q", e.target.value); }} />
+          <select value={days} onChange={(e) => setParam("days", e.target.value)}>
+            <option value="7">{t("7 Tage")}</option>
+            <option value="30">{t("30 Tage")}</option>
+            <option value="90">{t("90 Tage")}</option>
+            <option value="365">{t("1 Jahr")}</option>
+          </select>
+          <select value={action} onChange={(e) => setParam("action", e.target.value)}>
+            <option value="">{t("Alle Aktionen")}</option>
+            <option value="install">{t("installiert")}</option>
+            <option value="upgrade">{t("aktualisiert")}</option>
+            <option value="remove">{t("entfernt")}</option>
+          </select>
+          <select value={client} onChange={(e) => { setParam("client", e.target.value); setParam("site", ""); }}>
+            <option value="">{t("Alle Clients")}</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={site} onChange={(e) => setParam("site", e.target.value)}>
+            <option value="">{t("Alle Standorte")}</option>
+            {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="inline-form">
+          <span className="badge badge-online">{counts.install} {t("installiert")}</span>
+          <span className="badge badge-warn">{counts.upgrade} {t("aktualisiert")}</span>
+          <span className="badge badge-offline">{counts.remove} {t("entfernt")}</span>
+          <span className="muted small">{t("{n} Gerät(e)", { n: counts.devices.size })}</span>
+        </div>
+      </div>
+      <p className="muted small">{t("Quelle: Logs des Paketmanagers (apt, dnf/yum, pacman), Windows-Update-Historie und softwareupdate (macOS). Der Agent liest sie mit jedem Update-Check und nach jeder Installation ein.")}</p>
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : <PatchHistoryTable events={filtered} showDevice />}
+    </section>
   );
 }
 

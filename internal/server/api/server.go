@@ -156,6 +156,8 @@ func (s *Server) routes() http.Handler {
 						r.Get("/vulnerabilities", s.handleAllVulns)
 						r.Get("/patches/pending", s.handlePendingPatches)
 						r.Get("/patches/summary", s.handlePatchSummary)
+						r.Get("/patches/history", s.handlePatchHistory)
+						r.Get("/devices/{id}/patch-history", s.handleDevicePatchHistory)
 						r.Get("/sites/{id}/assets", s.handleListSiteAssets)
 						r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
 						r.Get("/devices/{id}/backup-runs", s.handleDeviceBackupRuns)

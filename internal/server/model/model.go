@@ -278,6 +278,22 @@ type PendingPatch struct {
 	Approved       bool   `json:"approved"`
 }
 
+// PatchEvent ist ein Eintrag des Patch-Verlaufs eines Geräts.
+type PatchEvent struct {
+	ID         string    `json:"id"`
+	DeviceID   string    `json:"device_id"`
+	Hostname   string    `json:"hostname,omitempty"`
+	ClientName string    `json:"client_name,omitempty"`
+	SiteName   string    `json:"site_name,omitempty"`
+	TS         time.Time `json:"ts"`
+	Action     string    `json:"action"` // install | upgrade | remove
+	Name       string    `json:"name"`
+	OldVersion string    `json:"old_version,omitempty"`
+	NewVersion string    `json:"new_version,omitempty"`
+	Source     string    `json:"source,omitempty"`
+	Detail     string    `json:"detail,omitempty"`
+}
+
 // PatchSummary sind die Kopfzahlen der Patch-Seite.
 type PatchSummary struct {
 	DevicesTotal    int `json:"devices_total"`    // verwaltete, nicht widerrufene Geräte

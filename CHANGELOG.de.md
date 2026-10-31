@@ -18,6 +18,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   Smart-Group-Feld `security_updates_count`, Übersichts-Kachel und Statistik-Kennzahl `security_patches`.
 - Patches: „Sicherheits-Updates installieren“ je Gerät, in der Sammelleiste der Geräteliste und in
   der Sammelaktion (Umfang: alle / genehmigte / nur Sicherheit, apt-Strategie).
+- Patches: **Patch-Verlauf** – der Agent liest installierte, aktualisierte und entfernte Pakete aus
+  den Paketmanager-Logs (apt `history.log` inkl. rotierter Dateien, `dnf.rpm.log`, `yum.log`,
+  `pacman.log`), der Windows-Update-Historie und `softwareupdate --history` (macOS). Flotten-
+  Zeitleiste auf der Patches-Seite (Tab „Verlauf“ mit Zeitraum/Aktion/Firma-Filter), 90-Tage-Verlauf
+  je Gerät im Patches-Tab, Aufbewahrung ein Jahr; der Health-Bericht bekommt die Spalte
+  „Installiert (7 Tage)“.
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät

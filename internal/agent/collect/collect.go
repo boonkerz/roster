@@ -100,6 +100,13 @@ func OSUpdates(ctx context.Context) *shared.OSUpdateInfo {
 	return &shared.OSUpdateInfo{Count: len(items), SecurityCount: securityCount(items), CheckedAt: time.Now().UTC(), Items: items}
 }
 
+// PatchHistory liest den Patch-Verlauf der letzten 90 Tage (neueste zuerst, max. 500).
+// Idempotent: der Server verwirft bereits bekannte Einträge, der Agent muss sich nichts merken.
+func PatchHistory(ctx context.Context) []shared.PatchEvent {
+	since := time.Now().AddDate(0, 0, -90)
+	return capPatchHistory(patchHistoryOS(ctx, since), 500)
+}
+
 // realFSTypes sind „echte" Dateisysteme, die als Datenträger gezeigt werden – inkl.
 // overlay (Container-Root) und der Windows/macOS-Typen.
 var realFSTypes = map[string]bool{

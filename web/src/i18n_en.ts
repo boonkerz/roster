@@ -1081,4 +1081,13 @@ export const EN: Record<string, string> = {
   "Nur die Sicherheits-Updates installieren?": "Install only the security updates?",
   "Zuletzt geprüft": "Last scanned",
   "{n} Sicherheits-Updates": "{n} security updates",
+  // --- Patch-Verlauf ---
+  "Verlauf (90 Tage)": "History (90 days)",
+  "Noch kein Patch-Verlauf – der Agent liest ihn beim nächsten Update-Check aus den Paketmanager-Logs bzw. der Windows-Update-Historie.": "No patch history yet – the agent reads it from the package manager logs or the Windows Update history on the next update check.",
+  "Keine Verlaufseinträge im gewählten Zeitraum.": "No history entries in the selected period.",
+  "Details": "Details",
+  "{n} Einträge": "{n} entries",
+  "Paket oder Host suchen…": "Search package or host…",
+  "Alle Aktionen": "All actions",
+  "Quelle: Logs des Paketmanagers (apt, dnf/yum, pacman), Windows-Update-Historie und softwareupdate (macOS). Der Agent liest sie mit jedem Update-Check und nach jeder Installation ein.": "Source: package manager logs (apt, dnf/yum, pacman), Windows Update history and softwareupdate (macOS). The agent reads them with every update check and after every installation.",
 };

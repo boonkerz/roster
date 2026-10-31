@@ -21,7 +21,8 @@ func (s *Server) buildHealthReport(r *http.Request) (report.Report, error) {
 	for i := range devices {
 		devices[i].Status = s.computeStatus(&devices[i])
 	}
-	return report.Build("Health-Bericht", devices), nil
+	installed, _ := s.store.PatchInstallCounts(r.Context(), time.Now().AddDate(0, 0, -7))
+	return report.Build("Health-Bericht", devices, installed), nil
 }
 
 // handleHealthReport liefert den Health-Bericht als HTML (zum Ansehen/Drucken).
@@ -96,13 +97,14 @@ func (s *Server) RunReportLoop(ctx context.Context) {
 		for i := range devices {
 			devices[i].Status = s.computeStatus(&devices[i])
 		}
+		installed, _ := s.store.PatchInstallCounts(ctx, time.Now().AddDate(0, 0, -7))
 		for _, rs := range due {
 			ch, err := s.store.AlertChannel(ctx, rs.ChannelID)
 			if err != nil || !ch.Enabled {
 				s.log.Warn("bericht-kanal nicht verfügbar", "schedule", rs.ID)
 				continue
 			}
-			rep := report.Build(rs.Title, devices)
+			rep := report.Build(rs.Title, devices, installed)
 			alert.Dispatch(s.log, ch, alert.Notification{
 				Subject: "[Roster] " + rs.Title,
 				Body:    rep.Text(),

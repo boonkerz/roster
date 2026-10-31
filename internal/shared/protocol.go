@@ -29,6 +29,21 @@ type CheckinRequest struct {
 	TaskResults    []TaskResult    `json:"task_results,omitempty"`
 	CommandResults []CommandResult `json:"command_results,omitempty"`
 	Sample         *MetricsSample  `json:"sample,omitempty"` // leichte Momentaufnahme für die Historie
+	// PatchHistory sind die zuletzt gelesenen Patch-Verlaufseinträge (idempotent; der
+	// Server verwirft Duplikate). Kommt nur mit, wenn der Agent den Verlauf neu gelesen hat.
+	PatchHistory []PatchEvent `json:"patch_history,omitempty"`
+}
+
+// PatchEvent ist ein Eintrag des Patch-Verlaufs (installiert/aktualisiert/entfernt),
+// gelesen aus den Logs des Paketmanagers bzw. der Windows-Update-Historie.
+type PatchEvent struct {
+	Time       time.Time `json:"time"`
+	Action     string    `json:"action"` // install | upgrade | remove
+	Name       string    `json:"name"`
+	OldVersion string    `json:"old_version,omitempty"`
+	NewVersion string    `json:"new_version,omitempty"`
+	Source     string    `json:"source,omitempty"` // apt | dnf | yum | pacman | wua | softwareupdate
+	Detail     string    `json:"detail,omitempty"` // z. B. Commandline (apt), KB, Ergebnis
 }
 
 // MetricsSample ist eine leichte Auslastungs-Momentaufnahme je Checkin (für die

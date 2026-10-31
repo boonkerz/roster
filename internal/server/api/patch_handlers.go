@@ -2,9 +2,55 @@ package api
 
 import (
 	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/boonkerz/roster/internal/server/store"
 )
+
+// patchHistoryFilter liest die gemeinsamen Query-Parameter des Verlaufs
+// (days, action, q, client, site, limit); Standard 90 Tage.
+func (s *Server) patchHistoryFilter(r *http.Request) store.PatchHistoryFilter {
+	q := r.URL.Query()
+	days, _ := strconv.Atoi(q.Get("days"))
+	if days <= 0 || days > 3650 {
+		days = 90
+	}
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	return store.PatchHistoryFilter{
+		Allowed:  s.scopeFilter(r),
+		ClientID: q.Get("client"),
+		SiteID:   q.Get("site"),
+		Since:    time.Now().AddDate(0, 0, -days),
+		Action:   q.Get("action"),
+		Query:    q.Get("q"),
+		Limit:    limit,
+	}
+}
+
+// handlePatchHistory liefert den flottenweiten Patch-Verlauf (GET /patches/history).
+func (s *Server) handlePatchHistory(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.store.PatchHistory(r.Context(), s.patchHistoryFilter(r))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, rows)
+}
+
+// handleDevicePatchHistory liefert den Patch-Verlauf eines Geräts.
+func (s *Server) handleDevicePatchHistory(w http.ResponseWriter, r *http.Request) {
+	f := s.patchHistoryFilter(r)
+	f.DeviceID = chi.URLParam(r, "id")
+	rows, err := s.store.PatchHistory(r.Context(), f)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, rows)
+}
 
 // scopeFilter liefert den Daten-Scope als Store-Filter: nil = unbeschränkt.
 func (s *Server) scopeFilter(r *http.Request) map[string]bool {
