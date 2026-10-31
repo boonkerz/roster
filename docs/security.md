@@ -37,3 +37,8 @@ Roster is built to be exposed to the internet safely.
 
 - The built-in VNC server binds to `127.0.0.1` only and runs **only for the duration of a
   session** — never exposed on the LAN.
+
+## Host security monitoring
+
+File integrity monitoring, login monitoring with brute-force detection, compliance checks and
+active response are described under **[Security monitoring](features/security-monitoring.md)**.

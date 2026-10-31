@@ -64,6 +64,7 @@ plugins:
             Network & discovery: Netzwerk & Erkennung
             Patching & software: Patches & Software
             Alerting & reports: Alarme & Berichte
+            Security monitoring: Sicherheitsüberwachung
             Configuration: Konfiguration
             Security: Sicherheit
             Changelog: Changelog
@@ -99,6 +100,7 @@ nav:
       - Network & discovery: features/network.md
       - Patching & software: features/patching.md
       - Alerting & reports: features/alerting.md
+      - Security monitoring: features/security-monitoring.md
   - Configuration: configuration.md
   - Security: security.md
   - Changelog: changelog.md

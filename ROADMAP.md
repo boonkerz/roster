@@ -31,8 +31,14 @@ nächste Features – noch nichts davon ist gebaut.
 - [x] **Schwachstellen-Abgleich** – installierte Software wird gegen OSV.dev (CVE) geprüft
   (`internal/server/cve`, Ergebnisse in `vulnerabilities`); Tab „Schwachstellen“ je Gerät
   + Flotten-Übersicht. Beste Abdeckung bei Linux-Paketen, Windows/macOS best effort.
-- [ ] **Compliance-/Baseline-Checks** (CIS-artig), Firewall-Status, offene Ports,
-  lokale Admin-Konten auditieren.
+- [x] **Compliance-/Baseline-Checks** (CIS-artig) – Regelkatalog für Linux/Windows/macOS,
+  Score je Gerät, Flottenansicht, Check-Typ `compliance` (seit 0.17.0).
+- [x] **Datei-Integritätsüberwachung (FIM)**, **Anmeldungs-Überwachung mit Vorfällen**
+  (Brute-Force, neue Quell-IP, Kontoänderungen) und **Active Response** (IP/Konto sperren,
+  Skript) – Bereich „Sicherheitsüberwachung“ der Richtlinien, Seite „Sicherheit“.
+- [x] **Patch-Management à la PatchMon** – flottenweite Patch-Seite mit Sicherheits-Updates,
+  Patch-Verlauf, Paket-/Repository-Inventar, Auto-Update-Status, Kernel-Vergleich,
+  OS-Lebenszyklus (endoflife.date).
 
 ### Integration & API
 

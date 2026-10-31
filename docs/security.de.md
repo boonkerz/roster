@@ -40,3 +40,9 @@ Roster ist dafür gebaut, sicher im Internet erreichbar zu sein.
 
 - Der eingebaute VNC-Server bindet nur an `127.0.0.1` und läuft **nur für die Dauer einer
   Sitzung** – nie im LAN erreichbar.
+
+## Sicherheitsüberwachung der Hosts
+
+Datei-Integritätsüberwachung, Anmeldungs-Überwachung mit Brute-Force-Erkennung, Compliance-Prüfung
+und Active Response sind unter **[Sicherheitsüberwachung](features/security-monitoring.md)**
+beschrieben.

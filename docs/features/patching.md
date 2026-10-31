@@ -7,6 +7,58 @@ on Linux (`apt upgrade` vs `dist-upgrade`) and an optional reboot afterwards.
 
 ![Patches of a device](../screenshots/patches.png){ .shadow }
 
+## Fleet patch view & security updates
+
+The **Patches** page lists pending updates across the whole fleet, grouped by device, with
+**security updates** first. The agent classifies them per package manager: apt suites that
+contain `-security`, dnf security advisories (`dnf updateinfo --security`), Windows Update
+categories *Security Updates* / *Critical Updates* or an MSRC severity, and macOS updates
+labelled *Security*. Each row shows the installed and the new version and the source
+(suite, repo, KB).
+
+Filter by company, site, "security only" or "approved only", tick rows or whole devices and
+**approve**, **revoke** or **install** them (approved / security / approved security / all,
+with the apt strategy). The same scope selector is available in bulk actions and the device
+list bar ("Security updates"). Summary tiles show devices with security updates, the share
+of scanned devices without any, and devices never scanned.
+
+## Patch history
+
+The agent reads what was installed, upgraded or removed from the package manager logs
+(`/var/log/apt/history.log` incl. rotated files, `dnf.rpm.log`, `yum.log`, `pacman.log`), the
+Windows Update history and `softwareupdate --history` on macOS – with every update check
+and right after each installation. The **History** tab shows a fleet-wide timeline (period,
+action, company filters); each device has its 90-day history in the Patches tab. Entries are
+kept for one year and the health report counts patches installed in the last 7 days.
+
+## Packages & repositories
+
+The **Packages** tab aggregates installed software across all devices by package and
+version – useful to spot version spread or a vulnerable version that is still around.
+Expand a package to see the devices per version.
+
+The **Repositories** tab lists every package source the agents report: apt
+(`sources.list`, `sources.list.d`, deb822 `.sources`), dnf/yum and zypper `.repo` files,
+`pacman.conf`, apk, winget sources and Homebrew taps. Sources whose host does not belong to
+the distribution are flagged as **third-party**; filters show disabled sources and sources
+without signature checking. Per device the Patches tab also shows the **automatic-update
+status** (unattended-upgrades, dnf-automatic, Windows Update, macOS) and the **running vs.
+installed kernel** – a newer installed kernel means a reboot is due, which the reboot check
+now also detects (as does `needs-restarting` on RHEL-family systems).
+
+## OS lifecycle (end of support)
+
+The server matches each device's OS version against **[endoflife.date](https://endoflife.date)**
+(fetched once a day, cached server-side): Ubuntu, Debian, the RHEL family, Fedora, Alpine,
+openSUSE/SLES, Amazon and Oracle Linux, FreeBSD, macOS, Windows client (including
+Enterprise/LTSC cycles) and Windows Server, plus Proxmox VE on PVE hosts. Rolling-release
+systems are skipped. The **Lifecycle** tab, an "End of support" badge on the device, a list
+column, filter and smart-group field `eol_status` and a dashboard tile show the status;
+when the end of support is approaching (lead time configurable, default 90 days) or reached,
+an alert is sent once. Settings → Notifications holds the lead time, the alert switch and
+"Re-evaluate now". Note: this is the only outbound call besides OSV.dev; both can be
+blocked at the firewall if you do not want them.
+
 ## Software distribution
 
 Maintain a catalog of deployable packages (winget / choco / apt / dnf / brew) and roll one
