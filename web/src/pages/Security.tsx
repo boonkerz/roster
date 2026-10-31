@@ -1,22 +1,24 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
-import type { AuthEvent, ClientTree, FIMEvent, SecurityIncident, SecuritySummary } from "../types";
+import type { AuthEvent, ClientTree, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
+import { IncidentActions } from "../components/IncidentActions";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
-type SecTab = "incidents" | "auth" | "fim" | "compliance";
+type SecTab = "incidents" | "auth" | "fim" | "compliance" | "blocks";
 const TABS: { key: SecTab; label: string }[] = [
   { key: "incidents", label: "Vorfälle" },
   { key: "auth", label: "Anmeldungen" },
   { key: "fim", label: "Datei-Integrität" },
   { key: "compliance", label: "Compliance" },
+  { key: "blocks", label: "Sperren" },
 ];
 
 export function Security() {
@@ -39,6 +41,7 @@ export function Security() {
       {tab === "auth" && <AuthTab />}
       {tab === "fim" && <FimTab />}
       {tab === "compliance" && <FleetCompliance />}
+      {tab === "blocks" && <BlocksTab />}
     </div>
   );
 }
@@ -125,9 +128,49 @@ function IncidentsTab() {
           <span className="muted small">{t("{n} Vorfälle", { n: (rows ?? []).length })}</span>
         </div>
         <p className="muted small">{t("Vorfälle entstehen aus den Anmeldeereignissen: Brute-Force (Schwellwert in den Einstellungen), erfolgreiche Anmeldung nach Brute-Force, erste Anmeldung von einer neuen Quell-IP (nach der Lernphase), Kontoänderungen und Sperrungen.")}</p>
-        {isLoading ? <p className="muted">{t("Lädt…")}</p> : <IncidentsTable incidents={rows ?? []} showDevice canOperate={hasPerm("devices.operate")} />}
+        {isLoading ? <p className="muted">{t("Lädt…")}</p> : <IncidentsTable incidents={rows ?? []} showDevice canOperate={hasPerm("devices.operate")} actions={hasPerm("devices.operate") ? (i) => <IncidentActions incident={i} /> : undefined} />}
       </section>
     </>
+  );
+}
+
+// BlocksTab listet IP-Sperren aller Geräte (automatisch und manuell) mit Aufheben.
+function BlocksTab() {
+  const { t } = useI18n();
+  const { hasPerm } = useAuth();
+  const qc = useQueryClient();
+  const { data: rows, isLoading } = useQuery({ queryKey: ["ip-blocks"], queryFn: () => api.get<IPBlock[]>("/security/blocks"), refetchInterval: 30000 });
+  const unblock = useMutation({
+    mutationFn: (b: IPBlock) => api.post(`/devices/${b.device_id}/unblock-ip`, { ip: b.ip }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ip-blocks"] }),
+  });
+  const cls: Record<string, string> = { pending: "badge-unknown", active: "badge-offline", expired: "badge-unknown", released: "badge-online", failed: "badge-warn" };
+  const label: Record<string, string> = { pending: "eingereiht", active: "aktiv", expired: "abgelaufen", released: "aufgehoben", failed: "fehlgeschlagen" };
+  return (
+    <section className="card">
+      <p className="muted small">{t("IP-Sperren, die Active Response oder ein Bediener angestoßen hat. Zeitlich begrenzte Sperren hebt der Agent selbst wieder auf; „aufheben“ entfernt sie sofort.")}</p>
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : (rows ?? []).length === 0 ? <p className="empty">{t("Keine Sperren.")}</p> : (
+        <div className="scroll-list" style={{ maxHeight: "65vh" }}>
+          <table className="table">
+            <thead><tr><th>{t("Zeit")}</th><th>{t("Gerät")}</th><th>IP</th><th>{t("Grund")}</th><th>{t("Bis")}</th><th>{t("Status")}</th><th>{t("Von")}</th><th></th></tr></thead>
+            <tbody>
+              {(rows ?? []).map((b) => (
+                <tr key={b.id} className="small">
+                  <td className="mono muted">{new Date(b.created_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</td>
+                  <td><Link to={`/devices/${b.device_id}`} className="link-strong">{b.hostname}</Link></td>
+                  <td className="mono">{b.ip}</td>
+                  <td className="muted">{b.reason || "—"}</td>
+                  <td className="muted">{b.until ? new Date(b.until).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : t("dauerhaft")}</td>
+                  <td><span className={`badge ${cls[b.status] ?? "badge-unknown"}`} title={b.detail}>{t(label[b.status] ?? b.status)}</span>{b.status === "failed" && b.detail && <div className="muted small">{b.detail.slice(0, 80)}</div>}</td>
+                  <td className="muted">{b.created_by}</td>
+                  <td>{hasPerm("devices.operate") && (b.status === "active" || b.status === "pending") && <button className="btn ghost sm" disabled={unblock.isPending} onClick={() => unblock.mutate(b)}>{t("Aufheben")}</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

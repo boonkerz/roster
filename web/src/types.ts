@@ -361,6 +361,7 @@ export interface Policy {
   notifications?: PolicyNotifications;
   security?: PolicySecurity;
   fim_rules?: PolicyFIMRule[];
+  responses?: PolicyResponse[];
   assignments?: Assignment[];
 }
 
@@ -452,6 +453,34 @@ export interface SecuritySettings {
   learn_days: number;
   never_block: string[];
   response_cooldown_min: number;
+}
+
+// PolicyResponse ist eine Active-Response-Regel (Auslöser → Aktion).
+export interface PolicyResponse {
+  id: string;
+  policy_id: string;
+  trigger: string;
+  action: "block_ip" | "lock_user" | "run_script";
+  minutes: number;
+  script_id?: string;
+  platforms: string[];
+  enabled: boolean;
+}
+
+// IPBlock ist eine (angestoßene) IP-Sperre.
+export interface IPBlock {
+  id: string;
+  device_id: string;
+  hostname?: string;
+  ip: string;
+  reason?: string;
+  incident_id?: string;
+  until?: string;
+  status: "pending" | "active" | "expired" | "released" | "failed";
+  detail?: string;
+  command_id?: string;
+  created_by: string;
+  created_at: string;
 }
 
 // FIMEvent ist eine erkannte Datei-Änderung (Datei-Integrität).

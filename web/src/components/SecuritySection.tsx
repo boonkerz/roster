@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
-import type { Policy, PolicyFIMRule, PolicySecurity } from "../types";
+import type { Policy, PolicyFIMRule, PolicyResponse, PolicySecurity, Script } from "../types";
+import { useQuery } from "@tanstack/react-query";
 import { CATEGORY_LABEL, SEVERITY_LABEL, ruleTitle, useComplianceRules } from "./Compliance";
 
 // Sicherheitsüberwachung einer Richtlinie: Datei-Integrität (überwachte Pfade, Intervall)
@@ -10,6 +11,14 @@ import { CATEGORY_LABEL, SEVERITY_LABEL, ruleTitle, useComplianceRules } from ".
 // Schalter per ODER verknüpft und das kleinste Intervall genommen.
 
 const PLATFORMS: [string, string][] = [["linux", "Linux"], ["windows", "Windows"], ["darwin", "macOS"]];
+
+export const TRIGGER_LABEL: Record<string, string> = {
+  brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
+  account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung",
+};
+export const ACTION_LABEL: Record<string, string> = { block_ip: "Quell-IP sperren", lock_user: "Konto sperren", run_script: "Skript ausführen" };
+const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip"];
+const USER_TRIGGERS = ["brute_force_success", "account_change", "lockout", "new_source_ip"];
 
 // Standardpfade je Plattform (nur Dateien, keine Registry).
 const TEMPLATES: { path: string; recursive: boolean; exclude: string[]; platforms: string[] }[] = [
@@ -44,6 +53,25 @@ export function SecuritySection({ policy }: { policy: Policy }) {
   const [compDisabled, setCompDisabled] = useState<string[]>([]);
   const [ruleFilter, setRuleFilter] = useState("");
   const [showRules, setShowRules] = useState(false);
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["policies"] });
+  const { data: scripts } = useQuery({ queryKey: ["scripts"], queryFn: () => api.get<Script[]>("/scripts") });
+  const responses = policy.responses ?? [];
+  const [rTrigger, setRTrigger] = useState("brute_force");
+  const [rAction, setRAction] = useState<PolicyResponse["action"]>("block_ip");
+  const [rMinutes, setRMinutes] = useState(60);
+  const [rScript, setRScript] = useState("");
+  const [showResp, setShowResp] = useState(false);
+  const saveResp = useMutation({
+    mutationFn: () => api.post(`/policies/${policy.id}/responses`, { trigger: rTrigger, action: rAction, minutes: rMinutes, script_id: rScript, platforms: [] }),
+    onSuccess: () => { setErr(""); setShowResp(false); invalidate(); },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
+  });
+  const toggleResp = useMutation({
+    mutationFn: (r: PolicyResponse) => api.put(`/responses/${r.id}`, { ...r, enabled: !r.enabled }),
+    onSuccess: invalidate,
+  });
+  const delResp = useMutation({ mutationFn: (id: string) => api.del(`/responses/${id}`), onSuccess: invalidate });
+  const actionAllowed = (a: string, trig: string) => a === "run_script" || (a === "block_ip" && IP_TRIGGERS.includes(trig)) || (a === "lock_user" && USER_TRIGGERS.includes(trig));
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [editId, setEditId] = useState<string | null>(null);
@@ -59,7 +87,6 @@ export function SecuritySection({ policy }: { policy: Policy }) {
     setErr("");
   }, [policy.id, sec?.fim_interval_min, sec?.auth_monitor, sec?.compliance_enabled, sec?.compliance_profile, sec?.compliance_interval_h, sec?.compliance_disabled]);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["policies"] });
   const saveSec = useMutation({
     mutationFn: (patch: Partial<PolicySecurity>) => api.put(`/policies/${policy.id}/security`, {
       ...(sec ?? {}), fim_interval_min: interval, auth_monitor: auth,
@@ -194,6 +221,46 @@ export function SecuritySection({ policy }: { policy: Policy }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Automatische Reaktion (Active Response)")} <span className="tab-count">{responses.length}</span></h3>
+      <p className="muted small">{t("Reagiert sofort auf Vorfälle: Quell-IP sperren (nftables/iptables, Windows-Firewall, pf), Konto sperren oder ein Skript mit ROSTER_TRIGGER/ROSTER_SOURCE_IP/ROSTER_USER ausführen. Nie-sperren-Liste und Cooldown: Einstellungen → Sicherheitsüberwachung. root/Administrator werden nie gesperrt.")}</p>
+      {responses.length > 0 && (
+        <table className="table">
+          <thead><tr><th>{t("Auslöser")}</th><th>{t("Aktion")}</th><th>{t("Details")}</th><th>{t("Aktiv")}</th><th></th></tr></thead>
+          <tbody>
+            {responses.map((r) => (
+              <tr key={r.id} className="small">
+                <td>{t(TRIGGER_LABEL[r.trigger] ?? r.trigger)}</td>
+                <td>{t(ACTION_LABEL[r.action] ?? r.action)}</td>
+                <td className="muted">{r.action === "block_ip" ? (r.minutes > 0 ? t("{n} Minuten", { n: r.minutes }) : t("dauerhaft")) : r.action === "run_script" ? (scripts ?? []).find((s) => s.id === r.script_id)?.name ?? r.script_id : "—"}</td>
+                <td><input type="checkbox" checked={r.enabled} onChange={() => toggleResp.mutate(r)} /></td>
+                <td style={{ textAlign: "right" }}><button className="btn ghost sm" onClick={() => { if (confirm(t("Regel löschen?"))) delResp.mutate(r.id); }}>✕</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {!showResp && <button className="btn ghost sm" onClick={() => setShowResp(true)}>+ {t("Reaktion hinzufügen")}</button>}
+      {showResp && (
+        <div className="inline-form" style={{ marginTop: 8 }}>
+          <select value={rTrigger} onChange={(e) => { setRTrigger(e.target.value); if (!actionAllowed(rAction, e.target.value)) setRAction("run_script"); }}>
+            {Object.entries(TRIGGER_LABEL).map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
+          </select>
+          <span className="muted">→</span>
+          <select value={rAction} onChange={(e) => setRAction(e.target.value as PolicyResponse["action"])}>
+            {Object.entries(ACTION_LABEL).filter(([k]) => actionAllowed(k, rTrigger)).map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
+          </select>
+          {rAction === "block_ip" && <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{t("Minuten (0 = dauerhaft)")}<input type="number" min={0} max={43200} value={rMinutes} onChange={(e) => setRMinutes(Number(e.target.value))} style={{ width: 80 }} /></label>}
+          {rAction === "run_script" && (
+            <select value={rScript} onChange={(e) => setRScript(e.target.value)}>
+              <option value="">{t("— Skript wählen —")}</option>
+              {(scripts ?? []).filter((s) => !s.check_only).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.shell})</option>)}
+            </select>
+          )}
+          <button className="btn primary sm" disabled={saveResp.isPending || (rAction === "run_script" && !rScript)} onClick={() => saveResp.mutate()}>{t("Hinzufügen")}</button>
+          <button className="btn ghost sm" onClick={() => setShowResp(false)}>{t("Abbrechen")}</button>
         </div>
       )}
 

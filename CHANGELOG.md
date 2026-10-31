@@ -73,6 +73,17 @@ All notable changes to Roster are documented here. The format follows
   list column, filter and smart-group field `compliance_score`, dashboard tile, and the new
   check type **Compliance score** (minimum score, optional fail on any high-severity rule)
   for alerting and remediation.
+- Security: **active response** – policies can react to incidents automatically: block the
+  source IP for N minutes or permanently (Linux nftables with set timeouts, iptables fallback;
+  Windows Firewall rule; macOS pf table `roster_block`), lock the local account (never
+  root/Administrator) or run a library script with `ROSTER_TRIGGER`, `ROSTER_SOURCE_IP`,
+  `ROSTER_USER`, `ROSTER_DEVICE` in the environment. Never-block list and cooldown in
+  Settings → Security monitoring, loopback and the server address are always protected.
+  Every reaction is audited and shown at the incident with its result; file-integrity alerts
+  now also create a `fim_change` incident so they can trigger scripts. Security page tab
+  "Blocks" (status, expiry, release), manual "Block IP" / "Lock account" buttons on
+  incidents, active blocks in the device "Logins" tab. New agent commands `block_ip`,
+  `unblock_ip`, `lock_user`, `unlock_user`, `list_blocks`.
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

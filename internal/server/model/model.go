@@ -467,6 +467,7 @@ type Policy struct {
 	Notifications PolicyNotifications `json:"notifications"`
 	Security      PolicySecurity      `json:"security"`
 	FIMRules      []PolicyFIMRule     `json:"fim_rules"`
+	Responses     []PolicyResponse    `json:"responses"`
 	Assignments   []Assignment        `json:"assignments,omitempty"`
 }
 
@@ -490,6 +491,34 @@ type PolicyFIMRule struct {
 	Exclude   []string `json:"exclude"`
 	Platforms []string `json:"platforms"`
 	Alert     bool     `json:"alert"`
+}
+
+// PolicyResponse ist eine Active-Response-Regel einer Richtlinie (Auslöser → Aktion).
+type PolicyResponse struct {
+	ID        string   `json:"id"`
+	PolicyID  string   `json:"policy_id"`
+	Trigger   string   `json:"trigger"` // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change
+	Action    string   `json:"action"`  // block_ip | lock_user | run_script
+	Minutes   int      `json:"minutes"` // block_ip: 0 = dauerhaft
+	ScriptID  string   `json:"script_id,omitempty"`
+	Platforms []string `json:"platforms"`
+	Enabled   bool     `json:"enabled"`
+}
+
+// IPBlock ist eine (angestoßene) IP-Sperre auf einem Gerät.
+type IPBlock struct {
+	ID         string     `json:"id"`
+	DeviceID   string     `json:"device_id"`
+	Hostname   string     `json:"hostname,omitempty"`
+	IP         string     `json:"ip"`
+	Reason     string     `json:"reason,omitempty"`
+	IncidentID string     `json:"incident_id,omitempty"`
+	Until      *time.Time `json:"until,omitempty"` // nil = dauerhaft
+	Status     string     `json:"status"`          // pending | active | expired | released | failed
+	Detail     string     `json:"detail,omitempty"`
+	CommandID  string     `json:"command_id,omitempty"`
+	CreatedBy  string     `json:"created_by"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 // ComplianceResult ist das gespeicherte Ergebnis einer Regel auf einem Gerät.

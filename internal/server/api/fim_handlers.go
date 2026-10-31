@@ -217,8 +217,9 @@ func (s *Server) handleFIMReset(w http.ResponseWriter, r *http.Request) {
 	s.queueDeviceCmd(w, r, "fim_reset", "Datei-Integrität: Baseline neu setzen", nil)
 }
 
-// alertFIMEvents meldet alarmierende Datei-Änderungen gebündelt (eine Meldung je Checkin).
-func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, events []shared.FIMEvent) {
+// alertFIMEvents meldet alarmierende Datei-Änderungen gebündelt (eine Meldung je Checkin)
+// und legt dafür einen Vorfall „fim_change“ an (Rückgabe für Active Response).
+func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, events []shared.FIMEvent) *model.SecurityIncident {
 	label := map[string]string{"created": "neu", "modified": "geändert", "deleted": "gelöscht", "attrs": "Rechte/Besitzer"}
 	var lines []string
 	for _, e := range events {
@@ -235,7 +236,7 @@ func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, event
 		lines = append(lines, fmt.Sprintf("  • [%s] %s%s", label[e.Change], e.Path, detail))
 	}
 	if len(lines) == 0 {
-		return
+		return nil
 	}
 	subject := fmt.Sprintf("[Roster] Datei-Änderungen auf %s (%d)", device.Hostname, len(lines))
 	body := fmt.Sprintf("Die Datei-Integritätsüberwachung hat auf %q Änderungen erkannt:\n\n", device.Hostname)
@@ -246,6 +247,13 @@ func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, event
 		body += strings.Join(lines, "\n")
 	}
 	s.dispatchDeviceAlert(ctx, device, "warning", subject, body)
+	inc := &model.SecurityIncident{DeviceID: device.ID, TS: time.Now(), Kind: "fim_change", Severity: "warning",
+		Title: fmt.Sprintf("Datei-Änderungen (%d)", len(lines)), Detail: strings.Join(lines, "\n"), Status: "open"}
+	if err := s.store.InsertIncident(ctx, inc); err != nil {
+		s.log.Error("fim-vorfall speichern", "err", err)
+		return nil
+	}
+	return inc
 }
 
 func short(h string) string {

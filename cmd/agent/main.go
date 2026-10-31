@@ -30,6 +30,7 @@ import (
 	"github.com/boonkerz/roster/internal/agent/fim"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
+	"github.com/boonkerz/roster/internal/agent/response"
 	"github.com/boonkerz/roster/internal/agent/transport"
 	"github.com/boonkerz/roster/internal/agent/update"
 	"github.com/boonkerz/roster/internal/netscan"
@@ -199,6 +200,8 @@ func (p *program) run(ctx context.Context) {
 	p.client = client
 	p.agentToken = state.AgentToken
 	p.stateDir = filepath.Dir(cfg.StatePath)
+	response.Init(p.stateDir, cfg.ServerURL)
+	go p.responseExpireLoop(ctx)
 	p.fimNow = make(chan struct{}, 1)
 	go p.fimLoop(ctx)
 	go p.authLoop(ctx)
@@ -579,6 +582,24 @@ func (p *program) runPolicy(ctx context.Context) {
 			} else {
 				output = "Gelöscht"
 			}
+		case "block_ip":
+			ip, _ := cmd.Payload["ip"].(string)
+			minutes := 0
+			if f, ok := cmd.Payload["minutes"].(float64); ok {
+				minutes = int(f)
+			}
+			exit, output = response.BlockIP(ctx, ip, minutes)
+		case "unblock_ip":
+			ip, _ := cmd.Payload["ip"].(string)
+			exit, output = response.UnblockIP(ctx, ip)
+		case "lock_user":
+			user, _ := cmd.Payload["user"].(string)
+			exit, output = response.LockUser(ctx, user)
+		case "unlock_user":
+			user, _ := cmd.Payload["user"].(string)
+			exit, output = response.UnlockUser(ctx, user)
+		case "list_blocks":
+			exit, output = 0, response.ListJSON()
 		case "compliance_scan":
 			select {
 			case p.complianceNow <- struct{}{}:
@@ -1213,6 +1234,20 @@ func (p *program) complianceLoop(ctx context.Context) {
 			run(true)
 		case <-t.C:
 			run(false)
+		}
+	}
+}
+
+// responseExpireLoop hebt abgelaufene IP-Sperren auf (iptables/Windows/pf; nft läuft selbst ab).
+func (p *program) responseExpireLoop(ctx context.Context) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			response.Expire(ctx)
 		}
 	}
 }

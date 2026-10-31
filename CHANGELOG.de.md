@@ -74,6 +74,17 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   und Smart-Group-Feld `compliance_score`, Übersichts-Kachel sowie der neue Check-Typ
   **Compliance-Score** (Mindest-Score, optional Fehler bei jeder Regel mit Schwere „hoch“) für
   Alarme und Remediation.
+- Sicherheit: **Active Response** – Richtlinien reagieren automatisch auf Vorfälle: Quell-IP für
+  N Minuten oder dauerhaft sperren (Linux nftables mit Set-Timeouts, iptables-Fallback; Windows-
+  Firewall-Regel; macOS pf-Tabelle `roster_block`), lokales Konto sperren (nie root/Administrator)
+  oder ein Bibliotheks-Skript mit `ROSTER_TRIGGER`, `ROSTER_SOURCE_IP`, `ROSTER_USER`,
+  `ROSTER_DEVICE` in der Umgebung ausführen. Nie-sperren-Liste und Cooldown unter Einstellungen →
+  Sicherheitsüberwachung; Loopback und die Server-Adresse sind immer geschützt. Jede Reaktion wird
+  auditiert und mit Ergebnis am Vorfall angezeigt; Datei-Integritäts-Alarme erzeugen jetzt auch einen
+  Vorfall `fim_change`, damit sie Skripte auslösen können. Sicherheitsseite mit Tab „Sperren“ (Status,
+  Ablauf, Aufheben), manuelle Knöpfe „IP sperren“ / „Konto sperren“ am Vorfall, aktive Sperren im
+  Geräte-Tab „Anmeldungen“. Neue Agent-Kommandos `block_ip`, `unblock_ip`, `lock_user`,
+  `unlock_user`, `list_blocks`.
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät

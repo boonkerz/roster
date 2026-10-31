@@ -93,7 +93,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("paketquellen speichern", "err", err)
 	}
 	if len(req.AuthEvents) > 0 {
-		s.processAuthEvents(r.Context(), device, req.AuthEvents)
+		s.runResponses(r.Context(), device, s.processAuthEvents(r.Context(), device, req.AuthEvents))
 	}
 	if req.Compliance != nil {
 		if err := s.store.ReplaceCompliance(r.Context(), device.ID, req.Compliance); err != nil {
@@ -103,8 +103,8 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if len(req.FIMEvents) > 0 {
 		if err := s.store.InsertFIMEvents(r.Context(), device.ID, req.FIMEvents); err != nil {
 			s.log.Error("fim-ereignisse speichern", "err", err)
-		} else {
-			s.alertFIMEvents(r.Context(), device, req.FIMEvents)
+		} else if inc := s.alertFIMEvents(r.Context(), device, req.FIMEvents); inc != nil {
+			s.runResponses(r.Context(), device, []model.SecurityIncident{*inc})
 		}
 	}
 	if len(req.PatchHistory) > 0 {
@@ -153,6 +153,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		}
 		s.importNetworkScans(r.Context(), req.CommandResults)
 		s.completeBackupRuns(r.Context(), req.CommandResults)
+		s.completeResponses(r.Context(), req.CommandResults)
 	}
 	policy, err := s.store.EffectivePolicy(r.Context(), device.ID)
 	if err != nil {
