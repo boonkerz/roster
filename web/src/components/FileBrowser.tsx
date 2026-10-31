@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { useI18n, gt } from "../i18n";
-import type { Command } from "../types";
+import { pollCmd } from "../pollCmd";
+import { useI18n } from "../i18n";
 
 interface FileEntry { name: string; path: string; dir: boolean; size: number; modified: number; }
 interface FileListing { path: string; parent: string; entries: FileEntry[]; error?: string; }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function fmtBytes(n: number): string {
   if (!n) return "0";
@@ -16,15 +15,6 @@ function fmtBytes(n: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${u[i]}`;
 }
 
-// pollCmd wartet auf das Ergebnis eines eingereihten Befehls.
-async function pollCmd(id: string, tries = 130): Promise<Command> {
-  for (let i = 0; i < tries; i++) {
-    await sleep(700);
-    const cmd = await api.get<Command>(`/commands/${id}`);
-    if (cmd.status === "done") return cmd;
-  }
-  throw new Error(gt("Zeitüberschreitung – Agent offline?"));
-}
 
 // FileBrowser: Verzeichnisse durchsuchen, Dateien herunterladen/hochladen (≤ 32 MB).
 export function FileBrowser({ deviceId }: { deviceId: string }) {

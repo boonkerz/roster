@@ -7,6 +7,17 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- Patches: neue Seite **Patches** mit allen ausstehenden Updates der Flotte – Sicherheits-Updates
+  zuerst, Filter (Firma, Standort, nur Sicherheit, nur genehmigte, Suche), Mehrfachauswahl mit
+  Genehmigen/Aufheben und Installieren (genehmigte / Sicherheit / genehmigte Sicherheit / alle,
+  apt-Strategie). Kopfkacheln (Geräte mit Sicherheits-Updates, Anteil ohne Sicherheits-Updates,
+  nie geprüft).
+- Patches: der Agent meldet **Sicherheits-Updates** getrennt (apt `-security`-Suiten, dnf-Security-
+  Advisories, Windows-Update-Kategorien/MSRC-Schweregrad, macOS „Security“) sowie neue und
+  installierte Version und Quelle. Spalte und Filter „Sicherheits-Updates“ in der Geräteliste,
+  Smart-Group-Feld `security_updates_count`, Übersichts-Kachel und Statistik-Kennzahl `security_patches`.
+- Patches: „Sicherheits-Updates installieren“ je Gerät, in der Sammelleiste der Geräteliste und in
+  der Sammelaktion (Umfang: alle / genehmigte / nur Sicherheit, apt-Strategie).
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät
@@ -24,6 +35,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Changelog (diese Datei) und automatische GitHub-Release-Notizen.
 
 ### Geändert
+- API: `POST /bulk/install-updates` versteht `approved`, `security_only` und `apt_mode`;
+  `POST /devices/{id}/install-updates` versteht `security_only`. Update-Einträge tragen `version`,
+  `current_version`, `source`, `security` und `kind`.
 - Check-Alarme bei Auto-Remediation werden erst gemeldet, wenn die Remediation nicht geholfen hat.
 - Geräteliste: Sammelleiste bestätigt inline statt per Browser-Dialog.
 - Web-UI: `no-cache` für index.html und `immutable` für gehashte Assets.

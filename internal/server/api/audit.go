@@ -41,6 +41,7 @@ var auditActions = map[string]string{
 	"POST /devices/{id}/scan-updates":         "Update-Scan gestartet",
 	"POST /devices/{id}/install-updates":      "Updates installiert",
 	"PUT /devices/{id}/patches/approve":       "Patch genehmigt",
+	"PUT /patches/approve":                    "Patches genehmigt (Patch-Übersicht)",
 	"PUT /devices/{id}/site":                  "Standort geändert",
 	"PUT /devices/{id}/notes":                 "Notizen geändert",
 	"PUT /devices/{id}/groups":                "Tags geändert",

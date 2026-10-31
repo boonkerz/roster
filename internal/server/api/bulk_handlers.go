@@ -14,6 +14,11 @@ type bulkRequest struct {
 	DeviceIDs  []string `json:"device_ids"` // nur bei devices: Auswahl aus der Geräteliste
 	ScriptID   string   `json:"script_id"`  // nur bei run-script
 	PackageID  string   `json:"package_id"` // nur bei install-package
+	// Nur bei install-updates: Auswahl wie am Einzelgerät (genehmigte / nur Sicherheit /
+	// apt-Strategie). Ohne Angaben: alle Updates, apt full-upgrade (wie bisher).
+	Approved     bool   `json:"approved"`
+	SecurityOnly bool   `json:"security_only"`
+	AptMode      string `json:"apt_mode"`
 }
 
 // resolveBulkDevices löst die Zielgeräte auf oder schreibt eine Fehlerantwort.
@@ -126,8 +131,9 @@ func (s *Server) handleBulkReboot(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued})
 }
 
-// handleBulkInstallUpdates reiht das Installieren aller Updates für alle Geräte
-// eines Ziels ein (apt: full-upgrade).
+// handleBulkInstallUpdates reiht das Installieren von Updates für alle Geräte eines
+// Ziels ein – alle, nur genehmigte und/oder nur Sicherheits-Updates (apt-Strategie
+// wählbar, Standard full-upgrade). Geräte ohne passende Updates werden übersprungen.
 func (s *Server) handleBulkInstallUpdates(w http.ResponseWriter, r *http.Request) {
 	var req bulkRequest
 	if !s.decodeJSON(w, r, &req) {
@@ -137,11 +143,17 @@ func (s *Server) handleBulkInstallUpdates(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	queued := 0
+	ireq := installRequest{Approved: req.Approved, SecurityOnly: req.SecurityOnly, AptMode: req.AptMode}
+	queued, skipped := 0, 0
 	for _, dev := range ids {
-		if _, err := s.queueCommand(r.Context(), dev, "install_updates", "Updates installieren", map[string]any{"full": true}); err == nil {
+		label, payload, msg, err := s.installPayload(r, dev, ireq)
+		if err != nil || msg != "" {
+			skipped++
+			continue
+		}
+		if _, err := s.queueCommand(r.Context(), dev, "install_updates", label, payload); err == nil {
 			queued++
 		}
 	}
-	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued})
+	s.writeJSON(w, http.StatusCreated, map[string]int{"queued": queued, "skipped": skipped})
 }

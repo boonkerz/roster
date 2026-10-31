@@ -17,6 +17,8 @@ export function BulkActions() {
   const [tType, setTType] = useState<TargetType>("client");
   const [target, setTarget] = useState("");
   const [action, setAction] = useState<"script" | "scan" | "install" | "package">("script");
+  const [installMode, setInstallMode] = useState<"all" | "approved" | "security">("all");
+  const [aptMode, setAptMode] = useState<"full" | "safe">("full");
   const [scriptId, setScriptId] = useState("");
   const [packageId, setPackageId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -29,7 +31,10 @@ export function BulkActions() {
 
   const run = useMutation({
     mutationFn: () => {
-      const body = { target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId, package_id: packageId };
+      const body = {
+        target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId, package_id: packageId,
+        approved: installMode === "approved", security_only: installMode === "security", apt_mode: aptMode,
+      };
       const url = action === "script" ? "/bulk/run-script"
         : action === "install" ? "/bulk/install-updates"
         : action === "package" ? "/bulk/install-package"
@@ -89,6 +94,23 @@ export function BulkActions() {
                 <option value="">{t("— Skript wählen —")}</option>
                 {(scripts ?? []).filter((s) => !s.check_only).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.shell})</option>)}
               </select>
+            </label>
+          )}
+          {action === "install" && (
+            <label className="field">
+              <span>{t("Umfang")}</span>
+              <div className="inline-form">
+                <select value={installMode} onChange={(e) => setInstallMode(e.target.value as "all" | "approved" | "security")}>
+                  <option value="all">{t("Alle ausstehenden Updates")}</option>
+                  <option value="approved">{t("Nur genehmigte Updates")}</option>
+                  <option value="security">{t("Nur Sicherheits-Updates")}</option>
+                </select>
+                <select value={aptMode} onChange={(e) => setAptMode(e.target.value as "full" | "safe")} title={t("apt-Strategie (nur Debian/Ubuntu)")}>
+                  <option value="full">{t("Voll-Upgrade (dist-upgrade)")}</option>
+                  <option value="safe">{t("Sicheres Upgrade (upgrade)")}</option>
+                </select>
+              </div>
+              <span className="muted small">{t("Geräte ohne passende Updates werden übersprungen.")}</span>
             </label>
           )}
           {action === "package" && (

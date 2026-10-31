@@ -367,8 +367,64 @@ func (s *Server) handleScanUpdates(w http.ResponseWriter, r *http.Request) {
 }
 
 type installRequest struct {
-	Approved bool   `json:"approved"` // true = nur genehmigte Patches installieren
-	AptMode  string `json:"apt_mode"` // "safe" = apt upgrade; sonst full-upgrade (Default)
+	Approved     bool   `json:"approved"`      // true = nur genehmigte Patches installieren
+	SecurityOnly bool   `json:"security_only"` // true = nur Sicherheits-Updates installieren
+	AptMode      string `json:"apt_mode"`      // "safe" = apt upgrade; sonst full-upgrade (Default)
+}
+
+// installPayload baut Label + Payload für install_updates: genehmigte und/oder nur
+// Sicherheits-Updates werden als explizite Paketliste übergeben. ok=false, wenn die
+// Auswahl leer ist (dann msg als 400-Text).
+func (s *Server) installPayload(r *http.Request, deviceID string, req installRequest) (label string, payload map[string]any, msg string, err error) {
+	label = "Updates installieren"
+	payload = map[string]any{"full": req.AptMode != "safe"}
+	var names []string
+	switch {
+	case req.Approved && req.SecurityOnly:
+		approved, aerr := s.store.ApprovedPatches(r.Context(), deviceID)
+		if aerr != nil {
+			return "", nil, "", aerr
+		}
+		sec, serr := s.store.SecurityPatches(r.Context(), deviceID)
+		if serr != nil {
+			return "", nil, "", serr
+		}
+		isSec := map[string]bool{}
+		for _, n := range sec {
+			isSec[n] = true
+		}
+		for _, n := range approved {
+			if isSec[n] {
+				names = append(names, n)
+			}
+		}
+		if len(names) == 0 {
+			return "", nil, "keine genehmigten Sicherheits-Updates", nil
+		}
+		label = "Genehmigte Sicherheits-Updates installieren"
+	case req.Approved:
+		names, err = s.store.ApprovedPatches(r.Context(), deviceID)
+		if err != nil {
+			return "", nil, "", err
+		}
+		if len(names) == 0 {
+			return "", nil, "keine Patches genehmigt", nil
+		}
+		label = "Genehmigte Updates installieren"
+	case req.SecurityOnly:
+		names, err = s.store.SecurityPatches(r.Context(), deviceID)
+		if err != nil {
+			return "", nil, "", err
+		}
+		if len(names) == 0 {
+			return "", nil, "keine Sicherheits-Updates ausstehend", nil
+		}
+		label = "Sicherheits-Updates installieren"
+	}
+	if names != nil {
+		payload["packages"] = names
+	}
+	return label, payload, "", nil
 }
 
 // handleInstallUpdates reiht das Installieren ausstehender Updates ein – alle oder
@@ -378,21 +434,15 @@ func (s *Server) handleInstallUpdates(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req) // leerer Body = alle installieren
 
 	deviceID := chi.URLParam(r, "id")
-	label := "Updates installieren"
 	// apt-Strategie: Default full-upgrade; "safe" = konservatives apt upgrade.
-	payload := map[string]any{"full": req.AptMode != "safe"}
-	if req.Approved {
-		names, err := s.store.ApprovedPatches(r.Context(), deviceID)
-		if err != nil {
-			s.mapStoreErr(w, err)
-			return
-		}
-		if len(names) == 0 {
-			s.writeErr(w, http.StatusBadRequest, "keine Patches genehmigt")
-			return
-		}
-		payload["packages"] = names
-		label = "Genehmigte Updates installieren"
+	label, payload, msg, err := s.installPayload(r, deviceID, req)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	if msg != "" {
+		s.writeErr(w, http.StatusBadRequest, msg)
+		return
 	}
 	id, err := s.queueCommand(r.Context(), deviceID, "install_updates", label, payload)
 	if err != nil {

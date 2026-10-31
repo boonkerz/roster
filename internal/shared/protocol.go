@@ -305,9 +305,12 @@ type ListenPort struct {
 
 // OSUpdateInfo beschreibt verfügbare Betriebssystem-Updates/Patches.
 type OSUpdateInfo struct {
-	Count     int          `json:"count"`
-	CheckedAt time.Time    `json:"checked_at"`
-	Items     []UpdateItem `json:"items,omitempty"`
+	Count int `json:"count"`
+	// SecurityCount zählt die Einträge mit Security=true (apt -security-Suite,
+	// dnf-Security-Advisory, WUA-Kategorie „Security Updates“ …).
+	SecurityCount int          `json:"security_count,omitempty"`
+	CheckedAt     time.Time    `json:"checked_at"`
+	Items         []UpdateItem `json:"items,omitempty"`
 }
 
 // UpdateItem ist ein einzelner verfügbarer Patch/Update.
@@ -315,6 +318,16 @@ type UpdateItem struct {
 	Name     string `json:"name"`
 	Severity string `json:"severity,omitempty"` // Critical | Important | Other
 	URL      string `json:"url,omitempty"`
+	// Version ist die verfügbare (neue) Version, CurrentVersion die installierte –
+	// soweit der Paketmanager sie nennt.
+	Version        string `json:"version,omitempty"`
+	CurrentVersion string `json:"current_version,omitempty"`
+	// Source nennt die Herkunft: apt-Suite(n), dnf-Repo/Advisory, WUA-Kategorien/KB.
+	Source string `json:"source,omitempty"`
+	// Security markiert Sicherheits-Updates (Quelle siehe OSUpdateInfo.SecurityCount).
+	Security bool `json:"security,omitempty"`
+	// Kind unterscheidet unter Windows: "" (OS/Software) | driver | definition.
+	Kind string `json:"kind,omitempty"`
 }
 
 // SoftwarePackage ist ein installiertes Programm/Paket.

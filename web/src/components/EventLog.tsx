@@ -1,18 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
-import { useI18n, gt } from "../i18n";
-import type { Command } from "../types";
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function pollCmd(id: string): Promise<Command> {
-  for (let i = 0; i < 90; i++) {
-    await sleep(700);
-    const cmd = await api.get<Command>(`/commands/${id}`);
-    if (cmd.status === "done") return cmd;
-  }
-  throw new Error(gt("Zeitüberschreitung – Agent offline?"));
-}
+import { useI18n } from "../i18n";
+import { pollCmd } from "../pollCmd";
 
 interface Evt { time: string; id?: number; level: string; source?: string; message: string; }
 

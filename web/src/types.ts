@@ -428,6 +428,42 @@ export interface UpdateItem {
   severity: string;
   url?: string;
   approved: boolean;
+  version?: string;
+  current_version?: string;
+  source?: string;
+  security?: boolean;
+  kind?: string; // "" | driver | definition (Windows)
+}
+
+// PendingPatch ist eine Zeile der flottenweiten Patch-Übersicht (Gerät × Update).
+export interface PendingPatch {
+  device_id: string;
+  hostname: string;
+  os: string;
+  site_id?: string;
+  site_name?: string;
+  client_id?: string;
+  client_name?: string;
+  name: string;
+  severity: string;
+  url?: string;
+  version?: string;
+  current_version?: string;
+  source?: string;
+  security: boolean;
+  kind?: string;
+  approved: boolean;
+}
+
+export interface PatchSummary {
+  devices_total: number;
+  devices_checked: number;
+  devices_pending: number;
+  devices_security: number;
+  pending: number;
+  security: number;
+  approved: number;
+  compliant_pct: number;
 }
 
 export interface Device {
@@ -464,6 +500,7 @@ export interface Device {
   tasks_total?: number;
   tasks_failing?: number;
   vuln_count?: number;
+  security_updates_count?: number | null;
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];
@@ -547,6 +584,8 @@ export interface DashboardSummary {
   failing_tasks: number;
   devices_with_pending_patches: number;
   pending_patches: number;
+  devices_with_security_patches: number;
+  security_patches: number;
   devices_with_vulns: number;
   vulnerabilities: number;
   recent_events: CheckEvent[];

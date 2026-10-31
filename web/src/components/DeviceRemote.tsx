@@ -3,17 +3,8 @@ import RFB from "@novnc/novnc";
 import { useI18n } from "../i18n";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import type { Command } from "../types";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function pollCmd(id: string): Promise<Command> {
-  for (let i = 0; i < 90; i++) {
-    await sleep(700);
-    const cmd = await api.get<Command>(`/commands/${id}`);
-    if (cmd.status === "done") return cmd;
-  }
-  throw new Error("timeout");
-}
+import { pollCmd } from "../pollCmd";
 
 // DeviceRemote öffnet eine Web-Fernsteuerung (Remote Desktop) über noVNC. Der Server
 // startet on-demand einen VNC-Server am Gerät und tunnelt die RFB-Bytes über eine

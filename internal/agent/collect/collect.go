@@ -97,7 +97,7 @@ func OSUpdates(ctx context.Context) *shared.OSUpdateInfo {
 	if len(items) > maxItems {
 		items = items[:maxItems]
 	}
-	return &shared.OSUpdateInfo{Count: len(items), CheckedAt: time.Now().UTC(), Items: items}
+	return &shared.OSUpdateInfo{Count: len(items), SecurityCount: securityCount(items), CheckedAt: time.Now().UTC(), Items: items}
 }
 
 // realFSTypes sind „echte" Dateisysteme, die als Datenträger gezeigt werden – inkl.
@@ -118,15 +118,6 @@ func capOutput(s string) string {
 		return s[len(s)-max:] // das Ende ist meist relevanter (Zusammenfassung)
 	}
 	return s
-}
-
-// packagesToItems wandelt Paketnamen in UpdateItems (Schweregrad "Other") um.
-func packagesToItems(names []string) []shared.UpdateItem {
-	out := make([]shared.UpdateItem, 0, len(names))
-	for _, n := range names {
-		out = append(out, shared.UpdateItem{Name: n, Severity: "Other"})
-	}
-	return out
 }
 
 func collectDisks(ctx context.Context) []shared.Disk {

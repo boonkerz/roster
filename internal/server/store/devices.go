@@ -113,8 +113,8 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 	// OS-Updates nur aktualisieren, wenn der Agent bereits einen Check geliefert hat.
 	if inv.OSUpdates != nil {
 		if _, err := tx.ExecContext(ctx, s.rebind(`
-			UPDATE devices SET updates_count=?, updates_checked_at=? WHERE id=?`),
-			inv.OSUpdates.Count, inv.OSUpdates.CheckedAt.UTC(), deviceID); err != nil {
+			UPDATE devices SET updates_count=?, security_updates_count=?, updates_checked_at=? WHERE id=?`),
+			inv.OSUpdates.Count, inv.OSUpdates.SecurityCount, inv.OSUpdates.CheckedAt.UTC(), deviceID); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM os_updates WHERE device_id = ?`), deviceID); err != nil {
@@ -126,8 +126,9 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 				sev = "Other"
 			}
 			if _, err := tx.ExecContext(ctx, s.rebind(`
-				INSERT INTO os_updates (device_id, package, severity, url) VALUES (?, ?, ?, ?)`),
-				deviceID, it.Name, sev, it.URL); err != nil {
+				INSERT INTO os_updates (device_id, package, severity, url, version, current_version, source, security, kind)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+				deviceID, it.Name, sev, it.URL, it.Version, it.CurrentVersion, it.Source, it.Security, it.Kind); err != nil {
 				return err
 			}
 		}
@@ -176,7 +177,7 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
-	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages`
+	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages, d.security_updates_count`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -372,11 +373,13 @@ func emptyToNull(s string) string {
 func (s *Store) updatesFor(ctx context.Context, deviceID string) ([]model.UpdateItem, error) {
 	// Kritische/Wichtige zuerst, dann nach Name; Genehmigungsstatus per LEFT JOIN.
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT u.package, u.severity, u.url, CASE WHEN a.name IS NULL THEN 0 ELSE 1 END
+		SELECT u.package, u.severity, u.url, CASE WHEN a.name IS NULL THEN 0 ELSE 1 END,
+			u.version, u.current_version, u.source, u.security, u.kind
 		FROM os_updates u
 		LEFT JOIN patch_approvals a ON a.device_id = u.device_id AND a.name = u.package
 		WHERE u.device_id = ?
-		ORDER BY CASE u.severity WHEN 'Critical' THEN 0 WHEN 'Important' THEN 1 ELSE 2 END, u.package`), deviceID)
+		ORDER BY CASE WHEN u.security THEN 0 ELSE 1 END,
+			CASE u.severity WHEN 'Critical' THEN 0 WHEN 'Important' THEN 1 ELSE 2 END, u.package`), deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +388,7 @@ func (s *Store) updatesFor(ctx context.Context, deviceID string) ([]model.Update
 	for rows.Next() {
 		var it model.UpdateItem
 		var approved int
-		if err := rows.Scan(&it.Name, &it.Severity, &it.URL, &approved); err != nil {
+		if err := rows.Scan(&it.Name, &it.Severity, &it.URL, &approved, &it.Version, &it.CurrentVersion, &it.Source, &it.Security, &it.Kind); err != nil {
 			return nil, err
 		}
 		it.Approved = approved == 1
@@ -1120,7 +1123,7 @@ func scanDevice(row scanner) (*model.Device, error) {
 	var lastSeen, updatesCheckedAt sql.NullTime
 	var mem int64
 	var users string
-	var updatesCount sql.NullInt64
+	var updatesCount, securityCount sql.NullInt64
 	var siteID, siteName, clientID, clientName sql.NullString
 	var proxmoxStorages string
 	err := row.Scan(&d.ID, &d.Hostname, &d.OS, &d.OSVersion, &d.Vendor, &d.Model, &d.Serial,
@@ -1128,9 +1131,13 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.SoftwareAlerts,
-		&d.ProxmoxVersion, &proxmoxStorages)
+		&d.ProxmoxVersion, &proxmoxStorages, &securityCount)
 	if err != nil {
 		return nil, err
+	}
+	if securityCount.Valid {
+		n := int(securityCount.Int64)
+		d.SecurityUpdatesCount = &n
 	}
 	if proxmoxStorages != "" {
 		_ = json.Unmarshal([]byte(proxmoxStorages), &d.ProxmoxStorages)

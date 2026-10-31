@@ -7,6 +7,16 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Patches: new **Patches** page with all pending updates across the fleet – security updates
+  first, filters (client, site, security only, approved only, search), multi-select with
+  approve/revoke and install (approved / security / approved security / all, apt strategy).
+  Summary tiles (devices with security updates, share without security updates, never scanned).
+- Patches: the agent now reports **security updates** separately (apt `-security` suites, dnf
+  security advisories, Windows Update categories/MSRC severity, macOS “Security”) plus new and
+  installed version and source. Device list column and filter "Security updates", smart-group
+  field `security_updates_count`, dashboard tile and statistics key `security_patches`.
+- Patches: "Install security updates" per device, in the device list bulk bar and in bulk
+  actions (scope: all / approved / security only, apt strategy).
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way
@@ -24,6 +34,9 @@ All notable changes to Roster are documented here. The format follows
 - Changelog (this file) and automatic GitHub release notes.
 
 ### Changed
+- API: `POST /bulk/install-updates` accepts `approved`, `security_only` and `apt_mode`;
+  `POST /devices/{id}/install-updates` accepts `security_only`. Update items carry `version`,
+  `current_version`, `source`, `security` and `kind`.
 - Check alerts with auto-remediation are only sent when the remediation did not help.
 - Device list: bulk action bar confirms inline instead of using a browser dialog.
 - Web UI: `no-cache` for index.html and `immutable` for hashed assets.

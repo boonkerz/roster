@@ -116,6 +116,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			sum.DevicesWithPendingPatches++
 			sum.PendingPatches += *d.UpdatesCount
 		}
+		if d.SecurityUpdatesCount != nil && *d.SecurityUpdatesCount > 0 {
+			sum.DevicesWithSecurityPatches++
+			sum.SecurityPatches += *d.SecurityUpdatesCount
+		}
 		if d.VulnCount > 0 {
 			sum.DevicesWithVulns++
 			sum.Vulnerabilities += d.VulnCount

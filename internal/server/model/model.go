@@ -106,6 +106,8 @@ type Device struct {
 	UpdatesCount     *int         `json:"updates_count,omitempty"`
 	UpdatesCheckedAt *time.Time   `json:"updates_checked_at,omitempty"`
 	AvailableUpdates []UpdateItem `json:"available_updates,omitempty"`
+	// SecurityUpdatesCount zählt die ausstehenden Sicherheits-Updates (nil = ungeprüft).
+	SecurityUpdatesCount *int `json:"security_updates_count,omitempty"`
 
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
@@ -245,10 +247,48 @@ type PhysicalDisk struct {
 
 // UpdateItem ist ein verfügbarer Patch/Update (für den Patches-Tab).
 type UpdateItem struct {
-	Name     string `json:"name"`
-	Severity string `json:"severity"`
-	URL      string `json:"url,omitempty"`
-	Approved bool   `json:"approved"`
+	Name           string `json:"name"`
+	Severity       string `json:"severity"`
+	URL            string `json:"url,omitempty"`
+	Approved       bool   `json:"approved"`
+	Version        string `json:"version,omitempty"`
+	CurrentVersion string `json:"current_version,omitempty"`
+	Source         string `json:"source,omitempty"`
+	Security       bool   `json:"security"`
+	Kind           string `json:"kind,omitempty"` // "" | driver | definition (Windows)
+}
+
+// PendingPatch ist eine Zeile der flottenweiten Patch-Übersicht (Gerät × Update).
+type PendingPatch struct {
+	DeviceID       string `json:"device_id"`
+	Hostname       string `json:"hostname"`
+	OS             string `json:"os"`
+	SiteID         string `json:"site_id,omitempty"`
+	SiteName       string `json:"site_name,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+	ClientName     string `json:"client_name,omitempty"`
+	Name           string `json:"name"`
+	Severity       string `json:"severity"`
+	URL            string `json:"url,omitempty"`
+	Version        string `json:"version,omitempty"`
+	CurrentVersion string `json:"current_version,omitempty"`
+	Source         string `json:"source,omitempty"`
+	Security       bool   `json:"security"`
+	Kind           string `json:"kind,omitempty"`
+	Approved       bool   `json:"approved"`
+}
+
+// PatchSummary sind die Kopfzahlen der Patch-Seite.
+type PatchSummary struct {
+	DevicesTotal    int `json:"devices_total"`    // verwaltete, nicht widerrufene Geräte
+	DevicesChecked  int `json:"devices_checked"`  // davon mit Update-Scan
+	DevicesPending  int `json:"devices_pending"`  // mit ausstehenden Updates
+	DevicesSecurity int `json:"devices_security"` // mit ausstehenden Sicherheits-Updates
+	Pending         int `json:"pending"`
+	Security        int `json:"security"`
+	Approved        int `json:"approved"`
+	// CompliantPct = Anteil der geprüften Geräte ohne Sicherheits-Updates (0–100).
+	CompliantPct int `json:"compliant_pct"`
 }
 
 // SoftwarePackage ist ein installiertes Programm/Paket.
@@ -626,19 +666,21 @@ type AuditEntry struct {
 
 // DashboardSummary ist die aggregierte Übersicht über alle (nicht widerrufenen) Geräte.
 type DashboardSummary struct {
-	DevicesTotal              int          `json:"devices_total"`
-	DevicesOnline             int          `json:"devices_online"`
-	DevicesOffline            int          `json:"devices_offline"`
-	DevicesUnknown            int          `json:"devices_unknown"`
-	DevicesWithFailingChecks  int          `json:"devices_with_failing_checks"`
-	FailingChecks             int          `json:"failing_checks"`
-	DevicesWithFailingTasks   int          `json:"devices_with_failing_tasks"`
-	FailingTasks              int          `json:"failing_tasks"`
-	DevicesWithPendingPatches int          `json:"devices_with_pending_patches"`
-	PendingPatches            int          `json:"pending_patches"`
-	DevicesWithVulns          int          `json:"devices_with_vulns"`
-	Vulnerabilities           int          `json:"vulnerabilities"`
-	RecentEvents              []CheckEvent `json:"recent_events"`
+	DevicesTotal               int          `json:"devices_total"`
+	DevicesOnline              int          `json:"devices_online"`
+	DevicesOffline             int          `json:"devices_offline"`
+	DevicesUnknown             int          `json:"devices_unknown"`
+	DevicesWithFailingChecks   int          `json:"devices_with_failing_checks"`
+	FailingChecks              int          `json:"failing_checks"`
+	DevicesWithFailingTasks    int          `json:"devices_with_failing_tasks"`
+	FailingTasks               int          `json:"failing_tasks"`
+	DevicesWithPendingPatches  int          `json:"devices_with_pending_patches"`
+	PendingPatches             int          `json:"pending_patches"`
+	DevicesWithSecurityPatches int          `json:"devices_with_security_patches"`
+	SecurityPatches            int          `json:"security_patches"`
+	DevicesWithVulns           int          `json:"devices_with_vulns"`
+	Vulnerabilities            int          `json:"vulnerabilities"`
+	RecentEvents               []CheckEvent `json:"recent_events"`
 }
 
 // SoftwareEvent protokolliert eine Software-Änderung (installiert/entfernt/aktualisiert).

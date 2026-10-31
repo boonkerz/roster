@@ -46,7 +46,8 @@ export function Dashboard() {
         <Tile label={t("Offline")} value={data.devices_offline} tone={data.devices_offline > 0 ? "bad" : undefined} onClick={() => nav("/devices")} />
         <Tile label={t("Checks fehlerhaft")} value={data.failing_checks} sub={t("{n} Gerät(e)", { n: data.devices_with_failing_checks })} tone={data.failing_checks > 0 ? "bad" : "ok"} onClick={() => nav("/devices?filter=failing-checks")} />
         <Tile label={t("Tasks fehlerhaft")} value={data.failing_tasks} sub={t("{n} Gerät(e)", { n: data.devices_with_failing_tasks })} tone={data.failing_tasks > 0 ? "warn" : "ok"} onClick={() => nav("/devices?filter=failing-tasks")} />
-        <Tile label={t("Ausstehende Patches")} value={data.pending_patches} sub={t("{n} Gerät(e)", { n: data.devices_with_pending_patches })} tone={data.pending_patches > 0 ? "warn" : "ok"} onClick={() => nav("/devices")} />
+        <Tile label={t("Ausstehende Patches")} value={data.pending_patches} sub={t("{n} Gerät(e)", { n: data.devices_with_pending_patches })} tone={data.pending_patches > 0 ? "warn" : "ok"} onClick={() => nav("/patches")} />
+        <Tile label={t("Sicherheits-Updates")} value={data.security_patches ?? 0} sub={t("{n} Gerät(e)", { n: data.devices_with_security_patches ?? 0 })} tone={(data.security_patches ?? 0) > 0 ? "bad" : "ok"} onClick={() => nav("/patches?security=1")} />
         <Tile label={t("Schwachstellen")} value={data.vulnerabilities} sub={t("{n} Gerät(e)", { n: data.devices_with_vulns })} tone={data.vulnerabilities > 0 ? "bad" : "ok"} onClick={() => nav("/devices?filter=vulns")} />
       </div>
 

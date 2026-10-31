@@ -22,6 +22,7 @@ const FIELDS: FieldDef[] = [
   { v: "tasks_failing", label: "Fehlerhafte Tasks", kind: "num" },
   { v: "vuln_count", label: "Schwachstellen", kind: "num" },
   { v: "updates_count", label: "Offene Updates", kind: "num" },
+  { v: "security_updates_count", label: "Offene Sicherheits-Updates", kind: "num" },
   { v: "check", label: "Check", kind: "check" }, // Wert = Check-ID, Vergleich fehlerhaft / nicht fehlerhaft
 ];
 const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"], check: ["failing", "ok"] };

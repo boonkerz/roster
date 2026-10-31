@@ -83,7 +83,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   const invalidate = () => qc.invalidateQueries({ queryKey: ["device", id] });
   const runScript = useMutation({ mutationFn: () => api.post(`/devices/${id}/run`, { script_id: runScriptId }), onSuccess: invalidate });
   const scanUpdates = useMutation({ mutationFn: () => api.post(`/devices/${id}/scan-updates`), onSuccess: invalidate });
-  const installUpdates = useMutation({ mutationFn: (v: { approved: boolean; apt_mode?: string }) => api.post(`/devices/${id}/install-updates`, v), onSuccess: invalidate });
+  const installUpdates = useMutation({ mutationFn: (v: { approved: boolean; security_only?: boolean; apt_mode?: string }) => api.post(`/devices/${id}/install-updates`, v), onSuccess: invalidate });
   const approvePatch = useMutation({ mutationFn: (v: { name: string; approved: boolean }) => api.put(`/devices/${id}/patches/approve`, v), onSuccess: invalidate });
   const reboot = useMutation({ mutationFn: () => api.post(`/devices/${id}/reboot`), onSuccess: invalidate });
   // Nach dem Anstoßen läuft der Check/Task erst beim (sofort geweckten) Checkin –
@@ -179,7 +179,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     <>
       {k === "checks" && (device.checks_total ?? 0) > 0 && <span className="tab-badge"><HealthBadge total={device.checks_total} failing={device.checks_failing} /></span>}
       {k === "tasks" && (device.tasks_total ?? 0) > 0 && <span className="tab-badge"><TaskHealthBadge total={device.tasks_total} failing={device.tasks_failing} /></span>}
-      {k === "updates" && <span className="tab-badge"><UpdatesBadge count={device.updates_count} /></span>}
+      {k === "updates" && <span className="tab-badge"><UpdatesBadge count={device.updates_count} security={device.security_updates_count} /></span>}
       {k === "software" && <span className="tab-count">{(device.software ?? []).length}</span>}
       {k === "docker" && <span className="tab-count">{(device.docker_containers ?? []).length}</span>}
       {k === "proxmox" && (
@@ -605,7 +605,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
         {tab === "updates" && (
           <section className="card">
             <div className="page-head" style={{ marginBottom: 10 }}>
-              <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 10 }}>Patches <UpdatesBadge count={device.updates_count} /></h2>
+              <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 10 }}>Patches <UpdatesBadge count={device.updates_count} security={device.security_updates_count} /></h2>
               {canOperate && (
                 <div className="actions">
                   <button className="btn ghost sm" onClick={() => scanUpdates.mutate()} disabled={scanUpdates.isPending}>↻ {t("Jetzt prüfen")}</button>
@@ -622,6 +622,12 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                         onClick={() => confirm(t("Nur die genehmigten Patches installieren?")) && installUpdates.mutate({ approved: true, apt_mode: aptMode })}>
                         {t("Genehmigte installieren")}
                       </button>
+                      {(device.security_updates_count ?? 0) > 0 && (
+                        <button className="btn ghost sm" disabled={installUpdates.isPending}
+                          onClick={() => confirm(t("Nur die Sicherheits-Updates installieren?")) && installUpdates.mutate({ approved: false, security_only: true, apt_mode: aptMode })}>
+                          🛡 {t("Sicherheits-Updates installieren")}
+                        </button>
+                      )}
                       <button className="btn primary sm" disabled={installUpdates.isPending}
                         onClick={() => confirm(t("ALLE ausstehenden Updates installieren? Kann lange dauern und ggf. einen Neustart erfordern.")) && installUpdates.mutate({ approved: false, apt_mode: aptMode })}>
                         {t("Alle installieren")}
@@ -633,7 +639,9 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
             </div>
             {installUpdates.isSuccess && <p className="muted small">{t("Installation eingereiht – Ergebnis erscheint unter „Ausführen“. Der Agent meldet es nach Abschluss.")}</p>}
             {device.updates_checked_at && (
-              <p className="muted small">Zuletzt geprüft {relTime(device.updates_checked_at)}</p>
+              <p className="muted small">{t("Zuletzt geprüft")} {relTime(device.updates_checked_at)}
+                {(device.security_updates_count ?? 0) > 0 && <> · <span className="badge badge-offline">🛡 {t("{n} Sicherheits-Updates", { n: device.security_updates_count ?? 0 })}</span></>}
+              </p>
             )}
             {(device.available_updates ?? []).length === 0 ? (
               <p className="muted">
@@ -644,7 +652,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
             ) : (
               <div className="scroll-list">
                 <table className="table">
-                  <thead><tr><th>{t("Genehmigt")}</th><th>{t("Schwere")}</th><th>{t("Name")}</th><th>{t("Mehr Info")}</th></tr></thead>
+                  <thead><tr><th>{t("Genehmigt")}</th><th>{t("Schwere")}</th><th>{t("Name")}</th><th>{t("Version")}</th><th>{t("Quelle")}</th><th>{t("Mehr Info")}</th></tr></thead>
                   <tbody>
                     {device.available_updates!.map((u, i) => (
                       <tr key={i}>
@@ -652,8 +660,10 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                           <input type="checkbox" checked={u.approved} disabled={!canOperate}
                             onChange={(e) => approvePatch.mutate({ name: u.name, approved: e.target.checked })} />
                         </td>
-                        <td><SeverityBadge severity={u.severity} /></td>
-                        <td>{u.name}</td>
+                        <td><SeverityBadge severity={u.severity} security={u.security} /></td>
+                        <td>{u.name}{u.kind === "driver" && <span className="muted small"> · {t("Treiber")}</span>}{u.kind === "definition" && <span className="muted small"> · {t("Definitionen")}</span>}</td>
+                        <td className="mono small muted">{u.current_version ? <>{u.current_version} → </> : null}{u.version || (u.current_version ? "" : "—")}</td>
+                        <td className="muted small">{u.source || "—"}</td>
                         <td>{u.url ? <a className="link-strong" href={u.url} target="_blank" rel="noreferrer">{t("Link")} ↗</a> : <span className="muted">—</span>}</td>
                       </tr>
                     ))}

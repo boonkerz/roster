@@ -56,6 +56,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <nav className="topnav">
           {hasPerm("page.dashboard") && <NavLink to="/dashboard">{t("Übersicht")}</NavLink>}
           {hasPerm("page.devices") && <NavLink to="/devices">{t("Geräte")}</NavLink>}
+          {hasPerm("page.devices") && <NavLink to="/patches">{t("Patches")}</NavLink>}
           {hasPerm("page.policies") && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
           {hasPerm("page.scripts") && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
           {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>}

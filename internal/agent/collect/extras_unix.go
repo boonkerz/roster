@@ -23,16 +23,6 @@ func run(ctx context.Context, name string, args ...string) string {
 	return string(out)
 }
 
-func nonEmptyLines(s string) []string {
-	var out []string
-	for _, l := range strings.Split(s, "\n") {
-		if t := strings.TrimSpace(l); t != "" {
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
 // unixPrinters listet CUPS-Drucker (sofern lpstat vorhanden).
 func unixPrinters(ctx context.Context) []shared.Printer {
 	if !have("lpstat") {

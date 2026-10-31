@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Device, CustomField } from "./types";
-import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, relTime } from "./components/StatusBadge";
+import { StatusBadge, UpdatesBadge, SecurityUpdatesBadge, HealthBadge, TaskHealthBadge, relTime } from "./components/StatusBadge";
 import { CopyText } from "./components/CopyText";
 import { primaryIPv4, formatBytes } from "./devutil";
 import { fieldDisplay } from "./export";
@@ -60,7 +60,8 @@ export function baseDeviceColumns(t: Tr): DevColumn[] {
     { key: "checks", label: t("Checks"), render: (d, ctx) => jumpCell(d, ctx, "checks", ctx.t("Zu den Checks springen"), <HealthBadge total={d.checks_total} failing={d.checks_failing} />) },
     { key: "tasks", label: t("Tasks"), render: (d, ctx) => jumpCell(d, ctx, "tasks", ctx.t("Zu den Tasks springen"), <TaskHealthBadge total={d.tasks_total} failing={d.tasks_failing} />) },
     { key: "cve", label: t("CVE"), render: (d, ctx) => jumpCell(d, ctx, "vulns", ctx.t("Zu den Schwachstellen springen"), d.vuln_count ? <span className="badge badge-offline">{d.vuln_count}</span> : dash) },
-    { key: "updates", label: t("Updates"), render: (d) => <td><UpdatesBadge count={d.updates_count} /></td> },
+    { key: "updates", label: t("Updates"), render: (d, ctx) => jumpCell(d, ctx, "updates", ctx.t("Zu den Patches springen"), <UpdatesBadge count={d.updates_count} security={d.security_updates_count} />) },
+    { key: "security_updates", label: t("Sicherheits-Updates"), render: (d, ctx) => jumpCell(d, ctx, "updates", ctx.t("Zu den Patches springen"), <SecurityUpdatesBadge count={d.security_updates_count} />) },
     { key: "agent", label: t("Agent"), render: (d) => <td className="muted mono">{d.agent_version || "—"}</td> },
     { key: "last_seen", label: t("Zuletzt gesehen"), render: (d) => <td className="muted">{relTime(d.last_seen)}</td> },
   ];

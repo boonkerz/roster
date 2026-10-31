@@ -122,6 +122,7 @@ export function Devices() {
       case "failing-checks": return (d.checks_failing ?? 0) > 0;
       case "failing-tasks": return (d.tasks_failing ?? 0) > 0;
       case "vulns": return (d.vuln_count ?? 0) > 0;
+      case "security-updates": return (d.security_updates_count ?? 0) > 0;
       default: return true;
     }
   };
@@ -129,6 +130,7 @@ export function Devices() {
     "failing-checks": t("Nur Geräte mit fehlerhaften Checks"),
     "failing-tasks": t("Nur Geräte mit fehlerhaften Tasks"),
     "vulns": t("Nur Geräte mit Schwachstellen"),
+    "security-updates": t("Nur Geräte mit Sicherheits-Updates"),
   };
   if (healthCheck) {
     const name = failingChecks.find((fc) => fc.id === healthCheck)?.name ?? checkOptions.find((c) => c.id === healthCheck)?.name ?? healthCheck;
@@ -196,8 +198,9 @@ export function Devices() {
   const qc = useQueryClient();
   const [bulkMsg, setBulkMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const bulk = useMutation({
-    mutationFn: (action: "reboot" | "scan-updates" | "install-updates") =>
-      api.post<{ queued: number }>(`/bulk/${action}`, { target_type: "devices", device_ids: [...sel] }),
+    mutationFn: (action: "reboot" | "scan-updates" | "install-updates" | "install-security") =>
+      api.post<{ queued: number }>(`/bulk/${action === "install-security" ? "install-updates" : action}`,
+        { target_type: "devices", device_ids: [...sel], security_only: action === "install-security" }),
     onSuccess: (r) => {
       setBulkMsg({ ok: true, text: t("Auf {n} Gerät(en) eingereiht. Offline-Geräte holen den Befehl beim nächsten Checkin ab.", { n: r.queued }) });
       setSel(new Set());
@@ -218,11 +221,12 @@ export function Devices() {
     jump: (d, tab) => { setSelectedId(d.id); setJump({ tab, n: jump.n + 1 }); },
     fieldValue: filterCtx.fieldValue,
   };
-  const runBulk = (action: "reboot" | "scan-updates" | "install-updates") => {
+  const runBulk = (action: "reboot" | "scan-updates" | "install-updates" | "install-security") => {
     setBulkMsg(null);
     const n = sel.size;
     if (action === "reboot" && !window.confirm(t("{n} ausgewählte Geräte jetzt neu starten?", { n }))) return;
     if (action === "install-updates" && !window.confirm(t("Updates auf {n} ausgewählten Geräten installieren? Das kann Neustarts auslösen.", { n }))) return;
+    if (action === "install-security" && !window.confirm(t("Nur Sicherheits-Updates auf {n} ausgewählten Geräten installieren?", { n }))) return;
     bulk.mutate(action);
   };
 
@@ -276,6 +280,7 @@ export function Devices() {
                 <button className="btn sm" disabled={bulk.isPending} onClick={() => runBulk("reboot")}>⟳ {t("Neustart")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("scan-updates")}>{t("Updates prüfen")}</button>
                 <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("install-updates")}>{t("Updates durchführen")}</button>
+                <button className="btn sm ghost" disabled={bulk.isPending} onClick={() => runBulk("install-security")}>🛡 {t("Sicherheits-Updates")}</button>
                 <button className="btn sm ghost" onClick={() => { setBulkMsg(null); setExportOpen(true); }} title={t("Markierte Geräte als CSV-Datei herunterladen (Excel-kompatibel, inkl. benutzerdefinierter Felder)")}>⤓ {t("Export (CSV)")}</button>
                 <button className="btn sm ghost" onClick={() => { setSel(new Set()); setBulkMsg(null); }}>{t("Auswahl aufheben")}</button>
               </>
