@@ -8,6 +8,7 @@ import { DeviceDetail } from "./pages/DeviceDetail";
 import { Policies } from "./pages/Policies";
 import { Scripts } from "./pages/Scripts";
 import { Patches } from "./pages/Patches";
+import { Security } from "./pages/Security";
 import { TwoFactorSetup } from "./pages/TwoFactorSetup";
 import { TerminalPopout } from "./pages/TerminalPopout";
 import { RemotePopout } from "./pages/RemotePopout";
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/devices" element={guard("page.devices", <Devices />)} />
             <Route path="/devices/:id" element={guard("page.devices", <DeviceDetail />)} />
             <Route path="/patches" element={guard("page.devices", <Patches />)} />
+            <Route path="/security" element={guard("page.devices", <Security />)} />
             <Route path="/policies" element={guard("page.policies", <Policies />)} />
             <Route path="/scripts" element={guard("page.scripts", <Scripts />)} />
             <Route path="*" element={<Navigate to={home} replace />} />

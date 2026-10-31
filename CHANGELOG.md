@@ -41,6 +41,15 @@ All notable changes to Roster are documented here. The format follows
   dashboard tile, alert when the end of support is approaching (lead time configurable,
   default 90 days) or reached. Settings → Notifications: lead time, alert switch and
   "Re-evaluate now". Rolling-release systems are skipped.
+- Security: **file integrity monitoring (FIM)** – policies get a "Security monitoring"
+  section with monitored paths (file, directory or glob; recursive; exclusion globs;
+  platform; alert on/off; "Insert default paths" for /etc, /usr/local/bin, ~/.ssh, cron,
+  Windows hosts/Tasks/Startup, macOS LaunchDaemons) and a scan interval. The agent keeps a
+  baseline (SHA-256, permissions, owner, mtime) in its state directory and reports created,
+  modified, deleted and permission/owner changes; alerts are bundled per check-in. New
+  "Security" page with the fleet-wide "File integrity" tab (filters, acknowledge), device
+  tab "File integrity" (re-scan, reset baseline) in the new "Security" tab group, open-change
+  counter on the device.
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

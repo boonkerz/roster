@@ -131,6 +131,12 @@ func (s *Store) loadPolicyChildren(ctx context.Context, p *model.Policy) error {
 		return err
 	}
 	p.Backups = backups
+	if p.Security, err = s.securityOf(ctx, p.ID); err != nil {
+		return err
+	}
+	if p.FIMRules, err = s.fimRulesOf(ctx, p.ID); err != nil {
+		return err
+	}
 	asg, err := s.assignmentsOf(ctx, p.ID)
 	if err != nil {
 		return err
@@ -490,10 +496,19 @@ func (s *Store) EffectivePolicy(ctx context.Context, deviceID string) (*shared.P
 		return nil, err
 	}
 
+	if bundle.Security, err = s.effectiveSecurity(ctx, policyIDs); err != nil {
+		return nil, err
+	}
+
 	// Platzhalter {{agent.x}}/{{client.x}}/{{site.x}} in Skripten ersetzen (Werte
 	// dieses Geräts). Erst nach dem Schließen der obigen Rows (eine SQLite-Verbindung).
 	agent, client, site, err := s.FieldMapsForDevice(ctx, deviceID)
 	if err == nil {
+		if bundle.Security != nil && bundle.Security.FIM != nil {
+			for i := range bundle.Security.FIM.Rules {
+				bundle.Security.FIM.Rules[i].Path = SubstituteFields(bundle.Security.FIM.Rules[i].Path, agent, client, site)
+			}
+		}
 		for i := range bundle.Checks {
 			bundle.Checks[i].Script = SubstituteFields(bundle.Checks[i].Script, agent, client, site)
 			// Auch String-Werte der Check-Config (z.B. Host/URL bei Netzwerk-Checks)
@@ -730,6 +745,7 @@ func (s *Store) LatestTaskResultsFor(ctx context.Context, deviceID string) ([]mo
 // Liefert die Anzahl gelöschter Task- bzw. Befehlszeilen. Check-Ergebnisse werden
 // nicht gelöscht – sie halten je Check nur den aktuellen Stand.
 func (s *Store) PruneHistory(ctx context.Context, cutoff, auditCutoff time.Time) (int64, int64, error) {
+	_ = s.PruneFIMEvents(ctx, cutoff) // Datei-Änderungen wie die übrige Historie aufräumen
 	cut := cutoff.UTC()
 	tr, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM task_results WHERE ran_at < ?`), cut)
 	if err != nil {

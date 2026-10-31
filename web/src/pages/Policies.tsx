@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useI18n, gt } from "../i18n";
 import { BackupSection } from "../components/BackupSection";
 import { NotificationSection } from "../components/NotificationSection";
+import { SecuritySection } from "../components/SecuritySection";
 import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, GeneralSettings, ProxmoxHost, ProxmoxGuest } from "../types";
 
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -119,7 +120,7 @@ export function Policies() {
       <header className="page-head">
         <div>
           <h1>{t("Richtlinien")}</h1>
-          <p className="muted">{t("Profile mit Checks, Tasks, Backups und Benachrichtigungen – zuweisbar an Client, Standort oder Gerät (mit Vererbung).")}</p>
+          <p className="muted">{t("Profile mit Checks, Tasks, Backups, Benachrichtigungen und Sicherheitsüberwachung – zuweisbar an Client, Standort oder Gerät (mit Vererbung).")}</p>
         </div>
         <button className="btn primary" onClick={() => { const n = prompt(t("Name der Richtlinie?")); if (n) createPolicy.mutate(n); }}>+ {t("Neu anlegen")}</button>
       </header>
@@ -579,6 +580,8 @@ function PolicyEditor({
       <BackupSection policy={policy} scripts={scripts} devices={devices} />
 
       <NotificationSection policy={policy} />
+
+      <SecuritySection policy={policy} />
 
       <section className="card">
         <h2>{t("Tasks (geplante Skripte)")}</h2>

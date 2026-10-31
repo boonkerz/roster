@@ -92,6 +92,13 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplacePackageRepos(r.Context(), device.ID, req.Inventory.Repos); err != nil {
 		s.log.Error("paketquellen speichern", "err", err)
 	}
+	if len(req.FIMEvents) > 0 {
+		if err := s.store.InsertFIMEvents(r.Context(), device.ID, req.FIMEvents); err != nil {
+			s.log.Error("fim-ereignisse speichern", "err", err)
+		} else {
+			s.alertFIMEvents(r.Context(), device, req.FIMEvents)
+		}
+	}
 	if len(req.PatchHistory) > 0 {
 		if n, err := s.store.InsertPatchHistory(r.Context(), device.ID, req.PatchHistory); err != nil {
 			s.log.Error("patch-verlauf speichern", "err", err)

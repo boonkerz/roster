@@ -121,6 +121,8 @@ type Device struct {
 	// Support-Ende des Betriebssystems (aus device_eol, kind=os): Status ok|soon|eol|unknown.
 	EOLStatus string     `json:"eol_status,omitempty"`
 	EOLDate   *time.Time `json:"eol_date,omitempty"`
+	// FIMOpen zählt unbestätigte Datei-Änderungen (Datei-Integrität).
+	FIMOpen int `json:"fim_open"`
 
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
@@ -458,7 +460,52 @@ type Policy struct {
 	Tasks         []PolicyTask        `json:"tasks,omitempty"`
 	Backups       []PolicyBackup      `json:"backups,omitempty"`
 	Notifications PolicyNotifications `json:"notifications"`
+	Security      PolicySecurity      `json:"security"`
+	FIMRules      []PolicyFIMRule     `json:"fim_rules"`
 	Assignments   []Assignment        `json:"assignments,omitempty"`
+}
+
+// PolicySecurity ist der Bereich „Sicherheitsüberwachung“ einer Richtlinie (Schalter und
+// Intervalle). Bei mehreren Richtlinien: Regeln vereinigt, Schalter ODER, Intervall Minimum.
+type PolicySecurity struct {
+	FIMIntervalMin      int      `json:"fim_interval_min"`
+	AuthMonitor         bool     `json:"auth_monitor"`
+	ComplianceEnabled   bool     `json:"compliance_enabled"`
+	ComplianceProfile   string   `json:"compliance_profile"` // server | workstation
+	ComplianceDisabled  []string `json:"compliance_disabled"`
+	ComplianceIntervalH int      `json:"compliance_interval_h"`
+}
+
+// PolicyFIMRule ist ein überwachter Pfad der Datei-Integritätsüberwachung.
+type PolicyFIMRule struct {
+	ID        string   `json:"id"`
+	PolicyID  string   `json:"policy_id"`
+	Path      string   `json:"path"`
+	Recursive bool     `json:"recursive"`
+	Exclude   []string `json:"exclude"`
+	Platforms []string `json:"platforms"`
+	Alert     bool     `json:"alert"`
+}
+
+// FIMEvent ist eine gespeicherte Datei-Änderung.
+type FIMEvent struct {
+	ID           string    `json:"id"`
+	DeviceID     string    `json:"device_id"`
+	Hostname     string    `json:"hostname,omitempty"`
+	ClientName   string    `json:"client_name,omitempty"`
+	TS           time.Time `json:"ts"`
+	RuleID       string    `json:"rule_id,omitempty"`
+	Path         string    `json:"path"`
+	Change       string    `json:"change"`
+	OldHash      string    `json:"old_hash,omitempty"`
+	NewHash      string    `json:"new_hash,omitempty"`
+	OldMode      string    `json:"old_mode,omitempty"`
+	NewMode      string    `json:"new_mode,omitempty"`
+	OldOwner     string    `json:"old_owner,omitempty"`
+	NewOwner     string    `json:"new_owner,omitempty"`
+	Size         int64     `json:"size"`
+	Alert        bool      `json:"alert"`
+	Acknowledged bool      `json:"acknowledged"`
 }
 
 // PolicyNotifications ist der Bereich „Benachrichtigungen“ einer Richtlinie.

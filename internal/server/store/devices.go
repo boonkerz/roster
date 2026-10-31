@@ -182,7 +182,8 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages, d.security_updates_count,
 	d.auto_updates, d.kernel_running, d.kernel_installed, d.os_build, d.os_codename, d.os_edition,
 	(SELECT e.status FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),
-	(SELECT e.eol_date FROM device_eol e WHERE e.device_id=d.id AND e.kind='os')`
+	(SELECT e.eol_date FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),
+	(SELECT COUNT(*) FROM fim_events f WHERE f.device_id=d.id AND f.acknowledged=FALSE)`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -1142,7 +1143,7 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.SoftwareAlerts,
 		&d.ProxmoxVersion, &proxmoxStorages, &securityCount,
 		&d.AutoUpdates, &d.KernelRunning, &d.KernelInstalled, &d.OSBuild, &d.OSCodename, &d.OSEdition,
-		&eolStatus, &eolDate)
+		&eolStatus, &eolDate, &d.FIMOpen)
 	if err != nil {
 		return nil, err
 	}

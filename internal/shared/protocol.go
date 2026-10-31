@@ -32,6 +32,24 @@ type CheckinRequest struct {
 	// PatchHistory sind die zuletzt gelesenen Patch-Verlaufseinträge (idempotent; der
 	// Server verwirft Duplikate). Kommt nur mit, wenn der Agent den Verlauf neu gelesen hat.
 	PatchHistory []PatchEvent `json:"patch_history,omitempty"`
+	// FIMEvents sind seit dem letzten Checkin erkannte Datei-Änderungen (Datei-Integrität).
+	FIMEvents []FIMEvent `json:"fim_events,omitempty"`
+}
+
+// FIMEvent ist eine von der Datei-Integritätsüberwachung erkannte Änderung.
+type FIMEvent struct {
+	Time     time.Time `json:"time"`
+	RuleID   string    `json:"rule_id,omitempty"`
+	Path     string    `json:"path"`
+	Change   string    `json:"change"` // created | modified | deleted | attrs | baseline | limit | error
+	OldHash  string    `json:"old_hash,omitempty"`
+	NewHash  string    `json:"new_hash,omitempty"`
+	OldMode  string    `json:"old_mode,omitempty"`
+	NewMode  string    `json:"new_mode,omitempty"`
+	OldOwner string    `json:"old_owner,omitempty"`
+	NewOwner string    `json:"new_owner,omitempty"`
+	Size     int64     `json:"size,omitempty"`
+	Alert    bool      `json:"alert"` // Regel will Alarm
 }
 
 // PatchEvent ist ein Eintrag des Patch-Verlaufs (installiert/aktualisiert/entfernt),
@@ -89,6 +107,40 @@ type PolicyBundle struct {
 	// seine Zeitpläne rechnet (daily/weekly, Wochen- und Monatsgrenzen). Leer = lokale
 	// Zeit des Geräts, wie vor Einführung der Einstellung. Ältere Agenten ignorieren es.
 	Timezone string `json:"timezone,omitempty"`
+	// Security bündelt die Sicherheitsüberwachung (Datei-Integrität, Anmeldungen,
+	// Compliance) aller zugewiesenen Richtlinien; nil = nichts aktiv.
+	Security *SecuritySpec `json:"security,omitempty"`
+}
+
+// SecuritySpec ist der Bereich „Sicherheitsüberwachung“ der wirksamen Richtlinie.
+type SecuritySpec struct {
+	FIM         *FIMSpec        `json:"fim,omitempty"`
+	AuthMonitor bool            `json:"auth_monitor,omitempty"`
+	Compliance  *ComplianceSpec `json:"compliance,omitempty"`
+}
+
+// FIMSpec konfiguriert die Datei-Integritätsüberwachung.
+type FIMSpec struct {
+	IntervalMin int       `json:"interval_min"` // Scan-Abstand in Minuten (Standard 60)
+	Rules       []FIMRule `json:"rules"`
+}
+
+// FIMRule ist ein überwachter Pfad (Datei oder Verzeichnis, Glob erlaubt).
+type FIMRule struct {
+	ID        string   `json:"id"`
+	Path      string   `json:"path"`
+	Recursive bool     `json:"recursive"`
+	Exclude   []string `json:"exclude,omitempty"`   // Glob-Muster (Pfad oder Dateiname)
+	Platforms []string `json:"platforms,omitempty"` // windows|linux|darwin; leer = alle
+	Alert     bool     `json:"alert"`               // Änderungen alarmieren
+}
+
+// ComplianceSpec konfiguriert die Compliance-Prüfung (Baseline-Regeln).
+type ComplianceSpec struct {
+	Enabled   bool     `json:"enabled"`
+	Profile   string   `json:"profile"` // server | workstation
+	Disabled  []string `json:"disabled,omitempty"`
+	IntervalH int      `json:"interval_h"` // Prüfabstand in Stunden (Standard 24)
 }
 
 // CheckSpec beschreibt einen auszuführenden Check.

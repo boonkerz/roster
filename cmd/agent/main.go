@@ -25,6 +25,7 @@ import (
 
 	"github.com/boonkerz/roster/internal/agent/collect"
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
+	"github.com/boonkerz/roster/internal/agent/fim"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/transport"
@@ -104,6 +105,13 @@ type program struct {
 	// Installation neu gelesen); nach erfolgreichem Versand leer.
 	patchHistory []shared.PatchEvent
 
+	// Datei-Integrität: Zustandsverzeichnis (Baseline-Datei), wartende Ereignisse,
+	// Anstoß für sofortigen Lauf und Reset-Wunsch (Baseline verwerfen).
+	stateDir  string
+	fimEvents []shared.FIMEvent
+	fimNow    chan struct{}
+	fimReset  bool
+
 	policy            *shared.PolicyBundle   // zuletzt empfangene Policy
 	pendingChecks     []shared.CheckResult   // beim nächsten Checkin zu meldende Check-Ergebnisse
 	pendingTasks      []shared.TaskResult    // beim nächsten Checkin zu meldende Task-Läufe
@@ -182,6 +190,9 @@ func (p *program) run(ctx context.Context) {
 
 	p.client = client
 	p.agentToken = state.AgentToken
+	p.stateDir = filepath.Dir(cfg.StatePath)
+	p.fimNow = make(chan struct{}, 1)
+	go p.fimLoop(ctx)
 	if !cfg.DisableUpdateCheck {
 		go p.updateChecker(ctx, cfg.UpdateCheckInterval)
 	}
@@ -273,6 +284,13 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	tasks := p.pendingTasks
 	cmds := p.pendingCmdResults
 	history := p.patchHistory
+	// FIM-Ereignisse in Portionen (max. 200 je Checkin), Rest bleibt in der Warteschlange.
+	fimEv := p.fimEvents
+	if len(fimEv) > 200 {
+		fimEv, p.fimEvents = fimEv[:200], fimEv[200:]
+	} else {
+		p.fimEvents = nil
+	}
 	p.pendingChecks, p.pendingTasks, p.pendingCmdResults, p.patchHistory = nil, nil, nil, nil
 	p.mu.Unlock()
 
@@ -282,7 +300,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	}
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
-		Sample: sample, PatchHistory: history,
+		Sample: sample, PatchHistory: history, FIMEvents: fimEv,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -293,6 +311,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 		if p.patchHistory == nil {
 			p.patchHistory = history
 		}
+		p.fimEvents = append(fimEv, p.fimEvents...)
 		p.mu.Unlock()
 		return 0, ""
 	}
@@ -529,6 +548,17 @@ func (p *program) runPolicy(ctx context.Context) {
 			} else {
 				output = "Gelöscht"
 			}
+		case "fim_rescan", "fim_reset":
+			p.mu.Lock()
+			if cmd.Type == "fim_reset" {
+				p.fimReset = true
+			}
+			p.mu.Unlock()
+			select {
+			case p.fimNow <- struct{}{}:
+			default:
+			}
+			exit, output = 0, "Datei-Integritätsprüfung angestoßen"
 		case "reboot":
 			output = "Neustart wird eingeleitet"
 			// Verzögert neu starten, damit dieses Ergebnis noch gemeldet werden kann.
@@ -1010,4 +1040,62 @@ func defaultConfigPath() string {
 		}
 	}
 	return newPath
+}
+
+// fimLoop führt die Datei-Integritätsprüfung nach dem Intervall der wirksamen Richtlinie
+// aus (Standard 60 min), auf Anstoß sofort; ohne Regeln passiert nichts. Die Baseline
+// liegt als fim-baseline.json im Zustandsverzeichnis des Agents.
+func (p *program) fimLoop(ctx context.Context) {
+	baselinePath := filepath.Join(p.stateDir, "fim-baseline.json")
+	var last time.Time
+	run := func(force bool) {
+		p.mu.Lock()
+		var spec *shared.FIMSpec
+		if p.policy != nil && p.policy.Security != nil {
+			spec = p.policy.Security.FIM
+		}
+		reset := p.fimReset
+		p.fimReset = false
+		p.mu.Unlock()
+		if spec == nil || len(spec.Rules) == 0 {
+			return
+		}
+		interval := time.Duration(spec.IntervalMin) * time.Minute
+		if interval < 5*time.Minute {
+			interval = 60 * time.Minute
+		}
+		if !force && time.Since(last) < interval {
+			return
+		}
+		prev := fim.Load(baselinePath)
+		if reset {
+			prev = &fim.Baseline{}
+		}
+		sctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+		next, events, st := fim.Scan(sctx, spec.Rules, prev, time.Now().UTC())
+		cancel()
+		last = time.Now()
+		if err := fim.Save(baselinePath, next); err != nil {
+			p.log.Warn("fim: baseline speichern fehlgeschlagen", "err", err)
+		}
+		p.log.Info("fim-scan", "dateien", st.Files, "gehasht", st.Hashed, "ereignisse", len(events), "limit", st.Limit)
+		if len(events) > 0 {
+			p.mu.Lock()
+			p.fimEvents = append(p.fimEvents, events...)
+			p.mu.Unlock()
+			p.requestCheckin()
+		}
+	}
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-p.fimNow:
+			run(true)
+		case <-t.C:
+			run(false)
+		}
+	}
 }

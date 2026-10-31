@@ -359,7 +359,50 @@ export interface Policy {
   tasks?: PolicyTask[];
   backups?: PolicyBackup[];
   notifications?: PolicyNotifications;
+  security?: PolicySecurity;
+  fim_rules?: PolicyFIMRule[];
   assignments?: Assignment[];
+}
+
+// Bereich „Sicherheitsüberwachung“ einer Richtlinie.
+export interface PolicySecurity {
+  fim_interval_min: number;
+  auth_monitor: boolean;
+  compliance_enabled: boolean;
+  compliance_profile: "server" | "workstation";
+  compliance_disabled: string[];
+  compliance_interval_h: number;
+}
+
+export interface PolicyFIMRule {
+  id: string;
+  policy_id: string;
+  path: string;
+  recursive: boolean;
+  exclude: string[];
+  platforms: string[];
+  alert: boolean;
+}
+
+// FIMEvent ist eine erkannte Datei-Änderung (Datei-Integrität).
+export interface FIMEvent {
+  id: string;
+  device_id: string;
+  hostname?: string;
+  client_name?: string;
+  ts: string;
+  rule_id?: string;
+  path: string;
+  change: "created" | "modified" | "deleted" | "attrs" | "baseline" | "limit";
+  old_hash?: string;
+  new_hash?: string;
+  old_mode?: string;
+  new_mode?: string;
+  old_owner?: string;
+  new_owner?: string;
+  size: number;
+  alert: boolean;
+  acknowledged: boolean;
 }
 
 // Bereich „Benachrichtigungen“ einer Richtlinie.
@@ -544,6 +587,7 @@ export interface Device {
   repos?: PackageRepo[];
   eol_status?: "ok" | "soon" | "eol" | "unknown";
   eol_date?: string;
+  fim_open?: number;
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];

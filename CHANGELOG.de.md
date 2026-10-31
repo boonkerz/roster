@@ -41,6 +41,15 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   Kachel, Alarm bei nahendem (Vorwarnzeit einstellbar, Standard 90 Tage) oder erreichtem
   Support-Ende. Einstellungen → Benachrichtigungen: Vorwarnzeit, Alarm-Schalter und „Jetzt neu
   bewerten“. Rolling-Release-Systeme werden übersprungen.
+- Sicherheit: **Datei-Integritätsüberwachung (FIM)** – Richtlinien bekommen den Bereich
+  „Sicherheitsüberwachung“ mit überwachten Pfaden (Datei, Verzeichnis oder Glob; rekursiv;
+  Ausschluss-Globs; Plattform; Alarm an/aus; „Standardpfade einfügen“ für /etc, /usr/local/bin,
+  ~/.ssh, cron, Windows hosts/Tasks/Autostart, macOS LaunchDaemons) und einem Prüfabstand. Der
+  Agent hält eine Baseline (SHA-256, Rechte, Besitzer, Änderungszeit) in seinem Zustandsverzeichnis
+  und meldet neue, geänderte, gelöschte Dateien sowie Rechte-/Besitzerwechsel; Alarme werden je
+  Checkin gebündelt. Neue Seite „Sicherheit“ mit dem flottenweiten Tab „Datei-Integrität“ (Filter,
+  Bestätigen), Geräte-Tab „Datei-Integrität“ (neu prüfen, Baseline neu setzen) in der neuen
+  Tab-Gruppe „Sicherheit“, Zähler offener Änderungen am Gerät.
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät
