@@ -82,6 +82,15 @@ func Collect(ctx context.Context, agentVersion string) shared.Inventory {
 	// Proxmox VE (nur auf PVE-Hosts): Gäste + Backup-Status.
 	inv.Proxmox = Proxmox(ctx)
 
+	// Paketquellen, Auto-Update-Status, Kernel und OS-Details (stündlich gecacht).
+	if kv, err := host.KernelVersionWithContext(ctx); err == nil {
+		inv.KernelRunning = strings.TrimSpace(kv)
+	}
+	inv.KernelInstalled = kernelInstalled()
+	inv.OSBuild, inv.OSCodename, inv.OSEdition = OSDetails(ctx)
+	inv.Repos = Repos(ctx)
+	inv.AutoUpdates = AutoUpdates(ctx)
+
 	return inv
 }
 

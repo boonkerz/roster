@@ -24,6 +24,15 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   Zeitleiste auf der Patches-Seite (Tab „Verlauf“ mit Zeitraum/Aktion/Firma-Filter), 90-Tage-Verlauf
   je Gerät im Patches-Tab, Aufbewahrung ein Jahr; der Health-Bericht bekommt die Spalte
   „Installiert (7 Tage)“.
+- Patches: **Paket- und Repository-Inventar** – Tab „Pakete“ (installierte Software der Flotte
+  nach Paket und Version mit Verteilungsbalken und den Geräten je Version) und Tab „Repositories“
+  (apt inkl. deb822, dnf/yum, zypper, pacman, apk, winget, brew; Filter auf Fremd-Repos,
+  deaktivierte Quellen und Quellen ohne Signaturprüfung). Je Gerät: Paketquellen im Patches-Tab,
+  **Status automatischer Updates** (unattended-upgrades, dnf-automatic, Windows Update, macOS),
+  **laufender vs. installierter Kernel** (Neustart-Hinweis; der Reboot-Check nutzt jetzt auch
+  `needs-restarting` und den Kernelvergleich) sowie OS-Details (Codename, Windows-Build/Edition,
+  macOS-Build). Neue Spalten, Filter und Smart-Group-Felder (`auto_updates`, `os_codename`,
+  `os_edition`, `kernel_pending`).
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät

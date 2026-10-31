@@ -455,6 +455,24 @@ export interface PendingPatch {
   approved: boolean;
 }
 
+// PackageRepo ist eine Paketquelle (apt/dnf/zypper/pacman/apk/winget/brew).
+export interface PackageRepo {
+  device_id?: string;
+  hostname?: string;
+  client_name?: string;
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  enabled: boolean;
+  gpg_check: boolean;
+  suite?: string;
+  third_party: boolean;
+}
+
+export interface PackageVersionCount { name: string; version: string; devices: number; }
+export interface PackageDevice { device_id: string; hostname: string; os: string; client_name?: string; site_name?: string; version: string; }
+
 // PatchEvent ist ein Eintrag des Patch-Verlaufs (install | upgrade | remove).
 export interface PatchEvent {
   id: string;
@@ -517,6 +535,13 @@ export interface Device {
   tasks_failing?: number;
   vuln_count?: number;
   security_updates_count?: number | null;
+  auto_updates?: "" | "enabled" | "security" | "download" | "notify" | "disabled";
+  kernel_running?: string;
+  kernel_installed?: string;
+  os_build?: string;
+  os_codename?: string;
+  os_edition?: string;
+  repos?: PackageRepo[];
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];

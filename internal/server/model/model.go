@@ -109,6 +109,16 @@ type Device struct {
 	// SecurityUpdatesCount zählt die ausstehenden Sicherheits-Updates (nil = ungeprüft).
 	SecurityUpdatesCount *int `json:"security_updates_count,omitempty"`
 
+	// Auto-Update-Status ("" unbekannt | enabled | security | download | notify | disabled),
+	// Kernel (laufend/installiert) und OS-Details (Build/Codename/Edition) vom Agent.
+	AutoUpdates     string        `json:"auto_updates,omitempty"`
+	KernelRunning   string        `json:"kernel_running,omitempty"`
+	KernelInstalled string        `json:"kernel_installed,omitempty"`
+	OSBuild         string        `json:"os_build,omitempty"`
+	OSCodename      string        `json:"os_codename,omitempty"`
+	OSEdition       string        `json:"os_edition,omitempty"`
+	Repos           []PackageRepo `json:"repos,omitempty"`
+
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
 	ChecksFailing int `json:"checks_failing"`
@@ -276,6 +286,38 @@ type PendingPatch struct {
 	Security       bool   `json:"security"`
 	Kind           string `json:"kind,omitempty"`
 	Approved       bool   `json:"approved"`
+}
+
+// PackageRepo ist eine Paketquelle eines Geräts (flottenweit mit Gerätedaten).
+type PackageRepo struct {
+	DeviceID   string `json:"device_id,omitempty"`
+	Hostname   string `json:"hostname,omitempty"`
+	ClientName string `json:"client_name,omitempty"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	Type       string `json:"type"`
+	Enabled    bool   `json:"enabled"`
+	GPGCheck   bool   `json:"gpg_check"`
+	Suite      string `json:"suite,omitempty"`
+	ThirdParty bool   `json:"third_party"`
+}
+
+// PackageVersionCount ist eine Zeile der paketzentrierten Flottensicht.
+type PackageVersionCount struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Devices int    `json:"devices"`
+}
+
+// PackageDevice ist ein Gerät mit einem bestimmten installierten Paket.
+type PackageDevice struct {
+	DeviceID   string `json:"device_id"`
+	Hostname   string `json:"hostname"`
+	OS         string `json:"os"`
+	ClientName string `json:"client_name,omitempty"`
+	SiteName   string `json:"site_name,omitempty"`
+	Version    string `json:"version"`
 }
 
 // PatchEvent ist ein Eintrag des Patch-Verlaufs eines Geräts.

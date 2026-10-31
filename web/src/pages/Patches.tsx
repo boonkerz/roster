@@ -6,16 +6,18 @@ import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { SeverityBadge } from "../components/StatusBadge";
 import { PatchHistoryTable } from "../components/PatchHistoryTable";
-import type { ClientTree, PatchEvent, PatchSummary, PendingPatch } from "../types";
+import type { ClientTree, PackageDevice, PackageRepo, PackageVersionCount, PatchEvent, PatchSummary, PendingPatch } from "../types";
 
 // Patches ist die flottenweite Patch-Seite (PatchMon-Stil): Kopfzahlen, ausstehende
 // Updates aller Geräte (Sicherheits-Updates hervorgehoben), Filter, Mehrfachauswahl
 // mit Genehmigen/Installieren. Weitere Tabs (Verlauf, Pakete, Repositories,
 // Lebenszyklus) hängen sich hier ein.
-type PatchTab = "pending" | "history";
+type PatchTab = "pending" | "history" | "packages" | "repos";
 const TABS: { key: PatchTab; label: string }[] = [
   { key: "pending", label: "Ausstehend" },
   { key: "history", label: "Verlauf" },
+  { key: "packages", label: "Pakete" },
+  { key: "repos", label: "Repositories" },
 ];
 
 
@@ -42,7 +44,189 @@ export function Patches() {
       </div>
       {tab === "pending" && <PendingTab />}
       {tab === "history" && <HistoryTab />}
+      {tab === "packages" && <PackagesTab />}
+      {tab === "repos" && <ReposTab />}
     </div>
+  );
+}
+
+// PackagesTab: paketzentrierte Sicht – welches Paket in welcher Version auf wie vielen
+// Geräten; Aufklappen zeigt die Geräte je Version.
+function PackagesTab() {
+  const { t } = useI18n();
+  const [q, setQ] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ["packages-fleet", debounced],
+    queryFn: () => api.get<PackageVersionCount[]>(`/packages?q=${encodeURIComponent(debounced)}&limit=3000`),
+  });
+  // Gruppierung nach Name: Versionen mit Anzahl, Gesamtgeräte, Zahl der Versionen.
+  const pkgs = useMemo(() => {
+    const m = new Map<string, { name: string; versions: PackageVersionCount[]; total: number }>();
+    for (const r of rows ?? []) {
+      let g = m.get(r.name);
+      if (!g) { g = { name: r.name, versions: [], total: 0 }; m.set(r.name, g); }
+      g.versions.push(r);
+      g.total += r.devices;
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [rows]);
+  const { data: devs } = useQuery({
+    queryKey: ["package-devices", open],
+    queryFn: () => api.get<PackageDevice[]>(`/packages/devices?name=${encodeURIComponent(open ?? "")}`),
+    enabled: !!open,
+  });
+  return (
+    <section className="card">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <form className="head-actions" onSubmit={(e) => { e.preventDefault(); setDebounced(q); }}>
+          <input className="search" placeholder={t("Paketname suchen…")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="btn ghost sm" type="submit">{t("Suchen")}</button>
+        </form>
+        <span className="muted small">{t("{n} Pakete", { n: pkgs.length })}</span>
+      </div>
+      <p className="muted small">{t("Installierte Software aller Geräte, zusammengefasst nach Paket und Version – so sieht man Versionsstreuung und veraltete Stände auf einen Blick.")}</p>
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : pkgs.length === 0 ? <p className="empty">{t("Keine Pakete gefunden.")}</p> : (
+        <div className="scroll-list" style={{ maxHeight: "70vh" }}>
+          <table className="table">
+            <thead><tr><th>{t("Paket")}</th><th>{t("Geräte")}</th><th>{t("Versionen")}</th><th>{t("Verteilung")}</th></tr></thead>
+            <tbody>
+              {pkgs.slice(0, 500).map((p) => {
+                const isOpen = open === p.name;
+                const max = Math.max(...p.versions.map((v) => v.devices));
+                return [
+                  <tr key={p.name} style={{ cursor: "pointer" }} className={isOpen ? "row-selected" : undefined} onClick={() => setOpen(isOpen ? null : p.name)}>
+                    <td><span className="muted small">{isOpen ? "▾" : "▸"}</span> <strong>{p.name}</strong></td>
+                    <td>{p.total}</td>
+                    <td>{p.versions.length > 1 ? <span className="badge badge-warn">{p.versions.length}</span> : <span className="muted">1</span>}</td>
+                    <td style={{ minWidth: 260 }}>
+                      {p.versions.slice(0, 6).map((v) => (
+                        <div key={v.version} className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="mono muted" style={{ minWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={v.version}>{v.version || "—"}</span>
+                          <span style={{ display: "inline-block", height: 8, width: `${Math.max(4, Math.round((v.devices / max) * 120))}px`, background: "var(--accent)", borderRadius: 4, opacity: 0.8 }} />
+                          <span className="muted">{v.devices}</span>
+                        </div>
+                      ))}
+                      {p.versions.length > 6 && <div className="muted small">+{p.versions.length - 6} {t("weitere")}</div>}
+                    </td>
+                  </tr>,
+                  ...(isOpen ? [(
+                    <tr key={p.name + ":devs"}>
+                      <td colSpan={4} style={{ paddingLeft: 28 }}>
+                        {!devs ? <span className="muted small">{t("Lädt…")}</span> : (
+                          <table className="table">
+                            <thead><tr><th>{t("Gerät")}</th><th>{t("Firma / Standort")}</th><th>{t("Betriebssystem")}</th><th>{t("Version")}</th></tr></thead>
+                            <tbody>
+                              {devs.map((d) => (
+                                <tr key={d.device_id + d.version} className="small">
+                                  <td><Link to={`/devices/${d.device_id}`} className="link-strong">{d.hostname}</Link></td>
+                                  <td className="muted">{d.client_name ? `${d.client_name} › ${d.site_name}` : "—"}</td>
+                                  <td className="muted">{d.os}</td>
+                                  <td className="mono">{d.version || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )] : []),
+                ];
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ReposTab: Paketquellen aller Geräte mit Filtern auf Fremd-Repos, deaktivierte und
+// Quellen ohne Signaturprüfung.
+function ReposTab() {
+  const { t } = useI18n();
+  const [params, setParams] = useSearchParams();
+  const third = params.get("third_party") === "1";
+  const disabled = params.get("disabled") === "1";
+  const nogpg = params.get("nogpg") === "1";
+  const type = params.get("type") || "";
+  const [q, setQ] = useState("");
+  const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
+  const qs = new URLSearchParams();
+  if (third) qs.set("third_party", "1");
+  if (disabled) qs.set("disabled", "1");
+  if (nogpg) qs.set("nogpg", "1");
+  if (type) qs.set("type", type);
+  const key = qs.toString();
+  const { data: rows, isLoading } = useQuery({ queryKey: ["repos-fleet", key], queryFn: () => api.get<PackageRepo[]>(`/repos${key ? "?" + key : ""}`) });
+  const filtered = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    return n ? (rows ?? []).filter((r) => r.url.toLowerCase().includes(n) || r.name.toLowerCase().includes(n) || (r.hostname ?? "").toLowerCase().includes(n)) : (rows ?? []);
+  }, [rows, q]);
+  // Gruppierung nach URL+Typ: eine Zeile je Quelle mit den Geräten darunter.
+  const groups = useMemo(() => {
+    const m = new Map<string, { repo: PackageRepo; hosts: PackageRepo[] }>();
+    for (const r of filtered) {
+      const k = `${r.type}|${r.url || r.name}`;
+      const g = m.get(k);
+      if (g) g.hosts.push(r); else m.set(k, { repo: r, hosts: [r] });
+    }
+    return [...m.values()].sort((a, b) => (b.repo.third_party ? 1 : 0) - (a.repo.third_party ? 1 : 0) || b.hosts.length - a.hosts.length);
+  }, [filtered]);
+  const types = useMemo(() => [...new Set((rows ?? []).map((r) => r.type))].sort(), [rows]);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  return (
+    <section className="card">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <div className="head-actions" style={{ flexWrap: "wrap" }}>
+          <input className="search" placeholder={t("URL, Name oder Host suchen…")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <select value={type} onChange={(e) => setParam("type", e.target.value)}>
+            <option value="">{t("Alle Typen")}</option>
+            {types.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+          <label className={`chip ${third ? "chip-on" : ""}`}><input type="checkbox" checked={third} onChange={(e) => setParam("third_party", e.target.checked ? "1" : "")} /> {t("nur Fremd-Repos")}</label>
+          <label className={`chip ${disabled ? "chip-on" : ""}`}><input type="checkbox" checked={disabled} onChange={(e) => setParam("disabled", e.target.checked ? "1" : "")} /> {t("nur deaktivierte")}</label>
+          <label className={`chip ${nogpg ? "chip-on" : ""}`}><input type="checkbox" checked={nogpg} onChange={(e) => setParam("nogpg", e.target.checked ? "1" : "")} /> {t("ohne Signaturprüfung")}</label>
+        </div>
+        <span className="muted small">{t("{n} Quellen auf {d} Gerät(en)", { n: groups.length, d: new Set(filtered.map((r) => r.device_id)).size })}</span>
+      </div>
+      <p className="muted small">{t("Fremd-Repos sind Quellen, deren Host nicht zur Distribution gehört (z. B. Docker, Microsoft, Google). Sie sind legitim, verdienen aber einen Blick – besonders ohne Signaturprüfung.")}</p>
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : groups.length === 0 ? <p className="empty">{t("Keine Paketquellen gemeldet.")}</p> : (
+        <div className="scroll-list" style={{ maxHeight: "70vh" }}>
+          <table className="table">
+            <thead><tr><th>{t("Typ")}</th><th>URL</th><th>{t("Name / Suite")}</th><th>{t("Geräte")}</th><th>{t("Status")}</th></tr></thead>
+            <tbody>
+              {groups.map((g) => {
+                const k = `${g.repo.type}|${g.repo.url || g.repo.name}`;
+                const isOpen = open.has(k);
+                return [
+                  <tr key={k} style={{ cursor: "pointer" }} className={isOpen ? "row-selected" : undefined} onClick={() => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; })}>
+                    <td className="muted">{g.repo.type}</td>
+                    <td className="mono small" style={{ wordBreak: "break-all" }}><span className="muted">{isOpen ? "▾" : "▸"}</span> {g.repo.url || <span className="muted">({t("keine URL")})</span>}{g.repo.third_party && <span className="badge badge-warn" style={{ marginLeft: 6 }}>{t("Fremd")}</span>}</td>
+                    <td className="muted small">{g.repo.name}{g.repo.suite ? ` · ${g.repo.suite}` : ""}</td>
+                    <td>{g.hosts.length}</td>
+                    <td>
+                      {g.hosts.some((h) => !h.enabled) && <span className="badge badge-unknown" style={{ marginRight: 4 }}>{t("{n} deaktiviert", { n: g.hosts.filter((h) => !h.enabled).length })}</span>}
+                      {g.hosts.some((h) => h.enabled && !h.gpg_check) && <span className="badge badge-offline">{t("ohne Signaturprüfung")}</span>}
+                    </td>
+                  </tr>,
+                  ...(isOpen ? g.hosts.map((h) => (
+                    <tr key={k + h.device_id + h.id} className="small">
+                      <td></td>
+                      <td style={{ paddingLeft: 28 }}><Link to={`/devices/${h.device_id}`} className="link-strong">{h.hostname}</Link>{h.client_name && <span className="muted"> · {h.client_name}</span>}</td>
+                      <td className="muted">{h.id}{h.suite ? ` · ${h.suite}` : ""}</td>
+                      <td></td>
+                      <td>{!h.enabled ? <span className="badge badge-unknown">{t("deaktiviert")}</span> : !h.gpg_check ? <span className="badge badge-offline">{t("ohne Signaturprüfung")}</span> : <span className="badge badge-online">{t("aktiv")}</span>}</td>
+                    </tr>
+                  )) : []),
+                ];
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

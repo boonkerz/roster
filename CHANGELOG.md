@@ -23,6 +23,16 @@ All notable changes to Roster are documented here. The format follows
   timeline on the Patches page ("History" tab with period/action/client filters), 90-day
   history per device in the Patches tab, kept for one year; the health report gains a
   column "Installed (7 days)".
+- Patches: **package and repository inventory** – "Packages" tab (installed software across
+  the fleet grouped by package and version with distribution bars and the devices per
+  version) and "Repositories" tab (apt incl. deb822, dnf/yum, zypper, pacman, apk, winget,
+  brew; filters for third-party repos, disabled sources and sources without signature
+  check). Per device: package sources in the Patches tab, **automatic-update status**
+  (unattended-upgrades, dnf-automatic, Windows Update, macOS), **running vs. installed
+  kernel** (reboot hint; the reboot check now also uses `needs-restarting` and the kernel
+  comparison) and OS details (codename, Windows build/edition, macOS build). New device
+  list columns, filters and smart-group fields (`auto_updates`, `os_codename`,
+  `os_edition`, `kernel_pending`).
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

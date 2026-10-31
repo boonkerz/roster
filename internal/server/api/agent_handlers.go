@@ -89,6 +89,9 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplaceProxmox(r.Context(), device.ID, req.Inventory.Proxmox); err != nil {
 		s.log.Error("proxmox-gäste speichern", "err", err)
 	}
+	if err := s.store.ReplacePackageRepos(r.Context(), device.ID, req.Inventory.Repos); err != nil {
+		s.log.Error("paketquellen speichern", "err", err)
+	}
 	if len(req.PatchHistory) > 0 {
 		if n, err := s.store.InsertPatchHistory(r.Context(), device.ID, req.PatchHistory); err != nil {
 			s.log.Error("patch-verlauf speichern", "err", err)

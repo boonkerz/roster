@@ -36,6 +36,32 @@ export function UpdatesBadge({ count, security }: { count?: number | null; secur
   return <span className="badge badge-warn">{gt("{count} verfügbar", { count })}</span>;
 }
 
+// AUTO_UPDATES_LABEL beschriftet den Auto-Update-Status des Agents.
+export const AUTO_UPDATES_LABEL: Record<string, { label: string; cls: string }> = {
+  enabled: { label: "automatisch (alle)", cls: "badge-online" },
+  security: { label: "automatisch (Sicherheit)", cls: "badge-online" },
+  download: { label: "nur herunterladen", cls: "badge-warn" },
+  notify: { label: "nur benachrichtigen", cls: "badge-warn" },
+  disabled: { label: "aus", cls: "badge-offline" },
+};
+
+export function AutoUpdatesBadge({ status }: { status?: string }) {
+  if (!status) return <span className="muted">—</span>;
+  const m = AUTO_UPDATES_LABEL[status] ?? { label: status, cls: "badge-unknown" };
+  return <span className={`badge ${m.cls}`}>{gt(m.label)}</span>;
+}
+
+// KernelBadge zeigt den laufenden Kernel und warnt, wenn ein neuerer installiert ist.
+export function KernelBadge({ running, installed }: { running?: string; installed?: string }) {
+  if (!running) return <span className="muted">—</span>;
+  const pending = !!installed && installed !== running;
+  return (
+    <span className={pending ? "badge badge-warn" : "mono small"} title={pending ? gt("Neuer Kernel installiert: {v} – Neustart erforderlich", { v: installed }) : undefined}>
+      {running}{pending ? " ⚠" : ""}
+    </span>
+  );
+}
+
 // SecurityUpdatesBadge zeigt nur die ausstehenden Sicherheits-Updates.
 export function SecurityUpdatesBadge({ count }: { count?: number | null }) {
   if (count === undefined || count === null) return <span className="muted">—</span>;

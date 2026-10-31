@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Device, CustomField } from "./types";
-import { StatusBadge, UpdatesBadge, SecurityUpdatesBadge, HealthBadge, TaskHealthBadge, relTime } from "./components/StatusBadge";
+import { StatusBadge, UpdatesBadge, SecurityUpdatesBadge, AutoUpdatesBadge, KernelBadge, HealthBadge, TaskHealthBadge, relTime } from "./components/StatusBadge";
 import { CopyText } from "./components/CopyText";
 import { primaryIPv4, formatBytes } from "./devutil";
 import { fieldDisplay } from "./export";
@@ -62,6 +62,9 @@ export function baseDeviceColumns(t: Tr): DevColumn[] {
     { key: "cve", label: t("CVE"), render: (d, ctx) => jumpCell(d, ctx, "vulns", ctx.t("Zu den Schwachstellen springen"), d.vuln_count ? <span className="badge badge-offline">{d.vuln_count}</span> : dash) },
     { key: "updates", label: t("Updates"), render: (d, ctx) => jumpCell(d, ctx, "updates", ctx.t("Zu den Patches springen"), <UpdatesBadge count={d.updates_count} security={d.security_updates_count} />) },
     { key: "security_updates", label: t("Sicherheits-Updates"), render: (d, ctx) => jumpCell(d, ctx, "updates", ctx.t("Zu den Patches springen"), <SecurityUpdatesBadge count={d.security_updates_count} />) },
+    { key: "auto_updates", label: t("Auto-Updates"), render: (d) => <td><AutoUpdatesBadge status={d.auto_updates} /></td> },
+    { key: "kernel", label: t("Kernel"), render: (d) => <td><KernelBadge running={d.kernel_running} installed={d.kernel_installed} /></td> },
+    { key: "os_build", label: t("OS-Build"), render: (d) => <td className="muted mono">{d.os_build || d.os_codename || "—"}</td> },
     { key: "agent", label: t("Agent"), render: (d) => <td className="muted mono">{d.agent_version || "—"}</td> },
     { key: "last_seen", label: t("Zuletzt gesehen"), render: (d) => <td className="muted">{relTime(d.last_seen)}</td> },
   ];

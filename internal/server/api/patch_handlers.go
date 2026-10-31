@@ -134,3 +134,43 @@ func (s *Server) handleApprovePatches(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]int{"changed": changed, "skipped": skipped})
 }
+
+// handlePackagesFleet liefert die paketzentrierte Sicht (GET /packages?q=&limit=).
+func (s *Server) handlePackagesFleet(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	rows, err := s.store.PackagesFleet(r.Context(), s.scopeFilter(r), r.URL.Query().Get("q"), limit)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, rows)
+}
+
+// handlePackageDevices liefert die Geräte mit einem Paket (GET /packages/devices?name=&version=).
+func (s *Server) handlePackageDevices(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		s.writeErr(w, http.StatusBadRequest, "name fehlt")
+		return
+	}
+	rows, err := s.store.PackageDevices(r.Context(), s.scopeFilter(r), name, r.URL.Query().Get("version"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, rows)
+}
+
+// handleReposFleet liefert die Paketquellen aller Geräte (GET /repos?third_party=1&disabled=1&nogpg=1&type=&q=).
+func (s *Server) handleReposFleet(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	rows, err := s.store.ReposFleet(r.Context(), store.RepoFilter{
+		Allowed: s.scopeFilter(r), Query: q.Get("q"), Type: q.Get("type"),
+		ThirdPartyOnly: q.Get("third_party") == "1", DisabledOnly: q.Get("disabled") == "1", NoGPGOnly: q.Get("nogpg") == "1",
+	})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, rows)
+}

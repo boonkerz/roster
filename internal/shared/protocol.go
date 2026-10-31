@@ -177,7 +177,30 @@ type Inventory struct {
 	// Backup-Status. nil = kein Proxmox-Host.
 	Proxmox *ProxmoxInfo `json:"proxmox,omitempty"`
 
+	// Paketquellen (apt/dnf/pacman/apk/zypper/winget/brew), Status automatischer Updates
+	// und Kernel-/OS-Details für Patch-Übersicht und Lebenszyklus (EOL).
+	Repos []PackageRepo `json:"repos,omitempty"`
+	// AutoUpdates: "" unbekannt/kein Mechanismus | enabled | security | download | notify | disabled.
+	AutoUpdates     string `json:"auto_updates,omitempty"`
+	KernelRunning   string `json:"kernel_running,omitempty"`   // uname -r
+	KernelInstalled string `json:"kernel_installed,omitempty"` // neuester installierter Kernel (Linux)
+	OSBuild         string `json:"os_build,omitempty"`         // Windows: „23H2 (22631.4169)“, macOS: Build
+	OSCodename      string `json:"os_codename,omitempty"`      // Linux VERSION_CODENAME, Windows DisplayVersion
+	OSEdition       string `json:"os_edition,omitempty"`       // Windows: Pro/Enterprise/Server …
+
 	CollectedAt time.Time `json:"collected_at"`
+}
+
+// PackageRepo ist eine konfigurierte Paketquelle eines Geräts.
+type PackageRepo struct {
+	ID         string `json:"id"`   // apt: Datei:Zeile bzw. Suite, dnf: repo id, pacman: Sektion
+	Name       string `json:"name"` // Anzeigename (dnf name=, sonst wie ID)
+	URL        string `json:"url"`
+	Type       string `json:"type"` // apt | dnf | pacman | apk | zypper | winget | brew
+	Enabled    bool   `json:"enabled"`
+	GPGCheck   bool   `json:"gpg_check"`
+	Suite      string `json:"suite,omitempty"` // apt: Suite + Komponenten
+	ThirdParty bool   `json:"third_party"`     // nicht von der Distribution
 }
 
 // DockerContainer ist ein (laufender oder gestoppter) Docker-Container.

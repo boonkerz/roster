@@ -18,6 +18,10 @@ const FIELDS: { v: string; label: string; ops: string[]; values?: string[]; numb
   { v: "status", label: "Status", ops: ["eq"], values: ["online", "offline"] },
   { v: "updates_count", label: "Offene Updates", ops: ["gt", "lt", "eq"], number: true },
   { v: "security_updates_count", label: "Offene Sicherheits-Updates", ops: ["gt", "lt", "eq"], number: true },
+  { v: "auto_updates", label: "Auto-Updates", ops: ["eq", "ne"], values: ["enabled", "security", "download", "notify", "disabled"] },
+  { v: "os_codename", label: "OS-Codename", ops: ["eq", "ne", "contains"] },
+  { v: "os_edition", label: "OS-Edition", ops: ["eq", "ne", "contains"] },
+  { v: "kernel_pending", label: "Kernel-Neustart ausstehend", ops: ["eq"], values: ["true", "false"] },
 ];
 const OP_LABEL: Record<string, string> = { eq: "=", ne: "≠", contains: "enthält", gt: ">", lt: "<" };
 

@@ -23,6 +23,10 @@ const FIELDS: FieldDef[] = [
   { v: "vuln_count", label: "Schwachstellen", kind: "num" },
   { v: "updates_count", label: "Offene Updates", kind: "num" },
   { v: "security_updates_count", label: "Offene Sicherheits-Updates", kind: "num" },
+  { v: "auto_updates", label: "Auto-Updates", kind: "enum", values: ["enabled", "security", "download", "notify", "disabled"] },
+  { v: "os_codename", label: "OS-Codename", kind: "text" },
+  { v: "os_edition", label: "OS-Edition", kind: "text" },
+  { v: "kernel_running", label: "Kernel", kind: "text" },
   { v: "check", label: "Check", kind: "check" }, // Wert = Check-ID, Vergleich fehlerhaft / nicht fehlerhaft
 ];
 const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"], check: ["failing", "ok"] };

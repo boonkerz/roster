@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts, PatchEvent } from "../types";
 import { PatchHistoryTable } from "./PatchHistoryTable";
-import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, relTime } from "./StatusBadge";
+import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, AutoUpdatesBadge, KernelBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
 import { CustomFieldsEditor } from "./CustomFieldsEditor";
@@ -260,7 +260,12 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                 <dt>{t("Hersteller")}</dt><dd>{device.vendor || "—"}</dd>
                 <dt>{t("Modell")}</dt><dd>{device.model || "—"}</dd>
                 <dt>{t("Seriennummer")}</dt><dd className="mono">{device.serial || "—"}</dd>
-                <dt>{t("Betriebssystem")}</dt><dd>{device.os} {device.os_version}</dd>
+                <dt>{t("Betriebssystem")}</dt>
+                <dd>
+                  {device.os} {device.os_version}{device.os_edition ? ` ${device.os_edition}` : ""}
+                  {(device.os_build || device.os_codename) && <span className="muted small"> · {device.os_build || device.os_codename}</span>}
+                </dd>
+                {device.kernel_running && (<><dt>{t("Kernel")}</dt><dd><KernelBadge running={device.kernel_running} installed={device.kernel_installed} />{device.kernel_installed && device.kernel_installed !== device.kernel_running && <span className="muted small"> · {t("installiert")}: {device.kernel_installed}</span>}</dd></>)}
                 <dt>CPU</dt>
                 <dd>
                   {(device.cpu_sockets ?? 0) > 1 ? `${device.cpu_sockets}× ` : ""}{device.cpu_model || "—"}
@@ -645,6 +650,10 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
               )}
             </div>
             {installUpdates.isSuccess && <p className="muted small">{t("Installation eingereiht – Ergebnis erscheint unter „Ausführen“. Der Agent meldet es nach Abschluss.")}</p>}
+            <p className="muted small" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+              <span>{t("Automatische Updates")}: <AutoUpdatesBadge status={device.auto_updates} /></span>
+              {device.kernel_running && <span>{t("Kernel")}: <KernelBadge running={device.kernel_running} installed={device.kernel_installed} />{device.kernel_installed && device.kernel_installed !== device.kernel_running && <> · {t("installiert")} <span className="mono">{device.kernel_installed}</span></>}</span>}
+            </p>
             {device.updates_checked_at && (
               <p className="muted small">{t("Zuletzt geprüft")} {relTime(device.updates_checked_at)}
                 {(device.security_updates_count ?? 0) > 0 && <> · <span className="badge badge-offline">🛡 {t("{n} Sicherheits-Updates", { n: device.security_updates_count ?? 0 })}</span></>}
@@ -677,6 +686,30 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                   </tbody>
                 </table>
               </div>
+            )}
+            {(device.repos ?? []).length > 0 && (
+              <details style={{ marginTop: 18 }}>
+                <summary className="muted small" style={{ cursor: "pointer" }}>
+                  {t("Paketquellen")} <span className="tab-count">{device.repos!.length}</span>
+                  {device.repos!.some((r) => r.third_party && r.enabled) && <span className="badge badge-warn" style={{ marginLeft: 8 }}>{t("{n} Fremd-Repos", { n: device.repos!.filter((r) => r.third_party && r.enabled).length })}</span>}
+                </summary>
+                <div className="scroll-list" style={{ maxHeight: 260, marginTop: 8 }}>
+                  <table className="table">
+                    <thead><tr><th>{t("Typ")}</th><th>{t("Name")}</th><th>URL</th><th>{t("Suite")}</th><th>{t("Status")}</th></tr></thead>
+                    <tbody>
+                      {device.repos!.map((r, i) => (
+                        <tr key={i} className="small">
+                          <td className="muted">{r.type}</td>
+                          <td>{r.name}{r.third_party && <span className="badge badge-warn" style={{ marginLeft: 6 }}>{t("Fremd")}</span>}</td>
+                          <td className="mono muted" style={{ wordBreak: "break-all" }}>{r.url}</td>
+                          <td className="muted">{r.suite || "—"}</td>
+                          <td>{!r.enabled ? <span className="badge badge-unknown">{t("deaktiviert")}</span> : !r.gpg_check ? <span className="badge badge-offline">{t("ohne Signaturprüfung")}</span> : <span className="badge badge-online">{t("aktiv")}</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             )}
             <h3 className="muted small" style={{ marginTop: 18 }}>{t("Verlauf (90 Tage)")} <span className="tab-count">{(patchHistory ?? []).length}</span></h3>
             {patchHistory === undefined ? <p className="muted small">{t("Lädt…")}</p>

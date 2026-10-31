@@ -63,10 +63,12 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 	if _, err := tx.ExecContext(ctx, s.rebind(`
 		UPDATE devices SET hostname=?, os=?, os_version=?, vendor=?, model=?, serial=?,
 			cpu_model=?, cpu_cores=?, cpu_sockets=?, cpu_threads=?, memory_bytes=?, agent_version=?,
-			public_ip=?, disks=?, physical_disks=?, gpus=?, logged_in_users=?, last_seen=? WHERE id=?`),
+			public_ip=?, disks=?, physical_disks=?, gpus=?, logged_in_users=?, last_seen=?,
+			auto_updates=?, kernel_running=?, kernel_installed=?, os_build=?, os_codename=?, os_edition=? WHERE id=?`),
 		inv.Hostname, inv.OS, inv.OSVersion, inv.Vendor, inv.Model, inv.Serial,
 		inv.CPUModel, inv.CPUCores, inv.CPUSockets, inv.CPUThreads, int64(inv.MemoryBytes), inv.AgentVersion,
-		inv.PublicIP, string(disksJSON), string(physJSON), string(gpusJSON), join(inv.LoggedInUsers), now, deviceID); err != nil {
+		inv.PublicIP, string(disksJSON), string(physJSON), string(gpusJSON), join(inv.LoggedInUsers), now,
+		inv.AutoUpdates, inv.KernelRunning, inv.KernelInstalled, inv.OSBuild, inv.OSCodename, inv.OSEdition, deviceID); err != nil {
 		return err
 	}
 
@@ -177,7 +179,8 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 		AND tr.ran_at = (SELECT MAX(tr2.ran_at) FROM task_results tr2
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
-	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages, d.security_updates_count`
+	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages, d.security_updates_count,
+	d.auto_updates, d.kernel_running, d.kernel_installed, d.os_build, d.os_codename, d.os_edition`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -327,6 +330,9 @@ func (s *Store) GetDevice(ctx context.Context, id string) (*model.Device, error)
 		return nil, err
 	}
 	if d.ListenPorts, err = s.ListenPortsFor(ctx, id); err != nil {
+		return nil, err
+	}
+	if d.Repos, err = s.PackageReposFor(ctx, id); err != nil {
 		return nil, err
 	}
 	if d.Containers, err = s.DockerContainersFor(ctx, id); err != nil {
@@ -1131,7 +1137,8 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&mem, &d.AgentVersion, &d.FirstSeen, &lastSeen, &d.EnrolledAt, &d.Revoked, &users,
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.SoftwareAlerts,
-		&d.ProxmoxVersion, &proxmoxStorages, &securityCount)
+		&d.ProxmoxVersion, &proxmoxStorages, &securityCount,
+		&d.AutoUpdates, &d.KernelRunning, &d.KernelInstalled, &d.OSBuild, &d.OSCodename, &d.OSEdition)
 	if err != nil {
 		return nil, err
 	}

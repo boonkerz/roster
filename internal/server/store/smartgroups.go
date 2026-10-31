@@ -26,6 +26,8 @@ type groupRule struct {
 var textFields = map[string]string{
 	"os": "d.os", "os_version": "d.os_version", "hostname": "d.hostname",
 	"agent_version": "d.agent_version", "vendor": "d.vendor", "model": "d.model", "serial": "d.serial",
+	"os_codename": "d.os_codename", "os_edition": "d.os_edition", "os_build": "d.os_build",
+	"auto_updates": "d.auto_updates", "kernel_running": "d.kernel_running",
 }
 
 // smartWhere baut die WHERE-Bedingung einer Smart-Group-Regel. ok=false bei leerer/
@@ -93,6 +95,13 @@ func condSQL(c ruleCond, offlineCutoff time.Time) (string, []any, bool) {
 		case "eq":
 			return col + " = ?", []any{n}, true
 		}
+	case "kernel_pending":
+		// true = neuerer Kernel installiert als läuft (Neustart nötig), false = aktuell.
+		cond := "(d.kernel_installed <> '' AND d.kernel_running <> '' AND d.kernel_installed <> d.kernel_running)"
+		if c.Value == "false" || c.Op == "ne" && c.Value != "false" {
+			return "NOT " + cond, nil, true
+		}
+		return cond, nil, true
 	case "status":
 		switch c.Value {
 		case "online":
