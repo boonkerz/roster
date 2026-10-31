@@ -118,6 +118,9 @@ type Device struct {
 	OSCodename      string        `json:"os_codename,omitempty"`
 	OSEdition       string        `json:"os_edition,omitempty"`
 	Repos           []PackageRepo `json:"repos,omitempty"`
+	// Support-Ende des Betriebssystems (aus device_eol, kind=os): Status ok|soon|eol|unknown.
+	EOLStatus string     `json:"eol_status,omitempty"`
+	EOLDate   *time.Time `json:"eol_date,omitempty"`
 
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
@@ -286,6 +289,24 @@ type PendingPatch struct {
 	Security       bool   `json:"security"`
 	Kind           string `json:"kind,omitempty"`
 	Approved       bool   `json:"approved"`
+}
+
+// DeviceEOL ist die Lebenszyklus-Bewertung eines Geräts (OS bzw. Proxmox VE).
+type DeviceEOL struct {
+	DeviceID    string     `json:"device_id"`
+	Hostname    string     `json:"hostname,omitempty"`
+	OS          string     `json:"os,omitempty"`
+	OSVersion   string     `json:"os_version,omitempty"`
+	ClientName  string     `json:"client_name,omitempty"`
+	SiteName    string     `json:"site_name,omitempty"`
+	Kind        string     `json:"kind"`    // os | proxmox
+	Product     string     `json:"product"` // endoflife.date-Slug
+	Cycle       string     `json:"cycle"`
+	Label       string     `json:"label,omitempty"`
+	EOLDate     *time.Time `json:"eol_date,omitempty"`
+	SupportDate *time.Time `json:"support_date,omitempty"`
+	Status      string     `json:"status"` // ok | soon | eol | unknown
+	CheckedAt   time.Time  `json:"checked_at"`
 }
 
 // PackageRepo ist eine Paketquelle eines Geräts (flottenweit mit Gerätedaten).
@@ -736,6 +757,8 @@ type DashboardSummary struct {
 	PendingPatches             int          `json:"pending_patches"`
 	DevicesWithSecurityPatches int          `json:"devices_with_security_patches"`
 	SecurityPatches            int          `json:"security_patches"`
+	DevicesEOL                 int          `json:"devices_eol"`      // Support-Ende erreicht
+	DevicesEOLSoon             int          `json:"devices_eol_soon"` // Support-Ende innerhalb der Vorwarnzeit
 	DevicesWithVulns           int          `json:"devices_with_vulns"`
 	Vulnerabilities            int          `json:"vulnerabilities"`
 	RecentEvents               []CheckEvent `json:"recent_events"`

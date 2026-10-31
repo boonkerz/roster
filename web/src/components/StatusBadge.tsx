@@ -62,6 +62,16 @@ export function KernelBadge({ running, installed }: { running?: string; installe
   );
 }
 
+// EolBadge zeigt das Support-Ende eines Geräts (ok / bald / erreicht / unbekannt).
+export function EolBadge({ status, date }: { status?: string; date?: string }) {
+  if (!status) return <span className="muted">—</span>;
+  const d = date ? new Date(date).toLocaleDateString() : "";
+  if (status === "eol") return <span className="badge badge-offline" title={gt("Support-Ende erreicht")}>EOL{d ? ` · ${d}` : ""}</span>;
+  if (status === "soon") return <span className="badge badge-warn" title={gt("Support-Ende naht")}>⏳ {d || gt("bald")}</span>;
+  if (status === "ok") return <span className="badge badge-online" title={gt("Im Support")}>{d || "OK"}</span>;
+  return <span className="badge badge-unknown">{gt("unbekannt")}</span>;
+}
+
 // SecurityUpdatesBadge zeigt nur die ausstehenden Sicherheits-Updates.
 export function SecurityUpdatesBadge({ count }: { count?: number | null }) {
   if (count === undefined || count === null) return <span className="muted">—</span>;

@@ -542,6 +542,8 @@ export interface Device {
   os_codename?: string;
   os_edition?: string;
   repos?: PackageRepo[];
+  eol_status?: "ok" | "soon" | "eol" | "unknown";
+  eol_date?: string;
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];
@@ -627,6 +629,8 @@ export interface DashboardSummary {
   pending_patches: number;
   devices_with_security_patches: number;
   security_patches: number;
+  devices_eol?: number;
+  devices_eol_soon?: number;
   devices_with_vulns: number;
   vulnerabilities: number;
   recent_events: CheckEvent[];
@@ -708,6 +712,26 @@ export interface GeneralSettings {
   timezone: string;     // IANA-Name, leer = Systemzeit des jeweiligen Geräts
   server_now?: string;  // aktuelle Zeit in der wirksamen Zone (nur lesend)
   effective?: string;   // tatsächlich verwendete Zone
+  eol_warn_days?: number; // Vorwarnzeit Support-Ende (Tage)
+  eol_alerts?: boolean;   // Alarme bei nahendem/erreichtem Support-Ende
+}
+
+// DeviceEOL ist die Lebenszyklus-Bewertung eines Geräts (OS bzw. Proxmox VE).
+export interface DeviceEOL {
+  device_id: string;
+  hostname?: string;
+  os?: string;
+  os_version?: string;
+  client_name?: string;
+  site_name?: string;
+  kind: "os" | "proxmox";
+  product: string;
+  cycle: string;
+  label?: string;
+  eol_date?: string;
+  support_date?: string;
+  status: "ok" | "soon" | "eol" | "unknown";
+  checked_at: string;
 }
 
 // --- Dashboard-Diagramme (konfigurierbar, im Benutzerkonto gespeichert) ---

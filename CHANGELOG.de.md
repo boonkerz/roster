@@ -33,6 +33,14 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   `needs-restarting` und den Kernelvergleich) sowie OS-Details (Codename, Windows-Build/Edition,
   macOS-Build). Neue Spalten, Filter und Smart-Group-Felder (`auto_updates`, `os_codename`,
   `os_edition`, `kernel_pending`).
+- Patches: **OS-Lebenszyklus (EOL)** – der Server gleicht die OS-Version jedes Geräts (Ubuntu,
+  Debian, RHEL-Familie, Fedora, Alpine, openSUSE/SLES, Amazon/Oracle Linux, FreeBSD, macOS,
+  Windows-Client inkl. Enterprise-/LTSC-Zyklen, Windows Server) und Proxmox VE mit endoflife.date
+  ab (täglich abgerufen, serverseitig gecacht). Tab „Lebenszyklus“ auf der Patches-Seite, Badge
+  „Support-Ende“ am Gerät, Listen-Spalte, Filter und Smart-Group-Feld `eol_status`, Übersichts-
+  Kachel, Alarm bei nahendem (Vorwarnzeit einstellbar, Standard 90 Tage) oder erreichtem
+  Support-Ende. Einstellungen → Benachrichtigungen: Vorwarnzeit, Alarm-Schalter und „Jetzt neu
+  bewerten“. Rolling-Release-Systeme werden übersprungen.
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät
@@ -50,6 +58,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Changelog (diese Datei) und automatische GitHub-Release-Notizen.
 
 ### Geändert
+- API: `PUT /settings/general` ändert nur noch die gesendeten Felder (Zeitzone, EOL-Vorwarnzeit,
+  EOL-Alarme).
 - API: `POST /bulk/install-updates` versteht `approved`, `security_only` und `apt_mode`;
   `POST /devices/{id}/install-updates` versteht `security_only`. Update-Einträge tragen `version`,
   `current_version`, `source`, `security` und `kind`.

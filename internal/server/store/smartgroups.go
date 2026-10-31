@@ -28,6 +28,7 @@ var textFields = map[string]string{
 	"agent_version": "d.agent_version", "vendor": "d.vendor", "model": "d.model", "serial": "d.serial",
 	"os_codename": "d.os_codename", "os_edition": "d.os_edition", "os_build": "d.os_build",
 	"auto_updates": "d.auto_updates", "kernel_running": "d.kernel_running",
+	"eol_status": "COALESCE((SELECT e.status FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),'')",
 }
 
 // smartWhere baut die WHERE-Bedingung einer Smart-Group-Regel. ok=false bei leerer/

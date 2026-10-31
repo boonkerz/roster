@@ -33,6 +33,14 @@ All notable changes to Roster are documented here. The format follows
   comparison) and OS details (codename, Windows build/edition, macOS build). New device
   list columns, filters and smart-group fields (`auto_updates`, `os_codename`,
   `os_edition`, `kernel_pending`).
+- Patches: **OS lifecycle (EOL)** – the server matches each device's OS version (Ubuntu,
+  Debian, RHEL family, Fedora, Alpine, openSUSE/SLES, Amazon/Oracle Linux, FreeBSD, macOS,
+  Windows client incl. Enterprise/LTSC cycles, Windows Server) and Proxmox VE against
+  endoflife.date (fetched daily, cached server-side). "Lifecycle" tab on the Patches page,
+  "End of support" badge on device, list column, filter and smart-group field `eol_status`,
+  dashboard tile, alert when the end of support is approaching (lead time configurable,
+  default 90 days) or reached. Settings → Notifications: lead time, alert switch and
+  "Re-evaluate now". Rolling-release systems are skipped.
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way
@@ -50,6 +58,8 @@ All notable changes to Roster are documented here. The format follows
 - Changelog (this file) and automatic GitHub release notes.
 
 ### Changed
+- API: `PUT /settings/general` now changes only the fields that are sent (timezone, EOL
+  lead time, EOL alerts).
 - API: `POST /bulk/install-updates` accepts `approved`, `security_only` and `apt_mode`;
   `POST /devices/{id}/install-updates` accepts `security_only`. Update items carry `version`,
   `current_version`, `source`, `security` and `kind`.

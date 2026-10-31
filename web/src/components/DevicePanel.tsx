@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts, PatchEvent } from "../types";
 import { PatchHistoryTable } from "./PatchHistoryTable";
-import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, AutoUpdatesBadge, KernelBadge, relTime } from "./StatusBadge";
+import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, AutoUpdatesBadge, KernelBadge, EolBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { DeviceRemote } from "./DeviceRemote";
 import { CustomFieldsEditor } from "./CustomFieldsEditor";
@@ -265,6 +265,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                   {device.os} {device.os_version}{device.os_edition ? ` ${device.os_edition}` : ""}
                   {(device.os_build || device.os_codename) && <span className="muted small"> · {device.os_build || device.os_codename}</span>}
                 </dd>
+                {device.eol_status && (<><dt>{t("Support-Ende")}</dt><dd><EolBadge status={device.eol_status} date={device.eol_date} /></dd></>)}
                 {device.kernel_running && (<><dt>{t("Kernel")}</dt><dd><KernelBadge running={device.kernel_running} installed={device.kernel_installed} />{device.kernel_installed && device.kernel_installed !== device.kernel_running && <span className="muted small"> · {t("installiert")}: {device.kernel_installed}</span>}</dd></>)}
                 <dt>CPU</dt>
                 <dd>

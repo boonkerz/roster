@@ -17,7 +17,7 @@ function useSettingsAreas() {
     { key: "users" as const, label: t("Benutzer & Rollen"), adminOnly: true,
       render: () => <><Users /><Roles /><Tokens /></> },
     { key: "notify" as const, label: t("Benachrichtigungen"), adminOnly: false,
-      render: () => <><Alerts /><Reports /></> },
+      render: () => <><Alerts /><EolSettings /><Reports /></> },
     { key: "devices" as const, label: t("Geräte-Verwaltung"), adminOnly: false,
       render: () => <><Maintenance /><CustomFields /><SoftwarePackages /><Proxmox /></> },
     { key: "downloads" as const, label: t("Downloads"), adminOnly: false,
@@ -106,6 +106,44 @@ function Timezone() {
       <p className="muted small">
         {t("Achtung: Nach dem Umstellen laufen bestehende Tasks mit fester Uhrzeit zu einem anderen Zeitpunkt als bisher. Agenten älter als 0.16.0 planen weiter in ihrer eigenen Systemzeit.")}
       </p>
+    </section>
+  );
+}
+
+// EolSettings: Vorwarnzeit und Alarm-Schalter für das Support-Ende (endoflife.date),
+// plus sofortige Neubewertung.
+function EolSettings() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const { data } = useQuery<GeneralSettings>({ queryKey: ["settings", "general"], queryFn: () => api.get("/settings/general") });
+  const [days, setDays] = useState<number | null>(null);
+  const [msg, setMsg] = useState("");
+  const save = useMutation({
+    mutationFn: (body: { eol_warn_days?: number; eol_alerts?: boolean }) => api.put("/settings/general", body),
+    onSuccess: () => { setDays(null); setMsg(""); qc.invalidateQueries({ queryKey: ["settings", "general"] }); },
+    onError: (e: Error) => setMsg(e.message),
+  });
+  const refresh = useMutation({
+    mutationFn: () => api.post<{ rated: number; failed: string[] }>("/eol/refresh"),
+    onSuccess: (r) => { setMsg(t("{n} Gerät(e) bewertet.", { n: r.rated }) + (r.failed.length ? " " + t("Nicht ladbar: {p}", { p: r.failed.join(", ") }) : "")); qc.invalidateQueries({ queryKey: ["eol-fleet"] }); qc.invalidateQueries({ queryKey: ["devices"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); },
+    onError: (e: Error) => setMsg(e.message),
+  });
+  const current = days ?? data?.eol_warn_days ?? 90;
+  return (
+    <section className="card">
+      <h2>{t("Support-Ende (EOL)")}</h2>
+      <p className="muted small">{t("Der Server gleicht Betriebssystem-Versionen (und Proxmox VE) täglich mit endoflife.date ab und meldet, wenn das Support-Ende naht oder erreicht ist. Rolling-Release-Systeme (Arch, CachyOS …) haben kein Support-Ende.")}</p>
+      <div className="inline-form">
+        <label className="num">{t("Vorwarnzeit (Tage)")}
+          <input type="number" min={0} max={3650} value={current} onChange={(e) => setDays(Number(e.target.value))} style={{ width: 90 }} />
+        </label>
+        <button className="btn primary" disabled={days === null || save.isPending} onClick={() => save.mutate({ eol_warn_days: current })}>{t("Speichern")}</button>
+        <label className="chip" style={{ display: "inline-flex", whiteSpace: "nowrap" }}>
+          <input type="checkbox" checked={data?.eol_alerts ?? true} onChange={(e) => save.mutate({ eol_alerts: e.target.checked })} /> {t("Alarm bei nahendem/erreichtem Support-Ende")}
+        </label>
+        <button className="btn ghost" disabled={refresh.isPending} onClick={() => { setMsg(""); refresh.mutate(); }}>{refresh.isPending ? t("Bewertet…") : t("Jetzt neu bewerten")}</button>
+      </div>
+      {msg && <p className="muted small" style={{ marginTop: 8 }}>{msg}</p>}
     </section>
   );
 }

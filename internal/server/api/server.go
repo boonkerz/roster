@@ -161,6 +161,8 @@ func (s *Server) routes() http.Handler {
 						r.Get("/packages", s.handlePackagesFleet)
 						r.Get("/packages/devices", s.handlePackageDevices)
 						r.Get("/repos", s.handleReposFleet)
+						r.Get("/eol", s.handleEOLFleet)
+						r.Get("/devices/{id}/eol", s.handleDeviceEOL)
 						r.Get("/sites/{id}/assets", s.handleListSiteAssets)
 						r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
 						r.Get("/devices/{id}/backup-runs", s.handleDeviceBackupRuns)
@@ -290,6 +292,7 @@ func (s *Server) routes() http.Handler {
 					r.Group(func(r chi.Router) {
 						r.Use(s.requirePerm(model.PermSettings))
 						r.Put("/settings/general", s.handleSetGeneralSettings)
+						r.Post("/eol/refresh", s.handleEOLRefresh)
 						r.Get("/audit", s.handleListAudit)
 						r.Get("/reports/health", s.handleHealthReport)
 						r.Get("/report-schedules", s.handleListReportSchedules)

@@ -6,18 +6,20 @@ import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { SeverityBadge } from "../components/StatusBadge";
 import { PatchHistoryTable } from "../components/PatchHistoryTable";
-import type { ClientTree, PackageDevice, PackageRepo, PackageVersionCount, PatchEvent, PatchSummary, PendingPatch } from "../types";
+import type { ClientTree, DeviceEOL, PackageDevice, PackageRepo, PackageVersionCount, PatchEvent, PatchSummary, PendingPatch } from "../types";
+import { EolBadge } from "../components/StatusBadge";
 
 // Patches ist die flottenweite Patch-Seite (PatchMon-Stil): Kopfzahlen, ausstehende
 // Updates aller Geräte (Sicherheits-Updates hervorgehoben), Filter, Mehrfachauswahl
 // mit Genehmigen/Installieren. Weitere Tabs (Verlauf, Pakete, Repositories,
 // Lebenszyklus) hängen sich hier ein.
-type PatchTab = "pending" | "history" | "packages" | "repos";
+type PatchTab = "pending" | "history" | "packages" | "repos" | "eol";
 const TABS: { key: PatchTab; label: string }[] = [
   { key: "pending", label: "Ausstehend" },
   { key: "history", label: "Verlauf" },
   { key: "packages", label: "Pakete" },
   { key: "repos", label: "Repositories" },
+  { key: "eol", label: "Lebenszyklus" },
 ];
 
 
@@ -46,7 +48,93 @@ export function Patches() {
       {tab === "history" && <HistoryTab />}
       {tab === "packages" && <PackagesTab />}
       {tab === "repos" && <ReposTab />}
+      {tab === "eol" && <LifecycleTab />}
     </div>
+  );
+}
+
+// LifecycleTab: Support-Ende je Gerät (endoflife.date), früheste Enden zuerst, mit
+// Restlaufzeit-Balken (verbleibende Tage, Skala 5 Jahre).
+function LifecycleTab() {
+  const { t } = useI18n();
+  const { hasPerm } = useAuth();
+  const qc = useQueryClient();
+  const [status, setStatus] = useState("");
+  const [q, setQ] = useState("");
+  const { data: rows, isLoading } = useQuery({ queryKey: ["eol-fleet"], queryFn: () => api.get<DeviceEOL[]>("/eol"), refetchInterval: 60000 });
+  const refresh = useMutation({
+    mutationFn: () => api.post<{ rated: number; failed: string[] }>("/eol/refresh"),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["eol-fleet"] }); qc.invalidateQueries({ queryKey: ["devices"] }); },
+  });
+  const filtered = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    return (rows ?? []).filter((r) => (!status || r.status === status) && (!n || (r.hostname ?? "").toLowerCase().includes(n) || r.product.includes(n) || r.cycle.toLowerCase().includes(n)));
+  }, [rows, status, q]);
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { eol: 0, soon: 0, ok: 0, unknown: 0 };
+    for (const r of rows ?? []) c[r.status] = (c[r.status] ?? 0) + 1;
+    return c;
+  }, [rows]);
+  const now = Date.now();
+  const daysLeft = (iso?: string) => iso ? Math.round((new Date(iso).getTime() - now) / 86_400_000) : null;
+  return (
+    <section className="card">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <div className="head-actions" style={{ flexWrap: "wrap" }}>
+          <input className="search" placeholder={t("Host, Produkt oder Version suchen…")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">{t("Alle Status")}</option>
+            <option value="eol">{t("Support-Ende erreicht")}</option>
+            <option value="soon">{t("Support-Ende naht")}</option>
+            <option value="ok">{t("Im Support")}</option>
+            <option value="unknown">{t("unbekannt")}</option>
+          </select>
+          <span className="badge badge-offline">{counts.eol} EOL</span>
+          <span className="badge badge-warn">{counts.soon} {t("bald")}</span>
+          <span className="badge badge-online">{counts.ok} OK</span>
+          {counts.unknown > 0 && <span className="badge badge-unknown">{counts.unknown} ?</span>}
+        </div>
+        {hasPerm("page.settings") && (
+          <button className="btn ghost sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>↻ {refresh.isPending ? t("Bewertet…") : t("Jetzt neu bewerten")}</button>
+        )}
+      </div>
+      <p className="muted small">{t("Datenquelle: endoflife.date (täglich abgerufen, serverseitig gecacht). Rolling-Release-Systeme ohne festes Support-Ende erscheinen hier nicht. Vorwarnzeit und Alarme: Einstellungen → Benachrichtigungen.")}</p>
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : filtered.length === 0 ? (
+        <p className="empty">{(rows ?? []).length === 0 ? t("Noch keine Bewertung – sie läuft wenige Minuten nach dem Serverstart und danach täglich.") : t("Keine Treffer.")}</p>
+      ) : (
+        <div className="scroll-list" style={{ maxHeight: "70vh" }}>
+          <table className="table">
+            <thead><tr><th>{t("Gerät")}</th><th>{t("Firma / Standort")}</th><th>{t("Produkt")}</th><th>{t("Version")}</th><th>{t("Support-Ende")}</th><th>{t("Restlaufzeit")}</th></tr></thead>
+            <tbody>
+              {filtered.map((r) => {
+                const left = daysLeft(r.eol_date);
+                const pct = left === null ? 0 : Math.max(0, Math.min(100, Math.round((left / (5 * 365)) * 100)));
+                const color = r.status === "eol" ? "var(--red)" : r.status === "soon" ? "var(--orange, #d97706)" : "var(--green, #16a34a)";
+                return (
+                  <tr key={r.device_id + r.kind}>
+                    <td><Link to={`/devices/${r.device_id}`} className="link-strong">{r.hostname}</Link>{r.kind === "proxmox" && <span className="muted small"> · Proxmox VE</span>}</td>
+                    <td className="muted">{r.client_name ? `${r.client_name} › ${r.site_name}` : "—"}</td>
+                    <td className="muted">{r.product}</td>
+                    <td className="mono small" title={r.label}>{r.cycle}{r.label && r.label !== r.cycle ? <span className="muted"> · {r.label}</span> : null}</td>
+                    <td><EolBadge status={r.status} date={r.eol_date} /></td>
+                    <td style={{ minWidth: 180 }}>
+                      {left === null ? <span className="muted">—</span> : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ display: "inline-block", width: 120, height: 8, background: "var(--surface-2)", borderRadius: 4, overflow: "hidden" }}>
+                            <span style={{ display: "block", width: `${pct}%`, height: "100%", background: color }} />
+                          </span>
+                          <span className={`small ${left < 0 ? "form-err" : "muted"}`}>{left < 0 ? t("seit {n} Tagen", { n: -left }) : t("{n} Tage", { n: left })}</span>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

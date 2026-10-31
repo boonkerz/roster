@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,40 +59,76 @@ type generalSettings struct {
 	Timezone  string `json:"timezone"`             // "" = Systemzeit des jeweiligen Geräts
 	ServerNow string `json:"server_now,omitempty"` // aktuelle Zeit in der wirksamen Zone (nur lesend)
 	Effective string `json:"effective,omitempty"`  // tatsächlich verwendete Zone (Fallback sichtbar machen)
+	// Support-Ende (EOL): Vorwarnzeit in Tagen und Alarm-Schalter.
+	EOLWarnDays int  `json:"eol_warn_days"`
+	EOLAlerts   bool `json:"eol_alerts"`
+}
+
+// generalSettingsPatch ist der Schreib-Body: nur gesetzte Felder werden geändert, damit
+// die Zeitzonen-Karte und die EOL-Karte sich nicht gegenseitig überschreiben.
+type generalSettingsPatch struct {
+	Timezone    *string `json:"timezone"`
+	EOLWarnDays *int    `json:"eol_warn_days"`
+	EOLAlerts   *bool   `json:"eol_alerts"`
 }
 
 // handleGetGeneralSettings liefert die allgemeinen Einstellungen samt aktueller Serverzeit
 // – so sieht man in der Oberfläche sofort, ob die Zone die gemeinte ist.
 func (s *Server) handleGetGeneralSettings(w http.ResponseWriter, r *http.Request) {
 	loc := s.location(r.Context())
+	warn, alerts := s.eolSettings(r.Context())
 	s.writeJSON(w, http.StatusOK, generalSettings{
-		Timezone:  s.timezoneName(r.Context()),
-		ServerNow: time.Now().In(loc).Format(time.RFC3339),
-		Effective: loc.String(),
+		Timezone:    s.timezoneName(r.Context()),
+		ServerNow:   time.Now().In(loc).Format(time.RFC3339),
+		Effective:   loc.String(),
+		EOLWarnDays: warn,
+		EOLAlerts:   alerts,
 	})
 }
 
 // handleSetGeneralSettings speichert die Zeitzone. Der Name wird geprüft, bevor er in die
 // Datenbank geht – ein Tippfehler würde sonst still auf time.Local zurückfallen.
 func (s *Server) handleSetGeneralSettings(w http.ResponseWriter, r *http.Request) {
-	var req generalSettings
+	var req generalSettingsPatch
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	name := strings.TrimSpace(req.Timezone)
-	if name != "" {
-		if _, err := time.LoadLocation(name); err != nil {
-			s.writeErr(w, http.StatusBadRequest, "unbekannte Zeitzone: "+name)
+	if req.Timezone != nil {
+		name := strings.TrimSpace(*req.Timezone)
+		if name != "" {
+			if _, err := time.LoadLocation(name); err != nil {
+				s.writeErr(w, http.StatusBadRequest, "unbekannte Zeitzone: "+name)
+				return
+			}
+		}
+		if err := s.store.SetSetting(r.Context(), store.SettingTimezone, name); err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
+		s.tzMu.Lock()
+		s.tzName, s.tzLoc = "", nil // Cache verwerfen, nächster Zugriff löst neu auf
+		s.tzMu.Unlock()
+		s.log.Info("zeitzone gesetzt", "zone", name)
+	}
+	if req.EOLWarnDays != nil {
+		if *req.EOLWarnDays < 0 || *req.EOLWarnDays > 3650 {
+			s.writeErr(w, http.StatusBadRequest, "Vorwarnzeit muss zwischen 0 und 3650 Tagen liegen")
+			return
+		}
+		if err := s.store.SetSetting(r.Context(), store.SettingEOLWarnDays, strconv.Itoa(*req.EOLWarnDays)); err != nil {
+			s.mapStoreErr(w, err)
 			return
 		}
 	}
-	if err := s.store.SetSetting(r.Context(), store.SettingTimezone, name); err != nil {
-		s.mapStoreErr(w, err)
-		return
+	if req.EOLAlerts != nil {
+		v := "1"
+		if !*req.EOLAlerts {
+			v = "0"
+		}
+		if err := s.store.SetSetting(r.Context(), store.SettingEOLAlerts, v); err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
 	}
-	s.tzMu.Lock()
-	s.tzName, s.tzLoc = "", nil // Cache verwerfen, nächster Zugriff löst neu auf
-	s.tzMu.Unlock()
-	s.log.Info("zeitzone gesetzt", "zone", name)
 	s.handleGetGeneralSettings(w, r)
 }

@@ -120,6 +120,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			sum.DevicesWithSecurityPatches++
 			sum.SecurityPatches += *d.SecurityUpdatesCount
 		}
+		switch d.EOLStatus {
+		case "eol":
+			sum.DevicesEOL++
+		case "soon":
+			sum.DevicesEOLSoon++
+		}
 		if d.VulnCount > 0 {
 			sum.DevicesWithVulns++
 			sum.Vulnerabilities += d.VulnCount

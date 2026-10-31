@@ -180,7 +180,9 @@ const deviceCols = `d.id, d.hostname, d.os, d.os_version, d.vendor, d.model, d.s
 			WHERE tr2.device_id=tr.device_id AND tr2.task_id=tr.task_id)),
 	(SELECT COUNT(*) FROM vulnerabilities v WHERE v.device_id=d.id),
 	d.managed, d.software_alerts, d.proxmox_version, d.proxmox_storages, d.security_updates_count,
-	d.auto_updates, d.kernel_running, d.kernel_installed, d.os_build, d.os_codename, d.os_edition`
+	d.auto_updates, d.kernel_running, d.kernel_installed, d.os_build, d.os_codename, d.os_edition,
+	(SELECT e.status FROM device_eol e WHERE e.device_id=d.id AND e.kind='os'),
+	(SELECT e.eol_date FROM device_eol e WHERE e.device_id=d.id AND e.kind='os')`
 
 const deviceFrom = ` FROM devices d
 	LEFT JOIN sites s ON s.id = d.site_id
@@ -1130,7 +1132,8 @@ func scanDevice(row scanner) (*model.Device, error) {
 	var mem int64
 	var users string
 	var updatesCount, securityCount sql.NullInt64
-	var siteID, siteName, clientID, clientName sql.NullString
+	var siteID, siteName, clientID, clientName, eolStatus sql.NullString
+	var eolDate sql.NullTime
 	var proxmoxStorages string
 	err := row.Scan(&d.ID, &d.Hostname, &d.OS, &d.OSVersion, &d.Vendor, &d.Model, &d.Serial,
 		&d.CPUModel, &d.CPUCores, &d.CPUSockets, &d.CPUThreads, &d.PublicIP,
@@ -1138,9 +1141,15 @@ func scanDevice(row scanner) (*model.Device, error) {
 		&updatesCount, &updatesCheckedAt, &d.Notes, &siteID, &siteName, &clientID, &clientName,
 		&d.ChecksTotal, &d.ChecksFailing, &d.TasksTotal, &d.TasksFailing, &d.VulnCount, &d.Managed, &d.SoftwareAlerts,
 		&d.ProxmoxVersion, &proxmoxStorages, &securityCount,
-		&d.AutoUpdates, &d.KernelRunning, &d.KernelInstalled, &d.OSBuild, &d.OSCodename, &d.OSEdition)
+		&d.AutoUpdates, &d.KernelRunning, &d.KernelInstalled, &d.OSBuild, &d.OSCodename, &d.OSEdition,
+		&eolStatus, &eolDate)
 	if err != nil {
 		return nil, err
+	}
+	d.EOLStatus = eolStatus.String
+	if eolDate.Valid {
+		t := eolDate.Time
+		d.EOLDate = &t
 	}
 	if securityCount.Valid {
 		n := int(securityCount.Int64)
