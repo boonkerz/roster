@@ -746,6 +746,8 @@ func (s *Store) LatestTaskResultsFor(ctx context.Context, deviceID string) ([]mo
 // nicht gelöscht – sie halten je Check nur den aktuellen Stand.
 func (s *Store) PruneHistory(ctx context.Context, cutoff, auditCutoff time.Time) (int64, int64, error) {
 	_ = s.PruneFIMEvents(ctx, cutoff) // Datei-Änderungen wie die übrige Historie aufräumen
+	// Anmeldeereignisse 90 Tage, erledigte Vorfälle ein Jahr.
+	_ = s.PruneSecurityEvents(ctx, time.Now().AddDate(0, 0, -90), time.Now().AddDate(-1, 0, 0))
 	cut := cutoff.UTC()
 	tr, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM task_results WHERE ran_at < ?`), cut)
 	if err != nil {

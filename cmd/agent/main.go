@@ -23,6 +23,7 @@ import (
 
 	"github.com/kardianos/service"
 
+	"github.com/boonkerz/roster/internal/agent/authlog"
 	"github.com/boonkerz/roster/internal/agent/collect"
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/fim"
@@ -111,6 +112,8 @@ type program struct {
 	fimEvents []shared.FIMEvent
 	fimNow    chan struct{}
 	fimReset  bool
+	// Anmeldungs-Überwachung: wartende Ereignisse (Cursor hält das authlog-Paket).
+	authEvents []shared.AuthEvent
 
 	policy            *shared.PolicyBundle   // zuletzt empfangene Policy
 	pendingChecks     []shared.CheckResult   // beim nächsten Checkin zu meldende Check-Ergebnisse
@@ -193,6 +196,7 @@ func (p *program) run(ctx context.Context) {
 	p.stateDir = filepath.Dir(cfg.StatePath)
 	p.fimNow = make(chan struct{}, 1)
 	go p.fimLoop(ctx)
+	go p.authLoop(ctx)
 	if !cfg.DisableUpdateCheck {
 		go p.updateChecker(ctx, cfg.UpdateCheckInterval)
 	}
@@ -291,6 +295,12 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	} else {
 		p.fimEvents = nil
 	}
+	authEv := p.authEvents
+	if len(authEv) > 500 {
+		authEv, p.authEvents = authEv[:500], authEv[500:]
+	} else {
+		p.authEvents = nil
+	}
 	p.pendingChecks, p.pendingTasks, p.pendingCmdResults, p.patchHistory = nil, nil, nil, nil
 	p.mu.Unlock()
 
@@ -300,7 +310,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	}
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
-		Sample: sample, PatchHistory: history, FIMEvents: fimEv,
+		Sample: sample, PatchHistory: history, FIMEvents: fimEv, AuthEvents: authEv,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -312,6 +322,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 			p.patchHistory = history
 		}
 		p.fimEvents = append(fimEv, p.fimEvents...)
+		p.authEvents = append(authEv, p.authEvents...)
 		p.mu.Unlock()
 		return 0, ""
 	}
@@ -1097,5 +1108,37 @@ func (p *program) fimLoop(ctx context.Context) {
 		case <-t.C:
 			run(false)
 		}
+	}
+}
+
+// authLoop liest jede Minute neue Anmelde-/Kontoereignisse, solange die wirksame
+// Richtlinie die Anmeldungs-Überwachung einschaltet; neue Ereignisse stoßen einen
+// Checkin an (höchstens einer pro Minute), damit Brute-Force schnell beim Server ankommt.
+func (p *program) authLoop(ctx context.Context) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		p.mu.Lock()
+		on := p.policy != nil && p.policy.Security != nil && p.policy.Security.AuthMonitor
+		p.mu.Unlock()
+		if !on {
+			continue
+		}
+		cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		events := authlog.Collect(cctx, p.stateDir)
+		cancel()
+		if len(events) == 0 {
+			continue
+		}
+		p.mu.Lock()
+		p.authEvents = append(p.authEvents, events...)
+		p.mu.Unlock()
+		p.log.Info("auth-ereignisse gelesen", "n", len(events))
+		p.requestCheckin()
 	}
 }

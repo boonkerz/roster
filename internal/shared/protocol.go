@@ -34,6 +34,20 @@ type CheckinRequest struct {
 	PatchHistory []PatchEvent `json:"patch_history,omitempty"`
 	// FIMEvents sind seit dem letzten Checkin erkannte Datei-Änderungen (Datei-Integrität).
 	FIMEvents []FIMEvent `json:"fim_events,omitempty"`
+	// AuthEvents sind neu gelesene Anmelde-/Kontoereignisse (Anmeldungs-Überwachung).
+	AuthEvents []AuthEvent `json:"auth_events,omitempty"`
+}
+
+// AuthEvent ist ein Anmelde- oder Kontoereignis (sshd, sudo, su, PAM, Windows-
+// Sicherheitsprotokoll, macOS log).
+type AuthEvent struct {
+	Time     time.Time `json:"time"`
+	Kind     string    `json:"kind"` // login_failed | login_ok | invalid_user | lockout | sudo | su | user_added | user_removed | user_modified | group_changed | password_changed
+	User     string    `json:"user,omitempty"`
+	SourceIP string    `json:"source_ip,omitempty"`
+	Service  string    `json:"service,omitempty"` // sshd | rdp | console | network | sudo | su | pam | system
+	Detail   string    `json:"detail,omitempty"`
+	RecordID string    `json:"record_id,omitempty"` // Journal-Cursor / Datei-Offset / Windows RecordId – macht den Import idempotent
 }
 
 // FIMEvent ist eine von der Datei-Integritätsüberwachung erkannte Änderung.

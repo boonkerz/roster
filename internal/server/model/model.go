@@ -123,6 +123,8 @@ type Device struct {
 	EOLDate   *time.Time `json:"eol_date,omitempty"`
 	// FIMOpen zählt unbestätigte Datei-Änderungen (Datei-Integrität).
 	FIMOpen int `json:"fim_open"`
+	// IncidentsOpen zählt offene Sicherheitsvorfälle.
+	IncidentsOpen int `json:"incidents_open"`
 
 	// Policy-Check-Zusammenfassung (für Health-Badge in der Liste).
 	ChecksTotal   int `json:"checks_total"`
@@ -487,6 +489,57 @@ type PolicyFIMRule struct {
 	Alert     bool     `json:"alert"`
 }
 
+// AuthEvent ist ein gespeichertes Anmelde-/Kontoereignis.
+type AuthEvent struct {
+	ID         string    `json:"id"`
+	DeviceID   string    `json:"device_id"`
+	Hostname   string    `json:"hostname,omitempty"`
+	ClientName string    `json:"client_name,omitempty"`
+	TS         time.Time `json:"ts"`
+	Kind       string    `json:"kind"`
+	Username   string    `json:"username,omitempty"`
+	SourceIP   string    `json:"source_ip,omitempty"`
+	Service    string    `json:"service,omitempty"`
+	Detail     string    `json:"detail,omitempty"`
+}
+
+// SecurityIncident ist ein abgeleiteter Sicherheitsvorfall eines Geräts.
+type SecurityIncident struct {
+	ID                string     `json:"id"`
+	DeviceID          string     `json:"device_id"`
+	Hostname          string     `json:"hostname,omitempty"`
+	ClientName        string     `json:"client_name,omitempty"`
+	SiteName          string     `json:"site_name,omitempty"`
+	TS                time.Time  `json:"ts"`
+	Kind              string     `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change
+	Severity          string     `json:"severity"` // info | warning | critical
+	SourceIP          string     `json:"source_ip,omitempty"`
+	Username          string     `json:"username,omitempty"`
+	Title             string     `json:"title"`
+	Detail            string     `json:"detail,omitempty"`
+	Status            string     `json:"status"` // open | acknowledged | resolved
+	Response          string     `json:"response,omitempty"`
+	ResponseStatus    string     `json:"response_status,omitempty"`
+	ResponseCommandID string     `json:"response_command_id,omitempty"`
+	AcknowledgedBy    string     `json:"acknowledged_by,omitempty"`
+	AcknowledgedAt    *time.Time `json:"acknowledged_at,omitempty"`
+}
+
+// IPCount ist eine Quell-IP mit Trefferzahl.
+type IPCount struct {
+	IP    string `json:"ip"`
+	Count int    `json:"count"`
+}
+
+// SecuritySummary sind die Kopfzahlen der Sicherheitsseite.
+type SecuritySummary struct {
+	OpenIncidents    int       `json:"open_incidents"`
+	CriticalOpen     int       `json:"critical_open"`
+	FailedLogins24h  int       `json:"failed_logins_24h"`
+	DevicesMonitored int       `json:"devices_monitored"`
+	TopIPs           []IPCount `json:"top_ips"`
+}
+
 // FIMEvent ist eine gespeicherte Datei-Änderung.
 type FIMEvent struct {
 	ID           string    `json:"id"`
@@ -806,6 +859,8 @@ type DashboardSummary struct {
 	SecurityPatches            int          `json:"security_patches"`
 	DevicesEOL                 int          `json:"devices_eol"`      // Support-Ende erreicht
 	DevicesEOLSoon             int          `json:"devices_eol_soon"` // Support-Ende innerhalb der Vorwarnzeit
+	OpenIncidents              int          `json:"open_incidents"`   // offene Sicherheitsvorfälle
+	FailedLogins24h            int          `json:"failed_logins_24h"`
 	DevicesWithVulns           int          `json:"devices_with_vulns"`
 	Vulnerabilities            int          `json:"vulnerabilities"`
 	RecentEvents               []CheckEvent `json:"recent_events"`

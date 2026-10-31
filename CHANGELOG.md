@@ -50,6 +50,16 @@ All notable changes to Roster are documented here. The format follows
   "Security" page with the fleet-wide "File integrity" tab (filters, acknowledge), device
   tab "File integrity" (re-scan, reset baseline) in the new "Security" tab group, open-change
   counter on the device.
+- Security: **login monitoring and incidents** – with "Monitor logins" enabled in a policy the
+  agent reads SSH/console logins, sudo/su and account changes incrementally from journald or
+  `/var/log/auth.log`/`secure`, the Windows Security log (4624/4625/4740/4720/4726/4728/4732 …)
+  and the macOS unified log. The server derives **incidents**: brute force per source IP
+  (threshold and window configurable), successful login after brute force (critical), first
+  login from a new source IP (after a learning phase), account/group changes (admin groups as
+  warning) and lockouts – each alerted through the usual channels. Security page tabs
+  "Incidents" (acknowledge/resolve, filters, top source IPs) and "Logins", device tab
+  "Logins", open-incident counter in the navigation, device list and dashboard. New settings
+  area "Security monitoring" (thresholds, learning phase, never-block list, cooldown).
 - Policies: **Notifications** section – software-change alerts can be switched on/off per policy
   (device > site > company precedence), filtered by change type (installed/removed/updated) and
   by ignore patterns (e.g. `Microsoft Edge*`). The device setting is now three-way

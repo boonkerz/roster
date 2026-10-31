@@ -10,6 +10,9 @@ import { Account } from "../pages/Account";
 import { BulkActions } from "./BulkActions";
 import { FleetVulnerabilities } from "./FleetVulnerabilities";
 import { NetworkScan } from "./NetworkScan";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../api";
+import type { SecuritySummary } from "../types";
 
 type ModalKey = "groups" | "settings" | "account" | "bulk" | "vulns" | "netscan";
 
@@ -46,6 +49,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settingsArea, setSettingsArea] = useState<SettingsArea>();
 
   const openSettings = (area: SettingsArea) => { setSettingsArea(area); setModal("settings"); };
+  const { data: secSummary } = useQuery({
+    queryKey: ["security-summary"], queryFn: () => api.get<SecuritySummary>("/security/summary"),
+    enabled: hasPerm("page.devices"), refetchInterval: 30000,
+  });
+  const openIncidents = secSummary?.open_incidents ?? 0;
 
   return (
     <div className="app">
@@ -57,7 +65,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {hasPerm("page.dashboard") && <NavLink to="/dashboard">{t("Übersicht")}</NavLink>}
           {hasPerm("page.devices") && <NavLink to="/devices">{t("Geräte")}</NavLink>}
           {hasPerm("page.devices") && <NavLink to="/patches">{t("Patches")}</NavLink>}
-          {hasPerm("page.devices") && <NavLink to="/security">{t("Sicherheit")}</NavLink>}
+          {hasPerm("page.devices") && <NavLink to="/security">{t("Sicherheit")}{openIncidents > 0 && <span className="tab-count tab-count-bad" style={{ marginLeft: 6 }}>{openIncidents}</span>}</NavLink>}
           {hasPerm("page.policies") && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
           {hasPerm("page.scripts") && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
           {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>}
@@ -72,6 +80,7 @@ export function Layout({ children }: { children: ReactNode }) {
               { label: t("Geräte-Verwaltung"), onClick: () => openSettings("devices") },
               { label: t("Downloads"), onClick: () => openSettings("downloads") },
               { label: t("Sicherheit & Protokoll"), onClick: () => openSettings("security") },
+              ...(isAdmin ? [{ label: t("Sicherheitsüberwachung"), onClick: () => openSettings("secmon") }] : []),
             ]} />
           )}
         </nav>

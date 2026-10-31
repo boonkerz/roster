@@ -384,6 +384,60 @@ export interface PolicyFIMRule {
   alert: boolean;
 }
 
+// AuthEvent ist ein Anmelde-/Kontoereignis (Anmeldungs-Überwachung).
+export interface AuthEvent {
+  id: string;
+  device_id: string;
+  hostname?: string;
+  client_name?: string;
+  ts: string;
+  kind: string;
+  username?: string;
+  source_ip?: string;
+  service?: string;
+  detail?: string;
+}
+
+// SecurityIncident ist ein abgeleiteter Sicherheitsvorfall.
+export interface SecurityIncident {
+  id: string;
+  device_id: string;
+  hostname?: string;
+  client_name?: string;
+  site_name?: string;
+  ts: string;
+  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | string;
+  severity: "info" | "warning" | "critical";
+  source_ip?: string;
+  username?: string;
+  title: string;
+  detail?: string;
+  status: "open" | "acknowledged" | "resolved";
+  response?: string;
+  response_status?: string;
+  response_command_id?: string;
+  acknowledged_by?: string;
+  acknowledged_at?: string;
+}
+
+export interface SecuritySummary {
+  open_incidents: number;
+  critical_open: number;
+  failed_logins_24h: number;
+  devices_monitored: number;
+  top_ips: { ip: string; count: number }[];
+}
+
+export interface SecuritySettings {
+  bf_threshold: number;
+  bf_window_min: number;
+  new_ip_alert: boolean;
+  new_ip_ignore_private: boolean;
+  learn_days: number;
+  never_block: string[];
+  response_cooldown_min: number;
+}
+
 // FIMEvent ist eine erkannte Datei-Änderung (Datei-Integrität).
 export interface FIMEvent {
   id: string;
@@ -588,6 +642,7 @@ export interface Device {
   eol_status?: "ok" | "soon" | "eol" | "unknown";
   eol_date?: string;
   fim_open?: number;
+  incidents_open?: number;
   assigned_checks?: number;
   assigned_tasks?: number;
   check_results?: CheckResult[];
@@ -675,6 +730,8 @@ export interface DashboardSummary {
   security_patches: number;
   devices_eol?: number;
   devices_eol_soon?: number;
+  open_incidents?: number;
+  failed_logins_24h?: number;
   devices_with_vulns: number;
   vulnerabilities: number;
   recent_events: CheckEvent[];

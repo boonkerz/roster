@@ -66,6 +66,7 @@ export function baseDeviceColumns(t: Tr): DevColumn[] {
     { key: "kernel", label: t("Kernel"), render: (d) => <td><KernelBadge running={d.kernel_running} installed={d.kernel_installed} /></td> },
     { key: "os_build", label: t("OS-Build"), render: (d) => <td className="muted mono">{d.os_build || d.os_codename || "—"}</td> },
     { key: "eol", label: t("Support-Ende"), render: (d) => <td><EolBadge status={d.eol_status} date={d.eol_date} /></td> },
+    { key: "incidents", label: t("Vorfälle"), render: (d, ctx) => jumpCell(d, ctx, "authlog", ctx.t("Zu den Vorfällen springen"), d.incidents_open ? <span className="badge badge-offline">{d.incidents_open}</span> : dash) },
     { key: "agent", label: t("Agent"), render: (d) => <td className="muted mono">{d.agent_version || "—"}</td> },
     { key: "last_seen", label: t("Zuletzt gesehen"), render: (d) => <td className="muted">{relTime(d.last_seen)}</td> },
   ];

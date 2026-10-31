@@ -124,6 +124,7 @@ export function Devices() {
       case "vulns": return (d.vuln_count ?? 0) > 0;
       case "security-updates": return (d.security_updates_count ?? 0) > 0;
       case "eol": return d.eol_status === "eol" || d.eol_status === "soon";
+      case "incidents": return (d.incidents_open ?? 0) > 0;
       default: return true;
     }
   };
@@ -133,6 +134,7 @@ export function Devices() {
     "vulns": t("Nur Geräte mit Schwachstellen"),
     "security-updates": t("Nur Geräte mit Sicherheits-Updates"),
     "eol": t("Nur Geräte mit nahendem oder erreichtem Support-Ende"),
+    "incidents": t("Nur Geräte mit offenen Sicherheitsvorfällen"),
   };
   if (healthCheck) {
     const name = failingChecks.find((fc) => fc.id === healthCheck)?.name ?? checkOptions.find((c) => c.id === healthCheck)?.name ?? healthCheck;

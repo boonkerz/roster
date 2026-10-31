@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings } from "../types";
 
 // SettingsArea sind die Bereiche der (nach Themen gegliederten) Einstellungen.
-export type SettingsArea = "general" | "users" | "notify" | "devices" | "downloads" | "security";
+export type SettingsArea = "general" | "users" | "notify" | "devices" | "downloads" | "security" | "secmon";
 
 // settingsAreas definiert Reihenfolge, Label, Sichtbarkeit und Inhalt je Bereich.
 function useSettingsAreas() {
@@ -22,6 +22,8 @@ function useSettingsAreas() {
       render: () => <><Maintenance /><CustomFields /><SoftwarePackages /><Proxmox /></> },
     { key: "downloads" as const, label: t("Downloads"), adminOnly: false,
       render: () => <Downloads /> },
+    { key: "secmon" as const, label: t("Sicherheitsüberwachung"), adminOnly: true,
+      render: () => <SecurityMonitoring /> },
     { key: "security" as const, label: t("Sicherheit & Protokoll"), adminOnly: false,
       render: () => <><TwoFactor /><AuditLog /></> },
   ];
@@ -106,6 +108,49 @@ function Timezone() {
       <p className="muted small">
         {t("Achtung: Nach dem Umstellen laufen bestehende Tasks mit fester Uhrzeit zu einem anderen Zeitpunkt als bisher. Agenten älter als 0.16.0 planen weiter in ihrer eigenen Systemzeit.")}
       </p>
+    </section>
+  );
+}
+
+// SecurityMonitoring: Schwellwerte der Anmeldungs-Überwachung und Schranken der
+// automatischen Reaktion (Never-Block, Cooldown).
+function SecurityMonitoring() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const { data } = useQuery<SecuritySettings>({ queryKey: ["settings", "security"], queryFn: () => api.get("/settings/security") });
+  const [draft, setDraft] = useState<SecuritySettings | null>(null);
+  const [err, setErr] = useState("");
+  const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30 };
+  const save = useMutation({
+    mutationFn: (v: SecuritySettings) => api.put("/settings/security", v),
+    onSuccess: () => { setDraft(null); setErr(""); qc.invalidateQueries({ queryKey: ["settings", "security"] }); },
+    onError: (e: Error) => setErr(e.message),
+  });
+  const upd = (patch: Partial<SecuritySettings>) => setDraft({ ...cur, ...patch });
+  return (
+    <section className="card">
+      <h2>{t("Sicherheitsüberwachung")}</h2>
+      <p className="muted small">{t("Gilt für alle Geräte, deren Richtlinie „Anmeldungen überwachen“ aktiviert hat. Brute-Force zählt fehlgeschlagene Anmeldungen je Quell-IP im Zeitfenster; „neue Quell-IP“ meldet die erste erfolgreiche Anmeldung eines Benutzers von einer bisher unbekannten Adresse (nach der Lernphase).")}</p>
+      <div className="form-col" style={{ maxWidth: 560 }}>
+        <div className="inline-form">
+          <label className="num">{t("Brute-Force: Fehlversuche")}<input type="number" min={2} max={1000} value={cur.bf_threshold} onChange={(e) => upd({ bf_threshold: Number(e.target.value) })} style={{ width: 80 }} /></label>
+          <label className="num">{t("im Zeitfenster (Min.)")}<input type="number" min={1} max={1440} value={cur.bf_window_min} onChange={(e) => upd({ bf_window_min: Number(e.target.value) })} style={{ width: 80 }} /></label>
+        </div>
+        <div className="inline-form">
+          <label className="chip"><input type="checkbox" checked={cur.new_ip_alert} onChange={(e) => upd({ new_ip_alert: e.target.checked })} /> {t("Anmeldung von neuer Quell-IP melden")}</label>
+          <label className="chip"><input type="checkbox" checked={cur.new_ip_ignore_private} onChange={(e) => upd({ new_ip_ignore_private: e.target.checked })} /> {t("private Adressen dabei ignorieren")}</label>
+          <label className="num">{t("Lernphase (Tage)")}<input type="number" min={0} max={365} value={cur.learn_days} onChange={(e) => upd({ learn_days: Number(e.target.value) })} style={{ width: 80 }} /></label>
+        </div>
+        <label className="field"><span>{t("Nie sperren (Active Response) – IPs/CIDRs, kommagetrennt, z. B. 192.168.1.0/24, 10.0.0.5")}</span>
+          <input value={cur.never_block.join(", ")} onChange={(e) => upd({ never_block: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} placeholder="192.168.0.0/16" />
+        </label>
+        <div className="inline-form">
+          <label className="num">{t("Cooldown automatischer Reaktionen (Min.)")}<input type="number" min={0} max={10080} value={cur.response_cooldown_min} onChange={(e) => upd({ response_cooldown_min: Number(e.target.value) })} style={{ width: 80 }} /></label>
+          <button className="btn primary" disabled={draft === null || save.isPending} onClick={() => save.mutate(cur)}>{t("Speichern")}</button>
+          {draft !== null && <button className="btn ghost" onClick={() => { setDraft(null); setErr(""); }}>{t("Abbrechen")}</button>}
+        </div>
+        {err && <p className="error small">{err}</p>}
+      </div>
     </section>
   );
 }

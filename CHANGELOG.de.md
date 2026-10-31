@@ -50,6 +50,17 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
   Checkin gebündelt. Neue Seite „Sicherheit“ mit dem flottenweiten Tab „Datei-Integrität“ (Filter,
   Bestätigen), Geräte-Tab „Datei-Integrität“ (neu prüfen, Baseline neu setzen) in der neuen
   Tab-Gruppe „Sicherheit“, Zähler offener Änderungen am Gerät.
+- Sicherheit: **Anmeldungs-Überwachung und Vorfälle** – ist „Anmeldungen überwachen“ in einer
+  Richtlinie aktiv, liest der Agent SSH-/Konsolen-Anmeldungen, sudo/su und Kontoänderungen
+  inkrementell aus journald bzw. `/var/log/auth.log`/`secure`, dem Windows-Sicherheitsprotokoll
+  (4624/4625/4740/4720/4726/4728/4732 …) und dem macOS Unified Log. Der Server leitet **Vorfälle**
+  ab: Brute-Force je Quell-IP (Schwellwert und Zeitfenster einstellbar), erfolgreiche Anmeldung nach
+  Brute-Force (kritisch), erste Anmeldung von neuer Quell-IP (nach Lernphase), Konto-/Gruppen-
+  änderungen (Admin-Gruppen als Warnung) und Sperrungen – jeweils über die üblichen Kanäle
+  gemeldet. Sicherheitsseite mit Tabs „Vorfälle“ (bestätigen/erledigen, Filter, häufigste
+  Quell-IPs) und „Anmeldungen“, Geräte-Tab „Anmeldungen“, Zähler offener Vorfälle in Navigation,
+  Geräteliste und Übersicht. Neuer Einstellungsbereich „Sicherheitsüberwachung“ (Schwellwerte,
+  Lernphase, Nie-sperren-Liste, Cooldown).
 - Richtlinien: Bereich **Benachrichtigungen** – Software-Änderungsalarme lassen sich je Richtlinie
   ein-/ausschalten (Vorrang Gerät > Standort > Firma), nach Änderungsart (installiert/entfernt/
   aktualisiert) und über Ignorier-Muster (z. B. `Microsoft Edge*`) filtern. Die Einstellung am Gerät

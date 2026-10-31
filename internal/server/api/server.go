@@ -165,6 +165,11 @@ func (s *Server) routes() http.Handler {
 						r.Get("/devices/{id}/eol", s.handleDeviceEOL)
 						r.Get("/devices/{id}/fim", s.handleDeviceFIM)
 						r.Get("/security/fim", s.handleFIMFleet)
+						r.Get("/security/incidents", s.handleIncidents)
+						r.Get("/security/auth-events", s.handleAuthEvents)
+						r.Get("/security/summary", s.handleSecuritySummary)
+						r.Get("/devices/{id}/incidents", s.handleDeviceIncidents)
+						r.Get("/devices/{id}/auth-events", s.handleDeviceAuthEvents)
 						r.Get("/sites/{id}/assets", s.handleListSiteAssets)
 						r.Get("/devices/{id}/task-runs", s.handleDeviceTaskRuns)
 						r.Get("/devices/{id}/backup-runs", s.handleDeviceBackupRuns)
@@ -207,6 +212,8 @@ func (s *Server) routes() http.Handler {
 					// Richtlinien-Editor (der beschriftet die Zeitfelder mit der Zone).
 					r.With(s.requirePermAny(model.PermSettings, model.PermPolicies)).
 						Get("/settings/general", s.handleGetGeneralSettings)
+					r.With(s.requirePermAny(model.PermSettings, model.PermPolicies)).
+						Get("/settings/security", s.handleGetSecuritySettings)
 
 					// --- Einstellungen lesen (page.settings) ---
 					r.Group(func(r chi.Router) {
@@ -250,6 +257,7 @@ func (s *Server) routes() http.Handler {
 						r.Put("/devices/{id}/patches/approve", s.handleApprovePatch)
 						r.Put("/patches/approve", s.handleApprovePatches)
 						r.Put("/security/fim/ack", s.handleAckFIM)
+						r.Put("/security/incidents/{id}", s.handleSetIncidentStatus)
 						r.Post("/devices/{id}/fim/rescan", s.handleFIMRescan)
 						r.Post("/devices/{id}/fim/reset", s.handleFIMReset)
 						r.Post("/devices/{id}/reboot", s.handleReboot)
@@ -302,6 +310,7 @@ func (s *Server) routes() http.Handler {
 						r.Use(s.requirePerm(model.PermSettings))
 						r.Put("/settings/general", s.handleSetGeneralSettings)
 						r.Post("/eol/refresh", s.handleEOLRefresh)
+						r.Put("/settings/security", s.handleSetSecuritySettings)
 						r.Get("/audit", s.handleListAudit)
 						r.Get("/reports/health", s.handleHealthReport)
 						r.Get("/report-schedules", s.handleListReportSchedules)

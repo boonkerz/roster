@@ -92,6 +92,9 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ReplacePackageRepos(r.Context(), device.ID, req.Inventory.Repos); err != nil {
 		s.log.Error("paketquellen speichern", "err", err)
 	}
+	if len(req.AuthEvents) > 0 {
+		s.processAuthEvents(r.Context(), device, req.AuthEvents)
+	}
 	if len(req.FIMEvents) > 0 {
 		if err := s.store.InsertFIMEvents(r.Context(), device.ID, req.FIMEvents); err != nil {
 			s.log.Error("fim-ereignisse speichern", "err", err)

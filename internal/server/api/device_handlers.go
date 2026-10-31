@@ -134,6 +134,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if events, err := s.store.RecentCheckEvents(r.Context(), 20); err == nil {
 		sum.RecentEvents = events
 	}
+	if sec, err := s.store.SecuritySummary(r.Context(), filter); err == nil {
+		sum.OpenIncidents, sum.FailedLogins24h = sec.OpenIncidents, sec.FailedLogins24h
+	}
 	s.writeJSON(w, http.StatusOK, sum)
 }
 

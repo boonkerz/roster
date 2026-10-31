@@ -12,7 +12,7 @@ const RANGE_MS: Record<DashRange, number> = { "24h": 86_400_000, "7d": 7 * 86_40
 const RANGE_LABEL: Record<DashRange, string> = { "24h": "24 Stunden", "7d": "7 Tage", "30d": "30 Tage", "90d": "90 Tage", "365d": "1 Jahr" };
 const SUMMARY_LABEL: Record<string, string> = {
   device_status: "Geräte-Status", devices_total: "Geräte gesamt", devices_online: "Online", devices_offline: "Offline", devices_unknown: "Unbekannt",
-  failing_checks: "Checks fehlerhaft", failing_tasks: "Tasks fehlerhaft", pending_patches: "Ausstehende Patches", security_patches: "Sicherheits-Updates", vulnerabilities: "Schwachstellen", devices_eol: "Support-Ende (erreicht/bald)",
+  failing_checks: "Checks fehlerhaft", failing_tasks: "Tasks fehlerhaft", pending_patches: "Ausstehende Patches", security_patches: "Sicherheits-Updates", vulnerabilities: "Schwachstellen", devices_eol: "Support-Ende (erreicht/bald)", open_incidents: "Offene Sicherheitsvorfälle",
 };
 // Status-Farben sind reserviert (nie als Reihenfarbe) und stehen immer neben dem Label.
 const STATUS_COLOR: Record<string, string> = { passing: "var(--viz-status-ok)", online: "var(--viz-status-ok)", warning: "var(--viz-status-warn)", failing: "var(--viz-status-bad)", offline: "var(--viz-status-bad)", unknown: "var(--viz-status-unknown)" };

@@ -28,6 +28,7 @@ const FIELDS: FieldDef[] = [
   { v: "os_edition", label: "OS-Edition", kind: "text" },
   { v: "kernel_running", label: "Kernel", kind: "text" },
   { v: "eol_status", label: "Support-Ende", kind: "enum", values: ["ok", "soon", "eol", "unknown"] },
+  { v: "incidents_open", label: "Offene Vorfälle", kind: "num" },
   { v: "check", label: "Check", kind: "check" }, // Wert = Check-ID, Vergleich fehlerhaft / nicht fehlerhaft
 ];
 const OPS: Record<Kind, string[]> = { text: ["contains", "eq", "ne"], num: ["gt", "lt", "eq"], enum: ["eq", "ne"], check: ["failing", "ok"] };
