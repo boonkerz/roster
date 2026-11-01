@@ -7,6 +7,7 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Geändert
+- Gerät → Sicherheit: eigener Tab **Vorfälle** (Sicherheitsvorfälle, aktive IP-Sperren, Zähler offener Vorfälle); **Anmeldungen** zeigt nur noch die Überwachungskarte und die Anmeldeereignisse – wie auf der Flotten-Seite getrennt.
 - Gerät → Anmeldungen: Spalte heißt jetzt „Ereignisse seit Agent-Start“ (mit Erklärung), da der Zähler nur neue Zeilen zählt, „Testen“ aber rückwirkend liest.
 
 ## [0.18.6] - 2026-11-01

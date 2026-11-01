@@ -5,7 +5,7 @@ import { api } from "../api";
 import type { Device, Group, ClientTree, Script, CheckEvent, CheckResult, TaskResult, SoftwareEvent, DeviceSoftwareAlerts, PatchEvent } from "../types";
 import { PatchHistoryTable } from "./PatchHistoryTable";
 import { DeviceFim } from "./DeviceFim";
-import { DeviceAuth } from "./DeviceAuth";
+import { DeviceAuth, DeviceIncidents } from "./DeviceAuth";
 import { DeviceCompliance } from "./Compliance";
 import { StatusBadge, UpdatesBadge, HealthBadge, TaskHealthBadge, CheckStatusBadge, SeverityBadge, AutoUpdatesBadge, KernelBadge, EolBadge, relTime } from "./StatusBadge";
 import { DeviceTerminal } from "./DeviceTerminal";
@@ -30,7 +30,7 @@ import { UnmanagedDevicePanel } from "./UnmanagedDevicePanel";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 
-type Tab = "summary" | "live" | "checks" | "tasks" | "backups" | "history" | "storage" | "system" | "security" | "vulns" | "fim" | "authlog" | "compliance" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
+type Tab = "summary" | "live" | "checks" | "tasks" | "backups" | "history" | "storage" | "system" | "security" | "vulns" | "fim" | "incidents" | "authlog" | "compliance" | "events" | "files" | "software" | "updates" | "network" | "docker" | "proxmox" | "run" | "terminal" | "remote" | "fields";
 
 // fmtSize formatiert Bytes als TB/GB/MB.
 function fmtSize(n: number): string {
@@ -158,6 +158,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     security: { label: "Sicherheit", icon: "🛡" },
     vulns: { label: "Schwachstellen", icon: "🐞" },
     fim: { label: "Datei-Integrität", icon: "🗂" },
+    incidents: { label: "Vorfälle", icon: "🚨" },
     authlog: { label: "Anmeldungen", icon: "🔑" },
     compliance: { label: "Compliance", icon: "📋" },
     events: { label: "Ereignisse", icon: "📃" },
@@ -184,7 +185,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
     { name: "Zustand", icon: "✓", tabs: ["checks", "tasks", "backups", "history"] },
     { name: "Inventar", icon: "📦", tabs: ["software", "updates", "storage", "network", ...(hasDocker ? ["docker" as Tab] : []), ...(hasProxmox ? ["proxmox" as Tab] : []), "fields"] },
     { name: "System", icon: "⚙", tabs: ["system", "events"] },
-    { name: "Sicherheit", icon: "🛡", tabs: ["authlog", "fim", "compliance", "vulns", "security"] },
+    { name: "Sicherheit", icon: "🛡", tabs: ["incidents", "authlog", "fim", "compliance", "vulns", "security"] },
   ];
   if (canOperate) tabGroups.push({ name: "Zugriff", icon: "❯_", tabs: ["files", "run", "terminal", "remote"] });
 
@@ -196,7 +197,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
       {k === "updates" && <span className="tab-badge"><UpdatesBadge count={device.updates_count} security={device.security_updates_count} /></span>}
       {k === "software" && <span className="tab-count">{(device.software ?? []).length}</span>}
       {k === "fim" && (device.fim_open ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.fim_open}</span>}
-      {k === "authlog" && (device.incidents_open ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.incidents_open}</span>}
+      {k === "incidents" && (device.incidents_open ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.incidents_open}</span>}
       {k === "compliance" && device.compliance_score !== undefined && device.compliance_score !== null && <span className={`tab-count ${device.compliance_score < 80 ? "tab-count-bad" : ""}`}>{device.compliance_score}%</span>}
       {k === "vulns" && (device.vuln_count ?? 0) > 0 && <span className="tab-count tab-count-bad">{device.vuln_count}</span>}
       {k === "docker" && <span className="tab-count">{(device.docker_containers ?? []).length}</span>}
@@ -209,7 +210,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   // Fehler-/Warn-Indikator an der Gruppe „Zustand" / „Inventar".
   const groupAlert = (g: { tabs: Tab[] }) =>
     (g.tabs.includes("fim") && (device.fim_open ?? 0) > 0) ||
-    (g.tabs.includes("authlog") && (device.incidents_open ?? 0) > 0) ||
+    (g.tabs.includes("incidents") && (device.incidents_open ?? 0) > 0) ||
     (g.tabs.includes("checks") && (device.checks_failing ?? 0) > 0) ||
     (g.tabs.includes("tasks") && (device.tasks_failing ?? 0) > 0) ||
     (g.tabs.includes("updates") && (device.updates_count ?? 0) > 0);
@@ -595,6 +596,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
 
         {tab === "vulns" && <Vulnerabilities deviceId={id} />}
         {tab === "fim" && <DeviceFim deviceId={id} canOperate={canOperate} />}
+        {tab === "incidents" && <DeviceIncidents deviceId={id} canOperate={canOperate} />}
         {tab === "authlog" && <DeviceAuth deviceId={id} canOperate={canOperate} />}
         {tab === "compliance" && <DeviceCompliance deviceId={id} canOperate={canOperate} score={device.compliance_score} checkedAt={device.compliance_checked_at} />}
 

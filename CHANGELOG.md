@@ -7,6 +7,7 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Device → Security: separate **Incidents** tab (security incidents, active IP blocks, open-incident counter); **Logins** now shows only the monitoring card and login events – split like the fleet page.
 - Device → Logins: column is now “Events since agent start” (with explanation), as the counter only counts new lines while “Test” reads retroactively.
 
 ## [0.18.6] - 2026-11-01

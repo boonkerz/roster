@@ -1428,4 +1428,7 @@ export const EN: Record<string, string> = {
   "Andere ({n} Länder)": "Other ({n} countries)",
   "Ereignisse seit Agent-Start": "Events since agent start",
   "Zählt nur neue Zeilen seit dem Start des Agents; „Testen“ liest dagegen die letzten Zeilen rückwirkend.": "Counts only new lines since the agent started; “Test” reads the last lines retroactively.",
+  "Keine aktiven Sperren auf diesem Gerät.": "No active blocks on this device.",
+  "Alle Sperren mit Suche": "All blocks with search",
+  "Anmeldeereignisse des Systems (SSH/RDP/Konsole, sudo, Kontoänderungen) und Treffer der Log-Quellen. Vorfälle daraus stehen im Tab „Vorfälle“.": "Login events of the system (SSH/RDP/console, sudo, account changes) and hits from log sources. Incidents derived from them are in the “Incidents” tab.",
 };
