@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Richtlinien: Der Richtlinien-Editor stürzte beim Laden des Compliance-Regelkatalogs ab („Cannot read properties of null“) – Regeln ohne Profil-Einschränkung kamen als `null`; der Server liefert jetzt leere Listen, der Editor verträgt fehlende Felder.
+
 ## [0.17.0] - 2026-11-01
 
 ### Neu

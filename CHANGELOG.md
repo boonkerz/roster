@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Policies: the policy editor crashed ("Cannot read properties of null") when the compliance rule catalog was loaded – rules without a profile restriction were delivered as `null`; the server now sends empty lists and the editor tolerates missing fields.
+
 ## [0.17.0] - 2026-11-01
 
 ### Added

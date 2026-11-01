@@ -120,7 +120,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
     || compOn !== (sec?.compliance_enabled ?? false) || compProfile !== (sec?.compliance_profile ?? "server")
     || compInterval !== (sec?.compliance_interval_h ?? 24) || compDisabled.join(",") !== (sec?.compliance_disabled ?? []).join(",");
   const toggleRule = (id: string) => setCompDisabled((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
-  const visibleRules = catalog.filter((r) => (r.profiles.length === 0 || r.profiles.includes(compProfile)) && (!ruleFilter || `${r.id} ${r.title} ${r.title_en} ${r.category}`.toLowerCase().includes(ruleFilter.toLowerCase())));
+  const visibleRules = catalog.filter((r) => ((r.profiles ?? []).length === 0 || (r.profiles ?? []).includes(compProfile)) && (!ruleFilter || `${r.id} ${r.title} ${r.title_en} ${r.category}`.toLowerCase().includes(ruleFilter.toLowerCase())));
   const byCategory = visibleRules.reduce<Record<string, typeof visibleRules>>((acc, r) => { (acc[r.category] ??= []).push(r); return acc; }, {});
   const togglePlatform = (p: string) => setDraft((d) => ({ ...d, platforms: d.platforms.includes(p) ? d.platforms.filter((x) => x !== p) : [...d.platforms, p] }));
 
@@ -215,7 +215,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
               <div className="chips">
                 {rs.map((r) => (
                   <label key={r.id} className={`chip ${compDisabled.includes(r.id) ? "" : "chip-on"}`} title={`${r.description}\n${r.platforms.join(", ")} · ${t(SEVERITY_LABEL[r.severity])}`}>
-                    <input type="checkbox" checked={!compDisabled.includes(r.id)} onChange={() => toggleRule(r.id)} /> {ruleTitle(r, lang, r.id)} <span className="muted small">({r.platforms.map((p) => p[0].toUpperCase()).join("")})</span>
+                    <input type="checkbox" checked={!compDisabled.includes(r.id)} onChange={() => toggleRule(r.id)} /> {ruleTitle(r, lang, r.id)} <span className="muted small">({(r.platforms ?? []).map((p) => p[0].toUpperCase()).join("")})</span>
                   </label>
                 ))}
               </div>

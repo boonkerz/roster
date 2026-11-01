@@ -145,7 +145,7 @@ export function FleetCompliance() {
                 const isOpen = openRule === s.rule_id;
                 return [
                   <tr key={s.rule_id} className="small" style={{ cursor: s.failed > 0 ? "pointer" : undefined }} onClick={() => s.failed > 0 && setOpenRule(isOpen ? null : s.rule_id)}>
-                    <td>{s.failed > 0 && <span className="muted">{isOpen ? "▾ " : "▸ "}</span>}<strong>{ruleTitle(rule, lang, s.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · {rule.platforms.join(", ")}</div>}</td>
+                    <td>{s.failed > 0 && <span className="muted">{isOpen ? "▾ " : "▸ "}</span>}<strong>{ruleTitle(rule, lang, s.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · {(rule.platforms ?? []).join(", ")}</div>}</td>
                     <td>{rule ? <span className={`badge ${sevCls(rule.severity)}`}>{t(SEVERITY_LABEL[rule.severity])}</span> : "—"}</td>
                     <td><ScoreBar score={pct} width={90} /> <span className="muted">{s.passed}/{total}</span></td>
                     <td>{s.failed > 0 ? <span className="badge badge-offline">{s.failed}</span> : <span className="muted">0</span>}</td>

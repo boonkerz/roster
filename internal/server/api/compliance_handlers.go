@@ -10,7 +10,19 @@ import (
 
 // handleComplianceRules liefert den Regelkatalog (für Richtlinien-Editor und Anzeige).
 func (s *Server) handleComplianceRules(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, http.StatusOK, compliance.Catalog)
+	// Leere Slices statt null ausliefern – Regeln ohne Profil-/Plattform-Einschränkung
+	// haben im Katalog nil-Felder.
+	out := make([]compliance.Rule, len(compliance.Catalog))
+	for i, rule := range compliance.Catalog {
+		if rule.Profiles == nil {
+			rule.Profiles = []string{}
+		}
+		if rule.Platforms == nil {
+			rule.Platforms = []string{}
+		}
+		out[i] = rule
+	}
+	s.writeJSON(w, http.StatusOK, out)
 }
 
 // handleComplianceFleet liefert Score und Zähler je geprüftem Gerät.
