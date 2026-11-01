@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Agent: fixed a **check-in storm** – checks with frequency "every check-in" always produced fresh results and immediately triggered the next check-in, so agents checked in roughly every second instead of at the configured interval. An immediate check-in is now only requested when a check status changed or a task ran, at most once every 30 seconds.
+
 ## [0.17.1] - 2026-11-01
 
 ### Fixed

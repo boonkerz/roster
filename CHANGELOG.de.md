@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Agent: **Checkin-Sturm** behoben – Checks mit Häufigkeit „jeder Checkin“ lieferten immer frische Ergebnisse und stießen damit sofort den nächsten Checkin an, sodass Agents etwa jede Sekunde statt im eingestellten Intervall eincheckten. Ein Sofort-Checkin wird jetzt nur noch bei geändertem Check-Status oder nach einem Task-Lauf angefordert, höchstens alle 30 Sekunden.
+
 ## [0.17.1] - 2026-11-01
 
 ### Behoben

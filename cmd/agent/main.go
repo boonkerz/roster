@@ -129,6 +129,8 @@ type program struct {
 	backupRunning     bool                   // ein vzdump-Lauf ist aktiv (kein zweiter parallel)
 	taskLastRun       map[string]time.Time   // letzte Ausführung je Task-ID
 	checkLastRun      map[string]time.Time   // letzte Auswertung je Check-ID (für Häufigkeit)
+	checkLastStatus   map[string]string      // zuletzt gemeldeter Status je Check-ID
+	lastQuickCheckin  time.Time              // letzter Sofort-Checkin wegen Check-/Task-Ergebnissen
 	checkinNow        chan struct{}          // Server-Push: sofort einchecken
 	tzName            string                 // zuletzt vom Server gemeldete Zeitzone
 	tzLoc             *time.Location         // dazu aufgelöste Zone (nil = lokale Zeit)
@@ -238,6 +240,7 @@ func (p *program) run(ctx context.Context) {
 
 	p.taskLastRun = map[string]time.Time{}
 	p.checkLastRun = map[string]time.Time{}
+	p.checkLastStatus = map[string]string{}
 	autoUpdate := !cfg.DisableAutoUpdate
 	interval := cfg.Interval
 	for {
@@ -685,18 +688,37 @@ func (p *program) runPolicy(ctx context.Context) {
 		p.log.Info("task ausgeführt", "task", t.Name, "exit", exit)
 	}
 
+	// Hat sich ein Check-Status geändert? Nur dann lohnt ein Sofort-Checkin –
+	// Checks mit Häufigkeit „jeder Checkin“ sind sonst immer „frisch“ und würden
+	// eine Endlosschleife aus Sofort-Checkins auslösen (Checkin-Sturm).
+	changed := false
 	p.mu.Lock()
+	for _, r := range checkResults {
+		if p.checkLastStatus[r.CheckID] != r.Status {
+			changed = true
+		}
+		p.checkLastStatus[r.CheckID] = r.Status
+	}
 	p.pendingChecks = checkResults // jüngste Bewertung ersetzt ältere
 	p.pendingTasks = append(p.pendingTasks, taskResults...)
+	quickOK := time.Since(p.lastQuickCheckin) >= quickCheckinMinGap
+	if (changed || len(taskResults) > 0) && quickOK {
+		p.lastQuickCheckin = time.Now()
+	}
 	p.mu.Unlock()
 
-	// Frische Check-/Task-Ergebnisse sofort melden, nicht erst beim nächsten
+	// Geänderte Check-Status und Task-Läufe sofort melden, nicht erst beim nächsten
 	// Intervall – sonst hinkt das Ergebnis (und die Benachrichtigung) der
-	// eigentlichen Auswertung einen ganzen Checkin-Zyklus hinterher.
-	if len(checkResults) > 0 || len(taskResults) > 0 {
+	// eigentlichen Auswertung einen ganzen Checkin-Zyklus hinterher. Höchstens
+	// einmal je quickCheckinMinGap, damit ein flatternder Check keinen Sturm auslöst.
+	if (changed || len(taskResults) > 0) && quickOK {
 		p.requestCheckin()
 	}
 }
+
+// quickCheckinMinGap ist der Mindestabstand zwischen zwei Sofort-Checkins, die durch
+// Check-/Task-Ergebnisse ausgelöst werden.
+const quickCheckinMinGap = 30 * time.Second
 
 // installUpdates installiert Updates (lang laufend) und meldet das Ergebnis; danach
 // wird der Update-Status neu ermittelt.
