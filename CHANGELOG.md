@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-11-01
+
 ### Added
 - Policies → Notifications: **Report security incidents** – one checkbox per incident kind (brute force, login after brute force, attack pattern, new source IP, account change, lockout, file change) and the option *do not report when the source IP was blocked automatically*. Incidents are always recorded; this only controls the alert channels (push, e-mail …). Messages now include the reaction taken.
 - Security log sources: format **Mail** (Postfix SASL, Dovecot, Exim) and Apache support in the web error log format; the templates are generic now (web server as file or Docker container, SSH/SFTP container, FTP, mail, custom pattern).
@@ -194,7 +196,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.2...HEAD
+[0.18.2]: https://github.com/boonkerz/roster/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/boonkerz/roster/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
 [0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
