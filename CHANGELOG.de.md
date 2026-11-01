@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-11-01
+
 ### Neu
 - Richtlinien → Sicherheit → Log-Quellen: **Testen** – der Agent eines wählbaren Geräts liest die letzten Zeilen der Quelle (auch vor dem Speichern) und zeigt gefundene Dateien/Container, Treffer und eine Stichprobe der erkannten Ereignisse; passt kein Container, die Namen der laufenden Container.
 - Gerät → Anmeldungen: Karte **Überwachung auf diesem Gerät** – wirksame Anmeldungs-Überwachung, Datei-Integrität, Compliance und Log-Quellen mit dem vom Agent gemeldeten Lesestatus (Richtlinie, gefundene Ziele, Ereignisse seit Agent-Start, letzter Treffer, Fehler) und Testen je Quelle. Der Agent meldet den Status mit jedem Checkin.
@@ -201,7 +203,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.3...HEAD
+[0.18.3]: https://github.com/boonkerz/roster/compare/v0.18.2...v0.18.3
 [0.18.2]: https://github.com/boonkerz/roster/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/boonkerz/roster/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
