@@ -212,6 +212,7 @@ type IncidentFilter struct {
 	Kind     string
 	Severity string
 	Query    string
+	Country  string // ISO-Code der Quell-IP; "?" = unbekannt/keine (wird nach dem Laden über GeoIP gefiltert)
 	Limit    int
 }
 
@@ -276,8 +277,14 @@ func (s *Store) Incidents(ctx context.Context, f IncidentFilter) ([]model.Securi
 	if limit <= 0 || limit > 5000 {
 		limit = 500
 	}
+	country := strings.ToUpper(strings.TrimSpace(f.Country))
+	queryLimit := limit
+	if country != "" {
+		// Land steht nicht in der Tabelle (GeoIP beim Lesen) → großzügig laden, danach filtern.
+		queryLimit = 50000
+	}
 	q += ` ORDER BY i.ts DESC LIMIT ?`
-	args = append(args, limit)
+	args = append(args, queryLimit)
 	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
 	if err != nil {
 		return nil, err
@@ -289,7 +296,19 @@ func (s *Store) Incidents(ctx context.Context, f IncidentFilter) ([]model.Securi
 		if err != nil {
 			return nil, err
 		}
+		if country != "" {
+			if country == "?" {
+				if i.SourceIP == "" || i.Country != "" {
+					continue
+				}
+			} else if i.Country != country {
+				continue
+			}
+		}
 		out = append(out, i)
+		if len(out) >= limit {
+			break
+		}
 	}
 	return out, rows.Err()
 }

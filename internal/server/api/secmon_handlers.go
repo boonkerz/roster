@@ -254,7 +254,7 @@ func (s *Server) incidentFilter(r *http.Request) store.IncidentFilter {
 	}
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	return store.IncidentFilter{Allowed: s.scopeFilter(r), ClientID: q.Get("client"), SiteID: q.Get("site"), Since: time.Now().AddDate(0, 0, -days),
-		Status: q.Get("status"), Kind: q.Get("kind"), Severity: q.Get("severity"), Query: q.Get("q"), Limit: limit}
+		Status: q.Get("status"), Kind: q.Get("kind"), Severity: q.Get("severity"), Query: q.Get("q"), Country: q.Get("country"), Limit: limit}
 }
 
 func (s *Server) handleIncidents(w http.ResponseWriter, r *http.Request) {

@@ -1431,4 +1431,7 @@ export const EN: Record<string, string> = {
   "Keine aktiven Sperren auf diesem Gerät.": "No active blocks on this device.",
   "Alle Sperren mit Suche": "All blocks with search",
   "Anmeldeereignisse des Systems (SSH/RDP/Konsole, sudo, Kontoänderungen) und Treffer der Log-Quellen. Vorfälle daraus stehen im Tab „Vorfälle“.": "Login events of the system (SSH/RDP/console, sudo, account changes) and hits from log sources. Incidents derived from them are in the “Incidents” tab.",
+  "Klick filtert die Vorfälle": "click filters the incidents",
+  "Land der Quell-IP": "Country of the source IP",
+  "Alle Länder": "All countries",
 };

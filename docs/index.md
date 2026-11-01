@@ -135,8 +135,10 @@ File integrity monitoring with a baseline per device, login monitoring that turn
 brute force, logins after brute force, new source IPs and account changes into
 incidents, CIS-style compliance checks with a score per device, and active response
 that blocks an IP or locks an account automatically. Read nginx, SFTP and FTP container
-logs as well, block attackers fleet-wide or by subnet without clicking, and the block
-holds for Docker containers too.
+logs as well (with a test button and a read status per device), block attackers
+fleet-wide or by subnet without clicking, and the block holds for Docker containers too.
+Source IPs show their country from an embedded database: flags, a country filter on
+incidents and dashboard charts of blocked IPs and attack sources by country.
 [Security monitoring](features/security-monitoring.md){ .rs-more }
 </div>
 </section>

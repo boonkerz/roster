@@ -101,7 +101,8 @@ automatic blocking already handled the attacker. Incidents are always recorded o
 page regardless of these switches. The **Incidents** tab lists them with acknowledge/resolve,
 filters, the top source IPs, the **countries of origin** of failed attempts and suspicious requests and the
 countries of recently blocked IPs; **Logins** shows the raw events. Source IPs carry a country
-flag everywhere. The mapping comes from an IP-to-country database embedded in the server
+flag everywhere, and the Incidents tab can be filtered by country (also by clicking a country
+in the tile). The mapping comes from an IP-to-country database embedded in the server
 ([ip-location-db](https://github.com/sapics/ip-location-db), public domain) – no external
 service; it is refreshed with every release. For the overview there are the metrics **Blocked
 IPs by country (30 days)** and **Attack sources by country (7 days)** as bar, donut or history

@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Security → Incidents: **filter by country** of the source IP (select with flag, “Unknown” for addresses without a mapping); clicking a country in the *Attack sources by country* tile sets the filter. API: `GET /security/incidents?country=DE` (`?` = unknown).
+
 ## [0.18.7] - 2026-11-01
 
 ### Changed

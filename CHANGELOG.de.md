@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Sicherheit → Vorfälle: **Filter nach Land** der Quell-IP (Auswahl mit Flagge, „Unbekannt“ für Adressen ohne Zuordnung); Klick auf ein Land in der Kachel *Angriffsquellen nach Land* setzt den Filter. API: `GET /security/incidents?country=DE` (`?` = unbekannt).
+
 ## [0.18.7] - 2026-11-01
 
 ### Geändert

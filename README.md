@@ -87,8 +87,12 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   CIS-style **compliance** checks with a score per device, and **active response**: block
   the source IP (nftables/iptables incl. Docker forward traffic, Windows Firewall, pf) or lock
   the account. **Automatic blocking** without policy rules, fleet-wide and per /24 subnet,
-  bulk blocking in the Incidents tab, plus **log sources** for nginx access/error logs, SSH/SFTP
-  and FTP containers and custom patterns (files or Docker container output).
+  bulk blocking in the Incidents tab, plus **log sources** for web server, SSH/SFTP, FTP and
+  mail logs and custom patterns (files or Docker container output, e.g. `nginx-proxy`) with a
+  **test button** and a per-device read status. Source IPs carry their **country** from an
+  embedded IP-to-country database (no external service): flags everywhere, country filter on
+  incidents, country tiles and dashboard charts. Private addresses are never blocked
+  automatically; blocks are searchable and can be released fleet-wide with one click.
 - **Self-healing** – automatic remediation: run a script/service-restart when a check fails.
 - **Software distribution** – catalog of deployable packages (winget / choco / apt / dnf /
   brew); roll out to a device / client / site / tag.
@@ -269,8 +273,12 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   Response**: Quell-IP sperren (nftables/iptables inkl. Docker-Forward-Verkehr,
   Windows-Firewall, pf) oder Konto sperren. **Automatische Sperre** ohne Richtlinien-Regel,
   flottenweit und je /24-Netz, Mehrfach-Sperren im Tab Vorfälle, dazu **Log-Quellen** für
-  nginx-Zugriffs-/Fehlerprotokolle, SSH-/SFTP- und FTP-Container und eigene Muster (Dateien
-  oder Docker-Container-Ausgabe).
+  Webserver-, SSH-/SFTP-, FTP- und Mail-Protokolle und eigene Muster (Dateien oder
+  Docker-Container-Ausgabe, z. B. `nginx-proxy`) mit **Test-Knopf** und Lesestatus je Gerät.
+  Quell-IPs tragen ihr **Land** aus einer eingebetteten IP-zu-Land-Datenbank (kein externer
+  Dienst): Flaggen überall, Länderfilter bei den Vorfällen, Länder-Kacheln und
+  Dashboard-Diagramme. Private Adressen werden nie automatisch gesperrt; Sperren sind
+  durchsuchbar und mit einem Klick flottenweit aufhebbar.
 - **Self-Healing** – automatische Behebung: Skript/Dienst-Neustart bei fehlerhaftem Check.
 - **Software-Verteilung** – Katalog verteilbarer Pakete (winget / choco / apt / dnf /
   brew); Ausrollen auf Gerät / Client / Standort / Tag.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api";
@@ -9,7 +9,7 @@ import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/Se
 import { FleetCompliance } from "../components/Compliance";
 import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
 import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
-import { CountryChips, Flag, countryName } from "../components/Country";
+import { CountryChips, Flag, countryFlag, countryName } from "../components/Country";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
@@ -66,6 +66,7 @@ function IncidentsTab() {
   const severity = params.get("severity") || "";
   const days = params.get("days") || "30";
   const client = params.get("client") || "";
+  const country = params.get("country") || "";
   const [q, setQ] = useState("");
   const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
@@ -75,9 +76,18 @@ function IncidentsTab() {
   if (kind) qs.set("kind", kind);
   if (severity) qs.set("severity", severity);
   if (client) qs.set("client", client);
+  if (country) qs.set("country", country);
   if (q.trim()) qs.set("q", q.trim());
   const key = qs.toString();
   const { data: rows, isLoading } = useQuery({ queryKey: ["incidents", "fleet", key], queryFn: () => api.get<SecurityIncident[]>(`/security/incidents?${key}`), refetchInterval: 30000 });
+  // Länder-Auswahl: alle Länder aus Zusammenfassung und geladenen Vorfällen, gesammelt über die Zeit,
+  // damit die Liste beim Filtern nicht zusammenschrumpft.
+  const { lang } = useI18n();
+  const seenCountries = useRef(new Set<string>());
+  for (const c of [...(summary?.top_countries ?? []), ...(summary?.blocked_countries ?? [])]) if (c.country) seenCountries.current.add(c.country);
+  for (const r of rows ?? []) if (r.country) seenCountries.current.add(r.country);
+  if (country && country !== "?") seenCountries.current.add(country);
+  const countryOptions = [...seenCountries.current].map((cc) => ({ cc, name: countryName(cc, lang, cc) })).sort((a, b) => a.name.localeCompare(b.name));
   // Mehrfachauswahl: Quell-IPs mehrerer Vorfälle auf einmal sperren (je Gerät oder auf allen
   // überwachten Geräten) und die Vorfälle dabei bestätigen.
   const qc = useQueryClient();
@@ -123,8 +133,8 @@ function IncidentsTab() {
             </div>
           </div>
           <div className="dash-tile" style={{ gridColumn: "span 2" }}>
-            <div className="dash-label">{t("Angriffsquellen nach Land (24 h)")}</div>
-            <div className="small" style={{ marginTop: 6 }}><CountryChips items={summary.top_countries ?? []} /></div>
+            <div className="dash-label">{t("Angriffsquellen nach Land (24 h)")} <span className="muted">· {t("Klick filtert die Vorfälle")}</span></div>
+            <div className="small" style={{ marginTop: 6 }}><CountryChips items={summary.top_countries ?? []} onClick={(cc) => setParam("country", cc || "?")} /></div>
           </div>
           <div className="dash-tile" style={{ gridColumn: "span 2" }}>
             <div className="dash-label">{t("Gesperrte IPs nach Land (30 Tage)")}</div>
@@ -163,6 +173,12 @@ function IncidentsTab() {
               <option value="">{t("Alle Clients")}</option>
               {(tree?.clients ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            <select value={country} onChange={(e) => setParam("country", e.target.value)} title={t("Land der Quell-IP")}>
+              <option value="">{t("Alle Länder")}</option>
+              {countryOptions.map((c) => <option key={c.cc} value={c.cc}>{countryFlag(c.cc)} {c.name}</option>)}
+              <option value="?">🌐 {t("Unbekannt")}</option>
+            </select>
+            {country && <span className="filter-chip" onClick={() => setParam("country", "")}>{country === "?" ? t("Unbekannt") : `${countryFlag(country)} ${countryName(country, lang, country)}`} ✕</span>}
           </div>
           <span className="muted small">{t("{n} Vorfälle", { n: (rows ?? []).length })}</span>
         </div>

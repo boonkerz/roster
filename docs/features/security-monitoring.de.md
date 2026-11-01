@@ -105,7 +105,8 @@ die automatische Sperre den Angreifer schon erledigt hat. Auf der Seite Sicherhe
 Vorfälle unabhängig davon immer gespeichert. Der Tab **Vorfälle** listet sie mit Bestätigen/Erledigen,
 Filtern, den häufigsten Quell-IPs, den **Herkunftsländern** der Fehlversuche und verdächtigen Anfragen und den Ländern
 der zuletzt gesperrten IPs; **Anmeldungen** zeigt die Rohereignisse. Quell-IPs tragen überall
-eine Länderflagge. Die Zuordnung kommt aus einer in den Server eingebetteten
+eine Länderflagge, und der Tab Vorfälle lässt sich nach Land filtern (auch per Klick auf ein
+Land in der Kachel). Die Zuordnung kommt aus einer in den Server eingebetteten
 IP-zu-Land-Datenbank ([ip-location-db](https://github.com/sapics/ip-location-db),
 Public Domain) – ohne externen Dienst; sie wird mit jedem Release erneuert. Für die Übersicht
 gibt es die Kennzahlen **Gesperrte IPs nach Land (30 Tage)** und **Angriffsquellen nach Land
