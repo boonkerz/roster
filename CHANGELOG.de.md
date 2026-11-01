@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- **Automatische Sperre sperrt keine privaten/internen Adressen mehr** (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7, Link-Local). Hintergrund: Eine Log-Quelle hinter einem Reverse-Proxy sah nur die Docker-interne Adresse des Proxys; der Vorfall „Angriffsmuster“ sperrte sie flottenweit in DOCKER-USER und trennte den Proxy von den Backends. Der Vorfall wird weiter angelegt, die Reaktion steht auf *skipped: private address*. Wer es wirklich will, schaltet es unter Einstellungen → Sicherheitsüberwachung ein; manuelle Sperren bleiben möglich.
+
+### Neu
+- Sicherheit → Sperren: **Suche** (IP/Netz, Gerät, Grund, Ersteller) und **Status-Filter** (wirksam/eingereiht, abgelaufen, aufgehoben, fehlgeschlagen) – serverseitig, bis 1.000 Zeilen; Knopf **überall** hebt eine IP mit einem Klick auf allen Geräten auf (`POST /security/unblock-ip`).
+
 ## [0.18.4] - 2026-11-01
 
 ### Behoben

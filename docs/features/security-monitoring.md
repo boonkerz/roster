@@ -152,6 +152,14 @@ A policy can react to incidents automatically:
 - **Run script** – a library script with `ROSTER_TRIGGER`, `ROSTER_SOURCE_IP`, `ROSTER_USER`,
   `ROSTER_DEVICE`, `ROSTER_INCIDENT` and `ROSTER_TITLE` in the environment.
 
+!!! warning "Private addresses are never blocked automatically"
+    Source IPs from private ranges (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7) are excluded
+    from automatic blocking – usually a reverse proxy or Docker network is behind them and the
+    block would hit your own service. With a proxy setup read the **proxy's** log (e.g. the
+    `nginx-proxy` container), not the backend's. The **Blocks** tab has a search by IP, device,
+    reason and creator, a status filter and an *everywhere* button per block that releases an IP
+    on all devices.
+
 ### Automatic blocking without policy rules
 
 For fleets with many servers the per-policy rules are optional: Settings → **Security

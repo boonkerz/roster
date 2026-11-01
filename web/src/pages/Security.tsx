@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api";
@@ -195,10 +195,23 @@ function BlocksTab() {
   const { t } = useI18n();
   const { hasPerm } = useAuth();
   const qc = useQueryClient();
-  const { data: rows, isLoading } = useQuery({ queryKey: ["ip-blocks"], queryFn: () => api.get<IPBlock[]>("/security/blocks"), refetchInterval: 30000 });
+  const [params, setParams] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") ?? "");
+  const [dq, setDq] = useState(q);
+  useEffect(() => { const h = setTimeout(() => setDq(q.trim()), 300); return () => clearTimeout(h); }, [q]);
+  const bStatus = params.get("bstatus") ?? "";
+  const setBStatus = (v: string) => { const p = new URLSearchParams(params); if (v) p.set("bstatus", v); else p.delete("bstatus"); setParams(p, { replace: true }); };
+  const bq = new URLSearchParams({ limit: "1000" });
+  if (dq) bq.set("q", dq);
+  if (bStatus) bq.set("status", bStatus);
+  const { data: rows, isLoading } = useQuery({ queryKey: ["ip-blocks", bq.toString()], queryFn: () => api.get<IPBlock[]>(`/security/blocks?${bq.toString()}`), refetchInterval: 30000 });
   const unblock = useMutation({
     mutationFn: (b: IPBlock) => api.post(`/devices/${b.device_id}/unblock-ip`, { ip: b.ip }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ip-blocks"] }),
+  });
+  const unblockAll = useMutation({
+    mutationFn: (ip: string) => api.post<{ devices: number }>(`/security/unblock-ip`, { ip }),
+    onSuccess: (r) => { setBMsg(t("Auf {n} Geräten aufgehoben", { n: r.devices })); qc.invalidateQueries({ queryKey: ["ip-blocks"] }); },
   });
   const cls: Record<string, string> = { pending: "badge-unknown", active: "badge-offline", expired: "badge-unknown", released: "badge-online", failed: "badge-warn" };
   const label: Record<string, string> = { pending: "eingereiht", active: "aktiv", expired: "abgelaufen", released: "aufgehoben", failed: "fehlgeschlagen" };
@@ -234,6 +247,19 @@ function BlocksTab() {
           <span className="muted small">{t("Eine bereits gesperrte IP wird nicht doppelt angelegt, sondern mit der neuen Dauer erneuert.")}</span>
         </form>
       )}
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <div className="head-actions" style={{ flexWrap: "wrap" }}>
+          <input className="search" placeholder={t("IP, Netz, Gerät, Grund oder Ersteller suchen…")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <select value={bStatus} onChange={(e) => setBStatus(e.target.value)}>
+            <option value="">{t("alle Status")}</option>
+            <option value="active">{t("wirksam / eingereiht")}</option>
+            <option value="expired">{t("abgelaufen")}</option>
+            <option value="released">{t("aufgehoben")}</option>
+            <option value="failed">{t("fehlgeschlagen")}</option>
+          </select>
+        </div>
+        <span className="muted small">{t("{n} Sperren", { n: (rows ?? []).length })}{(rows ?? []).length >= 1000 ? " (" + t("gekürzt – Suche eingrenzen") + ")" : ""}</span>
+      </div>
       {isLoading ? <p className="muted">{t("Lädt…")}</p> : (rows ?? []).length === 0 ? <p className="empty">{t("Keine Sperren.")}</p> : (
         <div className="scroll-list" style={{ maxHeight: "65vh" }}>
           <table className="table">
@@ -249,7 +275,10 @@ function BlocksTab() {
                   <td className="muted">{b.until ? new Date(b.until).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : t("dauerhaft")}</td>
                   <td><span className={`badge ${cls[b.status] ?? "badge-unknown"}`} title={b.detail}>{t(label[b.status] ?? b.status)}</span>{b.status === "failed" && b.detail && <div className="muted small">{b.detail.slice(0, 80)}</div>}</td>
                   <td className="muted">{b.created_by}</td>
-                  <td>{hasPerm("devices.operate") && (b.status === "active" || b.status === "pending") && <button className="btn ghost sm" disabled={unblock.isPending} onClick={() => unblock.mutate(b)}>{t("Aufheben")}</button>}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{hasPerm("devices.operate") && (b.status === "active" || b.status === "pending") && <>
+                    <button className="btn ghost sm" disabled={unblock.isPending} onClick={() => unblock.mutate(b)}>{t("Aufheben")}</button>
+                    <button className="btn ghost sm" disabled={unblockAll.isPending} title={t("Diese IP auf allen Geräten freigeben, auf denen sie gesperrt ist")} onClick={() => unblockAll.mutate(b.ip)}>{t("überall")}</button>
+                  </>}</td>
                 </tr>
               ))}
             </tbody>

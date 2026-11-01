@@ -1414,4 +1414,15 @@ export const EN: Record<string, string> = {
   "{n} Container": "{n} container(s)",
   "{n} Datei(en)": "{n} file(s)",
   "zuletzt gelesen": "last read",
+  // --- Sperren: Suche, überall aufheben, private Adressen (0.18.5) ---
+  "auch private/interne Adressen automatisch sperren (nicht empfohlen)": "also block private/internal addresses automatically (not recommended)",
+  "Standardmäßig werden private und interne Adressen (10/8, 172.16/12, 192.168/16, Docker-Netze, fd00::/7) nie automatisch gesperrt – dahinter steckt meist ein Reverse-Proxy oder das eigene LAN, und die Sperre würde den eigenen Dienst treffen.": "By default private and internal addresses (10/8, 172.16/12, 192.168/16, Docker networks, fd00::/7) are never blocked automatically – usually a reverse proxy or your own LAN is behind them and the block would hit your own service.",
+  "Auf {n} Geräten aufgehoben": "Released on {n} devices",
+  "IP, Netz, Gerät, Grund oder Ersteller suchen…": "Search IP, network, device, reason or creator…",
+  "alle Status": "all states",
+  "wirksam / eingereiht": "active / queued",
+  "{n} Sperren": "{n} blocks",
+  "gekürzt – Suche eingrenzen": "truncated – narrow the search",
+  "Diese IP auf allen Geräten freigeben, auf denen sie gesperrt ist": "Release this IP on every device where it is blocked",
+  "überall": "everywhere",
 };

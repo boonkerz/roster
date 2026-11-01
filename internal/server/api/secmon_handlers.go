@@ -32,6 +32,7 @@ type securitySettings struct {
 	AutoBlockMinutes int      `json:"auto_block_minutes"` // 0 = dauerhaft
 	FleetBlock       bool     `json:"fleet_block"`        // Sperren auf allen überwachten Geräten
 	SubnetIPs        int      `json:"subnet_ips"`         // ab so vielen IPs aus einem /24 das Netz sperren (0 = aus)
+	BlockPrivate     bool     `json:"block_private"`      // auch private/interne Adressen automatisch sperren (Standard aus)
 }
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
@@ -54,6 +55,9 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
 	if v, _ := s.store.GetSetting(ctx, store.SettingSecAutoBlock); v == "1" {
 		cfg.AutoBlock = true
+	}
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecBlockPrivate); v == "1" {
+		cfg.BlockPrivate = true
 	}
 	if v, _ := s.store.GetSetting(ctx, store.SettingSecFleetBlock); v == "1" {
 		cfg.FleetBlock = true
@@ -121,6 +125,7 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecInvalidUserMax:   strconv.Itoa(req.InvalidUserMax), store.SettingSecScanThreshold: strconv.Itoa(req.ScanThreshold),
 		store.SettingSecAutoBlock: b2s(req.AutoBlock), store.SettingSecAutoBlockMinutes: strconv.Itoa(req.AutoBlockMinutes),
 		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
+		store.SettingSecBlockPrivate: b2s(req.BlockPrivate),
 	}
 	for k, v := range set {
 		if err := s.store.SetSetting(r.Context(), k, v); err != nil {

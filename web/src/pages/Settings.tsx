@@ -122,7 +122,7 @@ function SecurityMonitoring() {
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
   const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
-    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0 };
+    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false };
   const save = useMutation({
     mutationFn: (v: SecuritySettings) => api.put("/settings/security", v),
     onSuccess: () => { setDraft(null); setErr(""); qc.invalidateQueries({ queryKey: ["settings", "security"] }); },
@@ -150,6 +150,7 @@ function SecurityMonitoring() {
         </div>
         <div className="inline-form">
           <label className="chip" title={t("Eine IP, die auf einem Gerät auffällt, wird auf allen Geräten gesperrt, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest.")}><input type="checkbox" checked={cur.fleet_block} onChange={(e) => upd({ fleet_block: e.target.checked })} /> {t("auf allen überwachten Geräten sperren (Flotte)")}</label>
+          <label className="chip" title={t("Standardmäßig werden private und interne Adressen (10/8, 172.16/12, 192.168/16, Docker-Netze, fd00::/7) nie automatisch gesperrt – dahinter steckt meist ein Reverse-Proxy oder das eigene LAN, und die Sperre würde den eigenen Dienst treffen.")}><input type="checkbox" checked={cur.block_private} onChange={(e) => upd({ block_private: e.target.checked })} /> {t("auch private/interne Adressen automatisch sperren (nicht empfohlen)")}</label>
           <label className="num" title={t("Kommen in 24 h mehrere auffällige IPs aus demselben /24-Netz, wird statt der einzelnen IP das ganze Netz gesperrt (nie, wenn eine Nie-sperren-Adresse darin liegt).")}>{t("ganzes /24-Netz sperren ab … auffälligen IPs (0 = aus)")}<input type="number" min={0} max={254} value={cur.subnet_ips} onChange={(e) => upd({ subnet_ips: Number(e.target.value) })} style={{ width: 80 }} /></label>
         </div>
         <div className="inline-form">

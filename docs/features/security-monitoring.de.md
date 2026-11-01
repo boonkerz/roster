@@ -158,6 +158,14 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
 - **Skript ausführen** – ein Bibliotheks-Skript mit `ROSTER_TRIGGER`, `ROSTER_SOURCE_IP`,
   `ROSTER_USER`, `ROSTER_DEVICE`, `ROSTER_INCIDENT` und `ROSTER_TITLE` in der Umgebung.
 
+!!! warning "Private Adressen werden nie automatisch gesperrt"
+    Quell-IPs aus privaten Bereichen (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7) nimmt die
+    automatische Sperre aus – typischerweise steckt ein Reverse-Proxy oder Docker-Netz dahinter,
+    und die Sperre würde den eigenen Dienst treffen. Lesen Sie bei einem Proxy-Aufbau das Protokoll
+    des **Proxys** (z. B. Container `nginx-proxy`), nicht das des Backends. Der Tab **Sperren** hat
+    eine Suche nach IP, Gerät, Grund und Ersteller, einen Status-Filter und je Sperre den Knopf
+    *überall*, der eine IP auf allen Geräten freigibt.
+
 ### Automatische Sperre ohne Richtlinien-Regel
 
 Bei vielen Servern sind die Regeln je Richtlinie optional: Einstellungen →

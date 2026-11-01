@@ -27,6 +27,7 @@ const (
 	SettingSecAutoBlockMinutes = "sec_auto_block_minutes" // Dauer der automatischen Sperre (0 = dauerhaft)
 	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
 	SettingSecSubnetIPs        = "sec_subnet_ips"         // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
+	SettingSecBlockPrivate     = "sec_block_private"      // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
 )
 
 // InsertAuthEvents speichert Anmeldeereignisse; Duplikate (gleiche record_id …) werden

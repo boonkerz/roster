@@ -271,6 +271,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/compliance-scan", s.handleComplianceScan)
 						r.Post("/devices/{id}/block-ip", s.handleBlockIP)
 						r.Post("/devices/{id}/unblock-ip", s.handleUnblockIP)
+						r.Post("/security/unblock-ip", s.handleUnblockIPFleet)
 						r.Post("/devices/{id}/lock-user", s.handleLockUser)
 						r.Post("/devices/{id}/unlock-user", s.handleUnlockUser)
 						r.Post("/devices/{id}/reboot", s.handleReboot)

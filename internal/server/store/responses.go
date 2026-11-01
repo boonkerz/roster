@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/boonkerz/roster/internal/server/geoip"
+	"strings"
 	"time"
 
 	"github.com/boonkerz/roster/internal/server/model"
@@ -179,18 +180,51 @@ func scanIPBlock(rows *sql.Rows) (model.IPBlock, error) {
 	return b, err
 }
 
+// IPBlockFilter grenzt die Sperrenliste ein.
+type IPBlockFilter struct {
+	Allowed  map[string]bool
+	DeviceID string
+	Query    string // IP/Netz, Hostname, Grund oder Ersteller (Teiltreffer)
+	Status   string // active (wirksam oder eingereiht) | expired | released | failed | "" = alle
+	Limit    int
+}
+
 // IPBlocks listet Sperren (Scope, optional je Gerät), neueste zuerst.
 func (s *Store) IPBlocks(ctx context.Context, allowed map[string]bool, deviceID string, limit int) ([]model.IPBlock, error) {
-	scope, args, empty := scopeWhere(allowed)
+	return s.IPBlocksFiltered(ctx, IPBlockFilter{Allowed: allowed, DeviceID: deviceID, Limit: limit})
+}
+
+// IPBlocksFiltered listet Sperren nach Filter, neueste zuerst.
+func (s *Store) IPBlocksFiltered(ctx context.Context, f IPBlockFilter) ([]model.IPBlock, error) {
+	scope, args, empty := scopeWhere(f.Allowed)
 	if empty {
 		return []model.IPBlock{}, nil
 	}
 	q := `SELECT ` + ipBlockCols + ` FROM ip_blocks b JOIN devices d ON d.id=b.device_id WHERE d.revoked = FALSE` + scope
-	if deviceID != "" {
+	if f.DeviceID != "" {
 		q += ` AND b.device_id = ?`
-		args = append(args, deviceID)
+		args = append(args, f.DeviceID)
 	}
-	if limit <= 0 || limit > 2000 {
+	if qs := strings.TrimSpace(f.Query); qs != "" {
+		like := "%" + qs + "%"
+		q += ` AND (b.ip LIKE ? OR d.hostname LIKE ? OR b.reason LIKE ? OR b.created_by LIKE ?)`
+		args = append(args, like, like, like, like)
+	}
+	now := time.Now().UTC()
+	switch f.Status {
+	case "active":
+		q += ` AND b.status IN ('active','pending') AND (b.until_at IS NULL OR b.until_at > ?)`
+		args = append(args, now)
+	case "expired":
+		q += ` AND ((b.status = 'active' AND b.until_at IS NOT NULL AND b.until_at <= ?) OR b.status = 'expired')`
+		args = append(args, now)
+	case "":
+	default:
+		q += ` AND b.status = ?`
+		args = append(args, f.Status)
+	}
+	limit := f.Limit
+	if limit <= 0 || limit > 5000 {
 		limit = 500
 	}
 	q += ` ORDER BY b.created_at DESC LIMIT ?`

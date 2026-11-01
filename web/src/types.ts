@@ -515,6 +515,7 @@ export interface SecuritySettings {
   auto_block_minutes: number;
   fleet_block: boolean;
   subnet_ips: number;
+  block_private: boolean; // auch private/interne Adressen automatisch sperren
 }
 
 // PolicyResponse ist eine Active-Response-Regel (Auslöser → Aktion).

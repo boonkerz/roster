@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,6 +156,20 @@ func platformMatches(platforms []string, platform string) bool {
 		}
 	}
 	return false
+}
+
+// isPrivateIP erkennt private/interne Adressen (RFC 1918, ULA, Link-Local, CGNAT) – z. B.
+// Docker-Netze oder Reverse-Proxys, deren Sperre den eigenen Dienst lahmlegen würde.
+func isPrivateIP(ip string) bool {
+	p := net.ParseIP(strings.Split(ip, "/")[0])
+	if p == nil {
+		return false
+	}
+	if p.IsPrivate() || p.IsLinkLocalUnicast() || p.IsLinkLocalMulticast() || p.IsLoopback() {
+		return true
+	}
+	_, cgnat, _ := net.ParseCIDR("100.64.0.0/10")
+	return cgnat.Contains(p)
 }
 
 // neverBlocked prüft eine IP gegen die Nie-sperren-Liste (Loopback immer).
@@ -310,6 +325,12 @@ func (s *Server) executeResponse(ctx context.Context, device *model.Device, inc 
 		}
 		if neverBlocked(inc.SourceIP, neverBlock) {
 			_ = s.store.SetIncidentResponse(ctx, inc.ID, "block_ip "+inc.SourceIP, "skipped: never-block", "")
+			return
+		}
+		if !cfg.BlockPrivate && isPrivateIP(inc.SourceIP) {
+			// Interne Adresse (Docker-Netz, Reverse-Proxy, LAN): automatisch nie sperren – die
+			// Ereignisse stammen meist von einem Proxy, der die echte Quell-IP verdeckt.
+			_ = s.store.SetIncidentResponse(ctx, inc.ID, "block_ip "+inc.SourceIP, "skipped: private address", "")
 			return
 		}
 		target := s.blockTarget(ctx, device.ID, inc.SourceIP, cfg)
@@ -552,12 +573,50 @@ func (s *Server) userAction(w http.ResponseWriter, r *http.Request, typ, labelFm
 }
 
 func (s *Server) handleIPBlocks(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.store.IPBlocks(r.Context(), s.scopeFilter(r), "", 0)
+	qv := r.URL.Query()
+	limit, _ := strconv.Atoi(qv.Get("limit"))
+	rows, err := s.store.IPBlocksFiltered(r.Context(), store.IPBlockFilter{Allowed: s.scopeFilter(r), DeviceID: qv.Get("device"), Query: qv.Get("q"), Status: qv.Get("status"), Limit: limit})
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, rows)
+}
+
+// handleUnblockIPFleet hebt eine Sperre auf allen Geräten im Scope auf, auf denen sie
+// wirksam oder eingereiht ist (ein Klick statt je Gerät).
+func (s *Server) handleUnblockIPFleet(w http.ResponseWriter, r *http.Request) {
+	var req manualBlockRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	target, err := parseBlockTarget(req.IP)
+	if err != nil {
+		s.writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rows, err := s.store.IPBlocksFiltered(r.Context(), store.IPBlockFilter{Allowed: s.scopeFilter(r), Query: target, Status: "active", Limit: 5000})
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	done := map[string]bool{}
+	n := 0
+	for _, b := range rows {
+		if b.IP != target || done[b.DeviceID] {
+			continue
+		}
+		done[b.DeviceID] = true
+		if _, err := s.queueCommand(r.Context(), b.DeviceID, "unblock_ip", fmt.Sprintf("IP %s entsperren", target), map[string]any{"ip": target}); err != nil {
+			continue
+		}
+		_ = s.store.SetIPBlockStatus(r.Context(), b.ID, "released", "aufgehoben (alle Geräte)")
+		n++
+	}
+	if u := userFrom(r.Context()); u != nil {
+		_ = s.store.InsertAudit(r.Context(), model.AuditEntry{Username: u.Username, Method: "POST", Action: fmt.Sprintf("IP %s auf %d Geräten freigegeben", target, n)})
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int{"devices": n})
 }
 
 func (s *Server) handleDeviceIPBlocks(w http.ResponseWriter, r *http.Request) {

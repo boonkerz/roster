@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Automatic blocking no longer blocks private/internal addresses** (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7, link-local). Background: a log source behind a reverse proxy only saw the proxy's Docker-internal address; the “attack pattern” incident blocked it fleet-wide in DOCKER-USER and cut the proxy off from the backends. The incident is still recorded, the response reads *skipped: private address*. Settings → Security monitoring has an opt-in; manual blocks remain possible.
+
+### Added
+- Security → Blocks: **search** (IP/network, device, reason, creator) and **status filter** (active/queued, expired, released, failed) – server-side, up to 1,000 rows; the **everywhere** button releases an IP on all devices with one click (`POST /security/unblock-ip`).
+
 ## [0.18.4] - 2026-11-01
 
 ### Fixed
