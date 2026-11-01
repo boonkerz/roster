@@ -105,5 +105,8 @@ A policy can react to incidents automatically:
 Safeguards: the **never-block list** (IPs/CIDRs) and a **cooldown** per device and action in
 Settings → Security monitoring; loopback and the Roster server address are always protected.
 Every reaction is written to the audit log and shown at the incident with its result. The
-**Blocks** tab lists all blocks (status, expiry, release); incidents offer manual *Block IP*
-and *Lock account* buttons.
+**Blocks** tab lists all blocks (status, expiry, release) and lets you block an IP by hand
+(device, IP, duration from one hour to permanent, reason); incidents offer *Block IP* with the
+same duration choice and *Lock account*. Blocking an IP that is already blocked does not create
+a duplicate: the existing block is renewed with the new duration, so a temporary block can be
+made permanent in place.

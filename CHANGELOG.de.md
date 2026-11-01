@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Sicherheit: manuelles IP-Sperren im Tab **Sperren** (Gerät, IP, Dauer, Grund) und Dauer-Auswahl am Vorfall – eine Stunde, 24 Stunden, 7 Tage, 30 Tage oder **dauerhaft**.
+
+### Behoben
+- Sicherheit: Eine bereits gesperrte IP erzeugt beim erneuten Sperren keinen doppelten Eintrag mehr – die bestehende Sperre wird mit der neuen Dauer erneuert (so wird auch eine befristete Sperre dauerhaft).
+- Schwachstellen: Die Spalte **Stufe** war bei fast allen Funden leer. OSV-Details wurden nur für die ersten 300 Einträge je Scan geladen und CVSS-Vektoren nicht ausgewertet. Der Scanner leitet die Stufe jetzt aus Distributions-Prioritäten (Ubuntu/Debian) ab, rechnet CVSS-v2/v3-Basiswerte, erbt die Stufe verknüpfter CVEs (z. B. USN-Notizen), nutzt bereits gespeicherte Details wieder, lädt bis zu 1000 neue parallel und nimmt die Langbeschreibung, wenn die Zusammenfassung fehlt.
+
 ## [0.17.2] - 2026-11-01
 
 ### Behoben

@@ -348,7 +348,20 @@ func (s *Server) handleBlockIP(w http.ResponseWriter, r *http.Request) {
 		t := time.Now().Add(time.Duration(req.Minutes) * time.Minute)
 		until = &t
 	}
-	b := &model.IPBlock{DeviceID: device.ID, IP: ip.String(), Reason: firstNonEmptyStr(req.Reason, "manuell"), Until: until, CommandID: cmdID, CreatedBy: by}
+	reason := firstNonEmptyStr(req.Reason, "manuell")
+	// Dieselbe IP ist auf dem Gerät schon gesperrt: kein Duplikat anlegen, sondern die
+	// bestehende Sperre mit neuer Dauer erneuern (der Agent setzt den Timeout neu bzw.
+	// macht sie dauerhaft).
+	if existing, _ := s.store.ActiveIPBlock(r.Context(), device.ID, ip.String()); existing != nil {
+		if err := s.store.RenewIPBlock(r.Context(), existing.ID, until, reason, cmdID, by); err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
+		existing.Until, existing.Reason, existing.CommandID, existing.CreatedBy, existing.Status = until, reason, cmdID, by, "pending"
+		s.writeJSON(w, http.StatusOK, existing)
+		return
+	}
+	b := &model.IPBlock{DeviceID: device.ID, IP: ip.String(), Reason: reason, Until: until, CommandID: cmdID, CreatedBy: by}
 	if err := s.store.InsertIPBlock(r.Context(), b); err != nil {
 		s.mapStoreErr(w, err)
 		return

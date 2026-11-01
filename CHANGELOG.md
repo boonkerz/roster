@@ -6,6 +6,13 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Security: manual IP blocks in the **Blocks** tab (device, IP, duration, reason) and a duration choice at incidents – one hour, 24 hours, 7 days, 30 days or **permanent**.
+
+### Fixed
+- Security: blocking an IP that is already blocked no longer creates a duplicate entry – the existing block is renewed with the new duration (also makes a temporary block permanent).
+- Vulnerabilities: the **severity** column was empty for almost all findings. OSV details were only fetched for the first 300 entries per scan and CVSS vectors were not evaluated. The scanner now derives the level from distribution priorities (Ubuntu/Debian), computes CVSS v2/v3 base scores, inherits the level from linked CVEs (e.g. USN notices), reuses details already stored, fetches up to 1000 new ones in parallel and uses the long description when the summary is missing.
+
 ## [0.17.2] - 2026-11-01
 
 ### Fixed

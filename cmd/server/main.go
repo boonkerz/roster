@@ -148,6 +148,7 @@ func (p *program) Start(s service.Service) error {
 func (p *program) cveScanLoop() {
 	ctx := context.Background()
 	client := &http.Client{Timeout: 20 * time.Second}
+	p.wireCVECache()
 	scan := func() {
 		devs, err := p.st.ListDevices(ctx, nil)
 		if err != nil {
@@ -412,4 +413,20 @@ func serviceArgs(configPath string) []string {
 		return []string{"run"}
 	}
 	return []string{"-config", configPath, "run"}
+}
+
+// wireCVECache lässt den OSV-Scanner bekannte Details aus der Datenbank wiederverwenden
+// (Stufe/Zusammenfassung werden so nicht je Gerät neu geladen).
+func (p *program) wireCVECache() {
+	cve.Default.Known = func(ctx context.Context, ids []string) map[string]cve.Known {
+		known, err := p.st.KnownVulnDetails(ctx, ids)
+		if err != nil {
+			return nil
+		}
+		out := make(map[string]cve.Known, len(known))
+		for id, k := range known {
+			out[id] = cve.Known{Severity: k.Severity, Summary: k.Summary, Fixed: k.Fixed}
+		}
+		return out
+	}
 }

@@ -97,3 +97,39 @@ func (s *Store) VulnerabilityCount(ctx context.Context) (map[string]int, error) 
 	}
 	return out, rows.Err()
 }
+
+// KnownVulnDetails liefert zu Schwachstellen-IDs bereits gespeicherte Details (Stufe,
+// Zusammenfassung, behoben in) aus früheren Scans beliebiger Geräte – spart die erneute
+// Detail-Abfrage bei OSV. Nur Zeilen mit Inhalt zählen.
+func (s *Store) KnownVulnDetails(ctx context.Context, ids []string) (map[string]cveKnown, error) {
+	out := map[string]cveKnown{}
+	for start := 0; start < len(ids); start += 400 {
+		end := start + 400
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunk := ids[start:end]
+		ph, args := placeholders(chunk)
+		rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT vuln_id, severity, summary, fixed FROM vulnerabilities
+			WHERE vuln_id IN (`+ph+`) AND (severity<>'' OR summary<>'')`), args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id string
+			var k cveKnown
+			if err := rows.Scan(&id, &k.Severity, &k.Summary, &k.Fixed); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			if prev, ok := out[id]; !ok || (prev.Severity == "" && k.Severity != "") {
+				out[id] = k
+			}
+		}
+		rows.Close()
+	}
+	return out, nil
+}
+
+// cveKnown spiegelt cve.Known (ohne Import-Zyklus store -> cve).
+type cveKnown struct{ Severity, Summary, Fixed string }

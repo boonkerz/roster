@@ -130,6 +130,18 @@ func (s *Store) InsertIPBlock(ctx context.Context, b *model.IPBlock) error {
 	return err
 }
 
+// RenewIPBlock setzt eine bestehende Sperre neu an (neue Dauer/Begründung, neuer Befehl,
+// Status pending) – statt eines Duplikats, wenn dieselbe IP erneut gesperrt wird.
+func (s *Store) RenewIPBlock(ctx context.Context, id string, until *time.Time, reason, commandID, by string) error {
+	var u any
+	if until != nil {
+		u = until.UTC()
+	}
+	_, err := s.db.ExecContext(ctx, s.rebind(`UPDATE ip_blocks SET until_at=?, reason=?, command_id=?, created_by=?, status='pending', detail='', created_at=? WHERE id=?`),
+		u, reason, commandID, by, time.Now().UTC(), id)
+	return err
+}
+
 // ActiveIPBlock liefert eine pending/aktive Sperre für Gerät+IP (nil = keine).
 func (s *Store) ActiveIPBlock(ctx context.Context, deviceID, ip string) (*model.IPBlock, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT `+ipBlockCols+` FROM ip_blocks b JOIN devices d ON d.id=b.device_id

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
-import type { AuthEvent, ClientTree, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
-import { IncidentActions } from "../components/IncidentActions";
+import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
+import { BlockDurationSelect, IncidentActions } from "../components/IncidentActions";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
@@ -146,9 +146,36 @@ function BlocksTab() {
   });
   const cls: Record<string, string> = { pending: "badge-unknown", active: "badge-offline", expired: "badge-unknown", released: "badge-online", failed: "badge-warn" };
   const label: Record<string, string> = { pending: "eingereiht", active: "aktiv", expired: "abgelaufen", released: "aufgehoben", failed: "fehlgeschlagen" };
+  // Manuelle Sperre: Gerät, IP, Dauer (0 = dauerhaft), Grund.
+  const canOperate = hasPerm("devices.operate");
+  const { data: devices } = useQuery({ queryKey: ["devices"], queryFn: () => api.get<Device[]>("/devices"), enabled: canOperate });
+  const [bDev, setBDev] = useState("");
+  const [bIP, setBIP] = useState("");
+  const [bMin, setBMin] = useState(0);
+  const [bReason, setBReason] = useState("");
+  const [bMsg, setBMsg] = useState("");
+  const addBlock = useMutation({
+    mutationFn: () => api.post<IPBlock>(`/devices/${bDev}/block-ip`, { ip: bIP.trim(), minutes: bMin, reason: bReason.trim() }),
+    onSuccess: () => { setBMsg(t("Sperre eingereiht")); setBIP(""); setBReason(""); qc.invalidateQueries({ queryKey: ["ip-blocks"] }); },
+    onError: (e) => setBMsg(e instanceof ApiError ? e.message : t("Fehler")),
+  });
   return (
     <section className="card">
       <p className="muted small">{t("IP-Sperren, die Active Response oder ein Bediener angestoßen hat. Zeitlich begrenzte Sperren hebt der Agent selbst wieder auf; „aufheben“ entfernt sie sofort.")}</p>
+      {canOperate && (
+        <form className="row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); if (bDev && bIP.trim()) addBlock.mutate(); }}>
+          <select value={bDev} onChange={(e) => setBDev(e.target.value)} required>
+            <option value="">{t("Gerät wählen…")}</option>
+            {(devices ?? []).filter((d) => d.status !== "unmanaged").sort((a, b) => a.hostname.localeCompare(b.hostname)).map((d) => <option key={d.id} value={d.id}>{d.hostname}</option>)}
+          </select>
+          <input className="mono" placeholder="IP" value={bIP} onChange={(e) => setBIP(e.target.value)} style={{ width: 170 }} required />
+          <BlockDurationSelect value={bMin} onChange={setBMin} />
+          <input placeholder={t("Grund")} value={bReason} onChange={(e) => setBReason(e.target.value)} style={{ width: 220 }} />
+          <button className="btn sm" type="submit" disabled={addBlock.isPending || !bDev || !bIP.trim()}>🚫 {t("IP sperren")}</button>
+          {bMsg && <span className="muted small">{bMsg}</span>}
+          <span className="muted small">{t("Eine bereits gesperrte IP wird nicht doppelt angelegt, sondern mit der neuen Dauer erneuert.")}</span>
+        </form>
+      )}
       {isLoading ? <p className="muted">{t("Lädt…")}</p> : (rows ?? []).length === 0 ? <p className="empty">{t("Keine Sperren.")}</p> : (
         <div className="scroll-list" style={{ maxHeight: "65vh" }}>
           <table className="table">

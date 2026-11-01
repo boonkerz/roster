@@ -10,13 +10,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 const (
-	batchURL = "https://api.osv.dev/v1/querybatch"
-	vulnURL  = "https://api.osv.dev/v1/vulns/"
-	maxSW    = 500 // Obergrenze abgefragter Pakete je Gerät
-	maxVulns = 300 // Obergrenze aufgelöster Detail-Datensätze je Scan
+	batchURL     = "https://api.osv.dev/v1/querybatch"
+	vulnURL      = "https://api.osv.dev/v1/vulns/"
+	maxSW        = 500  // Obergrenze abgefragter Pakete je Gerät
+	maxVulns     = 1000 // Obergrenze neu von OSV geladener Detail-Datensätze je Scan
+	fetchWorkers = 6    // parallele Detail-Abrufe
 )
 
 // SW ist ein installiertes Paket (Name + Version).
@@ -59,8 +61,45 @@ type batchResp struct {
 	} `json:"results"`
 }
 
+// Known ist ein bereits bekannter Detail-Datensatz (z. B. aus früheren Scans in der DB),
+// damit Details nicht je Gerät erneut von OSV geladen werden müssen.
+type Known struct{ Severity, Summary, Fixed string }
+
+// Scanner kapselt den OSV-Abgleich mit einem prozessweiten Detail-Cache. Known liefert
+// optional Details aus einem persistenten Speicher (nil = nur In-Memory-Cache).
+type Scanner struct {
+	Known func(ctx context.Context, ids []string) map[string]Known
+	mu    sync.Mutex
+	cache map[string]*osvDetail
+}
+
+// Default ist der gemeinsame Scanner des Servers (Hintergrund-Scan und manueller Scan
+// teilen sich den Cache).
+var Default = &Scanner{}
+
 // Scan fragt OSV.dev ab und liefert die Treffer. ecosystem darf leer sein.
 func Scan(ctx context.Context, client *http.Client, sw []SW, ecosystem string) ([]Vuln, error) {
+	return Default.Scan(ctx, client, sw, ecosystem)
+}
+
+func (sc *Scanner) cached(id string) (*osvDetail, bool) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	d, ok := sc.cache[id]
+	return d, ok
+}
+
+func (sc *Scanner) remember(id string, d *osvDetail) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if sc.cache == nil {
+		sc.cache = map[string]*osvDetail{}
+	}
+	sc.cache[id] = d
+}
+
+// Scan fragt OSV.dev ab und liefert die Treffer. ecosystem darf leer sein.
+func (sc *Scanner) Scan(ctx context.Context, client *http.Client, sw []SW, ecosystem string) ([]Vuln, error) {
 	if len(sw) > maxSW {
 		sw = sw[:maxSW]
 	}
@@ -109,13 +148,37 @@ func Scan(ctx context.Context, client *http.Client, sw []SW, ecosystem string) (
 			details[v.ID] = nil
 		}
 	}
-	fetched := 0
+	ids := make([]string, 0, len(details))
 	for id := range details {
-		if fetched >= maxVulns {
-			break
+		ids = append(ids, id)
+	}
+	details, known := sc.resolve(ctx, client, ids)
+
+	// Einträge ohne eigene Stufe (z. B. USN-Notizen) erben die höchste Stufe ihrer
+	// verknüpften CVE-Einträge.
+	inherited := map[string]string{}
+	var relIDs []string
+	relFor := map[string][]string{}
+	for id, d := range details {
+		if d == nil || d.severity() != "" {
+			continue
 		}
-		details[id] = fetchDetail(ctx, client, id)
-		fetched++
+		relFor[id] = d.relatedIDs()
+		relIDs = append(relIDs, relFor[id]...)
+	}
+	if len(relIDs) > 0 {
+		relDetails, relKnown := sc.resolve(ctx, client, relIDs)
+		for id, rels := range relFor {
+			var levels []string
+			for _, r := range rels {
+				if d := relDetails[r]; d != nil {
+					levels = append(levels, d.severity())
+				} else if k, ok := relKnown[r]; ok {
+					levels = append(levels, k.Severity)
+				}
+			}
+			inherited[id] = maxLevel(levels...)
+		}
 	}
 
 	var out []Vuln
@@ -123,9 +186,11 @@ func Scan(ctx context.Context, client *http.Client, sw []SW, ecosystem string) (
 		p := sw[h.swIdx]
 		v := Vuln{Package: p.Name, Version: p.Version, ID: h.id, URL: "https://osv.dev/vulnerability/" + h.id}
 		if d := details[h.id]; d != nil {
-			v.Severity = d.severity()
-			v.Summary = d.Summary
+			v.Severity = maxLevel(d.severity(), inherited[h.id])
+			v.Summary = d.summaryText()
 			v.Fixed = d.fixedFor(p.Name)
+		} else if k, ok := known[h.id]; ok {
+			v.Severity, v.Summary, v.Fixed = k.Severity, k.Summary, k.Fixed
 		}
 		out = append(out, v)
 	}
@@ -133,7 +198,11 @@ func Scan(ctx context.Context, client *http.Client, sw []SW, ecosystem string) (
 }
 
 type osvDetail struct {
-	Summary  string `json:"summary"`
+	Summary  string   `json:"summary"`
+	Details  string   `json:"details"`
+	Aliases  []string `json:"aliases"`
+	Related  []string `json:"related"`
+	Upstream []string `json:"upstream"`
 	Severity []struct {
 		Type  string `json:"type"`
 		Score string `json:"score"`
@@ -156,22 +225,32 @@ type osvDetail struct {
 	} `json:"affected"`
 }
 
+// severity leitet die Stufe ab: qualitative Angaben (GHSA database_specific, Ubuntu-
+// Priority/Debian-Urgency im severity-Array) vor dem aus dem CVSS-Vektor gerechneten
+// Basiswert (v2/v3; v4 kann nicht gerechnet werden).
 func (d *osvDetail) severity() string {
-	if s := strings.ToUpper(d.DatabaseSpecific.Severity); s != "" {
+	if s := LevelFromWord(d.DatabaseSpecific.Severity); s != "" {
 		return s
 	}
 	for _, a := range d.Affected {
-		if s := strings.ToUpper(a.DatabaseSpecific.Severity); s != "" {
+		if s := LevelFromWord(a.DatabaseSpecific.Severity); s != "" {
 			return s
 		}
 	}
-	// CVSS-Vektor -> grobe Stufe über den Basiswert im Vektor (falls als Zahl anhängt).
 	for _, sv := range d.Severity {
-		if sv.Score != "" {
-			return "" // Vektor ohne einfachen Score – Stufe unbekannt lassen
+		if !strings.HasPrefix(strings.ToUpper(sv.Type), "CVSS") {
+			if s := LevelFromWord(sv.Score); s != "" {
+				return s
+			}
 		}
 	}
-	return ""
+	best := 0.0
+	for _, sv := range d.Severity {
+		if score, ok := ScoreFromVector(sv.Score); ok && score > best {
+			best = score
+		}
+	}
+	return Level(best)
 }
 
 func (d *osvDetail) fixedFor(pkg string) string {
@@ -208,4 +287,106 @@ func fetchDetail(ctx context.Context, client *http.Client, id string) *osvDetail
 		return nil
 	}
 	return &d
+}
+
+// summaryText liefert die Kurzbeschreibung; fehlt sie (z. B. Ubuntu-CVE-Einträge), die
+// erste Zeile der Langbeschreibung.
+func (d *osvDetail) summaryText() string {
+	if d.Summary != "" {
+		return d.Summary
+	}
+	t := strings.TrimSpace(strings.ReplaceAll(d.Details, "\n", " "))
+	if len(t) > 200 {
+		t = t[:200] + "…"
+	}
+	return t
+}
+
+// relatedIDs sind verknüpfte Einträge (Upstream-CVE, Aliase), aus denen eine fehlende
+// Stufe übernommen werden kann – z. B. USN-Notizen ohne eigene Bewertung.
+func (d *osvDetail) relatedIDs() []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, l := range [][]string{d.Upstream, d.Aliases, d.Related} {
+		for _, id := range l {
+			if id != "" && !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+	}
+	if len(out) > 4 {
+		out = out[:4]
+	}
+	return out
+}
+
+// maxLevel liefert die höchste von mehreren Stufen.
+func maxLevel(levels ...string) string {
+	rank := map[string]int{"": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+	best := ""
+	for _, l := range levels {
+		if rank[l] > rank[best] {
+			best = l
+		}
+	}
+	return best
+}
+
+// resolve beschafft Detail-Datensätze zu IDs: 1) Prozess-Cache, 2) persistent bekannte
+// Details (Known), 3) Rest parallel von OSV (begrenzt je Aufruf; Fehlendes holt der
+// nächste Lauf nach). Nicht geladene IDs fehlen in beiden Ergebnissen.
+func (sc *Scanner) resolve(ctx context.Context, client *http.Client, ids []string) (map[string]*osvDetail, map[string]Known) {
+	details := map[string]*osvDetail{}
+	known := map[string]Known{}
+	var missing []string
+	for _, id := range ids {
+		if _, dup := details[id]; dup {
+			continue
+		}
+		if d, ok := sc.cached(id); ok {
+			details[id] = d
+			continue
+		}
+		details[id] = nil
+		missing = append(missing, id)
+	}
+	if sc.Known != nil && len(missing) > 0 {
+		known = sc.Known(ctx, missing)
+		if known == nil {
+			known = map[string]Known{}
+		}
+		rest := missing[:0]
+		for _, id := range missing {
+			if _, ok := known[id]; !ok {
+				rest = append(rest, id)
+			}
+		}
+		missing = rest
+	}
+	if len(missing) > maxVulns {
+		missing = missing[:maxVulns]
+	}
+	if len(missing) > 0 {
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, fetchWorkers)
+		var mu sync.Mutex
+		for _, id := range missing {
+			wg.Add(1)
+			go func(id string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				d := fetchDetail(ctx, client, id)
+				if d != nil {
+					sc.remember(id, d)
+				}
+				mu.Lock()
+				details[id] = d
+				mu.Unlock()
+			}(id)
+		}
+		wg.Wait()
+	}
+	return details, known
 }

@@ -109,5 +109,8 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
 Schranken: die **Nie-sperren-Liste** (IPs/CIDRs) und ein **Cooldown** je Gerät und Aktion unter
 Einstellungen → Sicherheitsüberwachung; Loopback und die Adresse des Roster-Servers sind immer
 geschützt. Jede Reaktion landet im Audit-Log und wird mit Ergebnis am Vorfall angezeigt. Der Tab
-**Sperren** listet alle Sperren (Status, Ablauf, Aufheben); Vorfälle bieten manuelle Knöpfe
-*IP sperren* und *Konto sperren*.
+**Sperren** listet alle Sperren (Status, Ablauf, Aufheben) und erlaubt das manuelle Sperren
+einer IP (Gerät, IP, Dauer von einer Stunde bis dauerhaft, Grund); Vorfälle bieten *IP sperren*
+mit derselben Dauer-Auswahl und *Konto sperren*. Eine bereits gesperrte IP wird nicht doppelt
+angelegt, sondern mit der neuen Dauer erneuert – so lässt sich eine befristete Sperre an Ort
+und Stelle dauerhaft machen.
