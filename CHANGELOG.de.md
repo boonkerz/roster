@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.5] - 2026-11-01
+
 ### Behoben
 - **Automatische Sperre sperrt keine privaten/internen Adressen mehr** (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7, Link-Local). Hintergrund: Eine Log-Quelle hinter einem Reverse-Proxy sah nur die Docker-interne Adresse des Proxys; der Vorfall „Angriffsmuster“ sperrte sie flottenweit in DOCKER-USER und trennte den Proxy von den Backends. Der Vorfall wird weiter angelegt, die Reaktion steht auf *skipped: private address*. Wer es wirklich will, schaltet es unter Einstellungen → Sicherheitsüberwachung ein; manuelle Sperren bleiben möglich.
 
@@ -214,7 +216,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.4...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.5...HEAD
+[0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
 [0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4
 [0.18.3]: https://github.com/boonkerz/roster/compare/v0.18.2...v0.18.3
 [0.18.2]: https://github.com/boonkerz/roster/compare/v0.18.1...v0.18.2

@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.5] - 2026-11-01
+
 ### Fixed
 - **Automatic blocking no longer blocks private/internal addresses** (10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/7, link-local). Background: a log source behind a reverse proxy only saw the proxy's Docker-internal address; the “attack pattern” incident blocked it fleet-wide in DOCKER-USER and cut the proxy off from the backends. The incident is still recorded, the response reads *skipped: private address*. Settings → Security monitoring has an opt-in; manual blocks remain possible.
 
@@ -214,7 +216,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.4...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.5...HEAD
+[0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
 [0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4
 [0.18.3]: https://github.com/boonkerz/roster/compare/v0.18.2...v0.18.3
 [0.18.2]: https://github.com/boonkerz/roster/compare/v0.18.1...v0.18.2
