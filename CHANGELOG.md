@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.6] - 2026-11-01
+
 ### Changed
 - Dashboard: country metrics show up to 40 countries as bars, sorted descending (instead of 12 + “Other”); the remainder is labelled “Other (n countries)”.
 
@@ -219,7 +221,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.5...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.6...HEAD
+[0.18.6]: https://github.com/boonkerz/roster/compare/v0.18.5...v0.18.6
 [0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
 [0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4
 [0.18.3]: https://github.com/boonkerz/roster/compare/v0.18.2...v0.18.3
