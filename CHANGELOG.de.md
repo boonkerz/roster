@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-11-01
+
 ### Behoben
 - Agent: **Checkin-Sturm** behoben – Checks mit Häufigkeit „jeder Checkin“ lieferten immer frische Ergebnisse und stießen damit sofort den nächsten Checkin an, sodass Agents etwa jede Sekunde statt im eingestellten Intervall eincheckten. Ein Sofort-Checkin wird jetzt nur noch bei geändertem Check-Status oder nach einem Task-Lauf angefordert, höchstens alle 30 Sekunden.
 
@@ -160,7 +162,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.2...HEAD
+[0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/boonkerz/roster/compare/v0.16.1...v0.16.2
