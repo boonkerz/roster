@@ -55,7 +55,7 @@ json-file log directly and falls back to `docker logs --since`). Each source has
 
 | Format | Produces |
 |---|---|
-| Web access log (nginx, Apache, Traefik – combined log, also with a leading `$host`) | `401` → failed login; scanner paths (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` and other malformed requests, `404` on `.php/.sql/.bak/.zip` → **suspicious request** |
+| Web access log (nginx, Apache, Traefik – combined log, also with a leading `$host`; nginx-proxy output with forego prefix is unwrapped) | `401` → failed login; scanner paths (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select`, `cmd=`, `${jndi`, `/proc/self` …), hidden files (`/.git`, `/.terraform`), credential/config files, `400`/`444` and other malformed requests, `404` or reverse-proxy `503` on `.php/.sql/.bak/.zip/.tfvars/.pem …`, failed requests to the bare server IP instead of the domain name → **suspicious request** |
 | Web error log (nginx, Apache) | `password mismatch`, `authentication failure`, `user … not found` → failed login; `access forbidden by rule`, `client denied`, `Invalid URI`, ModSecurity denials, rate limiting, missing scanner files → suspicious request |
 | sshd (SSH/SFTP servers or containers) | the same events as the host's sshd: failed/accepted logins, invalid users |
 | FTP (vsftpd, proftpd, pure-ftpd) | failed/successful logins, unknown users |

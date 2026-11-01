@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Log sources: lines from **nginx-proxy** (forego prefix with colour codes) were not unwrapped cleanly, so the bare-IP detection did not apply. ANSI codes are now stripped. New attack patterns: command/code injection in path or query (`cmd=`, `=curl`, `${jndi`, `<script`, `/etc/passwd`, `/proc/self` …), hidden files (`/.git`, `/.terraform`, `/.env`), credential/config files (`server.key`, `credentials`, `.tfvars`, `.toml`, `.properties`, `.pem` …), a reverse proxy's **503** without a matching backend host counts like 404, and failed requests to the **IP address instead of the domain name** (default host `_`) count as scanner activity. On a real nginx-proxy log (5,000 lines) detection rises from 1,820 to 2,709 hits.
+
 ## [0.18.3] - 2026-11-01
 
 ### Added

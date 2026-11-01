@@ -7,6 +7,7 @@ package logmon
 
 import (
 	"encoding/json"
+	"net"
 	"regexp"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 var (
 	// Docker json-file: {"log":"…","stream":"stdout","time":"2026-11-01T09:12:33.123Z"}
 	reForego   = regexp.MustCompile(`^[A-Za-z0-9_.-]+\.\d+\s+\|\s`) // nginx-proxy/forego: "nginx.1    | "
+	reANSI     = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)        // Farbcodes (forego färbt den Präfix)
 	reDockerTS = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s`)
 	// Combined-Log (auch nginx-proxy: "$host $remote_addr - $remote_user [...] ...")
 	reAccess  = regexp.MustCompile(`(?:^|\s)(?P<ip>(?:\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]{3,}) - (?P<user>\S+) \[(?P<time>[^\]]+)\] "(?P<req>[^"]*)" (?P<status>\d{3})`)
@@ -47,12 +49,24 @@ var (
 		"wp-login.php", "wp-admin", "xmlrpc.php", "wlwmanifest.xml", "/.env", "/.git", "/.svn", "/.hg", "/.aws", "/.ssh", "/.ds_store",
 		"phpmyadmin", "/pma/", "/mysql/", "/adminer", "/cgi-bin/", "/vendor/phpunit", "eval-stdin", "/shell", "/cmd.php", "/c99", "/r57",
 		"/actuator", "/solr/", "/console/", "/manager/html", "/jmx-console", "/boaform/", "/hnap1", "/gponform", "/setup.cgi", "/cgi/",
+		// Befehls-/Code-Injection in Pfad oder Query (zählt unabhängig vom Status, auch bei 200/503)
+		"cmd=", "exec=", "=curl", "=wget", ";wget", ";curl", "|wget", "|curl", "%7cwget", "%7ccurl", "chmod+", "chmod%20", "/bin/sh", "/bin/bash",
+		"base64_decode", "eval(", "eval%28", "${jndi", "%24%7bjndi", "<script", "%3cscript", "/etc/passwd", "..%2f", "..%5c", "%00",
+		"invokefunction", "call_user_func", "auto_prepend_file", "allow_url_include", "think\\app", "phpinfo(",
+		// Dateien mit Zugangsdaten/Konfiguration, die Scanner blind abfragen
+		"server.key", "/credentials", "credentials.", "/aws/", "aws.env", "/env.", "/.env.", "/config.y", "/settings.json", "/secrets", "id_rsa",
+		"/phpinfo", "pm2.config", "next.config", "bitbucket-pipelines", "docker-compose.y", "/.docker", "/.vscode", "/.idea", "/backup.", "/dump.",
+		"/server-status", "/server-info", "/sdk/weblanguage", "/.well-known/security", "/owa/", "/ecp/", "/autodiscover/",
+		"/proc/self", "%2eenv", "%2e%2e", "/_debugbar", "/dockerfile", "private-key", "/_profiler", "/telescope", "/_ignition",
 		"/owa/", "/autodiscover/", "/ecp/", "/telescope", "/_profiler", "/debug/default", "/server-status", "/.vscode", "/.idea",
 		"/etc/passwd", "../", "..%2f", "%2e%2e", "union select", "union+select", "union%20select", "<script", "%3cscript", "base64_decode",
 		"/config.php", "/configuration.php", "/backup", "/dump.sql", "/db.sql", "/.bak", "/web.config", "/phpinfo", "/info.php", "/test.php",
 		"/wp-content/", "/wp-includes/", "/joomla", "/administrator/", "/magento", "/downloader/", "/login.action", "/struts", "/jenkins",
 	}
-	probeExt = []string{".php", ".asp", ".aspx", ".jsp", ".cgi", ".sh", ".bak", ".sql", ".zip", ".tar", ".gz", ".rar", ".7z", ".old", ".orig", ".swp", ".env", ".ini", ".log", ".yml", ".yaml", ".xml"}
+	probeExt = []string{".php", ".asp", ".aspx", ".jsp", ".cgi", ".sh", ".bak", ".sql", ".zip", ".tar", ".gz", ".rar", ".7z", ".old", ".orig", ".swp", ".env", ".ini", ".log", ".yml", ".yaml", ".xml",
+		".toml", ".hcl", ".tfvars", ".tfstate", ".prisma", ".properties", ".key", ".pem", ".p12", ".pfx", ".sqlite", ".db", ".conf", ".cfg", ".py", ".rb", ".pl", ".lock"}
+	// nur bei 503 (Reverse-Proxy ohne Backend) – bei 404 auf echten Seiten zu häufig legitim
+	probeExt503 = []string{".json", ".js", ".txt", ".md"}
 )
 
 // Line ist eine zu analysierende Protokollzeile mit bekannter Zeit (Zero = unbekannt).
@@ -81,6 +95,9 @@ func Unwrap(raw string) Line {
 			l.Time = t
 		}
 		l.Text = l.Text[len(m[0]):]
+	}
+	if strings.Contains(l.Text, "\x1b[") {
+		l.Text = reANSI.ReplaceAllString(l.Text, "")
 	}
 	l.Text = reForego.ReplaceAllString(l.Text, "")
 	return l
@@ -126,7 +143,15 @@ func suspiciousPath(path string, status int) bool {
 			return true
 		}
 	}
-	if status == 404 {
+	// 404 (klassisch) und 503 (Reverse-Proxy ohne passenden Backend-Host, z. B. nginx-proxy)
+	// auf typische Datei-Endungen: Konfigurations-/Backup-/Skript-Dateien, die niemand verlinkt.
+	if status >= 400 {
+		// versteckte Dateien/Ordner (/.git, /.terraform, /.dev.vars …) – außer ACME/.well-known
+		if strings.Contains(p, "/.") && !strings.Contains(p, "/.well-known/") {
+			return true
+		}
+	}
+	if status == 404 || status == 503 {
 		clean := p
 		if i := strings.IndexAny(clean, "?#"); i >= 0 {
 			clean = clean[:i]
@@ -136,8 +161,32 @@ func suspiciousPath(path string, status int) bool {
 				return true
 			}
 		}
+		if status == 503 {
+			for _, e := range probeExt503 {
+				if strings.HasSuffix(clean, e) {
+					return true
+				}
+			}
+		}
 	}
 	return false
+}
+
+// hostIsLiteral erkennt Anfragen an die nackte IP bzw. den Default-Server („_“) eines
+// Reverse-Proxys – echte Besucher kommen über den Domainnamen, Scanner über die IP.
+func hostIsLiteral(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	if host == "_" {
+		return true
+	}
+	if i := strings.LastIndexByte(host, ':'); i > 0 && !strings.Contains(host, "]") && strings.Count(host, ":") == 1 {
+		host = host[:i]
+	}
+	host = strings.Trim(host, "[]")
+	return net.ParseIP(host) != nil
 }
 
 func parseAccess(line string, ts time.Time) (shared.AuthEvent, bool) {
@@ -174,6 +223,10 @@ func parseAccess(line string, ts time.Time) (shared.AuthEvent, bool) {
 		ev.Kind = "probe"
 		return ev, true
 	case suspiciousPath(path, status):
+		ev.Kind = "probe"
+		return ev, true
+	case status >= 400 && hostIsLiteral(strings.TrimSpace(line[:strings.Index(line, m[0])])) && path != "/" && path != "/robots.txt" && path != "/favicon.ico":
+		// Fehlgeschlagene Anfrage an die nackte Server-IP / den Default-Host: Scanner.
 		ev.Kind = "probe"
 		return ev, true
 	}

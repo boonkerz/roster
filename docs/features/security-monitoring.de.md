@@ -57,7 +57,7 @@ Jede Quelle hat ein Format:
 
 | Format | Erzeugt |
 |---|---|
-| Web-Zugriffsprotokoll (nginx, Apache, Traefik – Combined Log, auch mit vorangestelltem `$host`) | `401` → Fehlversuch; Scanner-Pfade (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` und andere kaputte Anfragen, `404` auf `.php/.sql/.bak/.zip` → **verdächtige Anfrage** |
+| Web-Zugriffsprotokoll (nginx, Apache, Traefik – Combined Log, auch mit vorangestelltem `$host`; nginx-proxy-Ausgabe mit forego-Präfix wird ausgepackt) | `401` → Fehlversuch; Scanner-Pfade (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select`, `cmd=`, `${jndi`, `/proc/self` …), versteckte Dateien (`/.git`, `/.terraform`), Zugangsdaten-/Konfigurationsdateien, `400`/`444` und andere kaputte Anfragen, `404` oder Reverse-Proxy-`503` auf `.php/.sql/.bak/.zip/.tfvars/.pem …`, fehlgeschlagene Anfragen an die nackte Server-IP statt des Domainnamens → **verdächtige Anfrage** |
 | Web-Fehlerprotokoll (nginx, Apache) | `password mismatch`, `authentication failure`, `user … not found` → Fehlversuch; `access forbidden by rule`, `client denied`, `Invalid URI`, ModSecurity, Rate-Limit, fehlende Scanner-Dateien → verdächtige Anfrage |
 | sshd (SSH-/SFTP-Server oder -Container) | dieselben Ereignisse wie der sshd des Hosts: fehlgeschlagene/akzeptierte Anmeldungen, unbekannte Benutzer |
 | FTP (vsftpd, proftpd, pure-ftpd) | fehlgeschlagene/erfolgreiche Anmeldungen, unbekannte Benutzer |
