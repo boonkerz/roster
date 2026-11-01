@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-11-01
+
 ### Neu
 - Sicherheit: manuelles IP-Sperren im Tab **Sperren** (Gerät, IP, Dauer, Grund) und Dauer-Auswahl am Vorfall – eine Stunde, 24 Stunden, 7 Tage, 30 Tage oder **dauerhaft**.
 
@@ -169,7 +171,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.3...HEAD
+[0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0

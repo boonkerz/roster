@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-11-01
+
 ### Added
 - Security: manual IP blocks in the **Blocks** tab (device, IP, duration, reason) and a duration choice at incidents – one hour, 24 hours, 7 days, 30 days or **permanent**.
 
@@ -169,7 +171,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.3...HEAD
+[0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0
