@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-01
+
 ### Neu
 - Patches: neue Seite **Patches** mit allen ausstehenden Updates der Flotte – Sicherheits-Updates
   zuerst, Filter (Firma, Standort, nur Sicherheit, nur genehmigte, Suche), Mehrfachauswahl mit
@@ -150,7 +152,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.16.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/boonkerz/roster/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/boonkerz/roster/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/boonkerz/roster/compare/v0.15.0...v0.16.0
