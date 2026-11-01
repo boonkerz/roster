@@ -6,6 +6,11 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Policies → Security → log sources: **Test** – the agent of a device of your choice reads the last lines of the source (even before saving) and shows files/containers found, hits and a sample of recognised events; if no container matches, the names of the running containers.
+- Device → Logins: card **Monitoring on this device** – effective login monitoring, file integrity, compliance and log sources with the read status reported by the agent (policy, targets found, events since agent start, last hit, error) and a test per source. The agent reports the status with every check-in.
+- **Countries of source IPs**: embedded IP-to-country database (ip-location-db, public domain, no external service). Flags on incidents, login events and blocks, a *Country* column on blocks, tiles *Attack sources by country (24 h)* and *Blocked IPs by country (30 days)* on the Security page, and the dashboard metrics **Blocked IPs by country** and **Attack sources by country** (bar/donut/history; new users get the country chart by default). `make geoip` refreshes the database.
+
 ## [0.18.2] - 2026-11-01
 
 ### Added

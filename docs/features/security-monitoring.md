@@ -67,6 +67,18 @@ the incident texts and the blocks show where an attacker was seen. Templates fil
 the common cases: web server access/error log as a file or in a Docker container, SSH/SFTP
 container, FTP server, mail server, custom pattern.
 
+**Test** (next to each source and in the form, even before saving) makes the agent of a device
+of your choice read the last lines of the source and parse them with the format: files or
+containers found, lines read, hits and a sample of the recognised events. If no container
+matches, the result lists the names of the running containers. The agent's read cursor is not
+touched and hits are not stored as events.
+
+Whether a source is actually being read on a device is shown on the device in the **Logins**
+tab under **Monitoring on this device**: the policy that contributes it, how many files or
+containers the agent found, how many events arrived since the agent started, when the last hit
+was and any error (missing file, no matching container, missing permissions). The same card
+shows whether login monitoring, file integrity and compliance are in effect.
+
 The server derives **incidents** from these events:
 
 - **Brute force** – N failed logins from one source IP within the window (default 10 in 10 min),
@@ -87,7 +99,13 @@ and per-channel severity apply). Which kinds are sent is a per-policy choice in 
 when the source IP was blocked automatically* keeps the channels quiet when active response or
 automatic blocking already handled the attacker. Incidents are always recorded on the Security
 page regardless of these switches. The **Incidents** tab lists them with acknowledge/resolve,
-filters and the top source IPs; **Logins** shows the raw events. Thresholds, the learning
+filters, the top source IPs, the **countries of origin** of failed attempts and suspicious requests and the
+countries of recently blocked IPs; **Logins** shows the raw events. Source IPs carry a country
+flag everywhere. The mapping comes from an IP-to-country database embedded in the server
+([ip-location-db](https://github.com/sapics/ip-location-db), public domain) – no external
+service; it is refreshed with every release. For the overview there are the metrics **Blocked
+IPs by country (30 days)** and **Attack sources by country (7 days)** as bar, donut or history
+charts (see [Dashboard](dashboard.md)). Thresholds, the learning
 phase and the never-block list live in Settings → **Security monitoring**.
 
 ## Compliance (baseline) checks

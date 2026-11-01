@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Richtlinien → Sicherheit → Log-Quellen: **Testen** – der Agent eines wählbaren Geräts liest die letzten Zeilen der Quelle (auch vor dem Speichern) und zeigt gefundene Dateien/Container, Treffer und eine Stichprobe der erkannten Ereignisse; passt kein Container, die Namen der laufenden Container.
+- Gerät → Anmeldungen: Karte **Überwachung auf diesem Gerät** – wirksame Anmeldungs-Überwachung, Datei-Integrität, Compliance und Log-Quellen mit dem vom Agent gemeldeten Lesestatus (Richtlinie, gefundene Ziele, Ereignisse seit Agent-Start, letzter Treffer, Fehler) und Testen je Quelle. Der Agent meldet den Status mit jedem Checkin.
+- **Länder der Quell-IPs**: eingebettete IP-zu-Land-Datenbank (ip-location-db, Public Domain, kein externer Dienst). Flaggen an Vorfällen, Anmeldeereignissen und Sperren, Spalte *Land* bei den Sperren, Kacheln *Angriffsquellen nach Land (24 h)* und *Gesperrte IPs nach Land (30 Tage)* auf der Seite Sicherheit, und die Dashboard-Kennzahlen **Gesperrte IPs nach Land** und **Angriffsquellen nach Land** (Balken/Ring/Verlauf; neue Nutzer bekommen das Länder-Diagramm standardmäßig). `make geoip` erneuert die Datenbank.
+
 ## [0.18.2] - 2026-11-01
 
 ### Neu

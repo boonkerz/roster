@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/boonkerz/roster/internal/server/geoip"
 	"github.com/boonkerz/roster/internal/server/model"
 	"github.com/boonkerz/roster/internal/server/store"
 )
@@ -23,6 +24,9 @@ const (
 // summaryKeys sind die Kennzahlen, die je Standort als eigene Reihe gezählt werden.
 var summaryKeys = []string{"devices_total", "devices_online", "devices_offline", "devices_unknown",
 	"failing_checks", "failing_tasks", "pending_patches", "security_patches", "vulnerabilities", "devices_eol", "open_incidents", "low_compliance"}
+
+// countryKeys sind Verteilungen nach Land (Label = ISO-Code); sie werden nicht mit 0 aufgefüllt.
+var countryKeys = []string{"blocked_countries", "attack_countries"}
 
 // computeStatSamples zählt den Ist-Zustand in Statistik-Zeilen (ohne Zeitstempel):
 // Kennzahlen und der Gerätestatus je Standort, der Status jedes Checks und die
@@ -168,7 +172,35 @@ func (s *Server) currentStats(ctx context.Context, allowed map[string]bool) ([]s
 	if err != nil {
 		return nil, err
 	}
-	return s.computeStatSamples(devices, checks, fields, vals), nil
+	samples := s.computeStatSamples(devices, checks, fields, vals)
+	// Länder-Kennzahlen (Label = ISO-Code, "" = unbekannt) aus Sperren und Angriffsquellen.
+	for key, kind := range map[string]string{"blocked_countries": "blocked", "attack_countries": "attack"} {
+		bySite, err := s.store.SiteIPs(ctx, allowed, kind)
+		if err != nil {
+			return nil, err
+		}
+		sites := make([]string, 0, len(bySite))
+		for site := range bySite {
+			sites = append(sites, site)
+		}
+		sort.Strings(sites)
+		for _, site := range sites {
+			counts := map[string]float64{}
+			var order []string
+			for _, ip := range bySite[site] {
+				cc := geoip.Country(ip)
+				if _, ok := counts[cc]; !ok {
+					order = append(order, cc)
+				}
+				counts[cc]++
+			}
+			sort.Strings(order)
+			for _, cc := range order {
+				samples = append(samples, store.StatSample{SiteID: site, Kind: statKindSummary, Key: key, Label: cc, Value: counts[cc]})
+			}
+		}
+	}
+	return samples, nil
 }
 
 // SnapshotStats schreibt den Ist-Zustand als Statistik-Snapshot der aktuellen Stunde.
@@ -196,7 +228,7 @@ type statSources struct {
 // handleStatSources liefert, was sich in einem Dashboard-Diagramm darstellen lässt:
 // Kennzahlen, Checks (mit Richtlinie) und benutzerdefinierte Gerätefelder.
 func (s *Server) handleStatSources(w http.ResponseWriter, r *http.Request) {
-	out := statSources{Summary: append([]string{"device_status"}, summaryKeys...), Checks: []statSource{}, Fields: []statSource{}}
+	out := statSources{Summary: append(append([]string{"device_status"}, summaryKeys...), countryKeys...), Checks: []statSource{}, Fields: []statSource{}}
 	if policies, err := s.store.ListPolicies(r.Context()); err == nil {
 		for _, p := range policies {
 			for _, c := range p.Checks {

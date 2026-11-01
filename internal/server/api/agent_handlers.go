@@ -97,6 +97,11 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		s.runResponses(r.Context(), device, incidents)
 		s.alertIncidents(r.Context(), device, incidents)
 	}
+	if req.LogSources != nil {
+		if err := s.store.ReplaceLogSourceStatus(r.Context(), device.ID, req.LogSources); err != nil {
+			s.log.Error("log-quellen-status speichern", "err", err)
+		}
+	}
 	if req.Compliance != nil {
 		if err := s.store.ReplaceCompliance(r.Context(), device.ID, req.Compliance); err != nil {
 			s.log.Error("compliance speichern", "err", err)

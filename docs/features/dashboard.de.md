@@ -15,7 +15,7 @@ Zeitraum:
 
 | Quelle | Was gezählt wird |
 |---|---|
-| **Kennzahl** | die Zahlen der Übersicht – Geräte gesamt/online/offline, fehlschlagende Checks und Tasks, ausstehende Patches, Schwachstellen – oder die Verteilung des Geräte-Status |
+| **Kennzahl** | die Zahlen der Übersicht – Geräte gesamt/online/offline, fehlschlagende Checks und Tasks, ausstehende Patches, Schwachstellen – oder die Verteilung des Geräte-Status; dazu **Gesperrte IPs nach Land (30 Tage)** und **Angriffsquellen nach Land (7 Tage)** aus der [Sicherheitsüberwachung](security-monitoring.md) |
 | **Check** | ein Richtlinien-Check über alle Geräte: wie viele bestehen, warnen, fehlschlagen |
 | **Feld** | ein benutzerdefiniertes Gerätefeld: wie viele Geräte jeden Wert tragen – z. B. die Docker-Image-Versionen, die ein Collector-Task schreibt, siehe [Inventar → Benutzerdefinierte Felder](inventory.md#benutzerdefinierte-felder). Listenfelder zählen jeden Eintrag |
 | **Status-Wechsel** | die Liste der letzten Status-Übergänge von Checks (keine Darstellung zu wählen) |

@@ -9,6 +9,7 @@ import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/Se
 import { FleetCompliance } from "../components/Compliance";
 import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
 import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
+import { CountryChips, Flag, countryName } from "../components/Country";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
@@ -117,9 +118,18 @@ function IncidentsTab() {
             <div className="dash-label">{t("Häufigste Quell-IPs (24 h)")}</div>
             <div className="small" style={{ marginTop: 6 }}>
               {summary.top_ips.length === 0 ? <span className="muted">—</span> : summary.top_ips.slice(0, 6).map((x) => (
-                <span key={x.ip} className="badge badge-unknown" style={{ marginRight: 6, marginBottom: 4, cursor: "pointer" }} onClick={() => { const p = new URLSearchParams(params); p.set("tab", "auth"); p.set("ip", x.ip); setParams(p); }}>{x.ip} · {x.count}</span>
+                <span key={x.ip} className="badge badge-unknown" style={{ marginRight: 6, marginBottom: 4, cursor: "pointer" }} onClick={() => { const p = new URLSearchParams(params); p.set("tab", "auth"); p.set("ip", x.ip); setParams(p); }}><Flag cc={x.country} />{x.ip} · {x.count}</span>
               ))}
             </div>
+          </div>
+          <div className="dash-tile" style={{ gridColumn: "span 2" }}>
+            <div className="dash-label">{t("Angriffsquellen nach Land (24 h)")}</div>
+            <div className="small" style={{ marginTop: 6 }}><CountryChips items={summary.top_countries ?? []} /></div>
+          </div>
+          <div className="dash-tile" style={{ gridColumn: "span 2" }}>
+            <div className="dash-label">{t("Gesperrte IPs nach Land (30 Tage)")}</div>
+            <div className="small" style={{ marginTop: 6 }}><CountryChips items={summary.blocked_countries ?? []} /></div>
+            <div className="muted small" style={{ marginTop: 4 }}>{t("Als Diagramm auf der Übersicht: „Diagramm hinzufügen“ → Kennzahl „Gesperrte IPs nach Land“.")}</div>
           </div>
         </div>
       )}
@@ -174,6 +184,13 @@ function IncidentsTab() {
 }
 
 // BlocksTab listet IP-Sperren aller Geräte (automatisch und manuell) mit Aufheben.
+// CountryCell zeigt Flagge und Ländername (oder —).
+function CountryCell({ cc }: { cc?: string }) {
+  const { t, lang } = useI18n();
+  if (!cc) return <span className="muted">—</span>;
+  return <span><Flag cc={cc} />{countryName(cc, lang, t("Unbekannt"))}</span>;
+}
+
 function BlocksTab() {
   const { t } = useI18n();
   const { hasPerm } = useAuth();
@@ -220,13 +237,14 @@ function BlocksTab() {
       {isLoading ? <p className="muted">{t("Lädt…")}</p> : (rows ?? []).length === 0 ? <p className="empty">{t("Keine Sperren.")}</p> : (
         <div className="scroll-list" style={{ maxHeight: "65vh" }}>
           <table className="table">
-            <thead><tr><th>{t("Zeit")}</th><th>{t("Gerät")}</th><th>IP</th><th>{t("Grund")}</th><th>{t("Bis")}</th><th>{t("Status")}</th><th>{t("Von")}</th><th></th></tr></thead>
+            <thead><tr><th>{t("Zeit")}</th><th>{t("Gerät")}</th><th>IP</th><th>{t("Land")}</th><th>{t("Grund")}</th><th>{t("Bis")}</th><th>{t("Status")}</th><th>{t("Von")}</th><th></th></tr></thead>
             <tbody>
               {(rows ?? []).map((b) => (
                 <tr key={b.id} className="small">
                   <td className="mono muted">{new Date(b.created_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</td>
                   <td><Link to={`/devices/${b.device_id}`} className="link-strong">{b.hostname}</Link></td>
                   <td className="mono">{b.ip}</td>
+                  <td><CountryCell cc={b.country} /></td>
                   <td className="muted">{b.reason || "—"}</td>
                   <td className="muted">{b.until ? new Date(b.until).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : t("dauerhaft")}</td>
                   <td><span className={`badge ${cls[b.status] ?? "badge-unknown"}`} title={b.detail}>{t(label[b.status] ?? b.status)}</span>{b.status === "failed" && b.detail && <div className="muted small">{b.detail.slice(0, 80)}</div>}</td>

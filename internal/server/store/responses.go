@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/boonkerz/roster/internal/server/geoip"
 	"time"
 
 	"github.com/boonkerz/roster/internal/server/model"
@@ -174,6 +175,7 @@ func scanIPBlock(rows *sql.Rows) (model.IPBlock, error) {
 	if b.Status == "active" && b.Until != nil && time.Now().After(*b.Until) {
 		b.Status = "expired"
 	}
+	b.Country = geoip.Country(b.IP)
 	return b, err
 }
 

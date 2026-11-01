@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
@@ -96,7 +97,8 @@ export function Policies() {
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
   const { data: devices } = useQuery({ queryKey: ["devices"], queryFn: () => api.get<Device[]>("/devices") });
 
-  const [selected, setSelected] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const [selected, setSelected] = useState<string | null>(params.get("id")); // ?id= öffnet eine Richtlinie direkt (Links vom Gerät)
   const policy = policies?.find((p) => p.id === selected) ?? null;
 
   const createPolicy = useMutation({
@@ -623,7 +625,7 @@ function PolicyEditor({
 
       {tab === "notifications" && <NotificationSection policy={policy} />}
 
-      {tab === "security" && <SecuritySection policy={policy} />}
+      {tab === "security" && <SecuritySection policy={policy} devices={devices} />}
 
       {tab === "tasks" && <section className="card">
         <h2>{t("Tasks (geplante Skripte)")}</h2>

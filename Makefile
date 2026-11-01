@@ -130,6 +130,9 @@ vet: ## go vet
 tidy: ## go mod tidy
 	go mod tidy
 
+geoip: ## Eingebettete IP→Land-Datenbank erneuern (GEOIP_DIR = Ordner mit *-ipv4-num.csv/*-ipv6-num.csv von ip-location-db)
+	go run internal/server/geoip/gen/main.go -in $(GEOIP_DIR) -out internal/server/geoip/data
+
 release: ## Version freigeben: Changelog-Abschnitt, VERSION, Commit + Tag (make release VERSION=0.17.0)
 	./scripts/release.sh $(VERSION)
 

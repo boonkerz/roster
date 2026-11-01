@@ -13,7 +13,7 @@ Click **+ Chart** and pick a source, a chart type and (for history) a time range
 
 | Source | What it counts |
 |---|---|
-| **Metric** | the dashboard numbers — devices total/online/offline, failing checks and tasks, pending patches, vulnerabilities — or the device-status split |
+| **Metric** | the dashboard numbers — devices total/online/offline, failing checks and tasks, pending patches, vulnerabilities — or the device-status split; plus **Blocked IPs by country (30 days)** and **Attack sources by country (7 days)** from [security monitoring](security-monitoring.md) |
 | **Check** | one policy check across all devices: how many are passing, warning, failing |
 | **Field** | one custom device field: how many devices carry each value — e.g. the Docker image versions a collector task writes, see [Inventory → Custom fields](inventory.md#custom-fields). List fields count every entry |
 | **Status changes** | the list of the latest check status transitions (no chart type to pick) |

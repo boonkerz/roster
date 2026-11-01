@@ -38,6 +38,23 @@ type CheckinRequest struct {
 	AuthEvents []AuthEvent `json:"auth_events,omitempty"`
 	// Compliance ist ein frischer Prüfbericht (nur mitgeschickt, wenn neu geprüft wurde).
 	Compliance *ComplianceReport `json:"compliance,omitempty"`
+	// LogSources ist der Lesestatus der konfigurierten Log-Quellen (gefundene Dateien/
+	// Container, Ereignisse, letzter Treffer, Fehler) – damit am Gerät sichtbar ist, ob
+	// eine Quelle wirklich gelesen wird.
+	LogSources []LogSourceStatus `json:"log_sources,omitempty"`
+}
+
+// LogSourceStatus ist der Lesestatus einer Log-Quelle auf einem Gerät.
+type LogSourceStatus struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Type      string    `json:"type"`
+	Target    string    `json:"target"`
+	Targets   int       `json:"targets"`              // gefundene Dateien bzw. laufende Container
+	Events    int       `json:"events"`               // Ereignisse seit Agent-Start
+	LastEvent time.Time `json:"last_event,omitempty"` // Null-Zeit = noch keins
+	LastRun   time.Time `json:"last_run"`
+	Error     string    `json:"error,omitempty"`
 }
 
 // ComplianceReport ist das Ergebnis einer Compliance-Prüfung.

@@ -7,13 +7,17 @@ import { usePref } from "../prefs";
 import type { CheckEvent, DashChart, DashRange, DashWidget, DashWidth, StatSourceKind, StatSources, StatsResponse } from "../types";
 import { BarChart, DonutChart, LineChart, seriesColor, type Datum, type Series } from "../charts";
 import { CheckStatusBadge, relTime } from "./StatusBadge";
+import { countryFlag, countryName } from "./Country";
 
 const RANGE_MS: Record<DashRange, number> = { "24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000, "90d": 90 * 86_400_000, "365d": 365 * 86_400_000 };
 const RANGE_LABEL: Record<DashRange, string> = { "24h": "24 Stunden", "7d": "7 Tage", "30d": "30 Tage", "90d": "90 Tage", "365d": "1 Jahr" };
 const SUMMARY_LABEL: Record<string, string> = {
   device_status: "Geräte-Status", devices_total: "Geräte gesamt", devices_online: "Online", devices_offline: "Offline", devices_unknown: "Unbekannt",
   failing_checks: "Checks fehlerhaft", failing_tasks: "Tasks fehlerhaft", pending_patches: "Ausstehende Patches", security_patches: "Sicherheits-Updates", vulnerabilities: "Schwachstellen", devices_eol: "Support-Ende (erreicht/bald)", open_incidents: "Offene Sicherheitsvorfälle", low_compliance: "Geräte mit Compliance < 80 %",
+  blocked_countries: "Gesperrte IPs nach Land (30 Tage)", attack_countries: "Angriffsquellen nach Land (7 Tage)",
 };
+// Länder-Kennzahlen: Label ist der ISO-Code, angezeigt wird Flagge + Name.
+const COUNTRY_KEYS = ["blocked_countries", "attack_countries"];
 // Status-Farben sind reserviert (nie als Reihenfarbe) und stehen immer neben dem Label.
 const STATUS_COLOR: Record<string, string> = { passing: "var(--viz-status-ok)", online: "var(--viz-status-ok)", warning: "var(--viz-status-warn)", failing: "var(--viz-status-bad)", offline: "var(--viz-status-bad)", unknown: "var(--viz-status-unknown)" };
 const STATUS_LABEL: Record<string, string> = { passing: "OK", warning: "Warnung", failing: "Fehlerhaft", unknown: "Unbekannt", online: "Online", offline: "Offline" };
@@ -25,6 +29,7 @@ const WIDTH_LABEL: Record<DashWidth, string> = { 1: "Viertel", 2: "Halb", 3: "Dr
 const DEFAULT_WIDGETS: DashWidget[] = [
   { id: "status", title: "", source: "summary", key: "device_status", chart: "donut", range: "7d", width: 2 },
   { id: "events", title: "", source: "events", key: "recent", chart: "list", range: "7d", width: 2 },
+  { id: "geo", title: "", source: "summary", key: "blocked_countries", chart: "bar", range: "30d", width: 2 },
 ];
 
 const newID = () => Math.random().toString(36).slice(2, 10);
@@ -41,6 +46,7 @@ function sourceName(w: Pick<DashWidget, "source" | "key">, src: StatSources | un
 function labelFor(w: DashWidget, raw: string, src: StatSources | undefined, t: (s: string) => string): string {
   if (w.source === "check" || (w.source === "summary" && w.key === "device_status")) return t(STATUS_LABEL[raw] ?? raw);
   if (w.source === "field" && src?.fields.find((f) => f.id === w.key)?.type === "checkbox") return raw === "true" ? t("Ja") : t("Nein");
+  if (w.source === "summary" && COUNTRY_KEYS.includes(w.key)) return `${countryFlag(raw)} ${countryName(raw, document.documentElement.lang || "de", t("Unbekannt"))}`;
   if (w.source === "summary") return t(SUMMARY_LABEL[w.key] ?? w.key);
   return raw || "—";
 }

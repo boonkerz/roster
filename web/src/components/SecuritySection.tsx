@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
-import type { Policy, PolicyFIMRule, PolicyLogSource, PolicyResponse, PolicySecurity, Script } from "../types";
+import type { Device, LogSourceSpec, Policy, PolicyFIMRule, PolicyLogSource, PolicyResponse, PolicySecurity, Script } from "../types";
+import { LogSourceTest } from "./LogSourceTest";
 import { useQuery } from "@tanstack/react-query";
 import { CATEGORY_LABEL, SEVERITY_LABEL, ruleTitle, useComplianceRules } from "./Compliance";
 
@@ -57,7 +58,7 @@ type Draft = { path: string; recursive: boolean; exclude: string; platforms: str
 const emptyDraft = (): Draft => ({ path: "", recursive: true, exclude: "", platforms: [], alert: true });
 const draftFrom = (r: PolicyFIMRule): Draft => ({ path: r.path, recursive: r.recursive, exclude: (r.exclude ?? []).join("\n"), platforms: r.platforms ?? [], alert: r.alert });
 
-export function SecuritySection({ policy }: { policy: Policy }) {
+export function SecuritySection({ policy, devices }: { policy: Policy; devices: Device[] }) {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const sec = policy.security;
@@ -94,6 +95,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
   const [logDraft, setLogDraft] = useState<LogDraft>(emptyLog());
   const [logEditId, setLogEditId] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [testSrc, setTestSrc] = useState<LogSourceSpec | null>(null);
   const saveLog = useMutation({
     mutationFn: (d: LogDraft) => logEditId ? api.put(`/log-sources/${logEditId}`, d) : api.post(`/policies/${policy.id}/log-sources`, d),
     onSuccess: () => { setErr(""); setLogDraft(emptyLog()); setLogEditId(null); setShowLog(false); invalidate(); },
@@ -232,6 +234,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
                 <td className="muted">{t(LOG_FORMATS.find(([k]) => k === l.format)?.[1] ?? l.format)}{l.format === "regex" && <span className="mono"> {l.pattern}</span>}</td>
                 <td><input type="checkbox" checked={l.enabled} onChange={() => toggleLog.mutate(l)} /></td>
                 <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  <button className="btn ghost sm" onClick={() => setTestSrc(logDraftFrom(l))} title={t("Auf einem Gerät probeweise lesen")}>▶ {t("Testen")}</button>
                   <button className="btn ghost sm" onClick={() => { setLogEditId(l.id); setLogDraft(logDraftFrom(l)); setShowLog(true); }}>{t("Bearbeiten")}</button>
                   <button className="btn ghost sm" onClick={() => { if (confirm(t("Regel löschen?"))) delLog.mutate(l.id); }}>✕</button>
                 </td>
@@ -240,6 +243,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
           </tbody>
         </table>
       )}
+      {testSrc && !showLog && <LogSourceTest source={testSrc} devices={devices} onClose={() => setTestSrc(null)} />}
       {!showLog && <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => { setLogEditId(null); setLogDraft(emptyLog()); setShowLog(true); }}>+ {t("Log-Quelle hinzufügen")}</button>}
       {showLog && (
         <form className="form-col" style={{ marginTop: 10, maxWidth: 720 }} onSubmit={(e) => { e.preventDefault(); saveLog.mutate(logDraft); }}>
@@ -285,10 +289,13 @@ export function SecuritySection({ policy }: { policy: Policy }) {
           )}
           <div className="inline-form" style={{ marginBottom: 0 }}>
             <button className="btn primary sm" type="submit" disabled={saveLog.isPending}>{logEditId ? t("Speichern") : t("Hinzufügen")}</button>
-            <button className="btn ghost sm" type="button" onClick={() => { setShowLog(false); setLogEditId(null); setLogDraft(emptyLog()); }}>{t("Abbrechen")}</button>
+            <button className="btn ghost sm" type="button" disabled={!logDraft.target.trim() || !logDraft.name.trim()} onClick={() => setTestSrc({ ...logDraft })} title={t("Auf einem Gerät probeweise lesen")}>▶ {t("Testen")}</button>
+            <button className="btn ghost sm" type="button" onClick={() => { setShowLog(false); setLogEditId(null); setLogDraft(emptyLog()); setTestSrc(null); }}>{t("Abbrechen")}</button>
           </div>
+          {testSrc && <LogSourceTest source={testSrc} devices={devices} onClose={() => setTestSrc(null)} />}
         </form>
       )}
+      <p className="muted small">{t("Ob eine Quelle auf einem Gerät wirklich gelesen wird, steht am Gerät im Tab „Anmeldungen“ unter „Überwachung auf diesem Gerät“.")}</p>
 
       <h3 className="muted small" style={{ marginTop: 18 }}>{t("Compliance (Baseline-Regeln)")}</h3>
       <div className="inline-form">

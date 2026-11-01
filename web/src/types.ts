@@ -425,6 +425,7 @@ export interface AuthEvent {
   kind: string;
   username?: string;
   source_ip?: string;
+  country?: string;
   service?: string;
   detail?: string;
 }
@@ -440,6 +441,7 @@ export interface SecurityIncident {
   kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | string;
   severity: "info" | "warning" | "critical";
   source_ip?: string;
+  country?: string; // ISO-3166-Code der Quell-IP
   username?: string;
   title: string;
   detail?: string;
@@ -451,12 +453,52 @@ export interface SecurityIncident {
   acknowledged_at?: string;
 }
 
+export interface CountryCount { country: string; ips: number; count: number }
 export interface SecuritySummary {
   open_incidents: number;
   critical_open: number;
   failed_logins_24h: number;
   devices_monitored: number;
-  top_ips: { ip: string; count: number }[];
+  top_ips: { ip: string; country?: string; count: number }[];
+  top_countries: CountryCount[];     // Herkunft der Fehlversuche (24 h)
+  blocked_countries: CountryCount[]; // Länder gesperrter IPs (30 Tage)
+}
+
+// Log-Quelle (ungespeichert) für den Probelauf auf einem Gerät.
+export interface LogSourceSpec { name: string; type: "file" | "docker"; target: string; format: PolicyLogSource["format"]; pattern?: string; kind?: string }
+export interface LogSourceTestResult {
+  targets: { target: string; lines: number; matched: number; error?: string }[];
+  lines: number;
+  matched: number;
+  events: { time: string; kind: string; user?: string; source_ip?: string; service?: string; detail?: string }[];
+  error?: string;
+  hints?: string[];
+}
+
+// Auf einem Gerät wirksame Log-Quelle mit dem vom Agent gemeldeten Lesestatus.
+export interface DeviceLogSource {
+  id: string;
+  policy_id?: string;
+  policy_name?: string;
+  name: string;
+  type: "file" | "docker";
+  target: string;
+  format?: PolicyLogSource["format"];
+  pattern?: string;
+  kind?: string;
+  reported: boolean;
+  targets: number;
+  events: number;
+  last_event_at?: string;
+  last_run_at?: string;
+  error?: string;
+}
+export interface SecurityMonitoring {
+  auth_monitor: boolean;
+  auth_monitor_since?: string;
+  fim_rules: number;
+  compliance: boolean;
+  log_sources: DeviceLogSource[];
 }
 
 export interface SecuritySettings {
@@ -497,6 +539,7 @@ export interface IPBlock {
   incident_id?: string;
   until?: string;
   status: "pending" | "active" | "expired" | "released" | "failed";
+  country?: string;
   detail?: string;
   command_id?: string;
   created_by: string;

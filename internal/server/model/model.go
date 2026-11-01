@@ -508,6 +508,35 @@ type PolicyLogSource struct {
 	Enabled  bool   `json:"enabled"`
 }
 
+// DeviceLogSource ist eine auf einem Gerät wirksame Log-Quelle samt dem vom Agent
+// gemeldeten Lesestatus (Reported = Agent hat schon berichtet).
+type DeviceLogSource struct {
+	ID          string     `json:"id"`
+	PolicyID    string     `json:"policy_id,omitempty"`
+	PolicyName  string     `json:"policy_name,omitempty"`
+	Name        string     `json:"name"`
+	Type        string     `json:"type"`
+	Target      string     `json:"target"`
+	Format      string     `json:"format,omitempty"`
+	Pattern     string     `json:"pattern,omitempty"`
+	Kind        string     `json:"kind,omitempty"`
+	Reported    bool       `json:"reported"`
+	Targets     int        `json:"targets"` // gefundene Dateien bzw. laufende Container
+	Events      int        `json:"events"`  // Ereignisse seit Agent-Start
+	LastEventAt *time.Time `json:"last_event_at,omitempty"`
+	LastRunAt   *time.Time `json:"last_run_at,omitempty"`
+	Error       string     `json:"error,omitempty"`
+}
+
+// SecurityMonitoring beschreibt, welche Sicherheitsüberwachung auf einem Gerät wirkt.
+type SecurityMonitoring struct {
+	AuthMonitor      bool              `json:"auth_monitor"`
+	AuthMonitorSince *time.Time        `json:"auth_monitor_since,omitempty"`
+	FIMRules         int               `json:"fim_rules"`
+	Compliance       bool              `json:"compliance"`
+	LogSources       []DeviceLogSource `json:"log_sources"`
+}
+
 // PolicyResponse ist eine Active-Response-Regel einer Richtlinie (Auslöser → Aktion).
 type PolicyResponse struct {
 	ID        string   `json:"id"`
@@ -528,8 +557,9 @@ type IPBlock struct {
 	IP         string     `json:"ip"`
 	Reason     string     `json:"reason,omitempty"`
 	IncidentID string     `json:"incident_id,omitempty"`
-	Until      *time.Time `json:"until,omitempty"` // nil = dauerhaft
-	Status     string     `json:"status"`          // pending | active | expired | released | failed
+	Until      *time.Time `json:"until,omitempty"`   // nil = dauerhaft
+	Status     string     `json:"status"`            // pending | active | expired | released | failed
+	Country    string     `json:"country,omitempty"` // ISO-3166-Code der IP (eingebettete GeoIP-Datenbank)
 	Detail     string     `json:"detail,omitempty"`
 	CommandID  string     `json:"command_id,omitempty"`
 	CreatedBy  string     `json:"created_by"`
@@ -579,6 +609,7 @@ type AuthEvent struct {
 	Kind       string    `json:"kind"`
 	Username   string    `json:"username,omitempty"`
 	SourceIP   string    `json:"source_ip,omitempty"`
+	Country    string    `json:"country,omitempty"` // Land der Quell-IP
 	Service    string    `json:"service,omitempty"`
 	Detail     string    `json:"detail,omitempty"`
 }
@@ -594,6 +625,7 @@ type SecurityIncident struct {
 	Kind              string     `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change | scan
 	Severity          string     `json:"severity"` // info | warning | critical
 	SourceIP          string     `json:"source_ip,omitempty"`
+	Country           string     `json:"country,omitempty"` // Land der Quell-IP
 	Username          string     `json:"username,omitempty"`
 	Title             string     `json:"title"`
 	Detail            string     `json:"detail,omitempty"`
@@ -607,8 +639,16 @@ type SecurityIncident struct {
 
 // IPCount ist eine Quell-IP mit Trefferzahl.
 type IPCount struct {
-	IP    string `json:"ip"`
-	Count int    `json:"count"`
+	IP      string `json:"ip"`
+	Country string `json:"country,omitempty"`
+	Count   int    `json:"count"`
+}
+
+// CountryCount ist ein Land mit Anzahl verschiedener Quell-IPs und Trefferzahl.
+type CountryCount struct {
+	Country string `json:"country"` // ISO-3166-Code, "" = unbekannt
+	IPs     int    `json:"ips"`
+	Count   int    `json:"count"`
 }
 
 // SecuritySummary sind die Kopfzahlen der Sicherheitsseite.
@@ -618,6 +658,10 @@ type SecuritySummary struct {
 	FailedLogins24h  int       `json:"failed_logins_24h"`
 	DevicesMonitored int       `json:"devices_monitored"`
 	TopIPs           []IPCount `json:"top_ips"`
+	// TopCountries sind die Herkunftsländer der Fehlversuche (24 h) nach Zahl der IPs.
+	TopCountries []CountryCount `json:"top_countries"`
+	// BlockedCountries sind die Länder der in den letzten 30 Tagen gesperrten IPs.
+	BlockedCountries []CountryCount `json:"blocked_countries"`
 }
 
 // FIMEvent ist eine gespeicherte Datei-Änderung.

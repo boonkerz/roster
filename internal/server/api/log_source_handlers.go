@@ -117,3 +117,77 @@ func (s *Server) handleDeleteLogSource(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// handleDeviceSecurityMonitoring zeigt, welche Sicherheitsüberwachung auf dem Gerät wirkt
+// (Anmeldungen, Datei-Integrität, Compliance, Log-Quellen) – Log-Quellen mit dem vom
+// Agent gemeldeten Lesestatus.
+func (s *Server) handleDeviceSecurityMonitoring(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	deviceID := chi.URLParam(r, "id")
+	if _, err := s.store.GetDevice(ctx, deviceID); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	bundle, err := s.store.EffectivePolicy(ctx, deviceID)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	out := model.SecurityMonitoring{LogSources: []model.DeviceLogSource{}}
+	if since := s.store.AuthMonitorSince(ctx, deviceID); !since.IsZero() {
+		out.AuthMonitorSince = &since
+	}
+	if bundle != nil && bundle.Security != nil {
+		sec := bundle.Security
+		out.AuthMonitor = sec.AuthMonitor
+		if sec.FIM != nil {
+			out.FIMRules = len(sec.FIM.Rules)
+		}
+		out.Compliance = sec.Compliance != nil && sec.Compliance.Enabled
+		status, err := s.store.LogSourceStatusFor(ctx, deviceID)
+		if err != nil {
+			s.mapStoreErr(w, err)
+			return
+		}
+		policyName := map[string]string{}
+		if policies, err := s.store.ListPolicies(ctx); err == nil {
+			for _, p := range policies {
+				policyName[p.ID] = p.Name
+			}
+		}
+		for _, src := range sec.LogSources {
+			d := status[src.ID]
+			d.ID, d.Name, d.Type, d.Target, d.Format, d.Pattern, d.Kind = src.ID, src.Name, src.Type, src.Target, src.Format, src.Pattern, src.Kind
+			if pl, err := s.store.GetLogSource(ctx, src.ID); err == nil {
+				d.PolicyID, d.PolicyName = pl.PolicyID, policyName[pl.PolicyID]
+			}
+			out.LogSources = append(out.LogSources, d)
+		}
+	}
+	s.writeJSON(w, http.StatusOK, out)
+}
+
+type testLogSourceRequest struct {
+	logSourceRequest
+	Lines int `json:"lines"`
+}
+
+// handleTestLogSource lässt den Agent eines Geräts eine (auch ungespeicherte) Log-Quelle
+// probeweise lesen: letzte Zeilen parsen, Treffer zählen. Ergebnis über GET /commands/{id}.
+func (s *Server) handleTestLogSource(w http.ResponseWriter, r *http.Request) {
+	var req testLogSourceRequest
+	if !s.decodeJSON(w, r, &req) {
+		return
+	}
+	var l model.PolicyLogSource
+	if err := req.logSourceRequest.apply(&l); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	src := map[string]any{"id": "test", "name": l.Name, "type": l.Type, "target": l.Target, "format": l.Format, "pattern": l.Pattern, "kind": l.Kind}
+	lines := req.Lines
+	if lines <= 0 || lines > 5000 {
+		lines = 300
+	}
+	s.queueDeviceCmd(w, r, "test_log_source", "Log-Quelle testen: "+l.Name, map[string]any{"source": src, "lines": lines})
+}

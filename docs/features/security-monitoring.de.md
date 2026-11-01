@@ -69,6 +69,18 @@ Tab **Anmeldungen**, die Vorfallstexte und die Sperren zeigen, wo ein Angreifer 
 Vorlagen füllen das Formular für die üblichen Fälle: Webserver-Zugriffs-/Fehlerprotokoll als
 Datei oder im Docker-Container, SSH-/SFTP-Container, FTP-Server, Mailserver, eigenes Muster.
 
+**Testen** (neben jeder Quelle und im Formular, auch vor dem Speichern) lässt den Agent eines
+wählbaren Geräts die letzten Zeilen der Quelle lesen und mit dem Format parsen: gefundene
+Dateien bzw. Container, gelesene Zeilen, Treffer und eine Stichprobe der erkannten Ereignisse.
+Passt kein Container, zeigt das Ergebnis die Namen der laufenden Container. Der Lesezeiger des
+Agents bleibt dabei unberührt, Treffer werden nicht als Ereignisse gespeichert.
+
+Ob eine Quelle auf einem Gerät tatsächlich gelesen wird, steht am Gerät im Tab **Anmeldungen**
+unter **Überwachung auf diesem Gerät**: welche Richtlinie sie beisteuert, wie viele Dateien
+oder Container der Agent gefunden hat, wie viele Ereignisse seit Agent-Start kamen, wann der
+letzte Treffer war und ein etwaiger Fehler (fehlende Datei, kein passender Container, fehlende
+Rechte). Dort steht auch, ob Anmeldungs-Überwachung, Datei-Integrität und Compliance wirken.
+
 Daraus leitet der Server **Vorfälle** ab:
 
 - **Brute-Force** – N Fehlversuche von einer Quell-IP im Zeitfenster (Standard 10 in 10 min)
@@ -91,7 +103,13 @@ Mindest-Schweregrad je Kanal gelten). Welche Arten gemeldet werden, legt die Ric
 wenn die Quell-IP automatisch gesperrt wurde* hält die Kanäle ruhig, wenn Active Response oder
 die automatische Sperre den Angreifer schon erledigt hat. Auf der Seite Sicherheit werden die
 Vorfälle unabhängig davon immer gespeichert. Der Tab **Vorfälle** listet sie mit Bestätigen/Erledigen,
-Filtern und den häufigsten Quell-IPs; **Anmeldungen** zeigt die Rohereignisse. Schwellwerte,
+Filtern, den häufigsten Quell-IPs, den **Herkunftsländern** der Fehlversuche und verdächtigen Anfragen und den Ländern
+der zuletzt gesperrten IPs; **Anmeldungen** zeigt die Rohereignisse. Quell-IPs tragen überall
+eine Länderflagge. Die Zuordnung kommt aus einer in den Server eingebetteten
+IP-zu-Land-Datenbank ([ip-location-db](https://github.com/sapics/ip-location-db),
+Public Domain) – ohne externen Dienst; sie wird mit jedem Release erneuert. Für die Übersicht
+gibt es die Kennzahlen **Gesperrte IPs nach Land (30 Tage)** und **Angriffsquellen nach Land
+(7 Tage)** als Balken-, Ring- oder Verlaufsdiagramm (siehe [Dashboard](dashboard.md)). Schwellwerte,
 Lernphase und Nie-sperren-Liste stehen unter Einstellungen → **Sicherheitsüberwachung**.
 
 ## Compliance-Prüfung (Baseline)

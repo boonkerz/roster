@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import type { AuthEvent, SecurityIncident } from "../types";
+import { Flag } from "./Country";
 
 export const INCIDENT_KIND: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
@@ -61,7 +62,7 @@ export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, a
               {showDevice && <td><Link to={`/devices/${i.device_id}`} className="link-strong" onClick={(e) => e.stopPropagation()}>{i.hostname}</Link>{i.client_name && <span className="muted"> · {i.client_name}</span>}</td>}
               <td><SeverityPill severity={i.severity} /></td>
               <td><span className="muted">{open === i.id ? "▾" : "▸"}</span> <strong>{t(INCIDENT_KIND[i.kind] ?? i.kind)}</strong> <span className="muted">· {i.title}</span></td>
-              <td className="mono">{i.source_ip || "—"}{i.username && <span className="muted"> · {i.username}</span>}</td>
+              <td className="mono"><Flag cc={i.country} />{i.source_ip || "—"}{i.username && <span className="muted"> · {i.username}</span>}</td>
               <td>{i.status === "open" ? <span className="badge badge-warn">{t("offen")}</span> : i.status === "acknowledged" ? <span className="badge badge-unknown">{t("bestätigt")}</span> : <span className="badge badge-online">{t("erledigt")}</span>}
                 {i.response && <div className="muted small" title={i.response_status}>↳ {i.response}{i.response_status ? ` (${i.response_status})` : ""}</div>}</td>
               <td style={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
@@ -101,7 +102,7 @@ export function AuthEventsTable({ events, showDevice, maxHeight }: { events: Aut
                 {showDevice && <td><Link to={`/devices/${e.device_id}`} className="link-strong">{e.hostname}</Link></td>}
                 <td><span className={`badge ${m.cls}`}>{t(m.label)}</span></td>
                 <td>{e.username || "—"}</td>
-                <td className="mono">{e.source_ip || "—"}</td>
+                <td className="mono"><Flag cc={e.country} />{e.source_ip || "—"}</td>
                 <td className="muted">{e.service || "—"}</td>
                 <td className="muted" title={e.detail}>{e.detail ? (e.detail.length > 80 ? e.detail.slice(0, 80) + "…" : e.detail) : ""}</td>
               </tr>

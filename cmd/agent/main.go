@@ -12,10 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
 	// Zeitzonen-Datenbank einbetten: der Agent plant in der zentral eingestellten Zone,
 	// und time.LoadLocation findet unter Windows (keine Registry-Auswertung in Go) und in
 	// schlanken Containern sonst nichts. Kostet ~450 KB, hält das Binary selbst-enthalten.
@@ -117,6 +119,8 @@ type program struct {
 	fimReset  bool
 	// Anmeldungs-Überwachung: wartende Ereignisse (Cursor hält das authlog-Paket).
 	authEvents []shared.AuthEvent
+	// Lesestatus der Log-Quellen (kumuliert seit Agent-Start), geht mit jedem Checkin mit.
+	logStatus map[string]shared.LogSourceStatus
 	// Compliance: letzter Bericht (für den Check-Typ) und ob er noch zu senden ist.
 	compliance        *shared.ComplianceReport
 	compliancePending bool
@@ -320,6 +324,11 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	} else {
 		p.authEvents = nil
 	}
+	var logStatus []shared.LogSourceStatus
+	for _, st := range p.logStatus {
+		logStatus = append(logStatus, st)
+	}
+	sort.Slice(logStatus, func(i, j int) bool { return logStatus[i].ID < logStatus[j].ID })
 	var compliance *shared.ComplianceReport
 	if p.compliancePending {
 		compliance = p.compliance
@@ -335,6 +344,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
 		Sample: sample, PatchHistory: history, FIMEvents: fimEv, AuthEvents: authEv, Compliance: compliance,
+		LogSources: logStatus,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -604,6 +614,23 @@ func (p *program) runPolicy(ctx context.Context) {
 			exit, output = response.UnlockUser(ctx, user)
 		case "list_blocks":
 			exit, output = 0, response.ListJSON()
+		case "test_log_source":
+			// Probelauf einer Log-Quelle (aus dem Richtlinien-Editor): letzte Zeilen lesen
+			// und mit dem Format parsen, Ergebnis als JSON.
+			var src shared.LogSource
+			if b, err := json.Marshal(cmd.Payload["source"]); err == nil {
+				_ = json.Unmarshal(b, &src)
+			}
+			n := 300
+			if f, ok := cmd.Payload["lines"].(float64); ok {
+				n = int(f)
+			}
+			res := logmon.Test(ctx, src, n)
+			if res.Error != "" {
+				exit = 1
+			}
+			b, _ := json.Marshal(res)
+			output = string(b)
 		case "compliance_scan":
 			select {
 			case p.complianceNow <- struct{}{}:
@@ -1209,12 +1236,27 @@ func (p *program) authLoop(ctx context.Context) {
 			events = authlog.Collect(cctx, p.stateDir)
 		}
 		// Zusätzliche Protokolle (nginx, SFTP-/FTP-Container, eigene Muster) der Richtlinie.
-		events = append(events, logmon.Collect(cctx, p.stateDir, sources)...)
+		more, status := logmon.Collect(cctx, p.stateDir, sources)
+		events = append(events, more...)
 		cancel()
+		p.mu.Lock()
+		// Status je Quelle fortschreiben; Quellen, die nicht mehr konfiguriert sind, fallen weg.
+		next := make(map[string]shared.LogSourceStatus, len(status))
+		for _, st := range status {
+			prev := p.logStatus[st.ID]
+			st.Events += prev.Events
+			if st.Events > prev.Events {
+				st.LastEvent = time.Now()
+			} else {
+				st.LastEvent = prev.LastEvent
+			}
+			next[st.ID] = st
+		}
+		p.logStatus = next
 		if len(events) == 0 {
+			p.mu.Unlock()
 			continue
 		}
-		p.mu.Lock()
 		p.authEvents = append(p.authEvents, events...)
 		p.mu.Unlock()
 		p.log.Info("auth-ereignisse gelesen", "n", len(events))
