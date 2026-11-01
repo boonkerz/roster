@@ -93,7 +93,9 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("paketquellen speichern", "err", err)
 	}
 	if len(req.AuthEvents) > 0 {
-		s.runResponses(r.Context(), device, s.processAuthEvents(r.Context(), device, req.AuthEvents))
+		incidents := s.processAuthEvents(r.Context(), device, req.AuthEvents)
+		s.runResponses(r.Context(), device, incidents)
+		s.alertIncidents(r.Context(), device, incidents)
 	}
 	if req.Compliance != nil {
 		if err := s.store.ReplaceCompliance(r.Context(), device.ID, req.Compliance); err != nil {
@@ -105,6 +107,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 			s.log.Error("fim-ereignisse speichern", "err", err)
 		} else if inc := s.alertFIMEvents(r.Context(), device, req.FIMEvents); inc != nil {
 			s.runResponses(r.Context(), device, []model.SecurityIncident{*inc})
+			s.alertIncidents(r.Context(), device, []model.SecurityIncident{*inc})
 		}
 	}
 	if len(req.PatchHistory) > 0 {

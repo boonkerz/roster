@@ -648,10 +648,18 @@ type PolicyNotifications struct {
 	SoftwareAlerts     string   `json:"software_alerts"`      // "" = Standard (globaler Schalter) | on | off
 	SoftwareAlertKinds []string `json:"software_alert_kinds"` // added | removed | updated
 	SoftwareIgnore     []string `json:"software_ignore"`      // Glob-Muster auf den Programmnamen, Groß/Klein egal
+	// SecurityAlertKinds sind die Sicherheitsvorfälle, die über die Alarmkanäle gemeldet
+	// werden (Standard: alle; leer = keine). SecurityAlertSkipBlocked unterdrückt die
+	// Meldung, wenn Active Response die Quell-IP bereits gesperrt hat.
+	SecurityAlertKinds       []string `json:"security_alert_kinds"`
+	SecurityAlertSkipBlocked bool     `json:"security_alert_skip_blocked"`
 }
 
 // AllSoftwareAlertKinds sind die Änderungsarten, über die berichtet werden kann.
 var AllSoftwareAlertKinds = []string{"added", "removed", "updated"}
+
+// AllIncidentKinds sind die Vorfallsarten der Sicherheitsüberwachung.
+var AllIncidentKinds = []string{"brute_force", "brute_force_success", "scan", "new_source_ip", "account_change", "lockout", "fim_change"}
 
 // PolicyBackup ist ein Backup-Eintrag einer Richtlinie: was gesichert wird, wann, und
 // was danach passiert. Geplant wird serverseitig (siehe RunBackupLoop), ausgeführt über

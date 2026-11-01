@@ -135,3 +135,41 @@ func TestRegex(t *testing.T) {
 		t.Fatal("invalid pattern must not match")
 	}
 }
+
+func TestApacheError(t *testing.T) {
+	src := shared.LogSource{Name: "apache", Format: "nginx_error"}
+	now := time.Now()
+	ev, ok := Parse(src, Line{Text: `[Sat Nov 01 09:20:01.123456 2026] [auth_basic:error] [pid 123] [client 203.0.113.21:51234] AH01617: user admin: authentication failure for "/admin": Password Mismatch`}, now)
+	if !ok || ev.Kind != "login_failed" || ev.SourceIP != "203.0.113.21" || ev.User != "admin" {
+		t.Fatalf("%+v %v", ev, ok)
+	}
+	ev, ok = Parse(src, Line{Text: `[Sat Nov 01 09:20:02.000000 2026] [core:error] [pid 124] [client 203.0.113.22:4000] AH00135: Invalid URI in request GET /%2e%2e/etc/passwd HTTP/1.1`}, now)
+	if !ok || ev.Kind != "probe" || ev.SourceIP != "203.0.113.22" {
+		t.Fatalf("%+v %v", ev, ok)
+	}
+	ev, ok = Parse(src, Line{Text: `[Sat Nov 01 09:20:03.000000 2026] [core:info] [pid 125] [client 203.0.113.23:4001] AH00128: File does not exist: /var/www/html/wp-login.php`}, now)
+	if !ok || ev.Kind != "probe" || ev.Detail != "/var/www/html/wp-login.php" {
+		t.Fatalf("%+v %v", ev, ok)
+	}
+}
+
+func TestMail(t *testing.T) {
+	src := shared.LogSource{Name: "mail", Format: "mail"}
+	now := time.Now()
+	cases := []struct{ line, kind, ip, user string }{
+		{`Nov  1 09:30:01 mx postfix/smtpd[123]: warning: unknown[203.0.113.31]: SASL LOGIN authentication failed: UGFzc3dvcmQ6, sasl_username=info@example.com`, "login_failed", "203.0.113.31", "info@example.com"},
+		{`Nov  1 09:30:02 mx postfix/smtps/smtpd[124]: warning: host.example[203.0.113.32]: SASL PLAIN authentication failed: authentication failure`, "login_failed", "203.0.113.32", ""},
+		{`Nov  1 09:30:03 mx dovecot: imap-login: Disconnected (auth failed, 3 attempts in 10 secs): user=<bob>, method=PLAIN, rip=203.0.113.33, lip=10.0.0.1, TLS`, "login_failed", "203.0.113.33", "bob"},
+		{`Nov  1 09:30:04 mx dovecot: imap-login: Login: user=<alice>, method=PLAIN, rip=198.51.100.5, lip=10.0.0.1, mpid=99, TLS`, "login_ok", "198.51.100.5", "alice"},
+		{`2026-11-01 09:30:05 dovecot_plain authenticator failed for (x) [203.0.113.34]: 535 Incorrect authentication data (set_id=sales)`, "login_failed", "203.0.113.34", "sales"},
+	}
+	for _, c := range cases {
+		ev, ok := Parse(src, Line{Text: c.line}, now)
+		if !ok || ev.Kind != c.kind || ev.SourceIP != c.ip || ev.User != c.user || ev.Service != "mail" {
+			t.Errorf("%s → %+v %v", c.line, ev, ok)
+		}
+	}
+	if _, ok := Parse(src, Line{Text: `Nov  1 09:30:06 mx postfix/smtpd[125]: connect from unknown[203.0.113.35]`}, now); ok {
+		t.Fatal("connect is noise")
+	}
+}

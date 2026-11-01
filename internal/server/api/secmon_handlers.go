@@ -191,13 +191,45 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 			continue
 		}
 		saved = append(saved, m)
-		if inc.Severity == "warning" || inc.Severity == "critical" {
-			s.dispatchDeviceAlert(ctx, device, inc.Severity,
-				fmt.Sprintf("[Roster] Sicherheitsvorfall auf %s: %s", device.Hostname, inc.Title),
-				fmt.Sprintf("Gerät %q, %s\n\n%s\n\nArt: %s · Quelle: %s · Benutzer: %s", device.Hostname, inc.Time.Format("02.01.2006 15:04:05"), inc.Detail, inc.Kind, orDash(inc.SourceIP), orDash(inc.User)))
-		}
 	}
 	return saved
+}
+
+// alertIncidents meldet neue Vorfälle über die Alarmkanäle des Geräts – nach der Active
+// Response, damit die Meldung die Reaktion enthält und die Richtlinie „automatisch
+// gesperrte Vorfälle nicht melden“ greifen kann. Welche Arten gemeldet werden, steht im
+// Bereich „Benachrichtigungen“ der Richtlinie (Standard: alle warning/critical).
+func (s *Server) alertIncidents(ctx context.Context, device *model.Device, incidents []model.SecurityIncident) {
+	if len(incidents) == 0 {
+		return
+	}
+	setting := s.store.ResolveSecurityAlerts(ctx, device.ID)
+	for _, inc := range incidents {
+		if (inc.Severity != "warning" && inc.Severity != "critical") || !setting.Kinds[inc.Kind] {
+			continue
+		}
+		cur, err := s.store.GetIncident(ctx, inc.ID)
+		if err != nil {
+			cur = &inc
+		}
+		blocked := strings.HasPrefix(cur.Response, "block_ip ") && !strings.HasPrefix(cur.ResponseStatus, "skipped") && !strings.HasPrefix(cur.ResponseStatus, "failed")
+		if setting.SkipBlocked && blocked {
+			continue
+		}
+		reaction := ""
+		if cur.Response != "" {
+			reaction = fmt.Sprintf("\n\nReaktion: %s (%s)", cur.Response, orDash(cur.ResponseStatus))
+		}
+		if inc.Kind == "fim_change" {
+			s.dispatchDeviceAlert(ctx, device, inc.Severity,
+				fmt.Sprintf("[Roster] %s auf %s", inc.Title, device.Hostname),
+				fmt.Sprintf("Die Datei-Integritätsüberwachung hat auf %q Änderungen erkannt:\n\n%s%s", device.Hostname, truncateStr(inc.Detail, 4000), reaction))
+			continue
+		}
+		s.dispatchDeviceAlert(ctx, device, inc.Severity,
+			fmt.Sprintf("[Roster] Sicherheitsvorfall auf %s: %s", device.Hostname, inc.Title),
+			fmt.Sprintf("Gerät %q, %s\n\n%s\n\nArt: %s · Quelle: %s · Benutzer: %s%s", device.Hostname, inc.TS.Format("02.01.2006 15:04:05"), inc.Detail, inc.Kind, orDash(inc.SourceIP), orDash(inc.Username), reaction))
+	}
 }
 
 func orDash(s string) string {

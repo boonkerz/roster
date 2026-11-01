@@ -55,15 +55,17 @@ json-file log directly and falls back to `docker logs --since`). Each source has
 
 | Format | Produces |
 |---|---|
-| nginx access log (also nginx-proxy's `$host $remote_addr …` format) | `401` → failed login; scanner paths (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` and other malformed requests, `404` on `.php/.sql/.bak/.zip` → **suspicious request** |
-| nginx error log | `password mismatch`, `no user/password was provided`, `user … was not found` → failed login; `access forbidden by rule`, ModSecurity denials, rate limiting → suspicious request |
-| sshd (SSH/SFTP containers such as `atmoz/sftp`) | the same events as the host's sshd: failed/accepted logins, invalid users |
+| Web access log (nginx, Apache, Traefik – combined log, also with a leading `$host`) | `401` → failed login; scanner paths (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` and other malformed requests, `404` on `.php/.sql/.bak/.zip` → **suspicious request** |
+| Web error log (nginx, Apache) | `password mismatch`, `authentication failure`, `user … not found` → failed login; `access forbidden by rule`, `client denied`, `Invalid URI`, ModSecurity denials, rate limiting, missing scanner files → suspicious request |
+| sshd (SSH/SFTP servers or containers) | the same events as the host's sshd: failed/accepted logins, invalid users |
 | FTP (vsftpd, proftpd, pure-ftpd) | failed/successful logins, unknown users |
+| Mail (Postfix SASL, Dovecot, Exim) | failed/successful IMAP/POP3/SMTP logins |
 | custom pattern | a regular expression with `(?P<ip>…)` and optionally `(?P<user>…)`; each match counts as a failed login or a suspicious request |
 
-Events carry the source's name as service (e.g. `nginx-proxy`, `sftp`), so the **Logins** tab,
-the incident texts and the blocks show where an attacker was seen. The button *Insert nginx-proxy
-+ SFTP container* adds the two typical sources in one go.
+Events carry the source's name as service (e.g. `web`, `sftp`, `mail`), so the **Logins** tab,
+the incident texts and the blocks show where an attacker was seen. Templates fill the form for
+the common cases: web server access/error log as a file or in a Docker container, SSH/SFTP
+container, FTP server, mail server, custom pattern.
 
 The server derives **incidents** from these events:
 
@@ -80,7 +82,11 @@ The server derives **incidents** from these events:
 - **Lockout** – account locked out.
 
 Warnings and critical incidents go through the normal alert channels (maintenance windows
-and per-channel severity apply). The **Incidents** tab lists them with acknowledge/resolve,
+and per-channel severity apply). Which kinds are sent is a per-policy choice in the
+**Notifications** tab (*Report security incidents*: one checkbox per kind), and *do not report
+when the source IP was blocked automatically* keeps the channels quiet when active response or
+automatic blocking already handled the attacker. Incidents are always recorded on the Security
+page regardless of these switches. The **Incidents** tab lists them with acknowledge/resolve,
 filters and the top source IPs; **Logins** shows the raw events. Thresholds, the learning
 phase and the never-block list live in Settings → **Security monitoring**.
 

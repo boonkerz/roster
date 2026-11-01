@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Richtlinien → Benachrichtigungen: **Sicherheitsvorfälle melden** – eine Checkbox je Vorfallsart (Brute-Force, Anmeldung nach Brute-Force, Angriffsmuster, neue Quell-IP, Kontoänderung, Kontosperre, Datei-Änderung) und die Option *nicht melden, wenn die Quell-IP automatisch gesperrt wurde*. Vorfälle werden immer gespeichert; das steuert nur die Alarmkanäle (Push, E-Mail …). Die Meldungen enthalten jetzt die ausgeführte Reaktion.
+- Sicherheits-Log-Quellen: Format **Mail** (Postfix SASL, Dovecot, Exim) und Apache-Unterstützung im Web-Fehlerprotokoll; die Vorlagen sind jetzt allgemein (Webserver als Datei oder Docker-Container, SSH-/SFTP-Container, FTP, Mail, eigenes Muster).
+
+### Behoben
+- Richtlinien: das Formular für Log-Quellen lief aus dem Rahmen; Layout neu aufgebaut.
+
 ## [0.18.1] - 2026-11-01
 
 ### Geändert

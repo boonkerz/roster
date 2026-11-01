@@ -136,6 +136,19 @@ func validateNotifications(n model.PolicyNotifications) (model.PolicyNotificatio
 		}
 	}
 	n.SoftwareAlertKinds = kinds
+	seenSec := map[string]bool{}
+	secKinds := []string{}
+	for _, k := range n.SecurityAlertKinds {
+		k = strings.TrimSpace(k)
+		if !slices.Contains(model.AllIncidentKinds, k) {
+			return n, fmt.Errorf("unbekannte Vorfallsart %q", k)
+		}
+		if !seenSec[k] {
+			seenSec[k] = true
+			secKinds = append(secKinds, k)
+		}
+	}
+	n.SecurityAlertKinds = secKinds
 	ignore := []string{}
 	for _, p := range n.SoftwareIgnore {
 		p = strings.TrimSpace(p)

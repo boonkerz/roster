@@ -57,15 +57,17 @@ Jede Quelle hat ein Format:
 
 | Format | Erzeugt |
 |---|---|
-| nginx-Zugriffsprotokoll (auch das `$host $remote_addr …`-Format von nginx-proxy) | `401` → Fehlversuch; Scanner-Pfade (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` und andere kaputte Anfragen, `404` auf `.php/.sql/.bak/.zip` → **verdächtige Anfrage** |
-| nginx-Fehlerprotokoll | `password mismatch`, `no user/password was provided`, `user … was not found` → Fehlversuch; `access forbidden by rule`, ModSecurity, Rate-Limit → verdächtige Anfrage |
-| sshd (SSH-/SFTP-Container wie `atmoz/sftp`) | dieselben Ereignisse wie der sshd des Hosts: fehlgeschlagene/akzeptierte Anmeldungen, unbekannte Benutzer |
+| Web-Zugriffsprotokoll (nginx, Apache, Traefik – Combined Log, auch mit vorangestelltem `$host`) | `401` → Fehlversuch; Scanner-Pfade (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` und andere kaputte Anfragen, `404` auf `.php/.sql/.bak/.zip` → **verdächtige Anfrage** |
+| Web-Fehlerprotokoll (nginx, Apache) | `password mismatch`, `authentication failure`, `user … not found` → Fehlversuch; `access forbidden by rule`, `client denied`, `Invalid URI`, ModSecurity, Rate-Limit, fehlende Scanner-Dateien → verdächtige Anfrage |
+| sshd (SSH-/SFTP-Server oder -Container) | dieselben Ereignisse wie der sshd des Hosts: fehlgeschlagene/akzeptierte Anmeldungen, unbekannte Benutzer |
 | FTP (vsftpd, proftpd, pure-ftpd) | fehlgeschlagene/erfolgreiche Anmeldungen, unbekannte Benutzer |
+| Mail (Postfix SASL, Dovecot, Exim) | fehlgeschlagene/erfolgreiche IMAP-/POP3-/SMTP-Anmeldungen |
 | eigenes Muster | regulärer Ausdruck mit `(?P<ip>…)` und optional `(?P<user>…)`; jeder Treffer zählt als Fehlversuch oder verdächtige Anfrage |
 
-Die Ereignisse tragen den Namen der Quelle als Dienst (z. B. `nginx-proxy`, `sftp`), sodass der
+Die Ereignisse tragen den Namen der Quelle als Dienst (z. B. `web`, `sftp`, `mail`), sodass der
 Tab **Anmeldungen**, die Vorfallstexte und die Sperren zeigen, wo ein Angreifer aufgefallen ist.
-Der Knopf *nginx-proxy + SFTP-Container einfügen* legt die beiden typischen Quellen auf einmal an.
+Vorlagen füllen das Formular für die üblichen Fälle: Webserver-Zugriffs-/Fehlerprotokoll als
+Datei oder im Docker-Container, SSH-/SFTP-Container, FTP-Server, Mailserver, eigenes Muster.
 
 Daraus leitet der Server **Vorfälle** ab:
 
@@ -84,7 +86,11 @@ Daraus leitet der Server **Vorfälle** ab:
 - **Kontosperre** – Konto gesperrt.
 
 Warnungen und kritische Vorfälle laufen über die normalen Alarmkanäle (Wartungsfenster und
-Mindest-Schweregrad je Kanal gelten). Der Tab **Vorfälle** listet sie mit Bestätigen/Erledigen,
+Mindest-Schweregrad je Kanal gelten). Welche Arten gemeldet werden, legt die Richtlinie im Tab
+**Benachrichtigungen** fest (*Sicherheitsvorfälle melden*: eine Checkbox je Art); *nicht melden,
+wenn die Quell-IP automatisch gesperrt wurde* hält die Kanäle ruhig, wenn Active Response oder
+die automatische Sperre den Angreifer schon erledigt hat. Auf der Seite Sicherheit werden die
+Vorfälle unabhängig davon immer gespeichert. Der Tab **Vorfälle** listet sie mit Bestätigen/Erledigen,
 Filtern und den häufigsten Quell-IPs; **Anmeldungen** zeigt die Rohereignisse. Schwellwerte,
 Lernphase und Nie-sperren-Liste stehen unter Einstellungen → **Sicherheitsüberwachung**.
 

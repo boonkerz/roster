@@ -19,17 +19,20 @@ export const TRIGGER_LABEL: Record<string, string> = {
 export const ACTION_LABEL: Record<string, string> = { block_ip: "Quell-IP sperren", lock_user: "Konto sperren", run_script: "Skript ausführen" };
 const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "scan"];
 
-// Log-Quellen: Formate und Vorlagen für typische Container/Dateien.
+// Log-Quellen: Formate und Vorlagen für typische Dienste (Datei oder Docker-Container).
 const LOG_FORMATS: [PolicyLogSource["format"], string][] = [
-  ["nginx_access", "nginx-Zugriffsprotokoll"], ["nginx_error", "nginx-Fehlerprotokoll"], ["sshd", "sshd (SSH-/SFTP-Container)"],
-  ["ftp", "FTP (vsftpd, proftpd, pure-ftpd)"], ["regex", "Eigenes Muster"],
+  ["nginx_access", "Web-Zugriffsprotokoll (nginx, Apache, Traefik – Combined Log)"], ["nginx_error", "Web-Fehlerprotokoll (nginx, Apache)"],
+  ["sshd", "sshd (SSH-/SFTP-Server oder -Container)"], ["ftp", "FTP (vsftpd, proftpd, pure-ftpd)"], ["mail", "Mail (Postfix, Dovecot, Exim)"], ["regex", "Eigenes Muster"],
 ];
 type LogDraft = { name: string; type: PolicyLogSource["type"]; target: string; format: PolicyLogSource["format"]; pattern: string; kind: "login_failed" | "probe" };
 const LOG_TEMPLATES: (LogDraft & { label: string })[] = [
-  { label: "nginx-proxy-Container", name: "nginx-proxy", type: "docker", target: "nginx-proxy", format: "nginx_access", pattern: "", kind: "probe" },
-  { label: "SFTP-Container (atmoz/sftp)", name: "sftp", type: "docker", target: "*sftp*", format: "sshd", pattern: "", kind: "login_failed" },
-  { label: "nginx auf dem Host", name: "nginx", type: "file", target: "/var/log/nginx/access.log", format: "nginx_access", pattern: "", kind: "probe" },
-  { label: "nginx error.log", name: "nginx", type: "file", target: "/var/log/nginx/error.log", format: "nginx_error", pattern: "", kind: "probe" },
+  { label: "Webserver-Zugriffsprotokoll (Datei)", name: "web", type: "file", target: "/var/log/nginx/access.log", format: "nginx_access", pattern: "", kind: "probe" },
+  { label: "Webserver-Fehlerprotokoll (Datei)", name: "web", type: "file", target: "/var/log/nginx/error.log", format: "nginx_error", pattern: "", kind: "probe" },
+  { label: "Webserver im Docker-Container", name: "web", type: "docker", target: "nginx*", format: "nginx_access", pattern: "", kind: "probe" },
+  { label: "SSH-/SFTP-Server im Docker-Container", name: "sftp", type: "docker", target: "*sftp*", format: "sshd", pattern: "", kind: "login_failed" },
+  { label: "FTP-Server (Datei)", name: "ftp", type: "file", target: "/var/log/vsftpd.log", format: "ftp", pattern: "", kind: "login_failed" },
+  { label: "Mailserver (Datei)", name: "mail", type: "file", target: "/var/log/mail.log", format: "mail", pattern: "", kind: "login_failed" },
+  { label: "Eigenes Muster", name: "app", type: "file", target: "/var/log/app.log", format: "regex", pattern: "login failed for (?P<user>\\S+) from (?P<ip>[0-9a-f.:]+)", kind: "login_failed" },
 ];
 const emptyLog = (): LogDraft => ({ name: "", type: "docker", target: "", format: "nginx_access", pattern: "", kind: "login_failed" });
 const logDraftFrom = (l: PolicyLogSource): LogDraft => ({ name: l.name, type: l.type, target: l.target, format: l.format, pattern: l.pattern ?? "", kind: l.kind ?? "login_failed" });
@@ -98,19 +101,6 @@ export function SecuritySection({ policy }: { policy: Policy }) {
   });
   const toggleLog = useMutation({ mutationFn: (l: PolicyLogSource) => api.put(`/log-sources/${l.id}`, { ...l, enabled: !l.enabled }), onSuccess: invalidate });
   const delLog = useMutation({ mutationFn: (id: string) => api.del(`/log-sources/${id}`), onSuccess: invalidate });
-  const addLogTemplates = useMutation({
-    mutationFn: async () => {
-      const have = new Set(logSources.map((l) => `${l.type}|${l.target}|${l.format}`));
-      for (const tpl of LOG_TEMPLATES.slice(0, 2)) {
-        if (have.has(`${tpl.type}|${tpl.target}|${tpl.format}`)) continue;
-        const { label: _l, ...body } = tpl;
-        void _l;
-        await api.post(`/policies/${policy.id}/log-sources`, body);
-      }
-    },
-    onSuccess: invalidate,
-    onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
-  });
   const actionAllowed = (a: string, trig: string) => a === "run_script" || (a === "block_ip" && IP_TRIGGERS.includes(trig)) || (a === "lock_user" && USER_TRIGGERS.includes(trig));
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft());
@@ -229,8 +219,8 @@ export function SecuritySection({ policy }: { policy: Policy }) {
       </label>
       <p className="muted small">{t("Linux liest journald bzw. /var/log/auth.log, Windows das Sicherheitsprotokoll (Anmeldeüberwachung muss aktiv sein). Schwellwerte für Brute-Force stehen in den Einstellungen.")}</p>
 
-      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Log-Quellen (nginx, SFTP-/FTP-Container, eigene Muster)")} <span className="tab-count">{logSources.length}</span></h3>
-      <p className="muted small">{t("Zusätzliche Protokolle, die der Agent jede Minute inkrementell liest: Dateien (Glob erlaubt) oder die Ausgabe von Docker-Containern (Name oder Muster wie *sftp*). 401-Antworten und fehlgeschlagene Logins zählen als Fehlversuche, Scanner-Pfade (wp-login.php, /.env, phpmyadmin …) und kaputte Anfragen als verdächtige Anfragen → Vorfall „Angriffsmuster“. Beides kann die IP automatisch sperren.")}</p>
+      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Log-Quellen (Webserver, SSH/SFTP, FTP, Mail, eigene Muster)")} <span className="tab-count">{logSources.length}</span></h3>
+      <p className="muted small">{t("Zusätzliche Protokolle, die der Agent jede Minute inkrementell liest: Dateien (Glob erlaubt) oder die Ausgabe von Docker-Containern (Name oder Muster). Fehlgeschlagene Anmeldungen (auch HTTP 401) zählen wie SSH-Fehlversuche, Scanner-Pfade und kaputte Anfragen als verdächtige Anfragen → Vorfall „Angriffsmuster“. Beides kann die Quell-IP automatisch sperren.")}</p>
       {logSources.length > 0 && (
         <table className="table">
           <thead><tr><th>{t("Dienst")}</th><th>{t("Quelle")}</th><th>{t("Format")}</th><th>{t("Aktiv")}</th><th></th></tr></thead>
@@ -250,40 +240,37 @@ export function SecuritySection({ policy }: { policy: Policy }) {
           </tbody>
         </table>
       )}
-      <div className="inline-form" style={{ marginTop: 8 }}>
-        {!showLog && <button className="btn ghost sm" onClick={() => { setLogEditId(null); setLogDraft(emptyLog()); setShowLog(true); }}>+ {t("Log-Quelle hinzufügen")}</button>}
-        <button className="btn ghost sm" disabled={addLogTemplates.isPending} onClick={() => addLogTemplates.mutate()} title={t("Container „nginx-proxy“ (Zugriffsprotokoll) und „*sftp*“ (sshd-Ausgabe) überwachen")}>{t("nginx-proxy + SFTP-Container einfügen")}</button>
-      </div>
+      {!showLog && <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => { setLogEditId(null); setLogDraft(emptyLog()); setShowLog(true); }}>+ {t("Log-Quelle hinzufügen")}</button>}
       {showLog && (
         <form className="form-col" style={{ marginTop: 10, maxWidth: 720 }} onSubmit={(e) => { e.preventDefault(); saveLog.mutate(logDraft); }}>
-          <div className="inline-form">
-            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Vorlage")}
+          <div className="inline-form" style={{ marginBottom: 0 }}>
+            <label className="field" style={{ width: 260 }}><span>{t("Vorlage")}</span>
               <select value="" onChange={(e) => { const tpl = LOG_TEMPLATES[Number(e.target.value)]; if (tpl) { const { label: _l, ...d } = tpl; void _l; setLogDraft(d); } }}>
-                <option value="">—</option>
+                <option value="">{t("— Vorlage wählen —")}</option>
                 {LOG_TEMPLATES.map((tpl, i) => <option key={tpl.label} value={i}>{t(tpl.label)}</option>)}
               </select>
             </label>
-            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Dienstname")}
-              <input value={logDraft.name} onChange={(e) => setLogDraft({ ...logDraft, name: e.target.value })} placeholder="nginx-proxy" required style={{ width: 140 }} />
+            <label className="field" style={{ width: 180 }}><span>{t("Dienstname")}</span>
+              <input value={logDraft.name} onChange={(e) => setLogDraft({ ...logDraft, name: e.target.value })} placeholder="web" required />
             </label>
-            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Typ")}
+            <label className="field" style={{ width: 180 }}><span>{t("Typ")}</span>
               <select value={logDraft.type} onChange={(e) => setLogDraft({ ...logDraft, type: e.target.value as LogDraft["type"] })}>
                 <option value="docker">{t("Docker-Container")}</option>
                 <option value="file">{t("Datei")}</option>
               </select>
             </label>
           </div>
-          <label className="field"><span>{logDraft.type === "docker" ? t("Container-Name oder Muster (z. B. nginx-proxy, *sftp*)") : t("Dateipfad (Glob erlaubt, z. B. /var/log/nginx/*access.log)")}</span>
+          <label className="field"><span>{logDraft.type === "docker" ? t("Container-Name oder Muster (z. B. nginx*, *sftp*)") : t("Dateipfad (Glob erlaubt, z. B. /var/log/nginx/*access.log)")}</span>
             <input className="mono" value={logDraft.target} onChange={(e) => setLogDraft({ ...logDraft, target: e.target.value })} required />
           </label>
-          <div className="inline-form">
-            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Format")}
+          <div className="inline-form" style={{ marginBottom: 0 }}>
+            <label className="field" style={{ width: 420 }}><span>{t("Format")}</span>
               <select value={logDraft.format} onChange={(e) => setLogDraft({ ...logDraft, format: e.target.value as LogDraft["format"] })}>
                 {LOG_FORMATS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
               </select>
             </label>
             {logDraft.format === "regex" && (
-              <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Treffer zählt als")}
+              <label className="field" style={{ width: 200 }}><span>{t("Treffer zählt als")}</span>
                 <select value={logDraft.kind} onChange={(e) => setLogDraft({ ...logDraft, kind: e.target.value as LogDraft["kind"] })}>
                   <option value="login_failed">{t("Anmeldung fehlgeschlagen")}</option>
                   <option value="probe">{t("verdächtige Anfrage")}</option>
@@ -293,10 +280,10 @@ export function SecuritySection({ policy }: { policy: Policy }) {
           </div>
           {logDraft.format === "regex" && (
             <label className="field"><span>{t("Regulärer Ausdruck mit benannten Gruppen (?P<ip>…) und optional (?P<user>…)")}</span>
-              <input className="mono" value={logDraft.pattern} onChange={(e) => setLogDraft({ ...logDraft, pattern: e.target.value })} placeholder={"login failed for (?P<user>\\S+) from (?P<ip>[0-9.]+)"} required />
+              <input className="mono" value={logDraft.pattern} onChange={(e) => setLogDraft({ ...logDraft, pattern: e.target.value })} required />
             </label>
           )}
-          <div className="inline-form">
+          <div className="inline-form" style={{ marginBottom: 0 }}>
             <button className="btn primary sm" type="submit" disabled={saveLog.isPending}>{logEditId ? t("Speichern") : t("Hinzufügen")}</button>
             <button className="btn ghost sm" type="button" onClick={() => { setShowLog(false); setLogEditId(null); setLogDraft(emptyLog()); }}>{t("Abbrechen")}</button>
           </div>

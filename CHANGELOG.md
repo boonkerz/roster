@@ -6,6 +6,13 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Policies → Notifications: **Report security incidents** – one checkbox per incident kind (brute force, login after brute force, attack pattern, new source IP, account change, lockout, file change) and the option *do not report when the source IP was blocked automatically*. Incidents are always recorded; this only controls the alert channels (push, e-mail …). Messages now include the reaction taken.
+- Security log sources: format **Mail** (Postfix SASL, Dovecot, Exim) and Apache support in the web error log format; the templates are generic now (web server as file or Docker container, SSH/SFTP container, FTP, mail, custom pattern).
+
+### Fixed
+- Policies: the log-source form overflowed the card; the layout is rebuilt.
+
 ## [0.18.1] - 2026-11-01
 
 ### Changed

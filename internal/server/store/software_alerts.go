@@ -28,8 +28,76 @@ type SoftwareAlertSetting struct {
 // SetPolicyNotifications speichert den Bereich „Benachrichtigungen“ einer Richtlinie.
 func (s *Store) SetPolicyNotifications(ctx context.Context, policyID string, n model.PolicyNotifications) error {
 	return s.affect(s.db.ExecContext(ctx, s.rebind(
-		`UPDATE policies SET software_alerts=?, software_alert_kinds=?, software_ignore=? WHERE id=?`),
-		n.SoftwareAlerts, kindsJoin(n.SoftwareAlertKinds), ignoreJoin(n.SoftwareIgnore), policyID))
+		`UPDATE policies SET software_alerts=?, software_alert_kinds=?, software_ignore=?, security_alert_kinds=?, security_alert_skip_blocked=? WHERE id=?`),
+		n.SoftwareAlerts, kindsJoin(n.SoftwareAlertKinds), ignoreJoin(n.SoftwareIgnore), securityKindsJoin(n.SecurityAlertKinds), n.SecurityAlertSkipBlocked, policyID))
+}
+
+// securityKinds liest die gespeicherten Vorfallsarten ('*' = alle).
+func securityKinds(v string) []string {
+	if v == "*" {
+		return append([]string(nil), model.AllIncidentKinds...)
+	}
+	out := kindsSplit(v)
+	if out == nil {
+		out = []string{}
+	}
+	return out
+}
+
+// securityKindsJoin speichert '*', wenn alle Arten gewählt sind (Standard, zählt bei der
+// Auflösung nicht als eigene Konfiguration).
+func securityKindsJoin(kinds []string) string {
+	if len(kinds) >= len(model.AllIncidentKinds) {
+		have := map[string]bool{}
+		for _, k := range kinds {
+			have[k] = true
+		}
+		all := true
+		for _, k := range model.AllIncidentKinds {
+			all = all && have[k]
+		}
+		if all {
+			return "*"
+		}
+	}
+	return kindsJoin(kinds)
+}
+
+// SecurityAlertSetting ist die für ein Gerät wirksame Einstellung für Vorfallsmeldungen.
+type SecurityAlertSetting struct {
+	Kinds       map[string]bool // zu meldende Vorfallsarten
+	SkipBlocked bool            // still, wenn die Quell-IP automatisch gesperrt wurde
+}
+
+// ResolveSecurityAlerts ermittelt, welche Sicherheitsvorfälle eines Geräts gemeldet werden:
+// die nach Vorrang (Gerät > Standort > Client) erste zugewiesene Richtlinie mit eigener
+// Einstellung; ohne eine solche werden alle Arten gemeldet.
+func (s *Store) ResolveSecurityAlerts(ctx context.Context, deviceID string) SecurityAlertSetting {
+	out := SecurityAlertSetting{Kinds: map[string]bool{}}
+	var siteID, clientID sql.NullString
+	if err := s.db.QueryRowContext(ctx, s.rebind(`SELECT d.site_id, s.client_id FROM devices d LEFT JOIN sites s ON s.id=d.site_id WHERE d.id=?`), deviceID).Scan(&siteID, &clientID); err != nil {
+		for _, k := range model.AllIncidentKinds {
+			out.Kinds[k] = true
+		}
+		return out
+	}
+	var kinds string
+	err := s.db.QueryRowContext(ctx, s.rebind(`
+		SELECT p.security_alert_kinds, p.security_alert_skip_blocked
+		FROM policy_assignments a JOIN policies p ON p.id = a.policy_id
+		WHERE (p.security_alert_kinds <> '*' OR p.security_alert_skip_blocked = TRUE) AND (
+			(a.target_type='device' AND a.target_id=?) OR
+			(a.target_type='site'   AND a.target_id=?) OR
+			(a.target_type='client' AND a.target_id=?))
+		ORDER BY CASE a.target_type WHEN 'device' THEN 0 WHEN 'site' THEN 1 ELSE 2 END, p.name
+		LIMIT 1`), deviceID, siteID.String, clientID.String).Scan(&kinds, &out.SkipBlocked)
+	if err != nil {
+		kinds = "*"
+	}
+	for _, k := range securityKinds(kinds) {
+		out.Kinds[k] = true
+	}
+	return out
 }
 
 // SetDeviceSoftwareAlerts setzt den Geräte-Override ("" = wie Richtlinie, on, off).

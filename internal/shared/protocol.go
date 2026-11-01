@@ -158,7 +158,7 @@ type LogSource struct {
 	Name    string `json:"name"`              // Dienstname in den Ereignissen (z. B. nginx-proxy, sftp)
 	Type    string `json:"type"`              // file | docker
 	Target  string `json:"target"`            // Dateipfad (Glob erlaubt) bzw. Container-Name/-Muster
-	Format  string `json:"format"`            // nginx_access | nginx_error | sshd | ftp | regex
+	Format  string `json:"format"`            // nginx_access | nginx_error | sshd | ftp | mail | regex
 	Pattern string `json:"pattern,omitempty"` // regex: Muster mit (?P<ip>…) und optional (?P<user>…)
 	Kind    string `json:"kind,omitempty"`    // regex: login_failed | probe (Ereignisart je Treffer)
 }

@@ -23,16 +23,23 @@ var (
 	// Combined-Log (auch nginx-proxy: "$host $remote_addr - $remote_user [...] ...")
 	reAccess  = regexp.MustCompile(`(?:^|\s)(?P<ip>(?:\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]{3,}) - (?P<user>\S+) \[(?P<time>[^\]]+)\] "(?P<req>[^"]*)" (?P<status>\d{3})`)
 	reRequest = regexp.MustCompile(`^(?P<method>[A-Z]{3,10}) (?P<path>\S+)(?: HTTP/[\d.]+)?$`)
-	// nginx error.log
-	reErrClient  = regexp.MustCompile(`client: (?P<ip>[0-9a-fA-F.:]+)`)
-	reErrUser    = regexp.MustCompile(`user "([^"]*)"`)
-	reErrRequest = regexp.MustCompile(`request: "([^"]*)"`)
+	// nginx error.log ("client: 1.2.3.4") und Apache error.log ("[client 1.2.3.4:51234]")
+	reErrClient     = regexp.MustCompile(`client:? (?P<ip>(?:\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]{3,}?)(?::\d+)?[,\]\s]`)
+	reErrUser       = regexp.MustCompile(`user "([^"]*)"`)
+	reErrUserApache = regexp.MustCompile(`user (\S+?):? `)
+	reErrRequest    = regexp.MustCompile(`request: "([^"]*)"`)
 	// FTP
 	reVsftpd   = regexp.MustCompile(`(?:\[(?P<user>[^\]]*)\] )?(?P<res>FAIL|OK) LOGIN: Client "(?P<ip>[^"]+)"`)
 	reProftpd  = regexp.MustCompile(`\[(?P<ip>[0-9a-fA-F.:]+)\]\)?[: -]+USER (?P<user>\S+?)(?::|\s)[^\n]*?(?P<res>Login failed|no such user|Login successful)`)
 	rePureFTPd = regexp.MustCompile(`\(\?@(?P<ip>[0-9a-fA-F.:]+)\) \[(?P<lvl>\w+)\] (?P<msg>.*)$`)
 	rePureFail = regexp.MustCompile(`Authentication failed for user \[([^\]]*)\]`)
 	rePureOK   = regexp.MustCompile(`^(\S+) is now logged in`)
+	// Mail: Postfix SASL, Dovecot auth/imap-login, Exim
+	rePostfixSASL = regexp.MustCompile(`warning: [^\[]*\[(?P<ip>[0-9a-fA-F.:]+)\]: SASL (?:\w+ )?authentication failed(?:.*sasl_username=(?P<user>\S+))?`)
+	reDovecotFail = regexp.MustCompile(`(?:auth failed|authentication failure|Aborted login).*?(?:rip|remote)=(?P<ip>[0-9a-fA-F.:]+)`)
+	reDovecotUser = regexp.MustCompile(`user=<([^>]*)>`)
+	reDovecotOK   = regexp.MustCompile(`(?:imap|pop3|submission|managesieve)-login: Login: user=<(?P<user>[^>]*)>.*?rip=(?P<ip>[0-9a-fA-F.:]+)`)
+	reEximFail    = regexp.MustCompile(`(?:LOGIN|PLAIN|CRAM-MD5|dovecot_\w+) authenticator failed for [^\[]*\[(?P<ip>[0-9a-fA-F.:]+)\](?:.*?set_id=(?P<user>[^)\s]+))?`)
 
 	webMethods = map[string]bool{"GET": true, "POST": true, "HEAD": true, "PUT": true, "DELETE": true, "OPTIONS": true, "PATCH": true, "PROPFIND": true, "CONNECT": true}
 	// Pfade/Teile, die praktisch nur Scanner anfragen (Kleinschreibung).
@@ -96,6 +103,8 @@ func Parse(src shared.LogSource, l Line, now time.Time) (shared.AuthEvent, bool)
 		ev, ok = parseSSHD(l.Text, ts)
 	case "ftp":
 		ev, ok = parseFTP(l.Text, ts)
+	case "mail":
+		ev, ok = parseMail(l.Text, ts)
 	case "regex":
 		ev, ok = parseRegex(src, l.Text, ts)
 	}
@@ -186,14 +195,24 @@ func parseNginxError(line string, ts time.Time) (shared.AuthEvent, bool) {
 		} else {
 			ev.Detail = rq[1]
 		}
+	} else if i := strings.LastIndex(line, ": /"); i >= 0 { // Apache: "...: /var/www/html/x.php"
+		ev.Detail = strings.TrimSpace(line[i+2:])
 	}
 	low := strings.ToLower(line)
 	switch {
 	case strings.Contains(low, "password mismatch"), strings.Contains(low, "no user/password was provided"), strings.Contains(low, "was not found in"),
-		strings.Contains(low, "auth_request unexpected status"):
+		strings.Contains(low, "auth_request unexpected status"),
+		// Apache mod_auth: "user x: authentication failure", "user x not found", "user x: password mismatch"
+		strings.Contains(low, "authentication failure"), strings.Contains(low, "not found:"), strings.Contains(low, "ah01617"), strings.Contains(low, "ah01618"), strings.Contains(low, "ah01797"):
 		ev.Kind = "login_failed"
+		if ev.User == "" {
+			if um := reErrUserApache.FindStringSubmatch(line); um != nil {
+				ev.User = strings.Trim(um[1], `"'`)
+			}
+		}
 	case strings.Contains(low, "access forbidden by rule"), strings.Contains(low, "modsecurity: access denied"), strings.Contains(low, "limiting requests"),
-		strings.Contains(low, "limiting connections"), strings.Contains(low, "client sent invalid"), strings.Contains(low, "client intended to send too large"):
+		strings.Contains(low, "limiting connections"), strings.Contains(low, "client sent invalid"), strings.Contains(low, "client intended to send too large"),
+		strings.Contains(low, "client denied by server configuration"), strings.Contains(low, "invalid uri in request"), strings.Contains(low, "request failed: error reading the headers"):
 		ev.Kind = "probe"
 	case ev.Detail != "" && suspiciousPath(ev.Detail, 404):
 		ev.Kind = "probe"
@@ -249,6 +268,27 @@ func parseFTP(line string, ts time.Time) (shared.AuthEvent, bool) {
 			ev.Kind, ev.User = "login_ok", o[1]
 			return ev, true
 		}
+	}
+	return shared.AuthEvent{}, false
+}
+
+// parseMail versteht Postfix (SASL), Dovecot (auth failed / Login) und Exim (authenticator failed).
+func parseMail(line string, ts time.Time) (shared.AuthEvent, bool) {
+	if m := rePostfixSASL.FindStringSubmatch(line); m != nil {
+		return shared.AuthEvent{Time: ts, Kind: "login_failed", SourceIP: m[1], User: m[2]}, true
+	}
+	if m := reDovecotOK.FindStringSubmatch(line); m != nil {
+		return shared.AuthEvent{Time: ts, Kind: "login_ok", User: m[1], SourceIP: m[2]}, true
+	}
+	if m := reDovecotFail.FindStringSubmatch(line); m != nil {
+		ev := shared.AuthEvent{Time: ts, Kind: "login_failed", SourceIP: m[1]}
+		if u := reDovecotUser.FindStringSubmatch(line); u != nil {
+			ev.User = u[1]
+		}
+		return ev, true
+	}
+	if m := reEximFail.FindStringSubmatch(line); m != nil {
+		return shared.AuthEvent{Time: ts, Kind: "login_failed", SourceIP: m[1], User: m[2]}, true
 	}
 	return shared.AuthEvent{}, false
 }

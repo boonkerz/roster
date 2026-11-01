@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import type { Policy, PolicyNotifications } from "../types";
+import { TRIGGER_LABEL } from "./SecuritySection";
 
 // Benachrichtigungs-Bereich einer Richtlinie: ob Software-Änderungen auf den
 // zugewiesenen Geräten gemeldet werden (Standard = globale Alarm-Einstellung), und
@@ -10,6 +11,8 @@ import type { Policy, PolicyNotifications } from "../types";
 // Standort vor Client; das Gerät selbst kann den Schalter zuletzt überschreiben.
 
 const KINDS: [string, string][] = [["added", "installiert"], ["removed", "entfernt"], ["updated", "aktualisiert"]];
+// Vorfallsarten der Sicherheitsüberwachung (Reihenfolge wie im Server).
+const SEC_KINDS = ["brute_force", "brute_force_success", "scan", "new_source_ip", "account_change", "lockout", "fim_change"];
 
 export function NotificationSection({ policy }: { policy: Policy }) {
   const { t } = useI18n();
@@ -18,20 +21,26 @@ export function NotificationSection({ policy }: { policy: Policy }) {
   const [mode, setMode] = useState<PolicyNotifications["software_alerts"]>("");
   const [kinds, setKinds] = useState<string[]>([]);
   const [ignore, setIgnore] = useState("");
+  const [secKinds, setSecKinds] = useState<string[]>(SEC_KINDS);
+  const [skipBlocked, setSkipBlocked] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     setMode(n?.software_alerts ?? "");
     setKinds(n?.software_alert_kinds ?? KINDS.map(([k]) => k));
     setIgnore((n?.software_ignore ?? []).join("\n"));
+    setSecKinds(n?.security_alert_kinds ?? SEC_KINDS);
+    setSkipBlocked(n?.security_alert_skip_blocked ?? false);
     setErr("");
-  }, [policy.id, n?.software_alerts, n?.software_alert_kinds, n?.software_ignore]);
+  }, [policy.id, n?.software_alerts, n?.software_alert_kinds, n?.software_ignore, n?.security_alert_kinds, n?.security_alert_skip_blocked]);
 
   const save = useMutation({
     mutationFn: () => api.put<PolicyNotifications>(`/policies/${policy.id}/notifications`, {
       software_alerts: mode,
       software_alert_kinds: kinds,
       software_ignore: ignore.split("\n").map((l) => l.trim()).filter(Boolean),
+      security_alert_kinds: secKinds,
+      security_alert_skip_blocked: skipBlocked,
     }),
     onSuccess: () => { setErr(""); qc.invalidateQueries({ queryKey: ["policies"] }); },
     onError: (e) => setErr((e as Error).message),
@@ -39,7 +48,10 @@ export function NotificationSection({ policy }: { policy: Policy }) {
 
   const dirty = mode !== (n?.software_alerts ?? "")
     || kinds.join(",") !== (n?.software_alert_kinds ?? KINDS.map(([k]) => k)).join(",")
-    || ignore.trim() !== (n?.software_ignore ?? []).join("\n").trim();
+    || ignore.trim() !== (n?.software_ignore ?? []).join("\n").trim()
+    || secKinds.join(",") !== (n?.security_alert_kinds ?? SEC_KINDS).join(",")
+    || skipBlocked !== (n?.security_alert_skip_blocked ?? false);
+  const toggleSec = (k: string, on: boolean) => setSecKinds((cur) => (on ? SEC_KINDS.filter((x) => x === k || cur.includes(x)) : cur.filter((x) => x !== k)));
   const filtersActive = mode === "on";
   const toggleKind = (k: string, on: boolean) =>
     setKinds((cur) => (on ? KINDS.map(([x]) => x).filter((x) => x === k || cur.includes(x)) : cur.filter((x) => x !== k)));
@@ -75,6 +87,20 @@ export function NotificationSection({ policy }: { policy: Policy }) {
       />
       {filtersActive && kinds.length === 0 && <p className="muted small">{t("Keine Änderungsart gewählt – es wird nichts gemeldet.")}</p>}
       {!filtersActive && <p className="muted small">{t("Filter gelten nur bei „Ja“.")}</p>}
+
+      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Sicherheitsvorfälle melden")}</h3>
+      <p className="muted small">{t("Welche Vorfälle der Sicherheitsüberwachung über die Alarmkanäle gemeldet werden (Push, E-Mail …). Nur Warnungen und kritische Vorfälle werden gemeldet; die Vorfälle selbst erscheinen immer auf der Seite „Sicherheit“. Bei mehreren Richtlinien gilt die erste mit eigener Auswahl: Gerät vor Standort vor Client.")}</p>
+      <div className="chips">
+        {SEC_KINDS.map((k) => (
+          <label key={k} className={`chip ${secKinds.includes(k) ? "chip-on" : ""}`}>
+            <input type="checkbox" checked={secKinds.includes(k)} onChange={(e) => toggleSec(k, e.target.checked)} /> {t(TRIGGER_LABEL[k] ?? k)}
+          </label>
+        ))}
+      </div>
+      <label className="chip" style={{ display: "inline-flex", marginTop: 8 }} title={t("Hat Active Response oder die automatische Sperre die Quell-IP bereits gesperrt, bleibt die Meldung aus – der Vorfall wird trotzdem gespeichert.")}>
+        <input type="checkbox" checked={skipBlocked} onChange={(e) => setSkipBlocked(e.target.checked)} /> {t("nicht melden, wenn die Quell-IP automatisch gesperrt wurde")}
+      </label>
+      {secKinds.length === 0 && <p className="muted small">{t("Keine Vorfallsart gewählt – Sicherheitsvorfälle werden nicht gemeldet.")}</p>}
       {err && <p className="error small">{err}</p>}
       {dirty && (
         <div className="inline-form">

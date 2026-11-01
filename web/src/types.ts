@@ -373,7 +373,7 @@ export interface PolicyLogSource {
   name: string;
   type: "file" | "docker";
   target: string;
-  format: "nginx_access" | "nginx_error" | "sshd" | "ftp" | "regex";
+  format: "nginx_access" | "nginx_error" | "sshd" | "ftp" | "mail" | "regex";
   pattern?: string;
   kind?: "login_failed" | "probe";
   enabled: boolean;
@@ -529,6 +529,8 @@ export interface PolicyNotifications {
   software_alerts: "" | "on" | "off"; // "" = Standard (globale Einstellung)
   software_alert_kinds: string[];      // added | removed | updated
   software_ignore: string[];           // Glob-Muster auf Programmnamen
+  security_alert_kinds: string[];
+  security_alert_skip_blocked: boolean;
 }
 
 // Wirksame Software-Alarm-Einstellung eines Geräts (GET /devices/{id}/software-alerts).

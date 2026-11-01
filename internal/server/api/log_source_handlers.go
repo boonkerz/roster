@@ -16,7 +16,7 @@ import (
 
 var (
 	logSourceTypes   = map[string]bool{"file": true, "docker": true}
-	logSourceFormats = map[string]bool{"nginx_access": true, "nginx_error": true, "sshd": true, "ftp": true, "regex": true}
+	logSourceFormats = map[string]bool{"nginx_access": true, "nginx_error": true, "sshd": true, "ftp": true, "mail": true, "regex": true}
 	logSourceKinds   = map[string]bool{"login_failed": true, "probe": true}
 	reServiceName    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`)
 )
@@ -40,7 +40,7 @@ func (req logSourceRequest) apply(l *model.PolicyLogSource) error {
 		return errors.New("type muss file|docker sein")
 	}
 	if !logSourceFormats[req.Format] {
-		return errors.New("format muss nginx_access|nginx_error|sshd|ftp|regex sein")
+		return errors.New("format muss nginx_access|nginx_error|sshd|ftp|mail|regex sein")
 	}
 	target := strings.TrimSpace(req.Target)
 	if target == "" {

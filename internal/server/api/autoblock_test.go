@@ -163,3 +163,47 @@ func TestAutoBlockFleetSubnet(t *testing.T) {
 		t.Errorf("never-block missachtet")
 	}
 }
+
+// TestResolveSecurityAlerts: ohne eigene Einstellung werden alle Arten gemeldet; die
+// Richtlinie am Gerät gewinnt vor der am Client; '*' zählt nicht als eigene Einstellung.
+func TestResolveSecurityAlerts(t *testing.T) {
+	st, err := store.Open("sqlite://" + filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ctx := context.Background()
+	d := &model.Device{ID: store.NewID(), Hostname: "srv", OS: "ubuntu"}
+	if err := st.CreateDevice(ctx, d, auth.HashToken("x")); err != nil {
+		t.Fatal(err)
+	}
+	p := &model.Policy{ID: store.NewID(), Name: "P"}
+	if err := st.CreatePolicy(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddAssignment(ctx, &model.Assignment{ID: store.NewID(), PolicyID: p.ID, TargetType: "device", TargetID: d.ID}); err != nil {
+		t.Fatal(err)
+	}
+	set := st.ResolveSecurityAlerts(ctx, d.ID)
+	if len(set.Kinds) != len(model.AllIncidentKinds) || set.SkipBlocked {
+		t.Fatalf("default: %+v", set)
+	}
+	n := model.PolicyNotifications{SoftwareAlertKinds: []string{}, SoftwareIgnore: []string{}, SecurityAlertKinds: []string{"brute_force_success", "fim_change"}, SecurityAlertSkipBlocked: true}
+	if err := st.SetPolicyNotifications(ctx, p.ID, n); err != nil {
+		t.Fatal(err)
+	}
+	set = st.ResolveSecurityAlerts(ctx, d.ID)
+	if set.Kinds["brute_force"] || !set.Kinds["fim_change"] || !set.Kinds["brute_force_success"] || !set.SkipBlocked {
+		t.Fatalf("configured: %+v", set)
+	}
+	// Alle Arten gewählt → wieder Standard ('*'), SkipBlocked bleibt eigene Einstellung.
+	n.SecurityAlertKinds = append([]string(nil), model.AllIncidentKinds...)
+	n.SecurityAlertSkipBlocked = false
+	if err := st.SetPolicyNotifications(ctx, p.ID, n); err != nil {
+		t.Fatal(err)
+	}
+	ps, _ := st.ListPolicies(ctx)
+	if len(ps) != 1 || len(ps[0].Notifications.SecurityAlertKinds) != len(model.AllIncidentKinds) {
+		t.Fatalf("list: %+v", ps)
+	}
+}
