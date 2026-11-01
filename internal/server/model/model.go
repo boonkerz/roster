@@ -468,6 +468,7 @@ type Policy struct {
 	Security      PolicySecurity      `json:"security"`
 	FIMRules      []PolicyFIMRule     `json:"fim_rules"`
 	Responses     []PolicyResponse    `json:"responses"`
+	LogSources    []PolicyLogSource   `json:"log_sources"`
 	Assignments   []Assignment        `json:"assignments,omitempty"`
 }
 
@@ -491,6 +492,20 @@ type PolicyFIMRule struct {
 	Exclude   []string `json:"exclude"`
 	Platforms []string `json:"platforms"`
 	Alert     bool     `json:"alert"`
+}
+
+// PolicyLogSource ist ein zusätzliches Protokoll (Datei oder Docker-Container), aus dem der
+// Agent Anmelde-/Angriffsereignisse liest (nginx, SFTP-Container, eigene Muster).
+type PolicyLogSource struct {
+	ID       string `json:"id"`
+	PolicyID string `json:"policy_id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`   // file | docker
+	Target   string `json:"target"` // Pfad (Glob) bzw. Container-Name/-Muster
+	Format   string `json:"format"` // nginx_access | nginx_error | sshd | ftp | regex
+	Pattern  string `json:"pattern,omitempty"`
+	Kind     string `json:"kind,omitempty"` // regex: login_failed | probe
+	Enabled  bool   `json:"enabled"`
 }
 
 // PolicyResponse ist eine Active-Response-Regel einer Richtlinie (Auslöser → Aktion).
@@ -576,7 +591,7 @@ type SecurityIncident struct {
 	ClientName        string     `json:"client_name,omitempty"`
 	SiteName          string     `json:"site_name,omitempty"`
 	TS                time.Time  `json:"ts"`
-	Kind              string     `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change
+	Kind              string     `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change | scan
 	Severity          string     `json:"severity"` // info | warning | critical
 	SourceIP          string     `json:"source_ip,omitempty"`
 	Username          string     `json:"username,omitempty"`

@@ -47,9 +47,34 @@ Mit **Anmeldungen überwachen** liest der Agent neue Ereignisse inkrementell:
 | Windows | Sicherheitsprotokoll (RecordId-Cursor) | 4624/4625 (Anmeldetypen 2/3/7/10/11), 4740 Sperre, 4720/4726 Benutzer angelegt/gelöscht, 4722/4725/4767, 4728/4732/4756 Gruppenmitgliedschaft, 4723/4724 Passwort |
 | macOS | Unified Log (`log show`) | sshd, sudo, su, login |
 
+### Log-Quellen: nginx, SFTP-/FTP-Container, eigene Muster
+
+Neben dem Anmeldeprotokoll des Systems kann eine Richtlinie **Log-Quellen** enthalten, die der
+Agent jede Minute inkrementell liest: eine **Datei** (Glob erlaubt, z. B.
+`/var/log/nginx/*access.log`) oder die Ausgabe eines **Docker-Containers** (exakter Name oder
+Muster wie `*sftp*`; der Agent liest das json-file-Protokoll direkt, sonst `docker logs --since`).
+Jede Quelle hat ein Format:
+
+| Format | Erzeugt |
+|---|---|
+| nginx-Zugriffsprotokoll (auch das `$host $remote_addr …`-Format von nginx-proxy) | `401` → Fehlversuch; Scanner-Pfade (`wp-login.php`, `/.env`, `phpmyadmin`, `xmlrpc.php`, `../`, `union select` …), `400`/`444` und andere kaputte Anfragen, `404` auf `.php/.sql/.bak/.zip` → **verdächtige Anfrage** |
+| nginx-Fehlerprotokoll | `password mismatch`, `no user/password was provided`, `user … was not found` → Fehlversuch; `access forbidden by rule`, ModSecurity, Rate-Limit → verdächtige Anfrage |
+| sshd (SSH-/SFTP-Container wie `atmoz/sftp`) | dieselben Ereignisse wie der sshd des Hosts: fehlgeschlagene/akzeptierte Anmeldungen, unbekannte Benutzer |
+| FTP (vsftpd, proftpd, pure-ftpd) | fehlgeschlagene/erfolgreiche Anmeldungen, unbekannte Benutzer |
+| eigenes Muster | regulärer Ausdruck mit `(?P<ip>…)` und optional `(?P<user>…)`; jeder Treffer zählt als Fehlversuch oder verdächtige Anfrage |
+
+Die Ereignisse tragen den Namen der Quelle als Dienst (z. B. `nginx-proxy`, `sftp`), sodass der
+Tab **Anmeldungen**, die Vorfallstexte und die Sperren zeigen, wo ein Angreifer aufgefallen ist.
+Der Knopf *nginx-proxy + SFTP-Container einfügen* legt die beiden typischen Quellen auf einmal an.
+
 Daraus leitet der Server **Vorfälle** ab:
 
-- **Brute-Force** – N Fehlversuche von einer Quell-IP im Zeitfenster (Standard 10 in 10 min).
+- **Brute-Force** – N Fehlversuche von einer Quell-IP im Zeitfenster (Standard 10 in 10 min)
+  **oder** N Versuche mit nicht existierenden Benutzernamen innerhalb von 24 Stunden (Standard 5,
+  0 = aus). Die zweite Regel fängt verteilte, langsame Angriffe, die den Schwellwert je Fenster von
+  einer IP aus nie erreichen.
+- **Angriffsmuster** – N verdächtige Anfragen von einer Quell-IP im Zeitfenster (Standard 20),
+  z. B. ein Web-Scanner, der WordPress- und phpMyAdmin-Pfade auf nginx durchprobiert.
 - **Anmeldung nach Brute-Force** – erfolgreiche Anmeldung von einer IP, die gerade Brute-Force
   gefahren hat (kritisch).
 - **Neue Quell-IP** – erste erfolgreiche Anmeldung eines Benutzers von unbekannter Adresse, nach
@@ -93,24 +118,47 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
 
 | Auslöser | Aktionen |
 |---|---|
-| Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP | Quell-IP sperren, Skript ausführen |
+| Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP, Angriffsmuster | Quell-IP sperren, Skript ausführen |
 | Anmeldung nach Brute-Force, Kontoänderung, Kontosperre, neue Quell-IP | Konto sperren, Skript ausführen |
 | Datei-Änderung | Skript ausführen |
 
-- **IP sperren** – Linux: nftables-Set `inet roster blocked4/6` mit Timeout (iptables-Fallback mit
-  Ablauf im Agent); Windows: eingehende Firewall-Regel `Roster-Block <ip>`; macOS: pf-Tabelle
-  `roster_block` (`table <roster_block> persist` und `block in quick from <roster_block>` in
-  `/etc/pf.conf` eintragen). Dauer in Minuten, 0 = dauerhaft.
+- **IP sperren** – Linux: nftables-Sets `inet roster blocked4/6` (Einzeladressen) und `net4/6`
+  (Netze) mit Timeout, verworfen im **input- und forward-Hook**, damit auch Verkehr zu
+  Docker-Containern mit veröffentlichten Ports gesperrt ist (iptables-Fallback: `INPUT`, `FORWARD`
+  und `DOCKER-USER`, Ablauf im Agent); Windows: eingehende Firewall-Regel `Roster-Block <ip>`;
+  macOS: pf-Tabelle `roster_block` (`table <roster_block> persist` und
+  `block in quick from <roster_block>` in `/etc/pf.conf` eintragen). Dauer in Minuten, 0 = dauerhaft.
+  Ziel kann eine einzelne IP oder ein Netz in CIDR-Schreibweise sein.
 - **Konto sperren** – `usermod -L`, `Disable-LocalUser`, `pwpolicy -disableuser`. root und
   Administrator werden nie gesperrt.
 - **Skript ausführen** – ein Bibliotheks-Skript mit `ROSTER_TRIGGER`, `ROSTER_SOURCE_IP`,
   `ROSTER_USER`, `ROSTER_DEVICE`, `ROSTER_INCIDENT` und `ROSTER_TITLE` in der Umgebung.
 
+### Automatische Sperre ohne Richtlinien-Regel
+
+Bei vielen Servern sind die Regeln je Richtlinie optional: Einstellungen →
+**Sicherheitsüberwachung** → *Automatische Sperre* sperrt die Quell-IP jedes Brute-Force-,
+Anmeldung-nach-Brute-Force- und Angriffsmuster-Vorfalls auf dem meldenden Gerät, mit
+einstellbarer Dauer (eine Stunde bis dauerhaft). Eine eigene Active-Response-Regel der Richtlinie
+für denselben Auslöser hat Vorrang. Zwei Optionen erweitern die Wirkung:
+
+- **Flotten-Sperre** – die Adresse wird auf allen Geräten gesperrt, deren Richtlinie Anmeldungen
+  überwacht oder Log-Quellen liest, nicht nur dort, wo sie aufgefallen ist. Geräte, die sie schon
+  sperren, werden übersprungen.
+- **Netzbereichs-Sperre** – sind auf dem Gerät innerhalb von 24 Stunden mindestens N verschiedene
+  auffällige IPs aus demselben IPv4-`/24` aufgetaucht (Standard aus), wird statt der einzelnen
+  Adresse das ganze Netz gesperrt. Ein Netz, das eine Nie-sperren-Adresse enthält, wird nie als
+  Ganzes gesperrt.
+
+Im Tab **Vorfälle** lassen sich außerdem viele Vorfälle auf einmal auswählen und alle Quell-IPs
+mit einem Klick sperren (Dauer und Flotten-Option wie oben); die Vorfälle werden dabei bestätigt.
+
 Schranken: die **Nie-sperren-Liste** (IPs/CIDRs) und ein **Cooldown** je Gerät und Aktion unter
 Einstellungen → Sicherheitsüberwachung; Loopback und die Adresse des Roster-Servers sind immer
 geschützt. Jede Reaktion landet im Audit-Log und wird mit Ergebnis am Vorfall angezeigt. Der Tab
 **Sperren** listet alle Sperren (Status, Ablauf, Aufheben) und erlaubt das manuelle Sperren
-einer IP (Gerät, IP, Dauer von einer Stunde bis dauerhaft, Grund); Vorfälle bieten *IP sperren*
+einer IP oder eines Netzes (Gerät, IP oder CIDR, Dauer von einer Stunde bis dauerhaft, Grund,
+wahlweise auf allen überwachten Geräten); Vorfälle bieten *IP sperren*
 mit derselben Dauer-Auswahl und *Konto sperren*. Eine bereits gesperrte IP wird nicht doppelt
 angelegt, sondern mit der neuen Dauer erneuert – so lässt sich eine befristete Sperre an Ort
 und Stelle dauerhaft machen.

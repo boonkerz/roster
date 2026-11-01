@@ -19,6 +19,12 @@ const (
 	SettingSecLearnDays        = "sec_learn_days"         // Lernphase (Standard 7)
 	SettingSecNeverBlock       = "sec_never_block"        // CIDRs, nie sperren (Phase 8)
 	SettingSecResponseCooldown = "sec_response_cooldown_min"
+	SettingSecInvalidUserMax   = "sec_invalid_user_max"   // Fehlversuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
+	SettingSecScanThreshold    = "sec_scan_threshold"     // verdächtige Anfragen je IP im Fenster (Standard 20)
+	SettingSecAutoBlock        = "sec_auto_block"         // "1" = Brute-Force/Scan automatisch sperren (ohne Richtlinien-Regel)
+	SettingSecAutoBlockMinutes = "sec_auto_block_minutes" // Dauer der automatischen Sperre (0 = dauerhaft)
+	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
+	SettingSecSubnetIPs        = "sec_subnet_ips"         // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
 )
 
 // InsertAuthEvents speichert Anmeldeereignisse; Duplikate (gleiche record_id …) werden
@@ -65,8 +71,22 @@ func truncate(s string, n int) string {
 
 // FailedLoginsSince liefert je Quell-IP die Zeitpunkte fehlgeschlagener Anmeldungen seit since.
 func (s *Store) FailedLoginsSince(ctx context.Context, deviceID string, since time.Time) (map[string][]time.Time, error) {
+	return s.eventTimesSince(ctx, deviceID, since, "('login_failed','invalid_user')")
+}
+
+// InvalidUserSince liefert je Quell-IP die Zeitpunkte von Versuchen mit unbekanntem Benutzer.
+func (s *Store) InvalidUserSince(ctx context.Context, deviceID string, since time.Time) (map[string][]time.Time, error) {
+	return s.eventTimesSince(ctx, deviceID, since, "('invalid_user')")
+}
+
+// ProbesSince liefert je Quell-IP die Zeitpunkte verdächtiger Anfragen (Web-Scanner …).
+func (s *Store) ProbesSince(ctx context.Context, deviceID string, since time.Time) (map[string][]time.Time, error) {
+	return s.eventTimesSince(ctx, deviceID, since, "('probe')")
+}
+
+func (s *Store) eventTimesSince(ctx context.Context, deviceID string, since time.Time, kinds string) (map[string][]time.Time, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT source_ip, ts FROM auth_events WHERE device_id=? AND ts >= ? AND kind IN ('login_failed','invalid_user') AND source_ip <> ''`),
+		SELECT source_ip, ts FROM auth_events WHERE device_id=? AND ts >= ? AND kind IN `+kinds+` AND source_ip <> ''`),
 		deviceID, since.UTC())
 	if err != nil {
 		return nil, err

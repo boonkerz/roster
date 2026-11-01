@@ -1,6 +1,7 @@
 package secdetect
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -107,5 +108,60 @@ func TestNewIPAndAccounts(t *testing.T) {
 	inc = Detect(Input{Now: base, Events: []shared.AuthEvent{ev("login_ok", "x", "203.0.113.1", base)}, KnownIP: func(string, string) bool { return false }}, cfg)
 	if len(inc) != 0 {
 		t.Fatalf("neue-IP aus: %+v", inc)
+	}
+}
+
+func TestInvalidUserSlow(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.BFThreshold = 10
+	cfg.InvalidUserMax = 3
+	base := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC)
+	// Drei Versuche mit unbekannten Benutzern über zwei Stunden verteilt: das 10-min-Fenster
+	// greift nie, die 24-h-Regel schon.
+	events := []shared.AuthEvent{
+		ev("invalid_user", "admin", "198.51.100.7", base),
+		ev("invalid_user", "oracle", "198.51.100.7", base.Add(50*time.Minute)),
+		ev("login_failed", "root", "198.51.100.9", base.Add(55*time.Minute)),
+		ev("invalid_user", "test", "198.51.100.7", base.Add(2*time.Hour)),
+	}
+	inc := Detect(Input{Now: base.Add(3 * time.Hour), Events: events}, cfg)
+	if got := kinds(inc); len(got) != 1 || got[0] != "brute_force" || inc[0].SourceIP != "198.51.100.7" {
+		t.Fatalf("got %v: %+v", got, inc)
+	}
+	if !strings.Contains(inc[0].Detail, "unbekannten Benutzernamen") {
+		t.Errorf("detail: %s", inc[0].Detail)
+	}
+	// Mit Vorgeschichte aus der Datenbank reicht ein einzelnes neues Ereignis.
+	prior := map[string][]time.Time{"203.0.113.80": {base.Add(-20 * time.Hour), base.Add(-3 * time.Hour)}}
+	inc = Detect(Input{Now: base, Events: []shared.AuthEvent{ev("invalid_user", "pi", "203.0.113.80", base)}, PriorInvalid: prior}, cfg)
+	if len(inc) != 1 || inc[0].Kind != "brute_force" {
+		t.Fatalf("prior: %+v", inc)
+	}
+	// Abgeschaltet (0): kein Vorfall.
+	cfg.InvalidUserMax = 0
+	if inc = Detect(Input{Now: base.Add(3 * time.Hour), Events: events}, cfg); len(inc) != 0 {
+		t.Fatalf("disabled: %+v", inc)
+	}
+}
+
+func TestScanIncident(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ScanThreshold = 5
+	base := time.Date(2026, 11, 1, 9, 0, 0, 0, time.UTC)
+	var events []shared.AuthEvent
+	for i, p := range []string{"/wp-login.php", "/.env", "/xmlrpc.php", "/phpmyadmin/", "/.git/config", "/wp-login.php"} {
+		events = append(events, shared.AuthEvent{Time: base.Add(time.Duration(i) * 10 * time.Second), Kind: "probe", SourceIP: "203.0.113.44", Service: "nginx-proxy", Detail: p})
+	}
+	inc := Detect(Input{Now: base.Add(time.Minute), Events: events}, cfg)
+	if len(inc) != 1 || inc[0].Kind != "scan" || inc[0].SourceIP != "203.0.113.44" || inc[0].Severity != "warning" {
+		t.Fatalf("got %+v", inc)
+	}
+	if !strings.Contains(inc[0].Detail, "/wp-login.php") || !strings.Contains(inc[0].Detail, "nginx-proxy") {
+		t.Errorf("detail: %s", inc[0].Detail)
+	}
+	// Bereits gemeldet: kein zweiter Vorfall innerhalb einer Stunde.
+	inc = Detect(Input{Now: base.Add(time.Minute), Events: events, RecentScan: map[string]time.Time{"203.0.113.44": base.Add(-10 * time.Minute)}}, cfg)
+	if len(inc) != 0 {
+		t.Fatalf("dedupe: %+v", inc)
 	}
 }

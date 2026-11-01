@@ -19,9 +19,9 @@ import (
 
 // Trigger und Aktionen der Active Response.
 var (
-	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true}
+	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true, "scan": true}
 	responseActions   = map[string]bool{"block_ip": true, "lock_user": true, "run_script": true}
-	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true}
+	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "scan": true}
 	userTriggers      = map[string]bool{"brute_force_success": true, "account_change": true, "lockout": true, "new_source_ip": true}
 	protectedAccounts = map[string]bool{"root": true, "administrator": true, "system": true}
 )
@@ -45,7 +45,7 @@ func (req responseRequest) apply(r *model.PolicyResponse) error {
 	switch req.Action {
 	case "block_ip":
 		if !ipTriggers[req.Trigger] {
-			return errors.New("IP-Sperre ist nur bei Auslösern mit Quell-IP möglich (Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP)")
+			return errors.New("IP-Sperre ist nur bei Auslösern mit Quell-IP möglich (Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP, Angriffsmuster)")
 		}
 	case "lock_user":
 		if !userTriggers[req.Trigger] {
@@ -174,31 +174,133 @@ func neverBlocked(ip string, cidrs []string) bool {
 	return false
 }
 
-// runResponses führt die konfigurierten Reaktionen für neue Vorfälle aus.
+// runResponses führt die konfigurierten Reaktionen für neue Vorfälle aus: zuerst die
+// Regeln der zugewiesenen Richtlinien; hat keine Regel den Auslöser abgedeckt, greift die
+// globale automatische Sperre aus den Einstellungen (Brute-Force, Anmeldung nach
+// Brute-Force, Angriffsmuster).
 func (s *Server) runResponses(ctx context.Context, device *model.Device, incidents []model.SecurityIncident) {
 	if len(incidents) == 0 {
 		return
 	}
 	rules, err := s.store.ResponsesForDevice(ctx, device.ID)
-	if err != nil || len(rules) == 0 {
+	if err != nil {
 		return
 	}
 	cfg := s.securitySettings(ctx)
-	cooldown := time.Duration(cfg.ResponseCooldown) * time.Minute
 	platform := platformOf(device.OS)
 	for _, inc := range incidents {
+		handled := false
 		for _, rule := range rules {
 			if rule.Trigger != inc.Kind || !platformMatches(rule.Platforms, platform) {
 				continue
 			}
-			s.executeResponse(ctx, device, inc, rule, cfg.NeverBlock, cooldown, "system")
+			s.executeResponse(ctx, device, inc, rule, cfg, "system")
+			handled = true
 			break // eine Reaktion je Vorfall und Regel-Trigger reicht … pro Aktion weiter unten unterschieden
+		}
+		if !handled && cfg.AutoBlock && autoBlockTriggers[inc.Kind] && inc.SourceIP != "" {
+			s.executeResponse(ctx, device, inc, model.PolicyResponse{Trigger: inc.Kind, Action: "block_ip", Minutes: cfg.AutoBlockMinutes}, cfg, "system")
 		}
 	}
 }
 
+// autoBlockTriggers sind die Vorfallsarten, die die globale automatische Sperre auslöst.
+var autoBlockTriggers = map[string]bool{"brute_force": true, "brute_force_success": true, "scan": true}
+
+// subnet24 liefert das /24-Netz einer IPv4-Adresse ("" bei IPv6/ungültig).
+func subnet24(ip string) string {
+	p := net.ParseIP(ip)
+	if p == nil || p.To4() == nil {
+		return ""
+	}
+	return p.Mask(net.CIDRMask(24, 32)).String() + "/24"
+}
+
+// blockTarget entscheidet, ob statt der einzelnen IP das ganze /24-Netz gesperrt wird: wenn
+// aus demselben Netz in den letzten 24 h mindestens cfg.SubnetIPs verschiedene Quell-IPs
+// aufgefallen sind und keine Nie-sperren-Adresse im Netz liegt.
+func (s *Server) blockTarget(ctx context.Context, deviceID, ip string, cfg securitySettings) string {
+	if cfg.SubnetIPs <= 0 {
+		return ip
+	}
+	cidr := subnet24(ip)
+	if cidr == "" {
+		return ip
+	}
+	n, err := s.store.FailSourcesInSubnet(ctx, deviceID, ip, time.Now().Add(-24*time.Hour))
+	if err != nil || n < cfg.SubnetIPs {
+		return ip
+	}
+	_, netw, _ := net.ParseCIDR(cidr)
+	for _, c := range cfg.NeverBlock {
+		if p := net.ParseIP(strings.Split(c, "/")[0]); p != nil && netw.Contains(p) {
+			return ip
+		}
+	}
+	return cidr
+}
+
+// blockOnDevice reiht eine IP-/Netz-Sperre auf einem Gerät ein und pflegt ip_blocks: eine
+// bestehende Sperre derselben Adresse wird erneuert (kein Duplikat), sonst neu angelegt.
+// Liefert die Befehls-ID, den Eintrag und ob er neu ist.
+func (s *Server) blockOnDevice(ctx context.Context, deviceID, target string, minutes int, reason, incidentID, by string) (*model.IPBlock, bool, error) {
+	label := fmt.Sprintf("IP %s sperren", target)
+	if by == "system" {
+		label = "Active Response: " + label
+	}
+	cmdID, err := s.queueCommand(ctx, deviceID, "block_ip", label, map[string]any{"ip": target, "minutes": minutes})
+	if err != nil {
+		return nil, false, err
+	}
+	var until *time.Time
+	if minutes > 0 {
+		t := time.Now().Add(time.Duration(minutes) * time.Minute)
+		until = &t
+	}
+	if existing, _ := s.store.ActiveIPBlock(ctx, deviceID, target); existing != nil {
+		if err := s.store.RenewIPBlock(ctx, existing.ID, until, reason, cmdID, by); err != nil {
+			return nil, false, err
+		}
+		existing.Until, existing.Reason, existing.CommandID, existing.CreatedBy, existing.Status = until, reason, cmdID, by, "pending"
+		return existing, false, nil
+	}
+	b := &model.IPBlock{DeviceID: deviceID, IP: target, Reason: reason, IncidentID: incidentID, Until: until, CommandID: cmdID, CreatedBy: by}
+	if err := s.store.InsertIPBlock(ctx, b); err != nil {
+		return nil, false, err
+	}
+	return b, true, nil
+}
+
+// blockFleet sperrt target zusätzlich auf allen anderen überwachten Geräten (Anmeldungs-
+// Überwachung oder Log-Quelle aktiv); bereits gesperrte Adressen werden übersprungen.
+// Liefert die Zahl der neu eingereihten Sperren.
+func (s *Server) blockFleet(ctx context.Context, originID, target string, minutes int, reason, incidentID, by string) int {
+	devices, err := s.store.MonitoredDeviceIDs(ctx)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, d := range devices {
+		if d.ID == originID || platformOf(d.OS) == "" {
+			continue
+		}
+		if b, _ := s.store.ActiveIPBlock(ctx, d.ID, target); b != nil {
+			continue
+		}
+		if _, _, err := s.blockOnDevice(ctx, d.ID, target, minutes, reason, incidentID, by); err == nil {
+			n++
+		}
+	}
+	if n > 0 {
+		_ = s.store.InsertAudit(ctx, model.AuditEntry{TS: time.Now(), Username: by, Action: fmt.Sprintf("IP %s auf %d weiteren Geräten gesperrt (Flotte)", target, n), Method: "AUTO", Path: "/security/response", Status: 201})
+	}
+	return n
+}
+
 // executeResponse reiht die Aktion ein, protokolliert sie und vermerkt sie am Vorfall.
-func (s *Server) executeResponse(ctx context.Context, device *model.Device, inc model.SecurityIncident, rule model.PolicyResponse, neverBlock []string, cooldown time.Duration, by string) {
+func (s *Server) executeResponse(ctx context.Context, device *model.Device, inc model.SecurityIncident, rule model.PolicyResponse, cfg securitySettings, by string) {
+	neverBlock := cfg.NeverBlock
+	cooldown := time.Duration(cfg.ResponseCooldown) * time.Minute
 	var label, payloadKey string
 	payload := map[string]any{}
 	switch rule.Action {
@@ -210,13 +312,22 @@ func (s *Server) executeResponse(ctx context.Context, device *model.Device, inc 
 			_ = s.store.SetIncidentResponse(ctx, inc.ID, "block_ip "+inc.SourceIP, "skipped: never-block", "")
 			return
 		}
-		if b, _ := s.store.ActiveIPBlock(ctx, device.ID, inc.SourceIP); b != nil {
-			_ = s.store.SetIncidentResponse(ctx, inc.ID, "block_ip "+inc.SourceIP, "already blocked", b.CommandID)
+		target := s.blockTarget(ctx, device.ID, inc.SourceIP, cfg)
+		payloadKey = "block_ip " + target
+		if b, _ := s.store.ActiveIPBlock(ctx, device.ID, target); b != nil {
+			_ = s.store.SetIncidentResponse(ctx, inc.ID, payloadKey, "already blocked", b.CommandID)
+			if cfg.FleetBlock {
+				s.blockFleet(ctx, device.ID, target, rule.Minutes, inc.Title, inc.ID, by)
+			}
 			return
 		}
-		payloadKey = "block_ip " + inc.SourceIP
-		label = fmt.Sprintf("Active Response: IP %s sperren", inc.SourceIP)
-		payload["ip"], payload["minutes"] = inc.SourceIP, rule.Minutes
+		if target != inc.SourceIP {
+			if b, _ := s.store.ActiveIPBlock(ctx, device.ID, inc.SourceIP); b != nil {
+				_ = s.store.SetIPBlockStatus(ctx, b.ID, "released", "durch Netzbereichs-Sperre "+target+" ersetzt")
+			}
+		}
+		label = fmt.Sprintf("Active Response: IP %s sperren", target)
+		payload["ip"], payload["minutes"] = target, rule.Minutes
 	case "lock_user":
 		if inc.Username == "" || protectedAccounts[strings.ToLower(inc.Username)] {
 			return
@@ -264,12 +375,18 @@ func (s *Server) executeResponse(ctx context.Context, device *model.Device, inc 
 	}
 	_ = s.store.SetIncidentResponse(ctx, inc.ID, payloadKey, "queued", cmdID)
 	if rule.Action == "block_ip" {
+		target, _ := payload["ip"].(string)
 		var until *time.Time
 		if rule.Minutes > 0 {
 			t := time.Now().Add(time.Duration(rule.Minutes) * time.Minute)
 			until = &t
 		}
-		_ = s.store.InsertIPBlock(ctx, &model.IPBlock{DeviceID: device.ID, IP: inc.SourceIP, Reason: inc.Title, IncidentID: inc.ID, Until: until, CommandID: cmdID, CreatedBy: by})
+		_ = s.store.InsertIPBlock(ctx, &model.IPBlock{DeviceID: device.ID, IP: target, Reason: inc.Title, IncidentID: inc.ID, Until: until, CommandID: cmdID, CreatedBy: by})
+		if cfg.FleetBlock {
+			if n := s.blockFleet(ctx, device.ID, target, rule.Minutes, inc.Title, inc.ID, by); n > 0 {
+				_ = s.store.SetIncidentResponse(ctx, inc.ID, payloadKey, fmt.Sprintf("queued (+%d Geräte)", n), cmdID)
+			}
+		}
 	}
 	_ = s.store.InsertAudit(ctx, model.AuditEntry{TS: time.Now(), Username: by, Action: label + " (" + device.Hostname + ")", Method: "AUTO", Path: "/security/response", Status: 201})
 	s.log.Info("active response", "device", device.Hostname, "action", payloadKey, "incident", inc.Kind)
@@ -308,6 +425,25 @@ type manualBlockRequest struct {
 	IP      string `json:"ip"`
 	Minutes int    `json:"minutes"`
 	Reason  string `json:"reason"`
+	Fleet   bool   `json:"fleet"` // zusätzlich auf allen überwachten Geräten sperren
+}
+
+// parseBlockTarget akzeptiert eine IP oder ein Netz in CIDR-Schreibweise (max. /16 bzw. /48).
+func parseBlockTarget(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if ip := net.ParseIP(s); ip != nil {
+		return ip.String(), nil
+	}
+	ip, n, err := net.ParseCIDR(s)
+	if err != nil {
+		return "", errors.New("ungültige IP oder CIDR")
+	}
+	ones, bits := n.Mask.Size()
+	if (bits == 32 && ones < 16) || (bits == 128 && ones < 48) {
+		return "", errors.New("Netz zu groß (mindestens /16 bzw. /48)")
+	}
+	_ = ip
+	return n.String(), nil
 }
 
 func (s *Server) handleBlockIP(w http.ResponseWriter, r *http.Request) {
@@ -315,9 +451,9 @@ func (s *Server) handleBlockIP(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	ip := net.ParseIP(strings.TrimSpace(req.IP))
-	if ip == nil {
-		s.writeErr(w, http.StatusBadRequest, "ungültige IP")
+	target, err := parseBlockTarget(req.IP)
+	if err != nil {
+		s.writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if req.Minutes < 0 || req.Minutes > 43200 {
@@ -325,7 +461,7 @@ func (s *Server) handleBlockIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.securitySettings(r.Context())
-	if neverBlocked(ip.String(), cfg.NeverBlock) {
+	if neverBlocked(strings.Split(target, "/")[0], cfg.NeverBlock) {
 		s.writeErr(w, http.StatusBadRequest, "IP steht auf der Nie-sperren-Liste")
 		return
 	}
@@ -338,35 +474,20 @@ func (s *Server) handleBlockIP(w http.ResponseWriter, r *http.Request) {
 	if u := userFrom(r.Context()); u != nil {
 		by = u.Username
 	}
-	cmdID, err := s.queueCommand(r.Context(), device.ID, "block_ip", fmt.Sprintf("IP %s sperren", ip), map[string]any{"ip": ip.String(), "minutes": req.Minutes})
+	reason := firstNonEmptyStr(req.Reason, "manuell")
+	b, created, err := s.blockOnDevice(r.Context(), device.ID, target, req.Minutes, reason, "", by)
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
-	var until *time.Time
-	if req.Minutes > 0 {
-		t := time.Now().Add(time.Duration(req.Minutes) * time.Minute)
-		until = &t
+	if req.Fleet {
+		s.blockFleet(r.Context(), device.ID, target, req.Minutes, reason, "", by)
 	}
-	reason := firstNonEmptyStr(req.Reason, "manuell")
-	// Dieselbe IP ist auf dem Gerät schon gesperrt: kein Duplikat anlegen, sondern die
-	// bestehende Sperre mit neuer Dauer erneuern (der Agent setzt den Timeout neu bzw.
-	// macht sie dauerhaft).
-	if existing, _ := s.store.ActiveIPBlock(r.Context(), device.ID, ip.String()); existing != nil {
-		if err := s.store.RenewIPBlock(r.Context(), existing.ID, until, reason, cmdID, by); err != nil {
-			s.mapStoreErr(w, err)
-			return
-		}
-		existing.Until, existing.Reason, existing.CommandID, existing.CreatedBy, existing.Status = until, reason, cmdID, by, "pending"
-		s.writeJSON(w, http.StatusOK, existing)
+	if created {
+		s.writeJSON(w, http.StatusCreated, b)
 		return
 	}
-	b := &model.IPBlock{DeviceID: device.ID, IP: ip.String(), Reason: reason, Until: until, CommandID: cmdID, CreatedBy: by}
-	if err := s.store.InsertIPBlock(r.Context(), b); err != nil {
-		s.mapStoreErr(w, err)
-		return
-	}
-	s.writeJSON(w, http.StatusCreated, b)
+	s.writeJSON(w, http.StatusOK, b)
 }
 
 func firstNonEmptyStr(a, b string) string {
@@ -381,20 +502,20 @@ func (s *Server) handleUnblockIP(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	ip := net.ParseIP(strings.TrimSpace(req.IP))
-	if ip == nil {
-		s.writeErr(w, http.StatusBadRequest, "ungültige IP")
+	target, err := parseBlockTarget(req.IP)
+	if err != nil {
+		s.writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	deviceID := chi.URLParam(r, "id")
-	cmdID, err := s.queueCommand(r.Context(), deviceID, "unblock_ip", fmt.Sprintf("IP %s entsperren", ip), map[string]any{"ip": ip.String()})
+	cmdID, err := s.queueCommand(r.Context(), deviceID, "unblock_ip", fmt.Sprintf("IP %s entsperren", target), map[string]any{"ip": target})
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
 	blocks, _ := s.store.IPBlocks(r.Context(), nil, deviceID, 0)
 	for _, b := range blocks {
-		if b.IP == ip.String() && (b.Status == "active" || b.Status == "pending" || b.Status == "expired") {
+		if b.IP == target && (b.Status == "active" || b.Status == "pending" || b.Status == "expired") {
 			_ = s.store.SetIPBlockStatus(r.Context(), b.ID, "released", "aufgehoben")
 		}
 	}

@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Sicherheit: **automatische Sperre ohne Richtlinien-Regel** – Einstellungen → Sicherheitsüberwachung kann die Quell-IP jedes Brute-Force-, Anmeldung-nach-Brute-Force- und Angriffsmuster-Vorfalls auf dem meldenden Gerät sperren (Dauer von einer Stunde bis dauerhaft). Optional sperrt die **Flotten-Sperre** die Adresse auf allen Geräten, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest, und die **Netzbereichs-Sperre** das ganze IPv4-/24, sobald binnen 24 Stunden mehrere auffällige IPs aus demselben Netz kamen.
+- Sicherheit: **Log-Quellen** je Richtlinie – der Agent liest jede Minute zusätzliche Protokolle: Dateien (Glob) oder die Ausgabe von Docker-Containern (Name oder Muster). Formate: nginx-Zugriffsprotokoll (401 → Fehlversuch; Scanner-Pfade, kaputte Anfragen → verdächtige Anfrage), nginx-Fehlerprotokoll, sshd-Ausgabe von SSH-/SFTP-Containern (z. B. atmoz/sftp), FTP-Server (vsftpd, proftpd, pure-ftpd) und eigene reguläre Ausdrücke. Vorlagen für nginx-proxy- und SFTP-Container.
+- Sicherheit: neuer Vorfall **Angriffsmuster** (N verdächtige Anfragen von einer IP im Zeitfenster, Standard 20) mit denselben Reaktionen wie Brute-Force, und eine zweite Brute-Force-Regel für **verteilte, langsame Angriffe**: N Versuche mit unbekannten Benutzernamen in 24 Stunden (Standard 5) unabhängig vom Schwellwert je Zeitfenster.
+- Sicherheit: **Mehrfach-Sperren** im Tab Vorfälle – viele Vorfälle auswählen, alle Quell-IPs mit einem Klick sperren (Dauer, Flotten-Option) und dabei bestätigen. Manuelle Sperren akzeptieren Netze in CIDR-Schreibweise und können alle überwachten Geräte treffen.
+
+### Geändert
+- Agent: IP-Sperren greifen jetzt auch im nftables-**forward**-Hook (bzw. `FORWARD`/`DOCKER-USER` bei iptables), damit gesperrte Adressen keine Docker-Container mit veröffentlichten Ports mehr erreichen; Netze liegen in Interval-Sets. Ältere Agents sperren weiterhin nur im input-Hook.
+
 ## [0.17.3] - 2026-11-01
 
 ### Neu

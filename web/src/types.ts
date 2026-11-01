@@ -362,7 +362,21 @@ export interface Policy {
   security?: PolicySecurity;
   fim_rules?: PolicyFIMRule[];
   responses?: PolicyResponse[];
+  log_sources?: PolicyLogSource[];
   assignments?: Assignment[];
+}
+
+// PolicyLogSource ist ein zusätzliches Protokoll (Datei/Docker-Container) für die Angriffserkennung.
+export interface PolicyLogSource {
+  id: string;
+  policy_id: string;
+  name: string;
+  type: "file" | "docker";
+  target: string;
+  format: "nginx_access" | "nginx_error" | "sshd" | "ftp" | "regex";
+  pattern?: string;
+  kind?: "login_failed" | "probe";
+  enabled: boolean;
 }
 
 // Bereich „Sicherheitsüberwachung“ einer Richtlinie.
@@ -423,7 +437,7 @@ export interface SecurityIncident {
   client_name?: string;
   site_name?: string;
   ts: string;
-  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | string;
+  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | string;
   severity: "info" | "warning" | "critical";
   source_ip?: string;
   username?: string;
@@ -453,6 +467,12 @@ export interface SecuritySettings {
   learn_days: number;
   never_block: string[];
   response_cooldown_min: number;
+  invalid_user_max: number;
+  scan_threshold: number;
+  auto_block: boolean;
+  auto_block_minutes: number;
+  fleet_block: boolean;
+  subnet_ips: number;
 }
 
 // PolicyResponse ist eine Active-Response-Regel (Auslöser → Aktion).

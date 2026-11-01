@@ -22,11 +22,21 @@ type Config struct {
 	IgnorePrivateIP bool          // private Quell-IPs bei „neue IP“ ignorieren
 	LearnDays       int           // Lernphase: so lange nach dem ersten Monitoring nur sammeln
 	AdminGroups     []string      // Gruppen, deren Änderung als Warnung gilt
+	// InvalidUserMax: ab so vielen Versuchen mit unbekanntem Benutzernamen je IP innerhalb
+	// von 24 h gilt die IP als Brute-Force, unabhängig vom Zeitfenster (0 = aus). Fängt
+	// verteilte, langsame Angriffe, die den Schwellwert je 10 min nie erreichen.
+	InvalidUserMax int
+	// ScanThreshold: verdächtige Anfragen (Kind probe, z. B. Web-Scanner) je IP im Fenster
+	// bis zum Vorfall „scan“ (Standard 20).
+	ScanThreshold int
 }
+
+// InvalidUserWindow ist das Fenster der Regel „unbekannte Benutzer“.
+const InvalidUserWindow = 24 * time.Hour
 
 // DefaultConfig sind die Voreinstellungen.
 func DefaultConfig() Config {
-	return Config{BFThreshold: 10, BFWindow: 10 * time.Minute, NewIPAlert: true, LearnDays: 7,
+	return Config{BFThreshold: 10, BFWindow: 10 * time.Minute, NewIPAlert: true, LearnDays: 7, InvalidUserMax: 5, ScanThreshold: 20,
 		AdminGroups: []string{"sudo", "wheel", "admin", "root", "administrators", "administratoren", "domain admins", "domänen-admins", "remote desktop users"}}
 }
 
@@ -36,8 +46,14 @@ type Input struct {
 	Events []shared.AuthEvent // neue Ereignisse, chronologisch
 	// PriorFails: Fehlversuche je Quell-IP aus der Datenbank innerhalb des Fensters vor Now.
 	PriorFails map[string][]time.Time
+	// PriorInvalid: Versuche mit unbekanntem Benutzer je Quell-IP der letzten 24 h (ohne die neuen).
+	PriorInvalid map[string][]time.Time
+	// PriorProbes: verdächtige Anfragen je Quell-IP innerhalb des Fensters (ohne die neuen).
+	PriorProbes map[string][]time.Time
 	// RecentBF: Quell-IPs, für die in den letzten 60 min bereits ein Brute-Force-Vorfall existiert.
 	RecentBF map[string]time.Time
+	// RecentScan: Quell-IPs, für die in den letzten 60 min bereits ein Scan-Vorfall existiert.
+	RecentScan map[string]time.Time
 	// KnownIP meldet, ob (Benutzer, IP) für dieses Gerät schon einmal erfolgreich war.
 	KnownIP func(user, ip string) bool
 	// MonitoringSince ist der Beginn der Überwachung des Geräts (Lernphase für „neue IP“).
@@ -47,7 +63,7 @@ type Input struct {
 // Incident ist ein abgeleiteter Vorfall.
 type Incident struct {
 	Time     time.Time
-	Kind     string // brute_force | brute_force_success | new_source_ip | account_change | lockout
+	Kind     string // brute_force | brute_force_success | new_source_ip | account_change | lockout | scan
 	Severity string // info | warning | critical
 	SourceIP string
 	User     string
@@ -65,14 +81,30 @@ func Detect(in Input, cfg Config) []Incident {
 	if cfg.BFWindow <= 0 {
 		cfg.BFWindow = 10 * time.Minute
 	}
+	if cfg.ScanThreshold <= 0 {
+		cfg.ScanThreshold = 20
+	}
 	fails := map[string][]time.Time{}
+	invalid := map[string][]time.Time{}
+	probes := map[string][]time.Time{}
 	users := map[string]map[string]bool{}
+	paths := map[string]map[string]bool{}
 	for ip, ts := range in.PriorFails {
 		fails[ip] = append(fails[ip], ts...)
+	}
+	for ip, ts := range in.PriorInvalid {
+		invalid[ip] = append(invalid[ip], ts...)
+	}
+	for ip, ts := range in.PriorProbes {
+		probes[ip] = append(probes[ip], ts...)
 	}
 	bfAt := map[string]time.Time{}
 	for ip, t := range in.RecentBF {
 		bfAt[ip] = t
+	}
+	scanAt := map[string]time.Time{}
+	for ip, t := range in.RecentScan {
+		scanAt[ip] = t
 	}
 	var out []Incident
 	seenNewIP := map[string]bool{}
@@ -87,15 +119,40 @@ func Detect(in Input, cfg Config) []Incident {
 			if e.User != "" {
 				users[ip][e.User] = true
 			}
+			if e.Kind == "invalid_user" {
+				invalid[ip] = append(invalid[ip], e.Time)
+			}
 			n := countWithin(fails[ip], e.Time, cfg.BFWindow)
-			if n >= cfg.BFThreshold {
+			ni := countWithin(invalid[ip], e.Time, InvalidUserWindow)
+			if n >= cfg.BFThreshold || (cfg.InvalidUserMax > 0 && ni >= cfg.InvalidUserMax) {
 				if last, ok := bfAt[ip]; ok && e.Time.Sub(last) < time.Hour {
 					continue // schon gemeldet
 				}
 				bfAt[ip] = e.Time
+				detail := fmt.Sprintf("%d fehlgeschlagene Anmeldungen innerhalb von %s über %s (Benutzer: %s)", n, cfg.BFWindow, e.Service, userList(users[ip]))
+				if n < cfg.BFThreshold {
+					detail = fmt.Sprintf("%d Anmeldeversuche mit unbekannten Benutzernamen innerhalb von 24 h über %s (Benutzer: %s)", ni, e.Service, userList(users[ip]))
+				}
 				out = append(out, Incident{Time: e.Time, Kind: "brute_force", Severity: "warning", SourceIP: ip,
-					Title:  fmt.Sprintf("Brute-Force von %s", ip),
-					Detail: fmt.Sprintf("%d fehlgeschlagene Anmeldungen innerhalb von %s über %s (Benutzer: %s)", n, cfg.BFWindow, e.Service, userList(users[ip]))})
+					Title: fmt.Sprintf("Brute-Force von %s", ip), Detail: detail})
+			}
+		case e.Kind == "probe" && ip != "":
+			probes[ip] = append(probes[ip], e.Time)
+			if paths[ip] == nil {
+				paths[ip] = map[string]bool{}
+			}
+			if e.Detail != "" {
+				paths[ip][e.Detail] = true
+			}
+			n := countWithin(probes[ip], e.Time, cfg.BFWindow)
+			if n >= cfg.ScanThreshold {
+				if last, ok := scanAt[ip]; ok && e.Time.Sub(last) < time.Hour {
+					continue
+				}
+				scanAt[ip] = e.Time
+				out = append(out, Incident{Time: e.Time, Kind: "scan", Severity: "warning", SourceIP: ip,
+					Title:  fmt.Sprintf("Angriffsmuster von %s", ip),
+					Detail: fmt.Sprintf("%d verdächtige Anfragen innerhalb von %s über %s (%s)", n, cfg.BFWindow, e.Service, userList(paths[ip]))})
 			}
 		case e.Kind == "login_ok":
 			if ip != "" {

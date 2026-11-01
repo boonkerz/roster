@@ -5,7 +5,6 @@ package response
 import (
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"strings"
 	"time"
@@ -23,89 +22,132 @@ func run(ctx context.Context, name string, args ...string) (string, error) {
 
 func have(bin string) bool { _, err := exec.LookPath(bin); return err == nil }
 
-// ensureNft legt Tabelle, Sets (mit Timeout-Flag) und die Drop-Regeln an (idempotent).
+// nftSets sind die Sets der Tabelle inet roster: Einzeladressen (blocked4/6) und Netze
+// (net4/6, flags interval). Alle vier werden in der input- UND forward-Kette verworfen,
+// damit auch Verkehr zu Docker-Containern (veröffentlichte Ports laufen über forward) und
+// geroutete Pakete gesperrt sind.
+var nftSets = []struct{ name, typ, flags, match string }{
+	{"blocked4", "ipv4_addr", "timeout", "ip saddr"},
+	{"blocked6", "ipv6_addr", "timeout", "ip6 saddr"},
+	{"net4", "ipv4_addr", "interval, timeout", "ip saddr"},
+	{"net6", "ipv6_addr", "interval, timeout", "ip6 saddr"},
+}
+
+// ensureNft legt Tabelle, Sets und die Drop-Regeln in input und forward an (idempotent).
 func ensureNft(ctx context.Context) error {
 	if _, err := run(ctx, "nft", "add", "table", "inet", "roster"); err != nil {
 		return err
 	}
-	_, _ = run(ctx, "nft", "add", "set", "inet", "roster", "blocked4", "{ type ipv4_addr; flags timeout; }")
-	_, _ = run(ctx, "nft", "add", "set", "inet", "roster", "blocked6", "{ type ipv6_addr; flags timeout; }")
-	if _, err := run(ctx, "nft", "add", "chain", "inet", "roster", "input", "{ type filter hook input priority -10; policy accept; }"); err != nil {
-		return err
-	}
-	out, _ := run(ctx, "nft", "list", "chain", "inet", "roster", "input")
-	if !strings.Contains(out, "@blocked4") {
-		if _, err := run(ctx, "nft", "add", "rule", "inet", "roster", "input", "ip", "saddr", "@blocked4", "drop"); err != nil {
-			return err
+	for _, s := range nftSets {
+		if _, err := run(ctx, "nft", "add", "set", "inet", "roster", s.name, "{ type "+s.typ+"; flags "+s.flags+"; }"); err != nil && strings.Contains(s.flags, "interval") {
+			// Ältere Kernel können interval+timeout nicht kombinieren: dann ohne Timeout
+			// (Ablauf übernimmt Expire über die persistierte Sperrliste).
+			_, _ = run(ctx, "nft", "add", "set", "inet", "roster", s.name, "{ type "+s.typ+"; flags interval; }")
 		}
 	}
-	if !strings.Contains(out, "@blocked6") {
-		if _, err := run(ctx, "nft", "add", "rule", "inet", "roster", "input", "ip6", "saddr", "@blocked6", "drop"); err != nil {
+	for _, chain := range []string{"input", "forward"} {
+		if _, err := run(ctx, "nft", "add", "chain", "inet", "roster", chain, "{ type filter hook "+chain+" priority -10; policy accept; }"); err != nil {
 			return err
+		}
+		out, _ := run(ctx, "nft", "list", "chain", "inet", "roster", chain)
+		for _, s := range nftSets {
+			if strings.Contains(out, "@"+s.name) {
+				continue
+			}
+			args := append([]string{"add", "rule", "inet", "roster", chain}, strings.Fields(s.match)...)
+			args = append(args, "@"+s.name, "drop")
+			if _, err := run(ctx, "nft", args...); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func nftSet(ip net.IP) string {
-	if ip.To4() != nil {
+func nftSet(t Target) string {
+	switch {
+	case t.IsNet() && t.V4():
+		return "net4"
+	case t.IsNet():
+		return "net6"
+	case t.V4():
 		return "blocked4"
 	}
 	return "blocked6"
 }
 
+// iptChains liefert die Ketten, in die die iptables-Regel eingefügt wird: INPUT, FORWARD
+// und – falls Docker läuft – DOCKER-USER (dort greifen Regeln vor Dockers eigenen).
+func iptChains(ctx context.Context, bin string) []string {
+	chains := []string{"INPUT", "FORWARD"}
+	if _, err := run(ctx, bin, "-n", "-L", "DOCKER-USER"); err == nil {
+		chains = append(chains, "DOCKER-USER")
+	}
+	return chains
+}
+
 // blockOS sperrt über nftables (Timeout im Set) oder iptables (Ablauf per Expire).
-func blockOS(ctx context.Context, ip net.IP, minutes int) (string, error) {
+func blockOS(ctx context.Context, t Target, minutes int) (string, error) {
 	if have("nft") {
 		if err := ensureNft(ctx); err != nil {
 			return "nftables", err
 		}
-		elem := "{ " + ip.String()
+		elem := "{ " + t.S
 		if minutes > 0 {
 			elem += fmt.Sprintf(" timeout %dm", minutes)
 		}
 		elem += " }"
 		// Vorhandenes Element erst entfernen (sonst bleibt das alte Timeout).
-		_, _ = run(ctx, "nft", "delete", "element", "inet", "roster", nftSet(ip), "{ "+ip.String()+" }")
-		if _, err := run(ctx, "nft", "add", "element", "inet", "roster", nftSet(ip), elem); err != nil {
-			return "nftables", err
+		_, _ = run(ctx, "nft", "delete", "element", "inet", "roster", nftSet(t), "{ "+t.S+" }")
+		if _, err := run(ctx, "nft", "add", "element", "inet", "roster", nftSet(t), elem); err != nil {
+			if !t.IsNet() || minutes <= 0 {
+				return "nftables", err
+			}
+			// Netz-Set ohne Timeout-Flag: Element ohne Timeout setzen, Ablauf per Expire.
+			if _, err2 := run(ctx, "nft", "add", "element", "inet", "roster", nftSet(t), "{ "+t.S+" }"); err2 != nil {
+				return "nftables", err
+			}
 		}
 		return "nftables", nil
 	}
 	bin := "iptables"
-	if ip.To4() == nil {
+	if !t.V4() {
 		bin = "ip6tables"
 	}
 	if !have(bin) {
 		return "iptables", errNoTool
 	}
-	// -C prüft, ob die Regel schon existiert.
-	if _, err := run(ctx, bin, "-C", "INPUT", "-s", ip.String(), "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err == nil {
-		return "iptables", nil
-	}
-	if _, err := run(ctx, bin, "-I", "INPUT", "1", "-s", ip.String(), "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err != nil {
-		return "iptables", err
+	for _, chain := range iptChains(ctx, bin) {
+		// -C prüft, ob die Regel schon existiert.
+		if _, err := run(ctx, bin, "-C", chain, "-s", t.S, "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err == nil {
+			continue
+		}
+		if _, err := run(ctx, bin, "-I", chain, "1", "-s", t.S, "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err != nil {
+			return "iptables", err
+		}
 	}
 	return "iptables", nil
 }
 
-func unblockOS(ctx context.Context, ip net.IP) error {
+func unblockOS(ctx context.Context, t Target) error {
 	var firstErr error
 	if have("nft") {
-		if _, err := run(ctx, "nft", "delete", "element", "inet", "roster", nftSet(ip), "{ "+ip.String()+" }"); err != nil && !strings.Contains(err.Error(), "No such file") {
+		if _, err := run(ctx, "nft", "delete", "element", "inet", "roster", nftSet(t), "{ "+t.S+" }"); err != nil && !strings.Contains(err.Error(), "No such file") {
 			firstErr = err
 		} else {
 			firstErr = nil
 		}
 	}
 	bin := "iptables"
-	if ip.To4() == nil {
+	if !t.V4() {
 		bin = "ip6tables"
 	}
 	if have(bin) {
-		for {
-			if _, err := run(ctx, bin, "-D", "INPUT", "-s", ip.String(), "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err != nil {
-				break
+		for _, chain := range iptChains(ctx, bin) {
+			for {
+				if _, err := run(ctx, bin, "-D", chain, "-s", t.S, "-j", "DROP", "-m", "comment", "--comment", "roster-block"); err != nil {
+					break
+				}
 			}
 		}
 	}

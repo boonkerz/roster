@@ -28,6 +28,7 @@ import (
 	"github.com/boonkerz/roster/internal/agent/compliance"
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/fim"
+	"github.com/boonkerz/roster/internal/agent/logmon"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/response"
@@ -1194,12 +1195,21 @@ func (p *program) authLoop(ctx context.Context) {
 		}
 		p.mu.Lock()
 		on := p.policy != nil && p.policy.Security != nil && p.policy.Security.AuthMonitor
+		var sources []shared.LogSource
+		if p.policy != nil && p.policy.Security != nil {
+			sources = p.policy.Security.LogSources
+		}
 		p.mu.Unlock()
-		if !on {
+		if !on && len(sources) == 0 {
 			continue
 		}
 		cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		events := authlog.Collect(cctx, p.stateDir)
+		var events []shared.AuthEvent
+		if on {
+			events = authlog.Collect(cctx, p.stateDir)
+		}
+		// Zusätzliche Protokolle (nginx, SFTP-/FTP-Container, eigene Muster) der Richtlinie.
+		events = append(events, logmon.Collect(cctx, p.stateDir, sources)...)
 		cancel()
 		if len(events) == 0 {
 			continue

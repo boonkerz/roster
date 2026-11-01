@@ -26,3 +26,30 @@ func TestProtected(t *testing.T) {
 		t.Errorf("ungültig: %d", code)
 	}
 }
+
+func TestTargets(t *testing.T) {
+	Init(t.TempDir(), "https://192.0.2.10:8443")
+	tg, err := ParseTarget("203.0.113.0/24")
+	if err != nil || tg.S != "203.0.113.0/24" || !tg.IsNet() || !tg.V4() {
+		t.Fatalf("%+v %v", tg, err)
+	}
+	if tg, _ = ParseTarget("203.0.113.77/24"); tg.S != "203.0.113.0/24" {
+		t.Errorf("normalisiert: %s", tg.S)
+	}
+	if tg, _ = ParseTarget("2001:db8::/48"); tg.V4() || !tg.IsNet() {
+		t.Errorf("v6: %+v", tg)
+	}
+	// Netz, das den Server enthält, ist geschützt.
+	if tg, _ = ParseTarget("192.0.2.0/24"); !targetProtected(tg) {
+		t.Error("Server-Netz muss geschützt sein")
+	}
+	if tg, _ = ParseTarget("127.0.0.0/8"); !targetProtected(tg) {
+		t.Error("Loopback-Netz muss geschützt sein")
+	}
+	if tg, _ = ParseTarget("203.0.113.0/24"); targetProtected(tg) {
+		t.Error("fremdes Netz darf nicht geschützt sein")
+	}
+	if code, _ := BlockIP(nil, "192.0.2.0/24", 10); code != 3 {
+		t.Errorf("server net: %d", code)
+	}
+}

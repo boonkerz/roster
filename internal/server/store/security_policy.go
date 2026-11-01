@@ -221,7 +221,11 @@ func (s *Store) effectiveSecurity(ctx context.Context, policyIDs []string) (*sha
 		}
 		spec.FIM = &shared.FIMSpec{IntervalMin: fimInterval, Rules: rules}
 	}
-	if spec.FIM == nil && !spec.AuthMonitor && spec.Compliance == nil {
+	rr.Close()
+	if spec.LogSources, err = s.effectiveLogSources(ctx, policyIDs); err != nil {
+		return nil, err
+	}
+	if spec.FIM == nil && !spec.AuthMonitor && spec.Compliance == nil && len(spec.LogSources) == 0 {
 		return nil, nil
 	}
 	return spec, nil

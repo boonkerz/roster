@@ -68,7 +68,37 @@ func saveBlocks(bl []Block) {
 	}
 }
 
-// isProtected: Loopback, unspezifiziert oder Server-Adresse.
+// Target ist eine zu sperrende Adresse: einzelne IP oder Netz (CIDR).
+type Target struct {
+	S   string     // normalisierte Schreibweise ("203.0.113.5", "203.0.113.0/24")
+	IP  net.IP     // bei Einzeladresse
+	Net *net.IPNet // bei Netz
+}
+
+// V4 meldet, ob das Ziel IPv4 ist.
+func (t Target) V4() bool {
+	if t.Net != nil {
+		return t.Net.IP.To4() != nil
+	}
+	return t.IP.To4() != nil
+}
+
+// IsNet meldet, ob das Ziel ein Netz ist.
+func (t Target) IsNet() bool { return t.Net != nil }
+
+// ParseTarget akzeptiert eine IP oder ein CIDR-Netz.
+func ParseTarget(s string) (Target, error) {
+	s = strings.TrimSpace(s)
+	if ip := net.ParseIP(s); ip != nil {
+		return Target{S: ip.String(), IP: ip}, nil
+	}
+	if _, n, err := net.ParseCIDR(s); err == nil {
+		return Target{S: n.String(), Net: n}, nil
+	}
+	return Target{}, fmt.Errorf("ungültige IP oder CIDR: %s", s)
+}
+
+// isProtected: Loopback, unspezifiziert oder Server-Adresse (bei Netzen: enthält eine davon).
 func isProtected(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsUnspecified() {
 		return true
@@ -81,18 +111,34 @@ func isProtected(ip net.IP) bool {
 	return false
 }
 
-// BlockIP sperrt eine Quell-IP für minutes Minuten (0 = dauerhaft).
+func targetProtected(t Target) bool {
+	if t.Net == nil {
+		return isProtected(t.IP)
+	}
+	if t.Net.Contains(net.IPv4(127, 0, 0, 1)) || t.Net.Contains(net.IPv6loopback) {
+		return true
+	}
+	for _, p := range protected {
+		if t.Net.Contains(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// BlockIP sperrt eine Quell-IP oder ein Netz (CIDR) für minutes Minuten (0 = dauerhaft).
 func BlockIP(ctx context.Context, ipStr string, minutes int) (int, string) {
-	ip := net.ParseIP(strings.TrimSpace(ipStr))
-	if ip == nil {
-		return 2, "ungültige IP: " + ipStr
+	t, err := ParseTarget(ipStr)
+	if err != nil {
+		return 2, err.Error()
 	}
-	if isProtected(ip) {
-		return 3, "IP ist geschützt (Loopback/Server) und wird nicht gesperrt: " + ip.String()
+	if targetProtected(t) {
+		return 3, "Adresse ist geschützt (Loopback/Server) und wird nicht gesperrt: " + t.S
 	}
+	ip := t
 	mu.Lock()
 	defer mu.Unlock()
-	method, err := blockOS(ctx, ip, minutes)
+	method, err := blockOS(ctx, t, minutes)
 	if err != nil {
 		return 1, "Sperre fehlgeschlagen (" + method + "): " + err.Error()
 	}
@@ -103,34 +149,34 @@ func BlockIP(ctx context.Context, ipStr string, minutes int) (int, string) {
 	}
 	replaced := false
 	for i := range bl {
-		if bl[i].IP == ip.String() {
-			bl[i] = Block{IP: ip.String(), Until: until, Method: method, Created: time.Now()}
+		if bl[i].IP == ip.S {
+			bl[i] = Block{IP: ip.S, Until: until, Method: method, Created: time.Now()}
 			replaced = true
 		}
 	}
 	if !replaced {
-		bl = append(bl, Block{IP: ip.String(), Until: until, Method: method, Created: time.Now()})
+		bl = append(bl, Block{IP: ip.S, Until: until, Method: method, Created: time.Now()})
 	}
 	saveBlocks(bl)
 	if minutes > 0 {
-		return 0, fmt.Sprintf("%s gesperrt über %s bis %s", ip, method, until.Format("02.01.2006 15:04"))
+		return 0, fmt.Sprintf("%s gesperrt über %s bis %s", ip.S, method, until.Format("02.01.2006 15:04"))
 	}
-	return 0, fmt.Sprintf("%s dauerhaft gesperrt über %s", ip, method)
+	return 0, fmt.Sprintf("%s dauerhaft gesperrt über %s", ip.S, method)
 }
 
 // UnblockIP hebt eine Sperre auf.
 func UnblockIP(ctx context.Context, ipStr string) (int, string) {
-	ip := net.ParseIP(strings.TrimSpace(ipStr))
-	if ip == nil {
-		return 2, "ungültige IP: " + ipStr
+	t, err := ParseTarget(ipStr)
+	if err != nil {
+		return 2, err.Error()
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	err := unblockOS(ctx, ip)
+	err = unblockOS(ctx, t)
 	bl := loadBlocks()
 	kept := bl[:0]
 	for _, b := range bl {
-		if b.IP != ip.String() {
+		if b.IP != t.S {
 			kept = append(kept, b)
 		}
 	}
@@ -138,7 +184,7 @@ func UnblockIP(ctx context.Context, ipStr string) (int, string) {
 	if err != nil {
 		return 1, "Aufheben fehlgeschlagen: " + err.Error()
 	}
-	return 0, ip.String() + " entsperrt"
+	return 0, t.S + " entsperrt"
 }
 
 // Expire hebt abgelaufene Sperren auf (für Methoden ohne eigenes Timeout).
@@ -151,8 +197,8 @@ func Expire(ctx context.Context) {
 	kept := bl[:0]
 	for _, b := range bl {
 		if !b.Until.IsZero() && now.After(b.Until) {
-			if ip := net.ParseIP(b.IP); ip != nil {
-				_ = unblockOS(ctx, ip)
+			if t, err := ParseTarget(b.IP); err == nil {
+				_ = unblockOS(ctx, t)
 			}
 			changed = true
 			continue

@@ -58,10 +58,10 @@ type ComplianceResult struct {
 // Sicherheitsprotokoll, macOS log).
 type AuthEvent struct {
 	Time     time.Time `json:"time"`
-	Kind     string    `json:"kind"` // login_failed | login_ok | invalid_user | lockout | sudo | su | user_added | user_removed | user_modified | group_changed | password_changed
+	Kind     string    `json:"kind"` // login_failed | login_ok | invalid_user | lockout | sudo | su | user_added | user_removed | user_modified | group_changed | password_changed | probe (verdächtige Anfrage, z. B. Web-Scanner)
 	User     string    `json:"user,omitempty"`
 	SourceIP string    `json:"source_ip,omitempty"`
-	Service  string    `json:"service,omitempty"` // sshd | rdp | console | network | sudo | su | pam | system
+	Service  string    `json:"service,omitempty"` // sshd | rdp | console | network | sudo | su | pam | system | Name einer Log-Quelle
 	Detail   string    `json:"detail,omitempty"`
 	RecordID string    `json:"record_id,omitempty"` // Journal-Cursor / Datei-Offset / Windows RecordId – macht den Import idempotent
 }
@@ -147,6 +147,20 @@ type SecuritySpec struct {
 	FIM         *FIMSpec        `json:"fim,omitempty"`
 	AuthMonitor bool            `json:"auth_monitor,omitempty"`
 	Compliance  *ComplianceSpec `json:"compliance,omitempty"`
+	// LogSources sind zusätzliche Protokolle (Dateien, Docker-Container), aus denen der
+	// Agent Anmelde- und Angriffsereignisse liest (nginx, SFTP-/FTP-Container …).
+	LogSources []LogSource `json:"log_sources,omitempty"`
+}
+
+// LogSource ist ein zusätzliches Protokoll für die Angriffserkennung.
+type LogSource struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`              // Dienstname in den Ereignissen (z. B. nginx-proxy, sftp)
+	Type    string `json:"type"`              // file | docker
+	Target  string `json:"target"`            // Dateipfad (Glob erlaubt) bzw. Container-Name/-Muster
+	Format  string `json:"format"`            // nginx_access | nginx_error | sshd | ftp | regex
+	Pattern string `json:"pattern,omitempty"` // regex: Muster mit (?P<ip>…) und optional (?P<user>…)
+	Kind    string `json:"kind,omitempty"`    // regex: login_failed | probe (Ereignisart je Treffer)
 }
 
 // FIMSpec konfiguriert die Datei-Integritätsüberwachung.

@@ -140,6 +140,9 @@ func (s *Store) loadPolicyChildren(ctx context.Context, p *model.Policy) error {
 	if p.Responses, err = s.responsesOf(ctx, p.ID); err != nil {
 		return err
 	}
+	if p.LogSources, err = s.logSourcesOf(ctx, p.ID); err != nil {
+		return err
+	}
 	asg, err := s.assignmentsOf(ctx, p.ID)
 	if err != nil {
 		return err

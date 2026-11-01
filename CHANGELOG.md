@@ -6,6 +6,15 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Security: **automatic blocking without policy rules** – Settings → Security monitoring can block the source IP of every brute force, login after brute force and attack pattern on the reporting device (duration from one hour to permanent). Optional **fleet blocking** blocks the address on every device whose policy monitors logins or reads log sources, and **subnet blocking** blocks the whole IPv4 /24 once several suspicious IPs from the same network showed up within 24 hours.
+- Security: **log sources** per policy – the agent reads additional logs every minute: files (globs) or the output of Docker containers (name or pattern). Formats: nginx access log (401 → failed login; scanner paths, malformed requests → suspicious request), nginx error log, sshd output of SSH/SFTP containers (e.g. atmoz/sftp), FTP servers (vsftpd, proftpd, pure-ftpd) and custom regular expressions. Templates for nginx-proxy and SFTP containers.
+- Security: new incident **attack pattern** (N suspicious requests from one IP within the window, default 20) with the same responses as brute force, and a second brute-force rule for **distributed slow attacks**: N attempts with unknown user names within 24 hours (default 5) regardless of the per-window threshold.
+- Security: **bulk blocking** in the Incidents tab – select many incidents, block all their source IPs with one click (duration, fleet option) and acknowledge them in the same step. Manual blocks accept networks in CIDR notation and can target all monitored devices.
+
+### Changed
+- Agent: IP blocks are now also enforced in the nftables **forward** hook (and `FORWARD`/`DOCKER-USER` with iptables), so blocked addresses can no longer reach Docker containers with published ports; networks are stored in interval sets. Agents older than this version only block in the input hook.
+
 ## [0.17.3] - 2026-11-01
 
 ### Added

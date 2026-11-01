@@ -8,7 +8,7 @@ import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
 import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
-import { BlockDurationSelect, IncidentActions } from "../components/IncidentActions";
+import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
@@ -77,6 +77,35 @@ function IncidentsTab() {
   if (q.trim()) qs.set("q", q.trim());
   const key = qs.toString();
   const { data: rows, isLoading } = useQuery({ queryKey: ["incidents", "fleet", key], queryFn: () => api.get<SecurityIncident[]>(`/security/incidents?${key}`), refetchInterval: 30000 });
+  // Mehrfachauswahl: Quell-IPs mehrerer Vorfälle auf einmal sperren (je Gerät oder auf allen
+  // überwachten Geräten) und die Vorfälle dabei bestätigen.
+  const qc = useQueryClient();
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [bulkMin, setBulkMin] = useState(0);
+  const [bulkFleet, setBulkFleet] = useState(true);
+  const [bulkMsg, setBulkMsg] = useState("");
+  const canOperate = hasPerm("devices.operate");
+  const bulkBlock = useMutation({
+    mutationFn: async () => {
+      const picked = (rows ?? []).filter((i) => sel.has(i.id) && i.source_ip);
+      const seen = new Set<string>();
+      let n = 0;
+      for (const i of picked) {
+        const k = `${bulkFleet ? "*" : i.device_id}|${i.source_ip}`;
+        if (!seen.has(k)) {
+          seen.add(k);
+          await api.post(`/devices/${i.device_id}/block-ip`, { ip: i.source_ip, minutes: bulkMin, reason: i.title, fleet: bulkFleet });
+          n++;
+        }
+        if (i.status === "open") await api.put(`/security/incidents/${i.id}`, { status: "acknowledged" });
+      }
+      return n;
+    },
+    onSuccess: (n) => { setBulkMsg(t("{n} Sperren eingereiht, Vorfälle bestätigt", { n })); setSel(new Set()); qc.invalidateQueries({ queryKey: ["ip-blocks"] }); qc.invalidateQueries({ queryKey: ["incidents"] }); qc.invalidateQueries({ queryKey: ["security-summary"] }); },
+    onError: (e) => setBulkMsg(e instanceof ApiError ? e.message : t("Fehler")),
+  });
+  const toggleSel = (id: string, on: boolean) => setSel((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
+  const toggleAll = (on: boolean) => setSel(on ? new Set((rows ?? []).filter((i) => i.source_ip).map((i) => i.id)) : new Set());
   return (
     <>
       {summary && (
@@ -127,8 +156,18 @@ function IncidentsTab() {
           </div>
           <span className="muted small">{t("{n} Vorfälle", { n: (rows ?? []).length })}</span>
         </div>
-        <p className="muted small">{t("Vorfälle entstehen aus den Anmeldeereignissen: Brute-Force (Schwellwert in den Einstellungen), erfolgreiche Anmeldung nach Brute-Force, erste Anmeldung von einer neuen Quell-IP (nach der Lernphase), Kontoänderungen und Sperrungen.")}</p>
-        {isLoading ? <p className="muted">{t("Lädt…")}</p> : <IncidentsTable incidents={rows ?? []} showDevice canOperate={hasPerm("devices.operate")} actions={hasPerm("devices.operate") ? (i) => <IncidentActions incident={i} /> : undefined} />}
+        <p className="muted small">{t("Vorfälle entstehen aus den Anmeldeereignissen: Brute-Force (Schwellwert in den Einstellungen), erfolgreiche Anmeldung nach Brute-Force, erste Anmeldung von einer neuen Quell-IP (nach der Lernphase), Angriffsmuster aus Log-Quellen, Kontoänderungen und Sperrungen. Automatische Sperren ohne Klicken: Einstellungen → Sicherheitsüberwachung.")}</p>
+        {canOperate && (
+          <div className="inline-form" style={{ marginBottom: 8 }}>
+            <span className="muted small">{t("{n} ausgewählt", { n: sel.size })}</span>
+            <BlockDurationSelect value={bulkMin} onChange={setBulkMin} />
+            <label className="chip" title={t("Zusätzlich auf allen Geräten sperren, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest")}><input type="checkbox" checked={bulkFleet} onChange={(e) => setBulkFleet(e.target.checked)} /> {t("auf allen überwachten Geräten")}</label>
+            <button className="btn sm" disabled={sel.size === 0 || bulkBlock.isPending} onClick={() => { if (confirm(t("Quell-IPs von {n} Vorfällen sperren ({d}) und die Vorfälle bestätigen?", { n: sel.size, d: durationLabel(bulkMin, t) }))) { setBulkMsg(""); bulkBlock.mutate(); } }}>🚫 {t("Ausgewählte IPs sperren")}</button>
+            {bulkMsg && <span className="muted small">{bulkMsg}</span>}
+          </div>
+        )}
+        {isLoading ? <p className="muted">{t("Lädt…")}</p> : <IncidentsTable incidents={rows ?? []} showDevice canOperate={canOperate} actions={canOperate ? (i) => <IncidentActions incident={i} /> : undefined}
+          selected={canOperate ? sel : undefined} onSelect={canOperate ? toggleSel : undefined} onSelectAll={canOperate ? toggleAll : undefined} />}
       </section>
     </>
   );
@@ -153,24 +192,26 @@ function BlocksTab() {
   const [bIP, setBIP] = useState("");
   const [bMin, setBMin] = useState(0);
   const [bReason, setBReason] = useState("");
+  const [bFleet, setBFleet] = useState(false);
   const [bMsg, setBMsg] = useState("");
   const addBlock = useMutation({
-    mutationFn: () => api.post<IPBlock>(`/devices/${bDev}/block-ip`, { ip: bIP.trim(), minutes: bMin, reason: bReason.trim() }),
+    mutationFn: () => api.post<IPBlock>(`/devices/${bDev}/block-ip`, { ip: bIP.trim(), minutes: bMin, reason: bReason.trim(), fleet: bFleet }),
     onSuccess: () => { setBMsg(t("Sperre eingereiht")); setBIP(""); setBReason(""); qc.invalidateQueries({ queryKey: ["ip-blocks"] }); },
     onError: (e) => setBMsg(e instanceof ApiError ? e.message : t("Fehler")),
   });
   return (
     <section className="card">
-      <p className="muted small">{t("IP-Sperren, die Active Response oder ein Bediener angestoßen hat. Zeitlich begrenzte Sperren hebt der Agent selbst wieder auf; „aufheben“ entfernt sie sofort.")}</p>
+      <p className="muted small">{t("IP-Sperren, die Active Response oder ein Bediener angestoßen hat. Zeitlich begrenzte Sperren hebt der Agent selbst wieder auf; „aufheben“ entfernt sie sofort. Neben einzelnen IPs lassen sich ganze Netze (CIDR) sperren; die Sperre gilt auch für Verkehr zu Docker-Containern.")}</p>
       {canOperate && (
         <form className="row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); if (bDev && bIP.trim()) addBlock.mutate(); }}>
           <select value={bDev} onChange={(e) => setBDev(e.target.value)} required>
             <option value="">{t("Gerät wählen…")}</option>
             {(devices ?? []).filter((d) => d.status !== "unmanaged").sort((a, b) => a.hostname.localeCompare(b.hostname)).map((d) => <option key={d.id} value={d.id}>{d.hostname}</option>)}
           </select>
-          <input className="mono" placeholder="IP" value={bIP} onChange={(e) => setBIP(e.target.value)} style={{ width: 170 }} required />
+          <input className="mono" placeholder={t("IP oder Netz (203.0.113.0/24)")} value={bIP} onChange={(e) => setBIP(e.target.value)} style={{ width: 200 }} required />
           <BlockDurationSelect value={bMin} onChange={setBMin} />
           <input placeholder={t("Grund")} value={bReason} onChange={(e) => setBReason(e.target.value)} style={{ width: 220 }} />
+          <label className="chip" title={t("Zusätzlich auf allen Geräten sperren, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest")}><input type="checkbox" checked={bFleet} onChange={(e) => setBFleet(e.target.checked)} /> {t("auf allen überwachten Geräten")}</label>
           <button className="btn sm" type="submit" disabled={addBlock.isPending || !bDev || !bIP.trim()}>🚫 {t("IP sperren")}</button>
           {bMsg && <span className="muted small">{bMsg}</span>}
           <span className="muted small">{t("Eine bereits gesperrte IP wird nicht doppelt angelegt, sondern mit der neuen Dauer erneuert.")}</span>
@@ -226,6 +267,7 @@ function AuthTab() {
           <select value={kind} onChange={(e) => setParam("kind", e.target.value)}>
             <option value="">{t("Alle Ereignisse")}</option>
             <option value="failed">{t("Fehlversuche")}</option>
+            <option value="probe">{t("verdächtige Anfrage")}</option>
             <option value="login_ok">{t("Anmeldung")}</option>
             <option value="sudo">sudo</option>
             <option value="su">su</option>

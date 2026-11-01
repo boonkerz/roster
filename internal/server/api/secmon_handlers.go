@@ -26,10 +26,17 @@ type securitySettings struct {
 	LearnDays        int      `json:"learn_days"`
 	NeverBlock       []string `json:"never_block"`
 	ResponseCooldown int      `json:"response_cooldown_min"`
+	InvalidUserMax   int      `json:"invalid_user_max"`   // Versuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
+	ScanThreshold    int      `json:"scan_threshold"`     // verdächtige Anfragen je IP im Fenster
+	AutoBlock        bool     `json:"auto_block"`         // Brute-Force/Scan ohne Richtlinien-Regel sperren
+	AutoBlockMinutes int      `json:"auto_block_minutes"` // 0 = dauerhaft
+	FleetBlock       bool     `json:"fleet_block"`        // Sperren auf allen überwachten Geräten
+	SubnetIPs        int      `json:"subnet_ips"`         // ab so vielen IPs aus einem /24 das Netz sperren (0 = aus)
 }
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
-	cfg := securitySettings{BFThreshold: 10, BFWindowMin: 10, NewIPAlert: true, LearnDays: 7, NeverBlock: []string{}, ResponseCooldown: 30}
+	cfg := securitySettings{BFThreshold: 10, BFWindowMin: 10, NewIPAlert: true, LearnDays: 7, NeverBlock: []string{}, ResponseCooldown: 30,
+		InvalidUserMax: 5, ScanThreshold: 20, AutoBlockMinutes: 7 * 24 * 60}
 	geti := func(key string, dst *int) {
 		if v, _ := s.store.GetSetting(ctx, key); v != "" {
 			if n, err := strconv.Atoi(v); err == nil {
@@ -41,6 +48,16 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecBFWindowMin, &cfg.BFWindowMin)
 	geti(store.SettingSecLearnDays, &cfg.LearnDays)
 	geti(store.SettingSecResponseCooldown, &cfg.ResponseCooldown)
+	geti(store.SettingSecInvalidUserMax, &cfg.InvalidUserMax)
+	geti(store.SettingSecScanThreshold, &cfg.ScanThreshold)
+	geti(store.SettingSecAutoBlockMinutes, &cfg.AutoBlockMinutes)
+	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecAutoBlock); v == "1" {
+		cfg.AutoBlock = true
+	}
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecFleetBlock); v == "1" {
+		cfg.FleetBlock = true
+	}
 	if v, _ := s.store.GetSetting(ctx, store.SettingSecNewIPAlert); v == "0" {
 		cfg.NewIPAlert = false
 	}
@@ -66,7 +83,8 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	if req.BFThreshold < 2 || req.BFThreshold > 1000 || req.BFWindowMin < 1 || req.BFWindowMin > 1440 || req.LearnDays < 0 || req.LearnDays > 365 || req.ResponseCooldown < 0 || req.ResponseCooldown > 10080 {
+	if req.BFThreshold < 2 || req.BFThreshold > 1000 || req.BFWindowMin < 1 || req.BFWindowMin > 1440 || req.LearnDays < 0 || req.LearnDays > 365 || req.ResponseCooldown < 0 || req.ResponseCooldown > 10080 ||
+		req.InvalidUserMax < 0 || req.InvalidUserMax > 1000 || req.ScanThreshold < 2 || req.ScanThreshold > 10000 || req.AutoBlockMinutes < 0 || req.AutoBlockMinutes > 43200 || req.SubnetIPs < 0 || req.SubnetIPs > 254 {
 		s.writeErr(w, http.StatusBadRequest, "Werte außerhalb des erlaubten Bereichs")
 		return
 	}
@@ -100,6 +118,9 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecNewIPAlert: b2s(req.NewIPAlert), store.SettingSecNewIPIgnorePriv: b2s(req.NewIPIgnorePriv),
 		store.SettingSecLearnDays: strconv.Itoa(req.LearnDays), store.SettingSecNeverBlock: strings.Join(cidrs, ","),
 		store.SettingSecResponseCooldown: strconv.Itoa(req.ResponseCooldown),
+		store.SettingSecInvalidUserMax:   strconv.Itoa(req.InvalidUserMax), store.SettingSecScanThreshold: strconv.Itoa(req.ScanThreshold),
+		store.SettingSecAutoBlock: b2s(req.AutoBlock), store.SettingSecAutoBlockMinutes: strconv.Itoa(req.AutoBlockMinutes),
+		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
 	}
 	for k, v := range set {
 		if err := s.store.SetSetting(r.Context(), k, v); err != nil {
@@ -127,29 +148,36 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	dcfg := secdetect.DefaultConfig()
 	dcfg.BFThreshold, dcfg.BFWindow = cfg.BFThreshold, time.Duration(cfg.BFWindowMin)*time.Minute
 	dcfg.NewIPAlert, dcfg.IgnorePrivateIP, dcfg.LearnDays = cfg.NewIPAlert, cfg.NewIPIgnorePriv, cfg.LearnDays
+	dcfg.InvalidUserMax, dcfg.ScanThreshold = cfg.InvalidUserMax, cfg.ScanThreshold
 	now := time.Now()
-	prior, _ := s.store.FailedLoginsSince(ctx, device.ID, now.Add(-time.Hour))
-	// Die gerade eingefügten Ereignisse stecken schon in prior – herausrechnen, damit sie
-	// nicht doppelt zählen: wir zählen stattdessen nur ältere als das erste neue Ereignis.
+	// Die gerade eingefügten Ereignisse stecken schon in der Datenbank – herausrechnen,
+	// damit sie nicht doppelt zählen: nur ältere als das erste neue Ereignis behalten.
 	first := fresh[0].Time
 	for _, e := range fresh {
 		if e.Time.Before(first) {
 			first = e.Time
 		}
 	}
-	for ip, ts := range prior {
-		var keep []time.Time
-		for _, t := range ts {
-			if t.Before(first) {
-				keep = append(keep, t)
+	older := func(m map[string][]time.Time) map[string][]time.Time {
+		for ip, ts := range m {
+			var keep []time.Time
+			for _, t := range ts {
+				if t.Before(first) {
+					keep = append(keep, t)
+				}
 			}
+			m[ip] = keep
 		}
-		prior[ip] = keep
+		return m
 	}
+	prior, _ := s.store.FailedLoginsSince(ctx, device.ID, now.Add(-time.Hour))
+	priorInvalid, _ := s.store.InvalidUserSince(ctx, device.ID, now.Add(-secdetect.InvalidUserWindow))
+	priorProbes, _ := s.store.ProbesSince(ctx, device.ID, now.Add(-time.Hour))
 	recentBF, _ := s.store.RecentIncidentIPs(ctx, device.ID, "brute_force", now.Add(-time.Hour))
+	recentScan, _ := s.store.RecentIncidentIPs(ctx, device.ID, "scan", now.Add(-time.Hour))
 	known, _ := s.store.KnownIPs(ctx, device.ID)
 	incidents := secdetect.Detect(secdetect.Input{
-		Now: now, Events: fresh, PriorFails: prior, RecentBF: recentBF,
+		Now: now, Events: fresh, PriorFails: older(prior), PriorInvalid: older(priorInvalid), PriorProbes: older(priorProbes), RecentBF: recentBF, RecentScan: recentScan,
 		KnownIP:         func(u, ip string) bool { return known[u+"@"+ip] },
 		MonitoringSince: s.store.AuthMonitorSince(ctx, device.ID),
 	}, dcfg)

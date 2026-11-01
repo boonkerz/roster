@@ -7,7 +7,7 @@ import type { AuthEvent, SecurityIncident } from "../types";
 
 export const INCIDENT_KIND: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
-  account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung",
+  account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
 };
 export const AUTH_KIND: Record<string, { label: string; cls: string }> = {
   login_failed: { label: "Anmeldung fehlgeschlagen", cls: "badge-offline" },
@@ -21,6 +21,7 @@ export const AUTH_KIND: Record<string, { label: string; cls: string }> = {
   user_modified: { label: "Benutzer geändert", cls: "badge-unknown" },
   group_changed: { label: "Gruppe geändert", cls: "badge-warn" },
   password_changed: { label: "Passwort geändert", cls: "badge-unknown" },
+  probe: { label: "verdächtige Anfrage", cls: "badge-warn" },
 };
 
 export function SeverityPill({ severity }: { severity: string }) {
@@ -31,9 +32,11 @@ export function SeverityPill({ severity }: { severity: string }) {
 }
 
 // IncidentsTable listet Vorfälle mit Bestätigen/Erledigen und aufklappbaren Details.
-export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, actions }: {
+export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, actions, selected, onSelect, onSelectAll }: {
   incidents: SecurityIncident[]; showDevice?: boolean; canOperate: boolean; maxHeight?: string | number;
   actions?: (inc: SecurityIncident) => React.ReactNode;
+  // Mehrfachauswahl (nur Vorfälle mit Quell-IP), z. B. für „IPs sperren“.
+  selected?: Set<string>; onSelect?: (id: string, on: boolean) => void; onSelectAll?: (on: boolean) => void;
 }) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -43,13 +46,17 @@ export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, a
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["incidents"] }); qc.invalidateQueries({ queryKey: ["security-summary"] }); qc.invalidateQueries({ queryKey: ["device"] }); qc.invalidateQueries({ queryKey: ["devices"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); },
   });
   if (incidents.length === 0) return <p className="empty">{t("Keine Vorfälle im Zeitraum.")}</p>;
+  const selectable = incidents.filter((i) => !!i.source_ip);
+  const allOn = selectable.length > 0 && selectable.every((i) => selected?.has(i.id));
+  const cols = (showDevice ? 7 : 6) + (onSelect ? 1 : 0);
   return (
     <div className="scroll-list" style={{ maxHeight: maxHeight ?? "65vh" }}>
       <table className="table">
-        <thead><tr><th>{t("Zeit")}</th>{showDevice && <th>{t("Gerät")}</th>}<th>{t("Schwere")}</th><th>{t("Vorfall")}</th><th>{t("Quelle")}</th><th>{t("Status")}</th><th></th></tr></thead>
+        <thead><tr>{onSelect && <th style={{ width: 24 }}><input type="checkbox" checked={allOn} onChange={(e) => onSelectAll?.(e.target.checked)} title={t("Alle mit Quell-IP auswählen")} /></th>}<th>{t("Zeit")}</th>{showDevice && <th>{t("Gerät")}</th>}<th>{t("Schwere")}</th><th>{t("Vorfall")}</th><th>{t("Quelle")}</th><th>{t("Status")}</th><th></th></tr></thead>
         <tbody>
           {incidents.map((i) => [
             <tr key={i.id} className={`small ${i.status !== "open" ? "muted" : ""}`} style={{ cursor: "pointer" }} onClick={() => setOpen(open === i.id ? null : i.id)}>
+              {onSelect && <td onClick={(e) => e.stopPropagation()}>{i.source_ip && <input type="checkbox" checked={selected?.has(i.id) ?? false} onChange={(e) => onSelect(i.id, e.target.checked)} />}</td>}
               <td className="mono muted">{new Date(i.ts).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</td>
               {showDevice && <td><Link to={`/devices/${i.device_id}`} className="link-strong" onClick={(e) => e.stopPropagation()}>{i.hostname}</Link>{i.client_name && <span className="muted"> · {i.client_name}</span>}</td>}
               <td><SeverityPill severity={i.severity} /></td>
@@ -65,7 +72,7 @@ export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, a
               </td>
             </tr>,
             ...(open === i.id ? [(
-              <tr key={i.id + ":d"}><td colSpan={showDevice ? 7 : 6} style={{ paddingLeft: 28 }}>
+              <tr key={i.id + ":d"}><td colSpan={cols} style={{ paddingLeft: 28 }}>
                 <div className="small" style={{ whiteSpace: "pre-wrap" }}>{i.detail || "—"}</div>
                 {i.acknowledged_by && <div className="muted small">{t("Bearbeitet von {u} {t}", { u: i.acknowledged_by, t: i.acknowledged_at ? new Date(i.acknowledged_at).toLocaleString() : "" })}</div>}
               </td></tr>

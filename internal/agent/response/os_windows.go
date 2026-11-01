@@ -5,7 +5,6 @@ package response
 import (
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"strings"
 	"time"
@@ -22,14 +21,14 @@ func ps(ctx context.Context, script string) (string, error) {
 }
 
 // blockOS legt eine eingehende Blockregel der Windows-Firewall an (Ablauf per Expire).
-func blockOS(ctx context.Context, ip net.IP, _ int) (string, error) {
-	name := "Roster-Block " + ip.String()
-	_, err := ps(ctx, `if (-not (Get-NetFirewallRule -DisplayName '`+name+`' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName '`+name+`' -Direction Inbound -RemoteAddress '`+ip.String()+`' -Action Block -Profile Any -Enabled True | Out-Null }`)
+func blockOS(ctx context.Context, t Target, _ int) (string, error) {
+	name := "Roster-Block " + t.S
+	_, err := ps(ctx, `if (-not (Get-NetFirewallRule -DisplayName '`+name+`' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName '`+name+`' -Direction Inbound -RemoteAddress '`+t.S+`' -Action Block -Profile Any -Enabled True | Out-Null }`)
 	return "windows-firewall", err
 }
 
-func unblockOS(ctx context.Context, ip net.IP) error {
-	_, err := ps(ctx, `Remove-NetFirewallRule -DisplayName 'Roster-Block `+ip.String()+`' -ErrorAction SilentlyContinue`)
+func unblockOS(ctx context.Context, t Target) error {
+	_, err := ps(ctx, `Remove-NetFirewallRule -DisplayName 'Roster-Block `+t.S+`' -ErrorAction SilentlyContinue`)
 	return err
 }
 

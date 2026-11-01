@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
-import type { Policy, PolicyFIMRule, PolicyResponse, PolicySecurity, Script } from "../types";
+import type { Policy, PolicyFIMRule, PolicyLogSource, PolicyResponse, PolicySecurity, Script } from "../types";
 import { useQuery } from "@tanstack/react-query";
 import { CATEGORY_LABEL, SEVERITY_LABEL, ruleTitle, useComplianceRules } from "./Compliance";
 
@@ -14,10 +14,25 @@ const PLATFORMS: [string, string][] = [["linux", "Linux"], ["windows", "Windows"
 
 export const TRIGGER_LABEL: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
-  account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung",
+  account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
 };
 export const ACTION_LABEL: Record<string, string> = { block_ip: "Quell-IP sperren", lock_user: "Konto sperren", run_script: "Skript ausführen" };
-const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip"];
+const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "scan"];
+
+// Log-Quellen: Formate und Vorlagen für typische Container/Dateien.
+const LOG_FORMATS: [PolicyLogSource["format"], string][] = [
+  ["nginx_access", "nginx-Zugriffsprotokoll"], ["nginx_error", "nginx-Fehlerprotokoll"], ["sshd", "sshd (SSH-/SFTP-Container)"],
+  ["ftp", "FTP (vsftpd, proftpd, pure-ftpd)"], ["regex", "Eigenes Muster"],
+];
+type LogDraft = { name: string; type: PolicyLogSource["type"]; target: string; format: PolicyLogSource["format"]; pattern: string; kind: "login_failed" | "probe" };
+const LOG_TEMPLATES: (LogDraft & { label: string })[] = [
+  { label: "nginx-proxy-Container", name: "nginx-proxy", type: "docker", target: "nginx-proxy", format: "nginx_access", pattern: "", kind: "probe" },
+  { label: "SFTP-Container (atmoz/sftp)", name: "sftp", type: "docker", target: "*sftp*", format: "sshd", pattern: "", kind: "login_failed" },
+  { label: "nginx auf dem Host", name: "nginx", type: "file", target: "/var/log/nginx/access.log", format: "nginx_access", pattern: "", kind: "probe" },
+  { label: "nginx error.log", name: "nginx", type: "file", target: "/var/log/nginx/error.log", format: "nginx_error", pattern: "", kind: "probe" },
+];
+const emptyLog = (): LogDraft => ({ name: "", type: "docker", target: "", format: "nginx_access", pattern: "", kind: "login_failed" });
+const logDraftFrom = (l: PolicyLogSource): LogDraft => ({ name: l.name, type: l.type, target: l.target, format: l.format, pattern: l.pattern ?? "", kind: l.kind ?? "login_failed" });
 const USER_TRIGGERS = ["brute_force_success", "account_change", "lockout", "new_source_ip"];
 
 // Standardpfade je Plattform (nur Dateien, keine Registry).
@@ -71,6 +86,31 @@ export function SecuritySection({ policy }: { policy: Policy }) {
     onSuccess: invalidate,
   });
   const delResp = useMutation({ mutationFn: (id: string) => api.del(`/responses/${id}`), onSuccess: invalidate });
+  // Log-Quellen (nginx, SFTP-/FTP-Container, eigene Muster)
+  const logSources = policy.log_sources ?? [];
+  const [logDraft, setLogDraft] = useState<LogDraft>(emptyLog());
+  const [logEditId, setLogEditId] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+  const saveLog = useMutation({
+    mutationFn: (d: LogDraft) => logEditId ? api.put(`/log-sources/${logEditId}`, d) : api.post(`/policies/${policy.id}/log-sources`, d),
+    onSuccess: () => { setErr(""); setLogDraft(emptyLog()); setLogEditId(null); setShowLog(false); invalidate(); },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
+  });
+  const toggleLog = useMutation({ mutationFn: (l: PolicyLogSource) => api.put(`/log-sources/${l.id}`, { ...l, enabled: !l.enabled }), onSuccess: invalidate });
+  const delLog = useMutation({ mutationFn: (id: string) => api.del(`/log-sources/${id}`), onSuccess: invalidate });
+  const addLogTemplates = useMutation({
+    mutationFn: async () => {
+      const have = new Set(logSources.map((l) => `${l.type}|${l.target}|${l.format}`));
+      for (const tpl of LOG_TEMPLATES.slice(0, 2)) {
+        if (have.has(`${tpl.type}|${tpl.target}|${tpl.format}`)) continue;
+        const { label: _l, ...body } = tpl;
+        void _l;
+        await api.post(`/policies/${policy.id}/log-sources`, body);
+      }
+    },
+    onSuccess: invalidate,
+    onError: (e) => setErr(e instanceof ApiError ? e.message : String(e)),
+  });
   const actionAllowed = (a: string, trig: string) => a === "run_script" || (a === "block_ip" && IP_TRIGGERS.includes(trig)) || (a === "lock_user" && USER_TRIGGERS.includes(trig));
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft());
@@ -189,6 +229,80 @@ export function SecuritySection({ policy }: { policy: Policy }) {
       </label>
       <p className="muted small">{t("Linux liest journald bzw. /var/log/auth.log, Windows das Sicherheitsprotokoll (Anmeldeüberwachung muss aktiv sein). Schwellwerte für Brute-Force stehen in den Einstellungen.")}</p>
 
+      <h3 className="muted small" style={{ marginTop: 18 }}>{t("Log-Quellen (nginx, SFTP-/FTP-Container, eigene Muster)")} <span className="tab-count">{logSources.length}</span></h3>
+      <p className="muted small">{t("Zusätzliche Protokolle, die der Agent jede Minute inkrementell liest: Dateien (Glob erlaubt) oder die Ausgabe von Docker-Containern (Name oder Muster wie *sftp*). 401-Antworten und fehlgeschlagene Logins zählen als Fehlversuche, Scanner-Pfade (wp-login.php, /.env, phpmyadmin …) und kaputte Anfragen als verdächtige Anfragen → Vorfall „Angriffsmuster“. Beides kann die IP automatisch sperren.")}</p>
+      {logSources.length > 0 && (
+        <table className="table">
+          <thead><tr><th>{t("Dienst")}</th><th>{t("Quelle")}</th><th>{t("Format")}</th><th>{t("Aktiv")}</th><th></th></tr></thead>
+          <tbody>
+            {logSources.map((l) => (
+              <tr key={l.id} className="small">
+                <td>{l.name}</td>
+                <td className="mono">{l.type === "docker" ? "🐳 " : ""}{l.target}</td>
+                <td className="muted">{t(LOG_FORMATS.find(([k]) => k === l.format)?.[1] ?? l.format)}{l.format === "regex" && <span className="mono"> {l.pattern}</span>}</td>
+                <td><input type="checkbox" checked={l.enabled} onChange={() => toggleLog.mutate(l)} /></td>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  <button className="btn ghost sm" onClick={() => { setLogEditId(l.id); setLogDraft(logDraftFrom(l)); setShowLog(true); }}>{t("Bearbeiten")}</button>
+                  <button className="btn ghost sm" onClick={() => { if (confirm(t("Regel löschen?"))) delLog.mutate(l.id); }}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="inline-form" style={{ marginTop: 8 }}>
+        {!showLog && <button className="btn ghost sm" onClick={() => { setLogEditId(null); setLogDraft(emptyLog()); setShowLog(true); }}>+ {t("Log-Quelle hinzufügen")}</button>}
+        <button className="btn ghost sm" disabled={addLogTemplates.isPending} onClick={() => addLogTemplates.mutate()} title={t("Container „nginx-proxy“ (Zugriffsprotokoll) und „*sftp*“ (sshd-Ausgabe) überwachen")}>{t("nginx-proxy + SFTP-Container einfügen")}</button>
+      </div>
+      {showLog && (
+        <form className="form-col" style={{ marginTop: 10, maxWidth: 720 }} onSubmit={(e) => { e.preventDefault(); saveLog.mutate(logDraft); }}>
+          <div className="inline-form">
+            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Vorlage")}
+              <select value="" onChange={(e) => { const tpl = LOG_TEMPLATES[Number(e.target.value)]; if (tpl) { const { label: _l, ...d } = tpl; void _l; setLogDraft(d); } }}>
+                <option value="">—</option>
+                {LOG_TEMPLATES.map((tpl, i) => <option key={tpl.label} value={i}>{t(tpl.label)}</option>)}
+              </select>
+            </label>
+            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Dienstname")}
+              <input value={logDraft.name} onChange={(e) => setLogDraft({ ...logDraft, name: e.target.value })} placeholder="nginx-proxy" required style={{ width: 140 }} />
+            </label>
+            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Typ")}
+              <select value={logDraft.type} onChange={(e) => setLogDraft({ ...logDraft, type: e.target.value as LogDraft["type"] })}>
+                <option value="docker">{t("Docker-Container")}</option>
+                <option value="file">{t("Datei")}</option>
+              </select>
+            </label>
+          </div>
+          <label className="field"><span>{logDraft.type === "docker" ? t("Container-Name oder Muster (z. B. nginx-proxy, *sftp*)") : t("Dateipfad (Glob erlaubt, z. B. /var/log/nginx/*access.log)")}</span>
+            <input className="mono" value={logDraft.target} onChange={(e) => setLogDraft({ ...logDraft, target: e.target.value })} required />
+          </label>
+          <div className="inline-form">
+            <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Format")}
+              <select value={logDraft.format} onChange={(e) => setLogDraft({ ...logDraft, format: e.target.value as LogDraft["format"] })}>
+                {LOG_FORMATS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
+              </select>
+            </label>
+            {logDraft.format === "regex" && (
+              <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Treffer zählt als")}
+                <select value={logDraft.kind} onChange={(e) => setLogDraft({ ...logDraft, kind: e.target.value as LogDraft["kind"] })}>
+                  <option value="login_failed">{t("Anmeldung fehlgeschlagen")}</option>
+                  <option value="probe">{t("verdächtige Anfrage")}</option>
+                </select>
+              </label>
+            )}
+          </div>
+          {logDraft.format === "regex" && (
+            <label className="field"><span>{t("Regulärer Ausdruck mit benannten Gruppen (?P<ip>…) und optional (?P<user>…)")}</span>
+              <input className="mono" value={logDraft.pattern} onChange={(e) => setLogDraft({ ...logDraft, pattern: e.target.value })} placeholder={"login failed for (?P<user>\\S+) from (?P<ip>[0-9.]+)"} required />
+            </label>
+          )}
+          <div className="inline-form">
+            <button className="btn primary sm" type="submit" disabled={saveLog.isPending}>{logEditId ? t("Speichern") : t("Hinzufügen")}</button>
+            <button className="btn ghost sm" type="button" onClick={() => { setShowLog(false); setLogEditId(null); setLogDraft(emptyLog()); }}>{t("Abbrechen")}</button>
+          </div>
+        </form>
+      )}
+
       <h3 className="muted small" style={{ marginTop: 18 }}>{t("Compliance (Baseline-Regeln)")}</h3>
       <div className="inline-form">
         <label className="chip" style={{ display: "inline-flex", whiteSpace: "nowrap" }}><input type="checkbox" checked={compOn} onChange={(e) => setCompOn(e.target.checked)} /> {t("Compliance-Prüfung aktivieren")}</label>
@@ -225,7 +339,7 @@ export function SecuritySection({ policy }: { policy: Policy }) {
       )}
 
       <h3 className="muted small" style={{ marginTop: 18 }}>{t("Automatische Reaktion (Active Response)")} <span className="tab-count">{responses.length}</span></h3>
-      <p className="muted small">{t("Reagiert sofort auf Vorfälle: Quell-IP sperren (nftables/iptables, Windows-Firewall, pf), Konto sperren oder ein Skript mit ROSTER_TRIGGER/ROSTER_SOURCE_IP/ROSTER_USER ausführen. Nie-sperren-Liste und Cooldown: Einstellungen → Sicherheitsüberwachung. root/Administrator werden nie gesperrt.")}</p>
+      <p className="muted small">{t("Reagiert sofort auf Vorfälle: Quell-IP sperren (nftables/iptables, Windows-Firewall, pf), Konto sperren oder ein Skript mit ROSTER_TRIGGER/ROSTER_SOURCE_IP/ROSTER_USER ausführen. Ohne eigene Regel greift die globale automatische Sperre aus Einstellungen → Sicherheitsüberwachung (dort auch Nie-sperren-Liste, Cooldown, Flotten- und Netzbereichs-Sperre). root/Administrator werden nie gesperrt.")}</p>
       {responses.length > 0 && (
         <table className="table">
           <thead><tr><th>{t("Auslöser")}</th><th>{t("Aktion")}</th><th>{t("Details")}</th><th>{t("Aktiv")}</th><th></th></tr></thead>

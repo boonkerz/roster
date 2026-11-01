@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
+import { BlockDurationSelect } from "../components/IncidentActions";
 import { useAuth } from "../auth";
 import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings } from "../types";
 
@@ -120,7 +121,8 @@ function SecurityMonitoring() {
   const { data } = useQuery<SecuritySettings>({ queryKey: ["settings", "security"], queryFn: () => api.get("/settings/security") });
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
-  const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30 };
+  const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
+    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0 };
   const save = useMutation({
     mutationFn: (v: SecuritySettings) => api.put("/settings/security", v),
     onSuccess: () => { setDraft(null); setErr(""); qc.invalidateQueries({ queryKey: ["settings", "security"] }); },
@@ -135,6 +137,20 @@ function SecurityMonitoring() {
         <div className="inline-form">
           <label className="num">{t("Brute-Force: Fehlversuche")}<input type="number" min={2} max={1000} value={cur.bf_threshold} onChange={(e) => upd({ bf_threshold: Number(e.target.value) })} style={{ width: 80 }} /></label>
           <label className="num">{t("im Zeitfenster (Min.)")}<input type="number" min={1} max={1440} value={cur.bf_window_min} onChange={(e) => upd({ bf_window_min: Number(e.target.value) })} style={{ width: 80 }} /></label>
+        </div>
+        <div className="inline-form">
+          <label className="num" title={t("Verteilte, langsame Angriffe: Versuche mit nicht existierenden Benutzernamen gelten unabhängig vom Zeitfenster ab dieser Zahl in 24 h als Brute-Force.")}>{t("Unbekannte Benutzer: Brute-Force ab … Versuchen in 24 h (0 = aus)")}<input type="number" min={0} max={1000} value={cur.invalid_user_max} onChange={(e) => upd({ invalid_user_max: Number(e.target.value) })} style={{ width: 80 }} /></label>
+          <label className="num" title={t("Verdächtige Anfragen aus Log-Quellen (Scanner-Pfade, kaputte Anfragen) je Quell-IP im Zeitfenster bis zum Vorfall „Angriffsmuster“.")}>{t("Angriffsmuster: verdächtige Anfragen im Zeitfenster")}<input type="number" min={2} max={10000} value={cur.scan_threshold} onChange={(e) => upd({ scan_threshold: Number(e.target.value) })} style={{ width: 80 }} /></label>
+        </div>
+        <h3 className="muted small" style={{ marginTop: 10 }}>{t("Automatische Sperre")}</h3>
+        <p className="muted small">{t("Sperrt die Quell-IP bei Brute-Force, Anmeldung nach Brute-Force und Angriffsmuster auf jedem überwachten Gerät – ohne Regel in der Richtlinie und ohne Klick. Eine Active-Response-Regel der Richtlinie hat Vorrang. Die Sperre greift auch für Verkehr zu Docker-Containern.")}</p>
+        <div className="inline-form">
+          <label className="chip"><input type="checkbox" checked={cur.auto_block} onChange={(e) => upd({ auto_block: e.target.checked })} /> {t("Angreifer-IPs automatisch sperren")}</label>
+          <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t("Sperrdauer")}<BlockDurationSelect value={cur.auto_block_minutes} onChange={(m) => upd({ auto_block_minutes: m })} /></label>
+        </div>
+        <div className="inline-form">
+          <label className="chip" title={t("Eine IP, die auf einem Gerät auffällt, wird auf allen Geräten gesperrt, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest.")}><input type="checkbox" checked={cur.fleet_block} onChange={(e) => upd({ fleet_block: e.target.checked })} /> {t("auf allen überwachten Geräten sperren (Flotte)")}</label>
+          <label className="num" title={t("Kommen in 24 h mehrere auffällige IPs aus demselben /24-Netz, wird statt der einzelnen IP das ganze Netz gesperrt (nie, wenn eine Nie-sperren-Adresse darin liegt).")}>{t("ganzes /24-Netz sperren ab … auffälligen IPs (0 = aus)")}<input type="number" min={0} max={254} value={cur.subnet_ips} onChange={(e) => upd({ subnet_ips: Number(e.target.value) })} style={{ width: 80 }} /></label>
         </div>
         <div className="inline-form">
           <label className="chip"><input type="checkbox" checked={cur.new_ip_alert} onChange={(e) => upd({ new_ip_alert: e.target.checked })} /> {t("Anmeldung von neuer Quell-IP melden")}</label>

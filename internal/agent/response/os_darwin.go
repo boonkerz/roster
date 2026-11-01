@@ -5,7 +5,6 @@ package response
 import (
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"strings"
 	"time"
@@ -23,16 +22,16 @@ func run(ctx context.Context, name string, args ...string) (string, error) {
 
 // blockOS nutzt die pf-Tabelle roster_block (muss in /etc/pf.conf referenziert sein:
 // table <roster_block> persist / block in quick from <roster_block>).
-func blockOS(ctx context.Context, ip net.IP, _ int) (string, error) {
+func blockOS(ctx context.Context, t Target, _ int) (string, error) {
 	if _, err := run(ctx, "pfctl", "-t", "roster_block", "-T", "show"); err != nil {
 		return "pf", fmt.Errorf("pf-Tabelle roster_block fehlt – in /etc/pf.conf anlegen: table <roster_block> persist; block in quick from <roster_block>")
 	}
-	_, err := run(ctx, "pfctl", "-t", "roster_block", "-T", "add", ip.String())
+	_, err := run(ctx, "pfctl", "-t", "roster_block", "-T", "add", t.S)
 	return "pf", err
 }
 
-func unblockOS(ctx context.Context, ip net.IP) error {
-	_, err := run(ctx, "pfctl", "-t", "roster_block", "-T", "delete", ip.String())
+func unblockOS(ctx context.Context, t Target) error {
+	_, err := run(ctx, "pfctl", "-t", "roster_block", "-T", "delete", t.S)
 	return err
 }
 
