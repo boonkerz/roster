@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Dashboard: country metrics show up to 40 countries as bars, sorted descending (instead of 12 + “Other”); the remainder is labelled “Other (n countries)”.
+
 ## [0.18.5] - 2026-11-01
 
 ### Fixed

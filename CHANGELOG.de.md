@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Dashboard: Länder-Kennzahlen zeigen als Balken bis zu 40 Länder absteigend sortiert (statt 12 + „Andere“); der Rest heißt „Andere (n Länder)“.
+
 ## [0.18.5] - 2026-11-01
 
 ### Behoben

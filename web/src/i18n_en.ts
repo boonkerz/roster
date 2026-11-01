@@ -1425,4 +1425,5 @@ export const EN: Record<string, string> = {
   "gekürzt – Suche eingrenzen": "truncated – narrow the search",
   "Diese IP auf allen Geräten freigeben, auf denen sie gesperrt ist": "Release this IP on every device where it is blocked",
   "überall": "everywhere",
+  "Andere ({n} Länder)": "Other ({n} countries)",
 };

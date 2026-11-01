@@ -102,9 +102,13 @@ function Widget({ w, sources, events, onEdit, onRemove }: { w: DashWidget; sourc
     const items = (data?.current ?? []).filter((c) => c.value > 0).map((c) => ({
       label: labelFor(w, c.label, sources, t), value: c.value, color: statusColored ? STATUS_COLOR[c.label] : undefined,
     }));
-    const limit = w.chart === "bar" ? 12 : MAX_SERIES;
-    const folded = topN(items, limit, (sum) => ({ label: t("Andere"), value: sum, color: "var(--viz-status-unknown)" }));
-    return statusColored ? folded.sort((a, b) => b.value - a.value) : folded.map((d, i) => ({ ...d, color: d.color ?? seriesColor(i) }));
+    // Länderverteilungen: viele kleine Werte – als Balken bis 40 Länder zeigen, Rest mit Anzahl benennen.
+    const isCountry = w.source === "summary" && COUNTRY_KEYS.includes(w.key);
+    const limit = w.chart === "bar" ? (isCountry ? 40 : 12) : MAX_SERIES;
+    const folded = topN(items, limit, (sum) => ({ label: isCountry ? t("Andere ({n} Länder)", { n: items.length - limit }) : t("Andere"), value: sum, color: "var(--viz-status-unknown)" }));
+    if (statusColored) return folded.sort((a, b) => b.value - a.value);
+    if (isCountry) return folded.sort((a, b) => (a.label.startsWith(t("Andere")) ? 1 : b.label.startsWith(t("Andere")) ? -1 : b.value - a.value)).map((d, i) => ({ ...d, color: d.color ?? seriesColor(i) }));
+    return folded.map((d, i) => ({ ...d, color: d.color ?? seriesColor(i) }));
   }, [data, w, sources, t, statusColored]);
 
   const series: Series[] = useMemo(() => {
