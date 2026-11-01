@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-01
+
 ### Behoben
 - Richtlinien: Der Richtlinien-Editor stürzte beim Laden des Compliance-Regelkatalogs ab („Cannot read properties of null“) – Regeln ohne Profil-Einschränkung kamen als `null`; der Server liefert jetzt leere Listen, der Editor verträgt fehlende Felder.
 
@@ -155,7 +157,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/boonkerz/roster/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/boonkerz/roster/compare/v0.16.0...v0.16.1

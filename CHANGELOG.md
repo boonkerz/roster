@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-01
+
 ### Fixed
 - Policies: the policy editor crashed ("Cannot read properties of null") when the compliance rule catalog was loaded – rules without a profile restriction were delivered as `null`; the server now sends empty lists and the editor tolerates missing fields.
 
@@ -155,7 +157,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/boonkerz/roster/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/boonkerz/roster/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/boonkerz/roster/compare/v0.16.0...v0.16.1
