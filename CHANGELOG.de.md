@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.4] - 2026-11-01
+
 ### Behoben
 - Log-Quellen: Protokollzeilen von **nginx-proxy** (forego-Präfix mit Farbcodes) wurden nicht sauber ausgepackt; dadurch griff die Erkennung von Anfragen an die nackte Server-IP nicht. Jetzt werden ANSI-Codes entfernt. Dazu neue Angriffsmuster: Befehls-/Code-Injection in Pfad oder Query (`cmd=`, `=curl`, `${jndi`, `<script`, `/etc/passwd`, `/proc/self` …), versteckte Dateien (`/.git`, `/.terraform`, `/.env`), Zugangsdaten-/Konfigurationsdateien (`server.key`, `credentials`, `.tfvars`, `.toml`, `.properties`, `.pem` …), **503** eines Reverse-Proxys ohne passenden Backend-Host zählt wie 404, und fehlgeschlagene Anfragen an die **IP-Adresse statt des Domainnamens** (Default-Host `_`) gelten als Scanner. An einem echten nginx-proxy-Protokoll (5.000 Zeilen) steigt die Erkennung von 1.820 auf 2.709 Treffer.
 
@@ -206,7 +208,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.4...HEAD
+[0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4
 [0.18.3]: https://github.com/boonkerz/roster/compare/v0.18.2...v0.18.3
 [0.18.2]: https://github.com/boonkerz/roster/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/boonkerz/roster/compare/v0.18.0...v0.18.1
