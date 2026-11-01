@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-01
+
 ### Geändert
 - Richtlinien: der Richtlinien-Editor ist in Tabs gegliedert – **Checks, Tasks, Backups, Benachrichtigungen, Sicherheit, Zuweisungen** – mit Anzahl der Einträge je Tab, statt einer langen Seite. README und Landing-Page beschreiben jetzt das Flotten-Patch-Management und die Sicherheitsüberwachung inkl. Log-Quellen und automatischer Sperre.
 
@@ -185,7 +187,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/boonkerz/roster/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
 [0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2

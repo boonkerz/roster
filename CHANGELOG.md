@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-01
+
 ### Changed
 - Policies: the policy editor is split into tabs – **Checks, Tasks, Backups, Notifications, Security, Assignments** – with the number of entries per tab, instead of one long page. README and landing page now describe fleet patch management and security monitoring incl. log sources and automatic blocking.
 
@@ -185,7 +187,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/boonkerz/roster/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
 [0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
