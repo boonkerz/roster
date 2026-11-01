@@ -1426,4 +1426,6 @@ export const EN: Record<string, string> = {
   "Diese IP auf allen Geräten freigeben, auf denen sie gesperrt ist": "Release this IP on every device where it is blocked",
   "überall": "everywhere",
   "Andere ({n} Länder)": "Other ({n} countries)",
+  "Ereignisse seit Agent-Start": "Events since agent start",
+  "Zählt nur neue Zeilen seit dem Start des Agents; „Testen“ liest dagegen die letzten Zeilen rückwirkend.": "Counts only new lines since the agent started; “Test” reads the last lines retroactively.",
 };

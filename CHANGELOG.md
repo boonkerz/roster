@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Device → Logins: column is now “Events since agent start” (with explanation), as the counter only counts new lines while “Test” reads retroactively.
+
 ## [0.18.6] - 2026-11-01
 
 ### Changed

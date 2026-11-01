@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Gerät → Anmeldungen: Spalte heißt jetzt „Ereignisse seit Agent-Start“ (mit Erklärung), da der Zähler nur neue Zeilen zählt, „Testen“ aber rückwirkend liest.
+
 ## [0.18.6] - 2026-11-01
 
 ### Geändert

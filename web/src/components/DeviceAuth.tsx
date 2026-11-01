@@ -84,7 +84,7 @@ function MonitoringCard({ mon, deviceId, canOperate, testSrc, setTestSrc }: { mo
       )}
       {mon.log_sources.length > 0 && (
         <table className="table">
-          <thead><tr><th>{t("Dienst")}</th><th>{t("Quelle")}</th><th>{t("Richtlinie")}</th><th style={{ minWidth: 280 }}>{t("Status")}</th><th>{t("Ereignisse")}</th><th>{t("Letzter Treffer")}</th><th></th></tr></thead>
+          <thead><tr><th>{t("Dienst")}</th><th>{t("Quelle")}</th><th>{t("Richtlinie")}</th><th style={{ minWidth: 280 }}>{t("Status")}</th><th title={t("Zählt nur neue Zeilen seit dem Start des Agents; „Testen“ liest dagegen die letzten Zeilen rückwirkend.")}>{t("Ereignisse seit Agent-Start")}</th><th>{t("Letzter Treffer")}</th><th></th></tr></thead>
           <tbody>
             {mon.log_sources.map((l) => {
               const ok = l.reported && !l.error && l.targets > 0;
