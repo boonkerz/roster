@@ -12,8 +12,9 @@ hide:
 # Deine Flotte, ein Binary. { .rs-title }
 
 **Roster** ist eine selbst gehostete Plattform für **Inventar und Fernwartung** im Stil
-von TacticalRMM, für Windows, Linux und macOS. Ein Go-Server mit eingebetteter Web-UI und
-allen Agents, ein schlanker Agent pro Rechner, sonst nichts zu installieren.
+von TacticalRMM, für Windows, Linux und macOS, mit flottenweiter Patch-Verwaltung und
+Sicherheitsüberwachung an Bord. Ein Go-Server mit eingebetteter Web-UI und allen Agents,
+ein schlanker Agent pro Rechner, sonst nichts zu installieren.
 
 [Erste Schritte](getting-started.md){ .md-button .md-button--primary }
 [GitHub](https://github.com/boonkerz/roster){ .md-button }
@@ -117,14 +118,29 @@ iOS-App und ein Audit-Log sind eingebaut.
 </div>
 <div class="rs-feature-text" markdown>
 ### Richtlinien, Patches und Software
-Checks, Tasks und Backups an Firmen, Standorte oder einzelne Geräte zuweisen. Updates
-suchen, freigeben und installieren, Pakete verteilen, CVEs installierter Software im
-Blick behalten.
+Checks, Tasks und Backups an Firmen, Standorte oder einzelne Geräte zuweisen. Die Seite
+„Patches“ zeigt alle ausstehenden Updates der Flotte, Sicherheits-Updates zuerst: gesammelt
+freigeben und installieren, den Patch-Verlauf verfolgen, Paketversionen und Repositories
+vergleichen und sehen, welchen Betriebssystemen das Support-Ende bevorsteht.
 [Patches & Software](features/patching.md){ .rs-more }
 </div>
 </section>
 
 <section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
+![Sicherheitsvorfälle](screenshots/security-incidents.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Sicherheitsüberwachung
+Datei-Integritätsüberwachung mit Baseline je Gerät, Anmeldungs-Überwachung, die
+Brute-Force, Anmeldungen nach Brute-Force, neue Quell-IPs und Kontoänderungen zu
+Vorfällen macht, CIS-artige Compliance-Prüfungen mit Score je Gerät und Active Response,
+die eine IP sperrt oder ein Konto automatisch deaktiviert.
+[Sicherheitsüberwachung](features/security-monitoring.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature rs-reverse" markdown>
 <div class="rs-feature-shot" markdown>
 ![Netzwerk-Scan](screenshots/network-scan.png){ .shadow }
 </div>

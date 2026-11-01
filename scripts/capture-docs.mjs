@@ -130,7 +130,17 @@ async function seed() {
     { name: "Prod servers", filter: { match: "all", conditions: [{ field: "cf:" + fields["Stage"], op: "eq", value: "prod" }] } },
   ]);
   await setTheme("light");
-  return { devId, checks, fields, siteId: berlin.id };
+  // Sicherheitsüberwachung für die Baseline-Richtlinie (FIM-Pfade, Anmeldungen, Compliance, Active Response).
+  await api("PUT", "/policies/" + pol.id + "/security", { fim_interval_min: 60, auth_monitor: true, compliance_enabled: true, compliance_profile: "server", compliance_disabled: [], compliance_interval_h: 24 });
+  for (const r of [
+    { path: "/etc", recursive: true, exclude: ["/etc/mtab", "*.dpkg-new", "/etc/ld.so.cache", "/etc/resolv.conf", "/etc/adjtime"], platforms: ["linux"], alert: true },
+    { path: "/usr/local/bin", recursive: true, exclude: [], platforms: ["linux", "darwin"], alert: true },
+    { path: "/root/.ssh", recursive: true, exclude: [], platforms: ["linux"], alert: true },
+    { path: "C:\\Windows\\System32\\drivers\\etc", recursive: true, exclude: [], platforms: ["windows"], alert: true },
+  ]) await api("POST", "/policies/" + pol.id + "/fim", r);
+  await api("POST", "/policies/" + pol.id + "/responses", { trigger: "brute_force", action: "block_ip", minutes: 60, platforms: [], enabled: true });
+  await api("POST", "/policies/" + pol.id + "/responses", { trigger: "brute_force_success", action: "block_ip", minutes: 1440, platforms: [], enabled: true });
+  return { devId, checks, fields, siteId: berlin.id, policyId: pol.id };
 }
 
 // --- Navigation ---------------------------------------------------------------
@@ -195,7 +205,8 @@ await tryShot("services", async () => {
   await tab("System", "Dienste/Prozesse", 200);
   await p.waitForSelector(".scroll-list table tbody tr", { timeout: 30000 }); await wait(800);
 });
-await tryShot("security", () => tab("System", "Sicherheit"));
+await tryShot("security", () => tab("Sicherheit", "Sicherheit"));
+await tryShot("compliance", () => tab("Sicherheit", "Compliance"));
 await tryShot("files", () => tab("Zugriff", "Dateien", 2500));
 await tryShot("terminal", async () => {
   await tab("Zugriff", "Terminal", 800);
@@ -211,7 +222,24 @@ await tryShot("policies", async () => { await p.goto(BASE + "/policies"); await 
 await tryShot("policy-detail", async () => {
   await p.click(`table tbody tr:first-child button:has-text("${L("Bearbeiten")}")`, { timeout: 5000 }); await wait(1500);
 });
+await tryShot("policy-security", async () => {
+  await p.goto(BASE + "/policies"); await wait(1200);
+  await p.click(`table tbody tr:first-child button:has-text("${L("Bearbeiten")}")`, { timeout: 5000 }); await wait(1500);
+  await p.evaluate((h) => { for (const el of document.querySelectorAll("h2")) if (el.textContent.trim() === h) el.scrollIntoView({ block: "start" }); }, L("Sicherheitsüberwachung"));
+  await wait(500);
+});
 await tryShot("scripts", async () => { await p.goto(BASE + "/scripts"); await wait(1200); });
+
+// Flottenseiten Patches und Sicherheit (Daten aus dem Seed der Demo-Geräte).
+const fleetTab = async (name) => { await p.click(`.tabs button.tab:has-text("${L(name)}")`, { timeout: 5000 }); await wait(1400); };
+await tryShot("patches-fleet", async () => { await p.goto(BASE + "/patches"); await wait(2000); });
+await tryShot("patches-history", () => fleetTab("Verlauf"));
+await tryShot("patches-packages", () => fleetTab("Pakete"));
+await tryShot("patches-eol", () => fleetTab("Lebenszyklus"));
+await tryShot("security-incidents", async () => { await p.goto(BASE + "/security"); await wait(2000); });
+await tryShot("security-auth", () => fleetTab("Anmeldungen"));
+await tryShot("security-fim", () => fleetTab("Datei-Integrität"));
+await tryShot("security-compliance", () => fleetTab("Compliance"));
 
 // Nav-Modals (auf einer Seite mit sichtbarer Topnav).
 await p.goto(BASE + "/devices"); await wait(1000);

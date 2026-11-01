@@ -11,7 +11,11 @@ of it is configured in the **Security monitoring** section of a policy and shown
     `/etc/shadow` or manage nftables. Login monitoring on Windows needs logon auditing
     (success/failure) enabled, which is the default on servers.
 
+![Policy section “Security monitoring”](../screenshots/policy-security.png){ .shadow }
+
 ## File integrity (FIM)
+
+![File integrity events](../screenshots/security-fim.png){ .shadow }
 
 Add **monitored paths** to a policy: a file, a directory (optionally recursive) or a glob such
 as `/home/*/.ssh/authorized_keys`, with exclusion globs (`*.log`, `cache/`), an optional platform
@@ -31,6 +35,8 @@ Device tab **File integrity**: event list with acknowledge, *Scan now* and *Rese
 Security page tab **File integrity**: fleet-wide list with filters.
 
 ## Login monitoring & incidents
+
+![Security incidents](../screenshots/security-incidents.png){ .shadow }
 
 With **Monitor logins** enabled the agent reads new events incrementally:
 
@@ -56,6 +62,8 @@ filters and the top source IPs; **Logins** shows the raw events. Thresholds, the
 phase and the never-block list live in Settings → **Security monitoring**.
 
 ## Compliance (baseline) checks
+
+![Compliance scores across the fleet](../screenshots/security-compliance.png){ .shadow }
 
 Enable **Compliance** in a policy with a profile (*server* or *workstation*), an interval
 (default 24 h) and an optional rule selection. The agent evaluates a CIS-style catalog and

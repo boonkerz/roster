@@ -9,6 +9,8 @@ on Linux (`apt upgrade` vs `dist-upgrade`) and an optional reboot afterwards.
 
 ## Fleet patch view & security updates
 
+![Fleet patch view with security updates](../screenshots/patches-fleet.png){ .shadow }
+
 The **Patches** page lists pending updates across the whole fleet, grouped by device, with
 **security updates** first. The agent classifies them per package manager: apt suites that
 contain `-security`, dnf security advisories (`dnf updateinfo --security`), Windows Update
@@ -24,6 +26,8 @@ of scanned devices without any, and devices never scanned.
 
 ## Patch history
 
+![Patch history across the fleet](../screenshots/patches-history.png){ .shadow }
+
 The agent reads what was installed, upgraded or removed from the package manager logs
 (`/var/log/apt/history.log` incl. rotated files, `dnf.rpm.log`, `yum.log`, `pacman.log`), the
 Windows Update history and `softwareupdate --history` on macOS – with every update check
@@ -32,6 +36,8 @@ action, company filters); each device has its 90-day history in the Patches tab.
 kept for one year and the health report counts patches installed in the last 7 days.
 
 ## Packages & repositories
+
+![Package versions across the fleet](../screenshots/patches-packages.png){ .shadow }
 
 The **Packages** tab aggregates installed software across all devices by package and
 version – useful to spot version spread or a vulnerable version that is still around.
@@ -47,6 +53,8 @@ installed kernel** – a newer installed kernel means a reboot is due, which the
 now also detects (as does `needs-restarting` on RHEL-family systems).
 
 ## OS lifecycle (end of support)
+
+![OS lifecycle with end-of-support dates](../screenshots/patches-eol.png){ .shadow }
 
 The server matches each device's OS version against **[endoflife.date](https://endoflife.date)**
 (fetched once a day, cached server-side): Ubuntu, Debian, the RHEL family, Fedora, Alpine,

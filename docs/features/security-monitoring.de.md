@@ -12,7 +12,11 @@ angezeigt auf der Seite **Sicherheit** und in der Tab-Gruppe „Sicherheit“ de
     Überwachung unter Windows braucht aktivierte Anmeldeüberwachung (Erfolg/Fehler), auf Servern
     der Standard.
 
+![Richtlinien-Bereich „Sicherheitsüberwachung“](../screenshots/policy-security.png){ .shadow }
+
 ## Datei-Integrität (FIM)
+
+![Datei-Integritätsereignisse](../screenshots/security-fim.png){ .shadow }
 
 Einer Richtlinie **überwachte Pfade** hinzufügen: Datei, Verzeichnis (optional rekursiv) oder
 Glob wie `/home/*/.ssh/authorized_keys`, mit Ausschluss-Globs (`*.log`, `cache/`), optionaler
@@ -32,6 +36,8 @@ Geräte-Tab **Datei-Integrität**: Ereignisliste mit Bestätigen, *Jetzt prüfen
 setzen*. Sicherheitsseite, Tab **Datei-Integrität**: flottenweite Liste mit Filtern.
 
 ## Anmeldungs-Überwachung & Vorfälle
+
+![Sicherheitsvorfälle](../screenshots/security-incidents.png){ .shadow }
 
 Mit **Anmeldungen überwachen** liest der Agent neue Ereignisse inkrementell:
 
@@ -58,6 +64,8 @@ Filtern und den häufigsten Quell-IPs; **Anmeldungen** zeigt die Rohereignisse. 
 Lernphase und Nie-sperren-Liste stehen unter Einstellungen → **Sicherheitsüberwachung**.
 
 ## Compliance-Prüfung (Baseline)
+
+![Compliance-Werte über die Flotte](../screenshots/security-compliance.png){ .shadow }
 
 **Compliance** in einer Richtlinie aktivieren – mit Profil (*Server* oder *Arbeitsplatz*),
 Intervall (Standard 24 h) und optionaler Regelauswahl. Der Agent wertet einen CIS-artigen Katalog

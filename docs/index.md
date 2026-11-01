@@ -12,8 +12,9 @@ hide:
 # Your fleet, one binary. { .rs-title }
 
 **Roster** is a self-hosted, TacticalRMM-style **inventory & remote-management**
-platform for Windows, Linux and macOS. One Go server with the web UI and all agents
-embedded, a lightweight agent per machine, nothing else to install.
+platform for Windows, Linux and macOS, with fleet-wide patch management and security
+monitoring built in. One Go server with the web UI and all agents embedded, a lightweight
+agent per machine, nothing else to install.
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
 [GitHub](https://github.com/boonkerz/roster){ .md-button }
@@ -116,13 +117,29 @@ built in.
 </div>
 <div class="rs-feature-text" markdown>
 ### Policies, patching and software
-Assign checks, tasks and backups to companies, sites or single devices. Scan, approve
-and install updates, deploy packages, track CVEs of installed software.
+Assign checks, tasks and backups to companies, sites or single devices. The Patches page
+shows every pending update across the fleet, security updates first: approve and install
+in bulk, follow the patch history, compare package versions and repositories, and see
+which operating systems are about to run out of support.
 [Patching & software](features/patching.md){ .rs-more }
 </div>
 </section>
 
 <section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
+![Security incidents](screenshots/security-incidents.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Security monitoring
+File integrity monitoring with a baseline per device, login monitoring that turns
+brute force, logins after brute force, new source IPs and account changes into
+incidents, CIS-style compliance checks with a score per device, and active response
+that blocks an IP or locks an account automatically.
+[Security monitoring](features/security-monitoring.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature rs-reverse" markdown>
 <div class="rs-feature-shot" markdown>
 ![Network scan](screenshots/network-scan.png){ .shadow }
 </div>

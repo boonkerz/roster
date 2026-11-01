@@ -9,6 +9,8 @@ unter Linux (`apt upgrade` vs. `dist-upgrade`) und optionalem Neustart danach.
 
 ## Flotten-Patchsicht & Sicherheits-Updates
 
+![Flotten-Patchsicht mit Sicherheits-Updates](../screenshots/patches-fleet.png){ .shadow }
+
 Die Seite **Patches** listet ausstehende Updates der ganzen Flotte nach Gerät gruppiert –
 **Sicherheits-Updates** zuerst. Der Agent ordnet sie je Paketmanager zu: apt-Suiten mit
 `-security`, dnf-Security-Advisories (`dnf updateinfo --security`), Windows-Update-Kategorien
@@ -25,6 +27,8 @@ Geräte.
 
 ## Patch-Verlauf
 
+![Patch-Verlauf über die Flotte](../screenshots/patches-history.png){ .shadow }
+
 Der Agent liest installierte, aktualisierte und entfernte Pakete aus den Paketmanager-Logs
 (`/var/log/apt/history.log` inkl. rotierter Dateien, `dnf.rpm.log`, `yum.log`, `pacman.log`), der
 Windows-Update-Historie und `softwareupdate --history` unter macOS – bei jedem Update-Check und
@@ -33,6 +37,8 @@ Zeitraum, Aktion, Firma); jedes Gerät hat seinen 90-Tage-Verlauf im Patches-Tab
 ein Jahr erhalten, der Health-Bericht zählt die in den letzten 7 Tagen installierten Patches.
 
 ## Pakete & Repositories
+
+![Paketversionen über die Flotte](../screenshots/patches-packages.png){ .shadow }
 
 Der Tab **Pakete** fasst die installierte Software aller Geräte nach Paket und Version zusammen –
 so sieht man Versionsstreuung oder eine verwundbare Version, die noch irgendwo läuft. Aufklappen
@@ -48,6 +54,8 @@ installierter Kernel heißt Neustart fällig, was auch der Reboot-Check jetzt er
 `needs-restarting` auf RHEL-Systemen).
 
 ## OS-Lebenszyklus (Support-Ende)
+
+![OS-Lebenszyklus mit Support-Ende](../screenshots/patches-eol.png){ .shadow }
 
 Der Server gleicht die OS-Version jedes Geräts mit **[endoflife.date](https://endoflife.date)** ab
 (einmal täglich abgerufen, serverseitig gecacht): Ubuntu, Debian, RHEL-Familie, Fedora, Alpine,
