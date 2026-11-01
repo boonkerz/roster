@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Housekeeping: finished IP blocks (released, expired, failed) are deleted after 90 days; the table grew without bound before (fleet blocking creates one row per device and incident).
+
 ## [0.18.8] - 2026-11-01
 
 ### Added

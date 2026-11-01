@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Aufräumen: beendete IP-Sperren (aufgehoben, abgelaufen, fehlgeschlagen) werden nach 90 Tagen gelöscht; bisher wuchs die Tabelle unbegrenzt (Flotten-Sperre erzeugt je Vorfall einen Eintrag pro Gerät).
+
 ## [0.18.8] - 2026-11-01
 
 ### Neu
