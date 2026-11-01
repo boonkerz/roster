@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.7] - 2026-11-01
+
 ### Geändert
 - Gerät → Sicherheit: eigener Tab **Vorfälle** (Sicherheitsvorfälle, aktive IP-Sperren, Zähler offener Vorfälle); **Anmeldungen** zeigt nur noch die Überwachungskarte und die Anmeldeereignisse – wie auf der Flotten-Seite getrennt.
 - Gerät → Anmeldungen: Spalte heißt jetzt „Ereignisse seit Agent-Start“ (mit Erklärung), da der Zähler nur neue Zeilen zählt, „Testen“ aber rückwirkend liest.
@@ -225,7 +227,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.6...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.7...HEAD
+[0.18.7]: https://github.com/boonkerz/roster/compare/v0.18.6...v0.18.7
 [0.18.6]: https://github.com/boonkerz/roster/compare/v0.18.5...v0.18.6
 [0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
 [0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4

@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.7] - 2026-11-01
+
 ### Changed
 - Device → Security: separate **Incidents** tab (security incidents, active IP blocks, open-incident counter); **Logins** now shows only the monitoring card and login events – split like the fleet page.
 - Device → Logins: column is now “Events since agent start” (with explanation), as the counter only counts new lines while “Test” reads retroactively.
@@ -225,7 +227,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.6...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.7...HEAD
+[0.18.7]: https://github.com/boonkerz/roster/compare/v0.18.6...v0.18.7
 [0.18.6]: https://github.com/boonkerz/roster/compare/v0.18.5...v0.18.6
 [0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
 [0.18.4]: https://github.com/boonkerz/roster/compare/v0.18.3...v0.18.4
