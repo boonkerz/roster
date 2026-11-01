@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.8] - 2026-11-01
+
 ### Neu
 - Sicherheit → Vorfälle: **Filter nach Land** der Quell-IP (Auswahl mit Flagge, „Unbekannt“ für Adressen ohne Zuordnung); Klick auf ein Land in der Kachel *Angriffsquellen nach Land* setzt den Filter. API: `GET /security/incidents?country=DE` (`?` = unbekannt).
 
@@ -230,7 +232,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.7...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.8...HEAD
+[0.18.8]: https://github.com/boonkerz/roster/compare/v0.18.7...v0.18.8
 [0.18.7]: https://github.com/boonkerz/roster/compare/v0.18.6...v0.18.7
 [0.18.6]: https://github.com/boonkerz/roster/compare/v0.18.5...v0.18.6
 [0.18.5]: https://github.com/boonkerz/roster/compare/v0.18.4...v0.18.5
