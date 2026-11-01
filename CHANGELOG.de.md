@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Richtlinien: der Richtlinien-Editor ist in Tabs gegliedert – **Checks, Tasks, Backups, Benachrichtigungen, Sicherheit, Zuweisungen** – mit Anzahl der Einträge je Tab, statt einer langen Seite. README und Landing-Page beschreiben jetzt das Flotten-Patch-Management und die Sicherheitsüberwachung inkl. Log-Quellen und automatischer Sperre.
+
 ## [0.18.0] - 2026-11-01
 
 ### Neu

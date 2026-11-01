@@ -135,7 +135,9 @@ vergleichen und sehen, welchen Betriebssystemen das Support-Ende bevorsteht.
 Datei-Integritätsüberwachung mit Baseline je Gerät, Anmeldungs-Überwachung, die
 Brute-Force, Anmeldungen nach Brute-Force, neue Quell-IPs und Kontoänderungen zu
 Vorfällen macht, CIS-artige Compliance-Prüfungen mit Score je Gerät und Active Response,
-die eine IP sperrt oder ein Konto automatisch deaktiviert.
+die eine IP sperrt oder ein Konto automatisch deaktiviert. Liest auch die Protokolle von
+nginx-, SFTP- und FTP-Containern, sperrt Angreifer flottenweit oder je Netz ohne Klick, und
+die Sperre gilt auch für Docker-Container.
 [Sicherheitsüberwachung](features/security-monitoring.md){ .rs-more }
 </div>
 </section>

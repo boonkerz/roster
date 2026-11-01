@@ -134,7 +134,9 @@ which operating systems are about to run out of support.
 File integrity monitoring with a baseline per device, login monitoring that turns
 brute force, logins after brute force, new source IPs and account changes into
 incidents, CIS-style compliance checks with a score per device, and active response
-that blocks an IP or locks an account automatically.
+that blocks an IP or locks an account automatically. Read nginx, SFTP and FTP container
+logs as well, block attackers fleet-wide or by subnet without clicking, and the block
+holds for Docker containers too.
 [Security monitoring](features/security-monitoring.md){ .rs-more }
 </div>
 </section>

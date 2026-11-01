@@ -78,8 +78,17 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 - **Storage explorer** – TreeSize-style live directory scan with a pie chart.
 - **Security collectors** – Antivirus/Defender status, BitLocker (with recovery-key
   escrow), SMART disk health, Windows Event Log / journald viewer.
-- **Patch management** – scan, approve, install (apt `upgrade` vs `dist-upgrade`
-  selectable), reboot.
+- **Patch management** – fleet-wide Patches page with security updates first, approve and
+  install in bulk (apt `upgrade` vs `dist-upgrade` selectable), patch history per device and
+  fleet, package versions and repositories across the fleet, OS lifecycle (EOL) warnings.
+- **Security monitoring** (Wazuh-style) – file integrity monitoring with a baseline per
+  device, login monitoring (sshd/journald, Windows Security log, macOS log) that turns brute
+  force, logins after brute force, new source IPs and account changes into **incidents**,
+  CIS-style **compliance** checks with a score per device, and **active response**: block
+  the source IP (nftables/iptables incl. Docker forward traffic, Windows Firewall, pf) or lock
+  the account. **Automatic blocking** without policy rules, fleet-wide and per /24 subnet,
+  bulk blocking in the Incidents tab, plus **log sources** for nginx access/error logs, SSH/SFTP
+  and FTP containers and custom patterns (files or Docker container output).
 - **Self-healing** – automatic remediation: run a script/service-restart when a check fails.
 - **Software distribution** – catalog of deployable packages (winget / choco / apt / dnf /
   brew); roll out to a device / client / site / tag.
@@ -250,8 +259,18 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 - **Speicher-Explorer** – TreeSize-artiger Live-Scan mit Tortendiagramm.
 - **Security-Collectors** – Virenschutz/Defender, BitLocker (mit Recovery-Key-Escrow),
   SMART-Festplattengesundheit, Windows-Event-Log / journald.
-- **Patch-Management** – prüfen, genehmigen, installieren (apt `upgrade` vs
-  `dist-upgrade` wählbar), Neustart.
+- **Patch-Management** – flottenweite Patches-Seite mit Sicherheits-Updates zuerst, gesammelt
+  freigeben und installieren (apt `upgrade` vs `dist-upgrade` wählbar), Patch-Verlauf je Gerät
+  und Flotte, Paketversionen und Repositories der Flotte, Support-Ende-Warnungen (EOL).
+- **Sicherheitsüberwachung** (Wazuh-artig) – Datei-Integritätsüberwachung mit Baseline je
+  Gerät, Anmeldungs-Überwachung (sshd/journald, Windows-Sicherheitsprotokoll, macOS-Log), die
+  Brute-Force, Anmeldungen nach Brute-Force, neue Quell-IPs und Kontoänderungen zu
+  **Vorfällen** macht, CIS-artige **Compliance**-Prüfungen mit Score je Gerät und **Active
+  Response**: Quell-IP sperren (nftables/iptables inkl. Docker-Forward-Verkehr,
+  Windows-Firewall, pf) oder Konto sperren. **Automatische Sperre** ohne Richtlinien-Regel,
+  flottenweit und je /24-Netz, Mehrfach-Sperren im Tab Vorfälle, dazu **Log-Quellen** für
+  nginx-Zugriffs-/Fehlerprotokolle, SSH-/SFTP- und FTP-Container und eigene Muster (Dateien
+  oder Docker-Container-Ausgabe).
 - **Self-Healing** – automatische Behebung: Skript/Dienst-Neustart bei fehlerhaftem Check.
 - **Software-Verteilung** – Katalog verteilbarer Pakete (winget / choco / apt / dnf /
   brew); Ausrollen auf Gerät / Client / Standort / Tag.

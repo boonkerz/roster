@@ -8,6 +8,17 @@ import { SecuritySection } from "../components/SecuritySection";
 import type { Policy, PolicyCheck, PolicyTask, Script, ClientTree, Device, GeneralSettings, ProxmoxHost, ProxmoxGuest } from "../types";
 
 const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+// Bereiche des Richtlinien-Editors als Tabs (mit Anzahl der Einträge).
+type PTab = "checks" | "tasks" | "backups" | "notifications" | "security" | "assignments";
+const PTABS: { key: PTab; label: string }[] = [
+  { key: "checks", label: "Checks" },
+  { key: "tasks", label: "Tasks" },
+  { key: "backups", label: "Backups" },
+  { key: "notifications", label: "Benachrichtigungen" },
+  { key: "security", label: "Sicherheit" },
+  { key: "assignments", label: "Zuweisungen" },
+];
 function weekdayLabel(s: string): string {
   return s.split(",").map((x) => gt(WD[+x.trim()] ?? x)).join(",");
 }
@@ -104,6 +115,7 @@ export function Policies() {
           </div>
         </header>
         <PolicyEditor
+          key={policy.id}
           policy={policy}
           scripts={scripts ?? []}
           tree={tree}
@@ -163,6 +175,16 @@ function PolicyEditor({
     staleTime: 5 * 60 * 1000,
   });
   const tz = general?.timezone ?? "";
+  const [tab, setTab] = useState<PTab>("checks");
+  const sec = policy.security;
+  const counts: Record<PTab, number> = {
+    checks: (policy.checks ?? []).length,
+    tasks: (policy.tasks ?? []).length,
+    backups: (policy.backups ?? []).length,
+    notifications: 0,
+    security: (policy.fim_rules ?? []).length + (policy.responses ?? []).length + (policy.log_sources ?? []).length + (sec?.auth_monitor ? 1 : 0) + (sec?.compliance_enabled ? 1 : 0),
+    assignments: (policy.assignments ?? []).length,
+  };
 
   // Check anlegen
   const [cName, setCName] = useState("");
@@ -400,9 +422,16 @@ function PolicyEditor({
           <h2 style={{ margin: 0 }}>{policy.name}</h2>
           <button className="btn danger sm" onClick={() => confirm(t("Richtlinie löschen?")) && delPolicy.mutate()}>{t("Löschen")}</button>
         </div>
+        <div className="tabs" style={{ marginTop: 10, marginBottom: 0 }}>
+          {PTABS.map((tb) => (
+            <button key={tb.key} className={`tab ${tab === tb.key ? "tab-on" : ""}`} onClick={() => setTab(tb.key)}>
+              {t(tb.label)}{counts[tb.key] > 0 && <span className="tab-count">{counts[tb.key]}</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <section className="card">
+      {tab === "checks" && <section className="card">
         <h2>Checks</h2>
         {(policy.checks ?? []).map((c) => (
           <div key={c.id} className={`list-row ${editId === c.id ? "active" : ""}`}>
@@ -588,15 +617,15 @@ function PolicyEditor({
           <button className="btn primary" type="submit">{editId ? t("Speichern") : "+ " + t("Check")}</button>
           {editId && <button className="btn ghost" type="button" onClick={resetCheckForm}>{t("Abbrechen")}</button>}
         </form>
-      </section>
+      </section>}
 
-      <BackupSection policy={policy} scripts={scripts} devices={devices} />
+      {tab === "backups" && <BackupSection policy={policy} scripts={scripts} devices={devices} />}
 
-      <NotificationSection policy={policy} />
+      {tab === "notifications" && <NotificationSection policy={policy} />}
 
-      <SecuritySection policy={policy} />
+      {tab === "security" && <SecuritySection policy={policy} />}
 
-      <section className="card">
+      {tab === "tasks" && <section className="card">
         <h2>{t("Tasks (geplante Skripte)")}</h2>
         {(policy.tasks ?? []).map((t) => (
           <div key={t.id} className="list-row">
@@ -633,9 +662,9 @@ function PolicyEditor({
           </label>
           <button className="btn primary" type="submit">+ {t("Task")}</button>
         </form>
-      </section>
+      </section>}
 
-      <section className="card">
+      {tab === "assignments" && <section className="card">
         <h2>{t("Zuweisungen")}</h2>
         {(policy.assignments ?? []).map((a) => (
           <div key={a.id} className="list-row">
@@ -656,7 +685,7 @@ function PolicyEditor({
           </select>
           <button className="btn primary" type="submit">+ {t("Zuweisen")}</button>
         </form>
-      </section>
+      </section>}
     </>
   );
 }

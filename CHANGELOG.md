@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Policies: the policy editor is split into tabs – **Checks, Tasks, Backups, Notifications, Security, Assignments** – with the number of entries per tab, instead of one long page. README and landing page now describe fleet patch management and security monitoring incl. log sources and automatic blocking.
+
 ## [0.18.0] - 2026-11-01
 
 ### Added
