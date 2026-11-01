@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-01
+
 ### Added
 - Security: **automatic blocking without policy rules** – Settings → Security monitoring can block the source IP of every brute force, login after brute force and attack pattern on the reporting device (duration from one hour to permanent). Optional **fleet blocking** blocks the address on every device whose policy monitors logins or reads log sources, and **subnet blocking** blocks the whole IPv4 /24 once several suspicious IPs from the same network showed up within 24 hours.
 - Security: **log sources** per policy – the agent reads additional logs every minute: files (globs) or the output of Docker containers (name or pattern). Formats: nginx access log (401 → failed login; scanner paths, malformed requests → suspicious request), nginx error log, sshd output of SSH/SFTP containers (e.g. atmoz/sftp), FTP servers (vsftpd, proftpd, pure-ftpd) and custom regular expressions. Templates for nginx-proxy and SFTP containers.
@@ -180,7 +182,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
 [0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1

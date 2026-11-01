@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-01
+
 ### Neu
 - Sicherheit: **automatische Sperre ohne Richtlinien-Regel** – Einstellungen → Sicherheitsüberwachung kann die Quell-IP jedes Brute-Force-, Anmeldung-nach-Brute-Force- und Angriffsmuster-Vorfalls auf dem meldenden Gerät sperren (Dauer von einer Stunde bis dauerhaft). Optional sperrt die **Flotten-Sperre** die Adresse auf allen Geräten, deren Richtlinie Anmeldungen überwacht oder Log-Quellen liest, und die **Netzbereichs-Sperre** das ganze IPv4-/24, sobald binnen 24 Stunden mehrere auffällige IPs aus demselben Netz kamen.
 - Sicherheit: **Log-Quellen** je Richtlinie – der Agent liest jede Minute zusätzliche Protokolle: Dateien (Glob) oder die Ausgabe von Docker-Containern (Name oder Muster). Formate: nginx-Zugriffsprotokoll (401 → Fehlversuch; Scanner-Pfade, kaputte Anfragen → verdächtige Anfrage), nginx-Fehlerprotokoll, sshd-Ausgabe von SSH-/SFTP-Containern (z. B. atmoz/sftp), FTP-Server (vsftpd, proftpd, pure-ftpd) und eigene reguläre Ausdrücke. Vorlagen für nginx-proxy- und SFTP-Container.
@@ -180,7 +182,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.17.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/boonkerz/roster/compare/v0.17.3...v0.18.0
 [0.17.3]: https://github.com/boonkerz/roster/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/boonkerz/roster/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/boonkerz/roster/compare/v0.17.0...v0.17.1
