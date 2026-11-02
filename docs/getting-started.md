@@ -43,6 +43,13 @@ you set one via env). Open the UI, sign in, and you're on the dashboard.
 Agents **auto-update**: when you deploy a newer server, agents pull the new binary on their
 next check-in.
 
+!!! note "Supported platforms"
+    Linux (amd64/arm64, systemd), FreeBSD/OPNsense, macOS and Windows amd64. The Windows
+    agent also runs on older systems such as **Windows Server 2012/2012 R2 and Windows 7/8.1**:
+    the build lowers the minimum OS version in the EXE header, which the Go linker would
+    otherwise set to Windows 10 (older Windows then refuses the file as "not a valid Win32
+    application"). The install snippet works with PowerShell 3 and forces TLS 1.2.
+
 ## 4. Organize your fleet
 
 Roster uses a **Company → Site → Device** hierarchy (TacticalRMM-style):

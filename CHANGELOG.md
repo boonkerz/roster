@@ -6,6 +6,10 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Windows agent on **Server 2012/2012 R2, Windows 7/8.1**: the EXE was rejected as "not a valid Win32 application" because the Go linker stamps Windows 10 as the minimum OS version into the PE header. The build now lowers it to 6.1 (`tools/pepatch`, also for tray, viewer and the Windows server binary); the runtime itself only needs Windows 7 APIs. Verified under Wine reporting Windows 6.2.9200.
+- Windows install snippet: forces TLS 1.2 and uses `-UseBasicParsing`, so it works with PowerShell 3/4 on older servers (no Internet Explorer engine, TLS 1.0 default).
+
 ## [0.18.9] - 2026-11-02
 
 ### Added

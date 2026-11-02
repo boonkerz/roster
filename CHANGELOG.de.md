@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Windows-Agent auf **Server 2012/2012 R2, Windows 7/8.1**: Die EXE wurde als „keine gültige Win32-Anwendung“ abgelehnt, weil der Go-Linker Windows 10 als Mindestversion in den PE-Kopf schreibt. Der Build senkt den Wert jetzt auf 6.1 (`tools/pepatch`, auch für Tray, Viewer und das Windows-Server-Binary); die Laufzeit selbst braucht nur Windows-7-APIs. Unter Wine mit gemeldetem Windows 6.2.9200 geprüft.
+- Windows-Installationsbefehl: erzwingt TLS 1.2 und nutzt `-UseBasicParsing`, damit er mit PowerShell 3/4 auf älteren Servern funktioniert (keine Internet-Explorer-Engine, TLS 1.0 als Standard).
+
 ## [0.18.9] - 2026-11-02
 
 ### Neu

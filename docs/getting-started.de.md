@@ -46,6 +46,14 @@ aus (sofern du keines per Env setzt). Öffne die UI, melde dich an – und du bi
 Agents **aktualisieren sich selbst**: Wenn du einen neueren Server ausrollst, holen sich die
 Agents beim nächsten Checkin das neue Binary.
 
+!!! note "Unterstützte Plattformen"
+    Linux (amd64/arm64, systemd), FreeBSD/OPNsense, macOS und Windows amd64. Der
+    Windows-Agent läuft auch auf älteren Systemen wie **Windows Server 2012/2012 R2 und
+    Windows 7/8.1**: Der Build senkt die Mindest-Windows-Version im EXE-Kopf, die der
+    Go-Linker sonst auf Windows 10 setzt (ältere Windows lehnen die Datei dann als „keine
+    gültige Win32-Anwendung“ ab). Der Installationsbefehl kommt mit PowerShell 3 aus und
+    erzwingt TLS 1.2.
+
 ## 4. Flotte organisieren
 
 Roster nutzt eine Hierarchie **Firma → Standort → Gerät** (wie TacticalRMM):

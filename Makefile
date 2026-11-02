@@ -7,6 +7,9 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOFLAGS := CGO_ENABLED=0
 BIN := bin
 AGENT_EMBED := internal/server/agentdist/bin
+# Windows-EXEs nach dem Linken: Mindest-Windows-Version im PE-Kopf von 10.0 auf 6.1 senken,
+# damit sie auch auf Windows 7/8 und Server 2008 R2–2012 R2 starten (siehe tools/pepatch).
+PEPATCH := go run ./tools/pepatch
 
 .PHONY: help web server agent agents-embed viewer tray install-tray install-tray-autostart uninstall-tray build test vet tidy clean run-server cross
 
@@ -23,6 +26,7 @@ agents-embed: ## Agent-Binaries für alle Plattformen ins Server-Embed cross-kom
 	$(GOFLAGS) GOOS=darwin  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-darwin-amd64      ./cmd/agent
 	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-darwin-arm64      ./cmd/agent
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-windows-amd64.exe ./cmd/agent
+	$(PEPATCH) $(AGENT_EMBED)/agent-windows-amd64.exe
 	$(GOFLAGS) GOOS=freebsd GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-freebsd-amd64      ./cmd/agent
 
 server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Downloads)
@@ -40,6 +44,7 @@ tray: ## Taskleisten-App für die aktuelle Plattform bauen (SDL3, cgo-frei)
 tray-cross: ## Taskleisten-App für Linux/Windows/macOS bauen (SDL3 wird zur Laufzeit geladen)
 	$(GOFLAGS) GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-linux-amd64      ./cmd/tray
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-windows-amd64.exe ./cmd/tray
+	$(PEPATCH) $(BIN)/roster-tray-windows-amd64.exe
 	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray-darwin-arm64     ./cmd/tray
 
 # Benutzer-Installation der Taskleisten-App (kein root nötig) – dünne Hülle um
@@ -79,6 +84,7 @@ fetch-sdl3: ## SDL3-Windows-DLL (zum Bündeln) herunterladen und entpacken
 viewer-embed-windows: ## Windows-Viewer (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
 	mkdir -p internal/server/viewerdist/bin
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-viewer.exe ./cmd/viewer
+	$(PEPATCH) $(BIN)/roster-viewer.exe
 	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
 	cd $(BIN) && rm -f roster-viewer-windows-amd64.zip && zip -j roster-viewer-windows-amd64.zip roster-viewer.exe SDL3.dll
 	mv $(BIN)/roster-viewer-windows-amd64.zip internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip
@@ -106,6 +112,7 @@ tray-embed-arm64: ## Linux-ARM64-Taskleisten-App ins Server-Embed bauen (Raspber
 tray-embed-windows: ## Windows-Taskleisten-App (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
 	mkdir -p internal/server/traydist/bin
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray.exe ./cmd/tray
+	$(PEPATCH) $(BIN)/roster-tray.exe
 	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
 	cd $(BIN) && rm -f roster-tray-windows-amd64.zip && zip -j roster-tray-windows-amd64.zip roster-tray.exe SDL3.dll
 	mv $(BIN)/roster-tray-windows-amd64.zip internal/server/traydist/bin/roster-tray-windows-amd64.zip
@@ -142,10 +149,12 @@ run-server: ## Server lokal starten (SQLite, ohne TLS – nur Entwicklung)
 # Cross-Compile des Agents für alle Zielplattformen.
 cross: web ## Agent für Windows/Linux/macOS und Server für Linux/Windows bauen
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent-windows-amd64.exe ./cmd/agent
+	$(PEPATCH) $(BIN)/agent-windows-amd64.exe
 	$(GOFLAGS) GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent-linux-amd64       ./cmd/agent
 	$(GOFLAGS) GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/agent-darwin-arm64      ./cmd/agent
 	$(GOFLAGS) GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/server-linux-amd64      ./cmd/server
 	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/server-windows-amd64.exe ./cmd/server
+	$(PEPATCH) $(BIN)/server-windows-amd64.exe
 
 clean: ## Build-Artefakte entfernen
 	rm -rf $(BIN) web/dist/assets

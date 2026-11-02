@@ -17,7 +17,8 @@ $Token  = "${token}"
 
 $dir = "$env:ProgramFiles\\Roster"
 New-Item -ItemType Directory -Force $dir, "$env:ProgramData\\Roster" | Out-Null
-Invoke-WebRequest "$Server/api/v1/agents/windows-amd64" -OutFile "$dir\\agent.exe"
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072 } catch {}
+Invoke-WebRequest "$Server/api/v1/agents/windows-amd64" -OutFile "$dir\\agent.exe" -UseBasicParsing
 
 @"
 server_url: "$Server"
