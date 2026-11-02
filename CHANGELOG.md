@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.9] - 2026-11-02
+
 ### Added
 - Log sources: **SQL injection** in path or query counts as a suspicious request – `union select`, `' or 1=1`, `sleep(`, `benchmark(`, `waitfor delay`, `information_schema`, `load_file(`, `into outfile`, `extractvalue(`, `admin'--` and more; the URL-decoded form is checked too (`%27%20or%201%3d1`, `union/**/select`). POST bodies are not in access logs and stay invisible; that needs a WAF (ModSecurity denials are recognised in the web error log) or an application log as a custom-pattern log source.
 
@@ -238,7 +240,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.8...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.9...HEAD
+[0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9
 [0.18.8]: https://github.com/boonkerz/roster/compare/v0.18.7...v0.18.8
 [0.18.7]: https://github.com/boonkerz/roster/compare/v0.18.6...v0.18.7
 [0.18.6]: https://github.com/boonkerz/roster/compare/v0.18.5...v0.18.6
