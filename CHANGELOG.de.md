@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.11] - 2026-11-02
+
 ### Behoben
 - Active Response bremst die Agent-Checkins nicht mehr aus: Bei eingeschalteter Flottensperre wurde jede Brute-Force-Sperre auf ~65 Geräten einzeln je Transaktion eingereiht, mitten im Checkin, mit zwei Suchen ohne Index je Gerät. Bei mehreren tausend Vorfällen am Tag liefen die Checkins in den 30-s-Timeout (`context deadline exceeded` beim Speichern von Check-Ergebnissen, Richtlinie und Befehlen). Reaktionen laufen jetzt in einem seriellen Hintergrund-Worker, die Flottensperre ist eine einzige Transaktion, und `ip_blocks` bekommt einen Index auf die Adresse (Migration 0069).
 
@@ -252,7 +254,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.10...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.11...HEAD
+[0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
 [0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9
 [0.18.8]: https://github.com/boonkerz/roster/compare/v0.18.7...v0.18.8

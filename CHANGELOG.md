@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.11] - 2026-11-02
+
 ### Fixed
 - Active Response no longer stalls agent check-ins: with fleet blocking on, every brute-force incident queued the block on ~65 devices one transaction at a time, inside the check-in request, with two unindexed look-ups per device. At several thousand incidents a day check-ins ran into the 30 s timeout (`context deadline exceeded` while saving check results, policies and commands). Responses now run in a serial background worker, the fleet block is a single transaction, and `ip_blocks` gets an index on the address (migration 0069).
 
@@ -252,7 +254,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.10...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.11...HEAD
+[0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
 [0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9
 [0.18.8]: https://github.com/boonkerz/roster/compare/v0.18.7...v0.18.8
