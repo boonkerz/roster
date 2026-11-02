@@ -287,29 +287,72 @@ func (s *Server) blockOnDevice(ctx context.Context, deviceID, target string, min
 }
 
 // blockFleet sperrt target zusätzlich auf allen anderen überwachten Geräten (Anmeldungs-
-// Überwachung oder Log-Quelle aktiv); bereits gesperrte Adressen werden übersprungen.
-// Liefert die Zahl der neu eingereihten Sperren.
+// Überwachung oder Log-Quelle aktiv) – in einer Transaktion; bereits gesperrte Adressen
+// werden übersprungen. Liefert die Zahl der neu eingereihten Sperren.
 func (s *Server) blockFleet(ctx context.Context, originID, target string, minutes int, reason, incidentID, by string) int {
 	devices, err := s.store.MonitoredDeviceIDs(ctx)
 	if err != nil {
 		return 0
 	}
-	n := 0
+	ids := make([]string, 0, len(devices))
 	for _, d := range devices {
 		if d.ID == originID || platformOf(d.OS) == "" {
 			continue
 		}
-		if b, _ := s.store.ActiveIPBlock(ctx, d.ID, target); b != nil {
-			continue
-		}
-		if _, _, err := s.blockOnDevice(ctx, d.ID, target, minutes, reason, incidentID, by); err == nil {
-			n++
-		}
+		ids = append(ids, d.ID)
 	}
-	if n > 0 {
-		_ = s.store.InsertAudit(ctx, model.AuditEntry{TS: time.Now(), Username: by, Action: fmt.Sprintf("IP %s auf %d weiteren Geräten gesperrt (Flotte)", target, n), Method: "AUTO", Path: "/security/response", Status: 201})
+	var until *time.Time
+	if minutes > 0 {
+		t := time.Now().Add(time.Duration(minutes) * time.Minute)
+		until = &t
 	}
-	return n
+	label := fmt.Sprintf("IP %s sperren", target)
+	if by == "system" {
+		label = "Active Response: " + label
+	}
+	queued, err := s.store.BlockIPOnDevices(ctx, ids, target, minutes, until, reason, incidentID, by, label)
+	if err != nil {
+		s.log.Error("flottensperre", "ip", target, "err", err)
+		return 0
+	}
+	for _, id := range queued {
+		s.term.requestWake(id, shared.WaitResponse{Type: "checkin"})
+	}
+	if len(queued) > 0 {
+		_ = s.store.InsertAudit(ctx, model.AuditEntry{TS: time.Now(), Username: by, Action: fmt.Sprintf("IP %s auf %d weiteren Geräten gesperrt (Flotte)", target, len(queued)), Method: "AUTO", Path: "/security/response", Status: 201})
+	}
+	return len(queued)
+}
+
+// responseJob ist ein Auftrag für den Reaktions-Worker.
+type responseJob struct {
+	device    *model.Device
+	incidents []model.SecurityIncident
+}
+
+// queueResponses übergibt Vorfälle an den Hintergrund-Worker, damit Sperren (insbesondere
+// die Flottensperre auf vielen Geräten) den Checkin nicht aufhalten. Der Worker arbeitet
+// seriell – so laufen Reaktionen nie parallel gegen die Datenbank und die Prüfung „schon
+// gesperrt?“ bleibt verlässlich. Ist die Warteschlange voll, bleibt der Vorfall ohne
+// automatische Reaktion (er ist gespeichert und gemeldet).
+func (s *Server) queueResponses(device *model.Device, incidents []model.SecurityIncident) {
+	if len(incidents) == 0 {
+		return
+	}
+	select {
+	case s.responses <- responseJob{device: device, incidents: incidents}:
+	default:
+		s.log.Warn("reaktions-warteschlange voll, vorfälle ohne automatische reaktion", "device", device.Hostname, "n", len(incidents))
+	}
+}
+
+// responseWorker arbeitet die Reaktionsaufträge nacheinander ab.
+func (s *Server) responseWorker() {
+	for job := range s.responses {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		s.runResponses(ctx, job.device, job.incidents)
+		cancel()
+	}
 }
 
 // executeResponse reiht die Aktion ein, protokolliert sie und vermerkt sie am Vorfall.

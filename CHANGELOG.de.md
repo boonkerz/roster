@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Active Response bremst die Agent-Checkins nicht mehr aus: Bei eingeschalteter Flottensperre wurde jede Brute-Force-Sperre auf ~65 Geräten einzeln je Transaktion eingereiht, mitten im Checkin, mit zwei Suchen ohne Index je Gerät. Bei mehreren tausend Vorfällen am Tag liefen die Checkins in den 30-s-Timeout (`context deadline exceeded` beim Speichern von Check-Ergebnissen, Richtlinie und Befehlen). Reaktionen laufen jetzt in einem seriellen Hintergrund-Worker, die Flottensperre ist eine einzige Transaktion, und `ip_blocks` bekommt einen Index auf die Adresse (Migration 0069).
+
+### Geändert
+- Aufbewahrung der Massen-Tabellen der Sicherheitsüberwachung: rohe Anmelde-/Log-Ereignisse 30 Tage (vorher 90), beendete IP-Sperren 14 Tage (vorher 90). Vorfälle bleiben weiter ein Jahr. Mit Web-Scannern kommen über 100.000 rohe Ereignisse am Tag zusammen, und die Flottensperre legt je Adresse einen Sperreintrag pro Gerät an.
+
 ## [0.18.10] - 2026-11-02
 
 ### Behoben

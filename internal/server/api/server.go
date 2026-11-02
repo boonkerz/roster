@@ -31,6 +31,8 @@ type Server struct {
 	fileCaps *fileCapHub // Datei-Capabilities des nativen Viewers (Token→Gerät)
 	router   http.Handler
 
+	responses chan responseJob // Aufträge für den seriellen Reaktions-Worker (Sperren usw.)
+
 	tzMu   sync.RWMutex   // schützt den Zeitzonen-Cache (siehe timezone.go)
 	tzName string         // zuletzt gelesener IANA-Name aus app_settings
 	tzLoc  *time.Location // dazu aufgelöste Zone
@@ -38,8 +40,9 @@ type Server struct {
 
 // New erstellt den Server und registriert alle Routen.
 func New(st *store.Store, cfg config.Config, log *slog.Logger, webFS fs.FS, version string) *Server {
-	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(), fileCaps: newFileCapHub()}
+	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096)}
 	s.router = s.routes()
+	go s.responseWorker()
 	return s
 }
 

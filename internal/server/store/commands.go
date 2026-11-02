@@ -13,13 +13,23 @@ import (
 // CreateCommand legt einen Ad-hoc-Befehl für ein Gerät an (Status pending).
 // Das Label wird ins Payload eingebettet; result bleibt dem Ergebnis vorbehalten.
 func (s *Store) CreateCommand(ctx context.Context, deviceID, typ, label string, payload map[string]any) (string, error) {
+	return s.insertCommand(ctx, s.db, deviceID, typ, label, payload)
+}
+
+// cmdExecer ist *sql.DB oder *sql.Tx.
+type cmdExecer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// insertCommand legt einen offenen Befehl an (auch innerhalb einer Transaktion).
+func (s *Store) insertCommand(ctx context.Context, ex cmdExecer, deviceID, typ, label string, payload map[string]any) (string, error) {
 	id := newID()
 	if payload == nil {
 		payload = map[string]any{}
 	}
 	payload["label"] = label
 	data, _ := json.Marshal(payload)
-	_, err := s.db.ExecContext(ctx, s.rebind(`
+	_, err := ex.ExecContext(ctx, s.rebind(`
 		INSERT INTO commands (id, device_id, type, payload, status, created_at, result)
 		VALUES (?, ?, ?, ?, 'pending', ?, '')`),
 		id, deviceID, typ, string(data), time.Now().UTC())

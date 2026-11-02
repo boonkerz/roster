@@ -94,7 +94,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.AuthEvents) > 0 {
 		incidents := s.processAuthEvents(r.Context(), device, req.AuthEvents)
-		s.runResponses(r.Context(), device, incidents)
+		s.queueResponses(device, incidents)
 		s.alertIncidents(r.Context(), device, incidents)
 	}
 	if req.LogSources != nil {
@@ -111,7 +111,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		if err := s.store.InsertFIMEvents(r.Context(), device.ID, req.FIMEvents); err != nil {
 			s.log.Error("fim-ereignisse speichern", "err", err)
 		} else if inc := s.alertFIMEvents(r.Context(), device, req.FIMEvents); inc != nil {
-			s.runResponses(r.Context(), device, []model.SecurityIncident{*inc})
+			s.queueResponses(device, []model.SecurityIncident{*inc})
 			s.alertIncidents(r.Context(), device, []model.SecurityIncident{*inc})
 		}
 	}

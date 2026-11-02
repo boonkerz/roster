@@ -132,6 +132,59 @@ func (s *Store) InsertIPBlock(ctx context.Context, b *model.IPBlock) error {
 	return err
 }
 
+// BlockIPOnDevices reiht eine Sperre von target auf allen angegebenen Geräten in einer
+// einzigen Transaktion ein (Befehl + ip_blocks-Eintrag je Gerät). Geräte, auf denen target
+// bereits wirksam oder eingereiht ist, werden übersprungen. Liefert die IDs der Geräte, die
+// einen neuen Befehl bekommen haben (zum Wecken geparkter Polls).
+func (s *Store) BlockIPOnDevices(ctx context.Context, deviceIDs []string, target string, minutes int, until *time.Time, reason, incidentID, by, label string) ([]string, error) {
+	if len(deviceIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	rows, err := tx.QueryContext(ctx, s.rebind(`SELECT DISTINCT device_id FROM ip_blocks
+		WHERE ip=? AND status IN ('pending','active') AND (until_at IS NULL OR until_at > ?)`), target, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	blocked := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		blocked[id] = true
+	}
+	rows.Close()
+	var u any
+	if until != nil {
+		u = until.UTC()
+	}
+	now := time.Now().UTC()
+	var queued []string
+	for _, d := range deviceIDs {
+		if blocked[d] {
+			continue
+		}
+		cmdID, err := s.insertCommand(ctx, tx, d, "block_ip", label, map[string]any{"ip": target, "minutes": minutes})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tx.ExecContext(ctx, s.rebind(`
+			INSERT INTO ip_blocks (id, device_id, ip, reason, incident_id, until_at, status, detail, command_id, created_by, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, 'pending', '', ?, ?, ?)`),
+			NewID(), d, target, reason, incidentID, u, cmdID, by, now); err != nil {
+			return nil, err
+		}
+		queued = append(queued, d)
+	}
+	return queued, tx.Commit()
+}
+
 // RenewIPBlock setzt eine bestehende Sperre neu an (neue Dauer/Begründung, neuer Befehl,
 // Status pending) – statt eines Duplikats, wenn dieselbe IP erneut gesperrt wird.
 func (s *Store) RenewIPBlock(ctx context.Context, id string, until *time.Time, reason, commandID, by string) error {
