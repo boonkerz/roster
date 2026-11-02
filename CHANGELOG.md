@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Log sources: **SQL injection** in path or query counts as a suspicious request – `union select`, `' or 1=1`, `sleep(`, `benchmark(`, `waitfor delay`, `information_schema`, `load_file(`, `into outfile`, `extractvalue(`, `admin'--` and more; the URL-decoded form is checked too (`%27%20or%201%3d1`, `union/**/select`). POST bodies are not in access logs and stay invisible; that needs a WAF (ModSecurity denials are recognised in the web error log) or an application log as a custom-pattern log source.
+
 ### Changed
 - Housekeeping: finished IP blocks (released, expired, failed) are deleted after 90 days; the table grew without bound before (fleet blocking creates one row per device and incident).
 

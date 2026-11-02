@@ -8,6 +8,7 @@ package logmon
 import (
 	"encoding/json"
 	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -58,6 +59,12 @@ var (
 		"/phpinfo", "pm2.config", "next.config", "bitbucket-pipelines", "docker-compose.y", "/.docker", "/.vscode", "/.idea", "/backup.", "/dump.",
 		"/server-status", "/server-info", "/sdk/weblanguage", "/.well-known/security", "/owa/", "/ecp/", "/autodiscover/",
 		"/proc/self", "%2eenv", "%2e%2e", "/_debugbar", "/dockerfile", "private-key", "/_profiler", "/telescope", "/_ignition",
+		// SQL-Injektion in Pfad oder Query (wird zusätzlich gegen die URL-dekodierte Form geprüft, in
+		// der + und %20 Leerzeichen und /**/ ein Leerzeichen sind)
+		"union select", "union all select", "union distinct select", "information_schema", "sleep(", "benchmark(", "pg_sleep(", "waitfor delay",
+		"' or 1=1", "\" or 1=1", "' or '1'='1", "' or \"", "or 1=1--", "or 1=1#", "' and 1=1", "' and sleep", "'--", "')--", "' --", "\"--",
+		"load_file(", "into outfile", "into dumpfile", "xp_cmdshell", "@@version", "version()", "/*!", "extractvalue(", "updatexml(",
+		"group_concat(", "concat_ws(", "convert(int,", "having 1=1", "order by 1--", "' order by", "admin'--", "admin' #",
 		"/owa/", "/autodiscover/", "/ecp/", "/telescope", "/_profiler", "/debug/default", "/server-status", "/.vscode", "/.idea",
 		"/etc/passwd", "../", "..%2f", "%2e%2e", "union select", "union+select", "union%20select", "<script", "%3cscript", "base64_decode",
 		"/config.php", "/configuration.php", "/backup", "/dump.sql", "/db.sql", "/.bak", "/web.config", "/phpinfo", "/info.php", "/test.php",
@@ -143,6 +150,15 @@ func suspiciousPath(path string, status int) bool {
 			return true
 		}
 	}
+	// Dekodierte Form (Prozent-Kodierung, + → Leerzeichen, SQL-Kommentar /**/ → Leerzeichen),
+	// damit %27%20or%201%3d1 oder union/**/select nicht an der Kodierung vorbeikommen.
+	if d := decodedPath(p); d != p {
+		for _, m := range probeMarks {
+			if strings.Contains(d, m) {
+				return true
+			}
+		}
+	}
 	// 404 (klassisch) und 503 (Reverse-Proxy ohne passenden Backend-Host, z. B. nginx-proxy)
 	// auf typische Datei-Endungen: Konfigurations-/Backup-/Skript-Dateien, die niemand verlinkt.
 	if status >= 400 {
@@ -170,6 +186,18 @@ func suspiciousPath(path string, status int) bool {
 		}
 	}
 	return false
+}
+
+// decodedPath liefert die URL-dekodierte, normalisierte Kleinschreibung eines Pfads.
+func decodedPath(p string) string {
+	d, err := url.QueryUnescape(p)
+	if err != nil {
+		d = p
+	}
+	d = strings.ToLower(d)
+	d = strings.ReplaceAll(d, "/**/", " ")
+	d = strings.Join(strings.Fields(d), " ")
+	return d
 }
 
 // hostIsLiteral erkennt Anfragen an die nackte IP bzw. den Default-Server („_“) eines

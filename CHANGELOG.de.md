@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Log-Quellen: **SQL-Injektion** in Pfad oder Query zählt als verdächtige Anfrage – `union select`, `' or 1=1`, `sleep(`, `benchmark(`, `waitfor delay`, `information_schema`, `load_file(`, `into outfile`, `extractvalue(`, `admin'--` u. a.; geprüft wird zusätzlich die URL-dekodierte Form (`%27%20or%201%3d1`, `union/**/select`). POST-Bodies stehen nicht im Zugriffsprotokoll und bleiben unsichtbar; dafür braucht es eine WAF (ModSecurity-Meldungen werden im Web-Fehlerprotokoll erkannt) oder ein eigenes Anwendungsprotokoll als Log-Quelle „eigenes Muster“.
+
 ### Geändert
 - Aufräumen: beendete IP-Sperren (aufgehoben, abgelaufen, fehlgeschlagen) werden nach 90 Tagen gelöscht; bisher wuchs die Tabelle unbegrenzt (Flotten-Sperre erzeugt je Vorfall einen Eintrag pro Gerät).
 
