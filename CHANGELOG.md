@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.10] - 2026-11-02
+
 ### Fixed
 - Windows agent on **Server 2012/2012 R2, Windows 7/8.1**: the EXE was rejected as "not a valid Win32 application" because the Go linker stamps Windows 10 as the minimum OS version into the PE header. The build now lowers it to 6.1 (`tools/pepatch`, also for tray, viewer and the Windows server binary); the runtime itself only needs Windows 7 APIs. Verified under Wine reporting Windows 6.2.9200.
 - Windows install snippet: forces TLS 1.2 and uses `-UseBasicParsing`, so it works with PowerShell 3/4 on older servers (no Internet Explorer engine, TLS 1.0 default).
@@ -244,7 +246,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.9...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.10...HEAD
+[0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
 [0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9
 [0.18.8]: https://github.com/boonkerz/roster/compare/v0.18.7...v0.18.8
 [0.18.7]: https://github.com/boonkerz/roster/compare/v0.18.6...v0.18.7
