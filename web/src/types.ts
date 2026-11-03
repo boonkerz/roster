@@ -387,6 +387,9 @@ export interface PolicySecurity {
   compliance_profile: "server" | "workstation";
   compliance_disabled: string[];
   compliance_interval_h: number;
+  fim_whodata: boolean;   // Verursacher ermitteln (auditd / SACL+4663)
+  state_monitor: boolean; // Systemzustand überwachen
+  rootcheck: boolean;     // Rootkit-/Malware-Prüfung
 }
 
 export interface PolicyFIMRule {
@@ -506,6 +509,9 @@ export interface SecurityMonitoring {
   fim_rules: number;
   compliance: boolean;
   log_sources: DeviceLogSource[];
+  fim_whodata: boolean;
+  state_monitor: boolean;
+  rootcheck: boolean;
 }
 
 export interface SecuritySettings {
@@ -582,6 +588,8 @@ export interface FIMEvent {
   size: number;
   alert: boolean;
   acknowledged: boolean;
+  user?: string;    // Who-Data: Benutzer der Änderung
+  process?: string; // Who-Data: Prozess der Änderung
 }
 
 // Bereich „Benachrichtigungen“ einer Richtlinie.

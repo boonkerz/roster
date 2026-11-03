@@ -1199,6 +1199,7 @@ func defaultConfigPath() string {
 func (p *program) fimLoop(ctx context.Context) {
 	baselinePath := filepath.Join(p.stateDir, "fim-baseline.json")
 	var last time.Time
+	whoWarned := false
 	run := func(force bool) {
 		p.mu.Lock()
 		var spec *shared.FIMSpec
@@ -1223,7 +1224,18 @@ func (p *program) fimLoop(ctx context.Context) {
 			prev = &fim.Baseline{}
 		}
 		sctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+		if spec.WhoData {
+			if err := fim.EnsureAuditRules(sctx, spec.Rules); err != nil && !whoWarned {
+				p.log.Warn("fim: who-data nicht verfügbar", "err", err)
+				whoWarned = true
+			}
+		}
 		next, events, st := fim.Scan(sctx, spec.Rules, prev, time.Now().UTC())
+		if spec.WhoData && len(events) > 0 {
+			if n := fim.ApplyWho(events, fim.CollectWho(sctx, p.stateDir)); n > 0 {
+				p.log.Info("fim: verursacher ermittelt", "ereignisse", n)
+			}
+		}
 		cancel()
 		last = time.Now()
 		if err := fim.Save(baselinePath, next); err != nil {

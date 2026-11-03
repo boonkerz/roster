@@ -100,6 +100,9 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
   const catalog = useComplianceRules();
   const [interval, setInterval_] = useState(60);
   const [auth, setAuth] = useState(false);
+  const [whoData, setWhoData] = useState(false);
+  const [stateMon, setStateMon] = useState(false);
+  const [rootcheck, setRootcheck] = useState(false);
   const [compOn, setCompOn] = useState(false);
   const [compProfile, setCompProfile] = useState<"server" | "workstation">("server");
   const [compInterval, setCompInterval] = useState(24);
@@ -146,16 +149,19 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
   useEffect(() => {
     setInterval_(sec?.fim_interval_min ?? 60);
     setAuth(sec?.auth_monitor ?? false);
+    setWhoData(sec?.fim_whodata ?? false);
+    setStateMon(sec?.state_monitor ?? false);
+    setRootcheck(sec?.rootcheck ?? false);
     setCompOn(sec?.compliance_enabled ?? false);
     setCompProfile(sec?.compliance_profile ?? "server");
     setCompInterval(sec?.compliance_interval_h ?? 24);
     setCompDisabled(sec?.compliance_disabled ?? []);
     setErr("");
-  }, [policy.id, sec?.fim_interval_min, sec?.auth_monitor, sec?.compliance_enabled, sec?.compliance_profile, sec?.compliance_interval_h, sec?.compliance_disabled]);
+  }, [policy.id, sec?.fim_interval_min, sec?.auth_monitor, sec?.fim_whodata, sec?.state_monitor, sec?.rootcheck, sec?.compliance_enabled, sec?.compliance_profile, sec?.compliance_interval_h, sec?.compliance_disabled]);
 
   const saveSec = useMutation({
     mutationFn: (patch: Partial<PolicySecurity>) => api.put(`/policies/${policy.id}/security`, {
-      ...(sec ?? {}), fim_interval_min: interval, auth_monitor: auth,
+      ...(sec ?? {}), fim_interval_min: interval, auth_monitor: auth, fim_whodata: whoData, state_monitor: stateMon, rootcheck,
       compliance_enabled: compOn, compliance_profile: compProfile, compliance_interval_h: compInterval, compliance_disabled: compDisabled, ...patch,
     }),
     onSuccess: () => { setErr(""); invalidate(); },
@@ -183,6 +189,7 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
   });
 
   const dirtySec = interval !== (sec?.fim_interval_min ?? 60) || auth !== (sec?.auth_monitor ?? false)
+    || whoData !== (sec?.fim_whodata ?? false) || stateMon !== (sec?.state_monitor ?? false) || rootcheck !== (sec?.rootcheck ?? false)
     || compOn !== (sec?.compliance_enabled ?? false) || compProfile !== (sec?.compliance_profile ?? "server")
     || compInterval !== (sec?.compliance_interval_h ?? 24) || compDisabled.join(",") !== (sec?.compliance_disabled ?? []).join(",");
   const toggleRule = (id: string) => setCompDisabled((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
@@ -254,6 +261,11 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
       <label className="chip" style={{ display: "inline-flex", whiteSpace: "nowrap" }}>
         <input type="checkbox" checked={auth} onChange={(e) => setAuth(e.target.checked)} /> {t("Anmeldungen überwachen (SSH/RDP/Konsole, sudo, Kontoänderungen)")}
       </label>
+      <div className="inline-form" style={{ marginTop: 6 }}>
+        <label className="chip" title={t("Datei-Integrität: Benutzer und Prozess der Änderung ermitteln. Linux: auditd-Watch-Regeln (Paket auditd nötig). Windows: der Agent setzt Erfolgs-SACLs auf die überwachten Pfade und liest Ereignis 4663/4660.")}><input type="checkbox" checked={whoData} onChange={(e) => setWhoData(e.target.checked)} /> {t("Verursacher von Dateiänderungen ermitteln (auditd / SACL)")}</label>
+        <label className="chip" title={t("Stündlicher Abgleich: lauschende Ports, Kernelmodule, Cron-Einträge, UID-0-/Administratorkonten, Autostart-Dienste und geplante Aufgaben. Änderungen werden als Vorfall „Systemänderung“ gemeldet.")}><input type="checkbox" checked={stateMon} onChange={(e) => setStateMon(e.target.checked)} /> {t("Systemzustand überwachen (Ports, Module, Cron, Admins, Autostart)")}</label>
+        <label className="chip" title={t("Täglich: versteckte Prozesse, ld.so.preload, versteckte Kernelmodule, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade. Geänderte Dateien der Integritätsprüfung werden per ClamAV (Linux) bzw. Defender (Windows) geprüft, falls vorhanden.")}><input type="checkbox" checked={rootcheck} onChange={(e) => setRootcheck(e.target.checked)} /> {t("Rootkit-/Malware-Prüfung (täglich; FIM-geänderte Dateien scannen)")}</label>
+      </div>
       <p className="muted small">{t("Linux liest journald bzw. /var/log/auth.log, Windows das Sicherheitsprotokoll (Anmeldeüberwachung muss aktiv sein). Schwellwerte für Brute-Force stehen in den Einstellungen.")}</p>
 
       <h3 className="muted small" style={{ marginTop: 18 }}>{t("Log-Quellen (Webserver, SSH/SFTP, FTP, Mail, eigene Muster)")} <span className="tab-count">{logSources.length}</span></h3>

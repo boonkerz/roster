@@ -25,10 +25,10 @@ func (s *Store) InsertFIMEvents(ctx context.Context, deviceID string, events []s
 			ts = time.Now()
 		}
 		if _, err := tx.ExecContext(ctx, s.rebind(`
-			INSERT INTO fim_events (id, device_id, ts, rule_id, path, change, old_hash, new_hash, old_mode, new_mode, old_owner, new_owner, size, alert, acknowledged)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			INSERT INTO fim_events (id, device_id, ts, rule_id, path, change, old_hash, new_hash, old_mode, new_mode, old_owner, new_owner, size, alert, acknowledged, who_user, who_process)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 			NewID(), deviceID, ts.UTC(), e.RuleID, e.Path, e.Change, e.OldHash, e.NewHash, e.OldMode, e.NewMode, e.OldOwner, e.NewOwner, e.Size, e.Alert,
-			e.Change == "baseline" || e.Change == "limit"); err != nil {
+			e.Change == "baseline" || e.Change == "limit", truncate(e.User, 120), truncate(e.Process, 200)); err != nil {
 			return err
 		}
 	}
@@ -49,7 +49,7 @@ type FIMFilter struct {
 }
 
 const fimCols = `f.id, f.device_id, d.hostname, COALESCE(c.name,''), f.ts, f.rule_id, f.path, f.change,
-	f.old_hash, f.new_hash, f.old_mode, f.new_mode, f.old_owner, f.new_owner, f.size, f.alert, f.acknowledged`
+	f.old_hash, f.new_hash, f.old_mode, f.new_mode, f.old_owner, f.new_owner, f.size, f.alert, f.acknowledged, f.who_user, f.who_process`
 
 // FIMEvents liefert Datei-Änderungen (neueste zuerst).
 func (s *Store) FIMEvents(ctx context.Context, f FIMFilter) ([]model.FIMEvent, error) {
@@ -103,7 +103,7 @@ func (s *Store) FIMEvents(ctx context.Context, f FIMFilter) ([]model.FIMEvent, e
 	for rows.Next() {
 		var e model.FIMEvent
 		if err := rows.Scan(&e.ID, &e.DeviceID, &e.Hostname, &e.ClientName, &e.TS, &e.RuleID, &e.Path, &e.Change,
-			&e.OldHash, &e.NewHash, &e.OldMode, &e.NewMode, &e.OldOwner, &e.NewOwner, &e.Size, &e.Alert, &e.Acknowledged); err != nil {
+			&e.OldHash, &e.NewHash, &e.OldMode, &e.NewMode, &e.OldOwner, &e.NewOwner, &e.Size, &e.Alert, &e.Acknowledged, &e.User, &e.Process); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

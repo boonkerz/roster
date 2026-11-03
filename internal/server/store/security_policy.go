@@ -24,9 +24,9 @@ func (s *Store) securityOf(ctx context.Context, policyID string) (model.PolicySe
 	sec := defaultPolicySecurity()
 	var disabled string
 	err := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT fim_interval_min, auth_monitor, compliance_enabled, compliance_profile, compliance_disabled, compliance_interval_h
+		SELECT fim_interval_min, auth_monitor, compliance_enabled, compliance_profile, compliance_disabled, compliance_interval_h, fim_whodata, state_monitor, rootcheck
 		FROM policy_security WHERE policy_id=?`), policyID).Scan(&sec.FIMIntervalMin, &sec.AuthMonitor, &sec.ComplianceEnabled,
-		&sec.ComplianceProfile, &disabled, &sec.ComplianceIntervalH)
+		&sec.ComplianceProfile, &disabled, &sec.ComplianceIntervalH, &sec.FIMWhoData, &sec.StateMonitor, &sec.Rootcheck)
 	if errors.Is(err, sql.ErrNoRows) {
 		return sec, nil
 	}
@@ -45,8 +45,8 @@ func (s *Store) SetPolicySecurity(ctx context.Context, policyID string, sec mode
 	disabled := kindsJoin(sec.ComplianceDisabled)
 	res, err := s.db.ExecContext(ctx, s.rebind(`
 		UPDATE policy_security SET fim_interval_min=?, auth_monitor=?, compliance_enabled=?, compliance_profile=?,
-			compliance_disabled=?, compliance_interval_h=? WHERE policy_id=?`),
-		sec.FIMIntervalMin, sec.AuthMonitor, sec.ComplianceEnabled, sec.ComplianceProfile, disabled, sec.ComplianceIntervalH, policyID)
+			compliance_disabled=?, compliance_interval_h=?, fim_whodata=?, state_monitor=?, rootcheck=? WHERE policy_id=?`),
+		sec.FIMIntervalMin, sec.AuthMonitor, sec.ComplianceEnabled, sec.ComplianceProfile, disabled, sec.ComplianceIntervalH, sec.FIMWhoData, sec.StateMonitor, sec.Rootcheck, policyID)
 	if err != nil {
 		return err
 	}
@@ -57,9 +57,9 @@ func (s *Store) SetPolicySecurity(ctx context.Context, policyID string, sec mode
 			return ErrNotFound
 		}
 		_, err = s.db.ExecContext(ctx, s.rebind(`
-			INSERT INTO policy_security (policy_id, fim_interval_min, auth_monitor, compliance_enabled, compliance_profile, compliance_disabled, compliance_interval_h)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`),
-			policyID, sec.FIMIntervalMin, sec.AuthMonitor, sec.ComplianceEnabled, sec.ComplianceProfile, disabled, sec.ComplianceIntervalH)
+			INSERT INTO policy_security (policy_id, fim_interval_min, auth_monitor, compliance_enabled, compliance_profile, compliance_disabled, compliance_interval_h, fim_whodata, state_monitor, rootcheck)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			policyID, sec.FIMIntervalMin, sec.AuthMonitor, sec.ComplianceEnabled, sec.ComplianceProfile, disabled, sec.ComplianceIntervalH, sec.FIMWhoData, sec.StateMonitor, sec.Rootcheck)
 	}
 	return err
 }
@@ -143,19 +143,20 @@ func (s *Store) effectiveSecurity(ctx context.Context, policyIDs []string) (*sha
 	in, args := placeholders(policyIDs)
 	spec := &shared.SecuritySpec{}
 	fimInterval, compInterval := 0, 0
+	whoData := false
 	var compDisabled map[string]int
 	compCount := 0
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT ps.fim_interval_min, ps.auth_monitor, ps.compliance_enabled, ps.compliance_profile, ps.compliance_disabled, ps.compliance_interval_h
+		SELECT ps.fim_interval_min, ps.auth_monitor, ps.compliance_enabled, ps.compliance_profile, ps.compliance_disabled, ps.compliance_interval_h, ps.fim_whodata, ps.state_monitor, ps.rootcheck
 		FROM policy_security ps JOIN policies p ON p.id = ps.policy_id WHERE ps.policy_id IN (`+in+`) ORDER BY p.name`), args...)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var fi, ci int
-		var auth, comp bool
+		var auth, comp, who, state, root bool
 		var profile, disabled string
-		if err := rows.Scan(&fi, &auth, &comp, &profile, &disabled, &ci); err != nil {
+		if err := rows.Scan(&fi, &auth, &comp, &profile, &disabled, &ci, &who, &state, &root); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -163,6 +164,9 @@ func (s *Store) effectiveSecurity(ctx context.Context, policyIDs []string) (*sha
 			fimInterval = fi
 		}
 		spec.AuthMonitor = spec.AuthMonitor || auth
+		spec.StateMonitor = spec.StateMonitor || state
+		spec.Rootcheck = spec.Rootcheck || root
+		whoData = whoData || who
 		if comp {
 			compCount++
 			if spec.Compliance == nil {
@@ -219,7 +223,7 @@ func (s *Store) effectiveSecurity(ctx context.Context, policyIDs []string) (*sha
 		if fimInterval == 0 {
 			fimInterval = 60
 		}
-		spec.FIM = &shared.FIMSpec{IntervalMin: fimInterval, Rules: rules}
+		spec.FIM = &shared.FIMSpec{IntervalMin: fimInterval, Rules: rules, WhoData: whoData}
 	}
 	rr.Close()
 	if spec.LogSources, err = s.effectiveLogSources(ctx, policyIDs); err != nil {

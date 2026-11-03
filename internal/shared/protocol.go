@@ -97,6 +97,9 @@ type FIMEvent struct {
 	NewOwner string    `json:"new_owner,omitempty"`
 	Size     int64     `json:"size,omitempty"`
 	Alert    bool      `json:"alert"` // Regel will Alarm
+	// Who-Data: Benutzer und Prozess der Änderung (leer, wenn nicht ermittelbar).
+	User    string `json:"user,omitempty"`
+	Process string `json:"process,omitempty"`
 }
 
 // PatchEvent ist ein Eintrag des Patch-Verlaufs (installiert/aktualisiert/entfernt),
@@ -167,6 +170,10 @@ type SecuritySpec struct {
 	// LogSources sind zusätzliche Protokolle (Dateien, Docker-Container), aus denen der
 	// Agent Anmelde- und Angriffsereignisse liest (nginx, SFTP-/FTP-Container …).
 	LogSources []LogSource `json:"log_sources,omitempty"`
+	// StateMonitor: Systemzustand überwachen (Ports, Kernelmodule, Cron/Aufgaben, UID-0-/Admin-Konten, Autostarts).
+	StateMonitor bool `json:"state_monitor,omitempty"`
+	// Rootcheck: tägliche Rootkit-Prüfung und Malware-Scan FIM-geänderter Dateien.
+	Rootcheck bool `json:"rootcheck,omitempty"`
 }
 
 // LogSource ist ein zusätzliches Protokoll für die Angriffserkennung.
@@ -182,6 +189,8 @@ type LogSource struct {
 
 // FIMSpec konfiguriert die Datei-Integritätsüberwachung.
 type FIMSpec struct {
+	// WhoData: Verursacher ermitteln (Linux auditd-Watch-Regeln, Windows SACL + Ereignis 4663).
+	WhoData     bool      `json:"who_data,omitempty"`
 	IntervalMin int       `json:"interval_min"` // Scan-Abstand in Minuten (Standard 60)
 	Rules       []FIMRule `json:"rules"`
 }

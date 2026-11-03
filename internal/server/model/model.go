@@ -485,6 +485,9 @@ type PolicySecurity struct {
 	ComplianceProfile   string   `json:"compliance_profile"` // server | workstation
 	ComplianceDisabled  []string `json:"compliance_disabled"`
 	ComplianceIntervalH int      `json:"compliance_interval_h"`
+	FIMWhoData          bool     `json:"fim_whodata"`   // Verursacher ermitteln (auditd / SACL+4663)
+	StateMonitor        bool     `json:"state_monitor"` // Systemzustand überwachen
+	Rootcheck           bool     `json:"rootcheck"`     // Rootkit-/Malware-Prüfung
 }
 
 // PolicyFIMRule ist ein überwachter Pfad der Datei-Integritätsüberwachung.
@@ -539,6 +542,9 @@ type SecurityMonitoring struct {
 	FIMRules         int               `json:"fim_rules"`
 	Compliance       bool              `json:"compliance"`
 	LogSources       []DeviceLogSource `json:"log_sources"`
+	FIMWhoData       bool              `json:"fim_whodata"`
+	StateMonitor     bool              `json:"state_monitor"`
+	Rootcheck        bool              `json:"rootcheck"`
 }
 
 // PolicyResponse ist eine Active-Response-Regel einer Richtlinie (Auslöser → Aktion).
@@ -690,6 +696,8 @@ type FIMEvent struct {
 	NewOwner     string    `json:"new_owner,omitempty"`
 	Size         int64     `json:"size"`
 	Alert        bool      `json:"alert"`
+	User         string    `json:"user,omitempty"`    // Who-Data: Benutzer der Änderung
+	Process      string    `json:"process,omitempty"` // Who-Data: Prozess der Änderung
 	Acknowledged bool      `json:"acknowledged"`
 }
 

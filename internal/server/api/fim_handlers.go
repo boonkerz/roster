@@ -238,6 +238,12 @@ func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, event
 		case "attrs":
 			detail = " (" + e.OldMode + " " + e.OldOwner + " → " + e.NewMode + " " + e.NewOwner + ")"
 		}
+		if e.User != "" {
+			detail += " · von " + e.User
+			if e.Process != "" {
+				detail += " (" + e.Process + ")"
+			}
+		}
 		lines = append(lines, fmt.Sprintf("  • [%s] %s%s", label[e.Change], e.Path, detail))
 	}
 	if len(lines) == 0 {

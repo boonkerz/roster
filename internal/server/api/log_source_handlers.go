@@ -157,6 +157,8 @@ func (s *Server) handleDeviceSecurityMonitoring(w http.ResponseWriter, r *http.R
 			out.FIMRules = len(sec.FIM.Rules)
 		}
 		out.Compliance = sec.Compliance != nil && sec.Compliance.Enabled
+		out.FIMWhoData = sec.FIM != nil && sec.FIM.WhoData
+		out.StateMonitor, out.Rootcheck = sec.StateMonitor, sec.Rootcheck
 		status, err := s.store.LogSourceStatusFor(ctx, deviceID)
 		if err != nil {
 			s.mapStoreErr(w, err)
