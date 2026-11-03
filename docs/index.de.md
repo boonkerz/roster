@@ -140,9 +140,27 @@ nginx-, SFTP- und FTP-Containern (mit Test-Knopf und Lesestatus je Gerät), sper
 flottenweit oder je Netz ohne Klick, und die Sperre gilt auch für Docker-Container.
 Quell-IPs zeigen ihr Land aus einer eingebetteten Datenbank: Flaggen, Länderfilter bei den
 Vorfällen und Dashboard-Diagramme gesperrter IPs und Angriffsquellen je Land.
- Bedrohungsdaten-Feeds, Windows-Persistenz- und Prozessereignisse, Registry-Überwachung, Who-Data, Systemzustand- und Rootkit-Prüfung, Portscan-Erkennung und 106 Compliance-Regeln mit MITRE-ATT&CK-Tags runden es ab.
 
 [Sicherheitsüberwachung](features/security-monitoring.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature rs-reverse" markdown>
+<div class="rs-feature-shot" markdown>
+![Bedrohungsdaten-Feeds](screenshots/security-threat.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Bedrohungsdaten & tiefe Host-Überwachung
+Fünf öffentliche Blocklisten (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army,
+Tor-Exit-Nodes) werden täglich geladen: gelistete Angreifer sind überall markiert und werden
+beim ersten Ereignis flottenweit gesperrt. Windows meldet Dienstinstallationen, geplante
+Aufgaben, gelöschte Sicherheitsprotokolle, verdächtige Prozesse und PowerShell-Skriptblöcke;
+Registry, Verursacher von Dateiänderungen (auditd/SACL), Systemzustand (Ports, Module, Cron,
+Admin-Konten, Autostarts) und Rootkit-Spuren werden ebenso überwacht, geänderte Dateien per
+ClamAV oder Defender geprüft. HAProxy, Traefik, MySQL, Firewall-Drops, Journal und
+Docker-Ereignisse speisen Portscan- und Container-Exec-Erkennung. 106 CIS-artige
+Compliance-Regeln tragen Framework-Referenzen, jeder Vorfall seine MITRE-ATT&CK-Techniken.
+[Sicherheitsüberwachung](features/security-monitoring.md#bedrohungsdaten){ .rs-more }
 </div>
 </section>
 

@@ -139,9 +139,26 @@ logs as well (with a test button and a read status per device), block attackers
 fleet-wide or by subnet without clicking, and the block holds for Docker containers too.
 Source IPs show their country from an embedded database: flags, a country filter on
 incidents and dashboard charts of blocked IPs and attack sources by country.
- Threat-intelligence feeds, Windows persistence and process events, registry monitoring, who-data, system-state and rootkit checks, port-scan detection and 106 compliance rules with MITRE ATT&CK tags round it off.
-
 [Security monitoring](features/security-monitoring.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature rs-reverse" markdown>
+<div class="rs-feature-shot" markdown>
+![Threat intelligence feeds](screenshots/security-threat.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Threat intelligence & deep host monitoring
+Five public block lists (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor exit
+nodes) are fetched daily: listed attackers are flagged everywhere and blocked fleet-wide on
+their first event. Windows reports service installs, scheduled tasks, cleared audit logs,
+suspicious processes and PowerShell script blocks; the registry, who changed a file
+(auditd/SACL), the system state (ports, modules, cron, admin accounts, autostarts) and
+rootkit indicators are monitored too, with ClamAV or Defender scanning changed files.
+HAProxy, Traefik, MySQL, firewall drops, the journal and Docker events feed port-scan and
+container-exec detection. 106 CIS-style compliance rules carry framework references, and
+every incident shows its MITRE ATT&CK techniques.
+[Security monitoring](features/security-monitoring.md#threat-intelligence){ .rs-more }
 </div>
 </section>
 

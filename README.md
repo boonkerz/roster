@@ -81,7 +81,7 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 - **Patch management** – fleet-wide Patches page with security updates first, approve and
   install in bulk (apt `upgrade` vs `dist-upgrade` selectable), patch history per device and
   fleet, package versions and repositories across the fleet, OS lifecycle (EOL) warnings.
-- **Security monitoring** (Wazuh-style) – 0.19 adds threat-intelligence feeds with instant fleet-wide blocking, Windows persistence/process/PowerShell events, registry FIM, who-data (auditd/SACL), system-state and rootkit/malware checks, HAProxy/Traefik/MySQL/firewall/journal/Docker-event log sources with port-scan detection, 106 CIS-style compliance rules with framework references, MITRE ATT&CK tags – file integrity monitoring with a baseline per
+- **Security monitoring** (Wazuh-style) – file integrity monitoring with a baseline per
   device, login monitoring (sshd/journald, Windows Security log, macOS log) that turns brute
   force, logins after brute force, new source IPs and account changes into **incidents**,
   CIS-style **compliance** checks with a score per device, and **active response**: block
@@ -93,6 +93,27 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   embedded IP-to-country database (no external service): flags everywhere, country filter on
   incidents, country tiles and dashboard charts. Private addresses are never blocked
   automatically; blocks are searchable and can be released fleet-wide with one click.
+- **Threat intelligence & deep host monitoring** (0.19) –
+  - **Threat feeds**: Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army and Tor exit
+    nodes are fetched daily and cached; listed source IPs are flagged everywhere and raise
+    the incident *Known attack source* on their first event with an instant fleet-wide block.
+  - **Windows events beyond logons**: service installed (7045), scheduled task (4698),
+    audit log cleared (1102), suspicious process (4688) and PowerShell script block (4104)
+    with pattern matching → incidents *Persistence*, *Audit log cleared*, *Suspicious process*.
+  - **Registry monitoring**: `HKLM\…`, `HKU\*\…` paths in file-integrity rules, 18
+    persistence locations as defaults; **who-data**: user and process of a file change via
+    auditd (Linux) or SACL + event 4663 (Windows).
+  - **System-state monitoring**: listening ports, kernel modules, cron, UID-0/admin accounts,
+    autostart services and scheduled tasks compared hourly → incident *System change*.
+  - **Rootkit & malware check**: hidden processes/modules, `ld.so.preload`, executables in
+    temp directories, known rootkit paths; files changed per FIM are scanned with ClamAV or
+    Defender when present.
+  - **More log sources**: HAProxy, Traefik, MySQL/MariaDB, firewall drops (kernel log or
+    `pfirewall.log`), systemd journal, Docker events → incidents *Port scan* and
+    *Command in container*.
+  - **106 compliance rules** towards CIS Level 1 with framework references (CIS, PCI DSS,
+    ISO 27001) and a framework filter; **MITRE ATT&CK** techniques on every incident with a
+    technique filter and a per-kind severity override.
 - **Self-healing** – automatic remediation: run a script/service-restart when a check fails.
 - **Software distribution** – catalog of deployable packages (winget / choco / apt / dnf /
   brew); roll out to a device / client / site / tag.
@@ -266,7 +287,7 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 - **Patch-Management** – flottenweite Patches-Seite mit Sicherheits-Updates zuerst, gesammelt
   freigeben und installieren (apt `upgrade` vs `dist-upgrade` wählbar), Patch-Verlauf je Gerät
   und Flotte, Paketversionen und Repositories der Flotte, Support-Ende-Warnungen (EOL).
-- **Sicherheitsüberwachung** (Wazuh-artig) – 0.19 ergänzt Bedrohungsdaten-Feeds mit sofortiger Flottensperre, Windows-Persistenz-/Prozess-/PowerShell-Ereignisse, Registry-FIM, Who-Data (auditd/SACL), Systemzustand- und Rootkit-/Malware-Prüfung, Log-Quellen HAProxy/Traefik/MySQL/Firewall/Journal/Docker-Ereignisse mit Portscan-Erkennung, 106 CIS-artige Compliance-Regeln mit Framework-Referenzen, MITRE-ATT&CK-Tags – Datei-Integritätsüberwachung mit Baseline je
+- **Sicherheitsüberwachung** (Wazuh-artig) – Datei-Integritätsüberwachung mit Baseline je
   Gerät, Anmeldungs-Überwachung (sshd/journald, Windows-Sicherheitsprotokoll, macOS-Log), die
   Brute-Force, Anmeldungen nach Brute-Force, neue Quell-IPs und Kontoänderungen zu
   **Vorfällen** macht, CIS-artige **Compliance**-Prüfungen mit Score je Gerät und **Active
@@ -279,6 +300,29 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   Dienst): Flaggen überall, Länderfilter bei den Vorfällen, Länder-Kacheln und
   Dashboard-Diagramme. Private Adressen werden nie automatisch gesperrt; Sperren sind
   durchsuchbar und mit einem Klick flottenweit aufhebbar.
+- **Bedrohungsdaten & tiefe Host-Überwachung** (0.19) –
+  - **Bedrohungsdaten**: Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army und
+    Tor-Exit-Nodes werden täglich geladen und zwischengespeichert; gelistete Quell-IPs sind
+    überall markiert und erzeugen beim ersten Ereignis den Vorfall *Bekannte Angriffsquelle*
+    mit sofortiger Flottensperre.
+  - **Windows-Ereignisse jenseits der Anmeldung**: Dienst installiert (7045), geplante
+    Aufgabe (4698), Protokoll gelöscht (1102), verdächtiger Prozess (4688) und
+    PowerShell-Skriptblock (4104) mit Mustererkennung → Vorfälle *Persistenz*, *Protokoll
+    gelöscht*, *Verdächtiger Prozess*.
+  - **Registry-Überwachung**: `HKLM\…`-, `HKU\*\…`-Pfade in FIM-Regeln, 18 Persistenz-Orte
+    als Vorlage; **Who-Data**: Benutzer und Prozess einer Dateiänderung über auditd (Linux)
+    bzw. SACL + Ereignis 4663 (Windows).
+  - **Systemzustand**: lauschende Ports, Kernelmodule, Cron, UID-0-/Admin-Konten,
+    Autostart-Dienste und geplante Aufgaben stündlich verglichen → Vorfall *Systemänderung*.
+  - **Rootkit- & Malware-Prüfung**: versteckte Prozesse/Module, `ld.so.preload`,
+    ausführbare Dateien in Temp-Verzeichnissen, bekannte Rootkit-Pfade; laut FIM geänderte
+    Dateien werden mit ClamAV bzw. Defender geprüft, falls vorhanden.
+  - **Weitere Log-Quellen**: HAProxy, Traefik, MySQL/MariaDB, Firewall-Drops (Kernel-Log
+    oder `pfirewall.log`), systemd-Journal, Docker-Ereignisse → Vorfälle *Portscan* und
+    *Befehl im Container*.
+  - **106 Compliance-Regeln** in Richtung CIS Level 1 mit Framework-Referenzen (CIS, PCI DSS,
+    ISO 27001) und Rahmenwerk-Filter; **MITRE-ATT&CK**-Techniken an jedem Vorfall mit
+    Technik-Filter und Schweregrad je Art.
 - **Self-Healing** – automatische Behebung: Skript/Dienst-Neustart bei fehlerhaftem Check.
 - **Software-Verteilung** – Katalog verteilbarer Pakete (winget / choco / apt / dnf /
   brew); Ausrollen auf Gerät / Client / Standort / Tag.
