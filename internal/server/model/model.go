@@ -564,6 +564,7 @@ type IPBlock struct {
 	Until      *time.Time `json:"until,omitempty"`   // nil = dauerhaft
 	Status     string     `json:"status"`            // pending | active | expired | released | failed
 	Country    string     `json:"country,omitempty"` // ISO-3166-Code der IP (eingebettete GeoIP-Datenbank)
+	Threat     []string   `json:"threat,omitempty"`  // Blocklisten, in denen die IP steht (beim Lesen)
 	Detail     string     `json:"detail,omitempty"`
 	CommandID  string     `json:"command_id,omitempty"`
 	CreatedBy  string     `json:"created_by"`
@@ -614,6 +615,7 @@ type AuthEvent struct {
 	Username   string    `json:"username,omitempty"`
 	SourceIP   string    `json:"source_ip,omitempty"`
 	Country    string    `json:"country,omitempty"` // Land der Quell-IP
+	Threat     []string  `json:"threat,omitempty"`  // Blocklisten, in denen die Quell-IP steht
 	Service    string    `json:"service,omitempty"`
 	Detail     string    `json:"detail,omitempty"`
 }
@@ -630,7 +632,8 @@ type SecurityIncident struct {
 	Severity          string            `json:"severity"` // info | warning | critical
 	SourceIP          string            `json:"source_ip,omitempty"`
 	Country           string            `json:"country,omitempty"`
-	Mitre             []mitre.Technique `json:"mitre,omitempty"` // ATT&CK-Techniken der Art (beim Lesen aus dem Katalog) // Land der Quell-IP
+	Mitre             []mitre.Technique `json:"mitre,omitempty"`  // ATT&CK-Techniken der Art (beim Lesen aus dem Katalog)
+	Threat            []string          `json:"threat,omitempty"` // Blocklisten, in denen die Quell-IP steht (beim Lesen) // Land der Quell-IP
 	Username          string            `json:"username,omitempty"`
 	Title             string            `json:"title"`
 	Detail            string            `json:"detail,omitempty"`
@@ -706,6 +709,17 @@ type PolicyNotifications struct {
 
 // AllSoftwareAlertKinds sind die Änderungsarten, über die berichtet werden kann.
 var AllSoftwareAlertKinds = []string{"added", "removed", "updated"}
+
+// ThreatFeedStatus ist der Stand einer Blockliste für die Oberfläche.
+type ThreatFeedStatus struct {
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	URL       string     `json:"url"`
+	Enabled   bool       `json:"enabled"`
+	Entries   int        `json:"entries"`
+	FetchedAt *time.Time `json:"fetched_at,omitempty"`
+	Error     string     `json:"error,omitempty"`
+}
 
 // AllIncidentKinds sind die Vorfallsarten der Sicherheitsüberwachung.
 var AllIncidentKinds = mitre.AllKinds()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/boonkerz/roster/internal/server/geoip"
+	"github.com/boonkerz/roster/internal/server/threat"
 	"strings"
 	"time"
 
@@ -253,6 +254,7 @@ func scanIPBlock(rows *sql.Rows) (model.IPBlock, error) {
 		b.Status = "expired"
 	}
 	b.Country = geoip.Country(b.IP)
+	b.Threat = threat.Lookup(b.IP)
 	return b, err
 }
 

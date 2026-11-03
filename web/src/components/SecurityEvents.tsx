@@ -13,6 +13,12 @@ export const INCIDENT_KIND: Record<string, string> = {
   suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container",
 };
 
+// ThreatBadge markiert eine Quell-IP, die in einer Blockliste steht (Bedrohungsdaten).
+export function ThreatBadge({ feeds }: { feeds?: string[] }) {
+  if (!feeds?.length) return null;
+  return <span className="badge badge-offline" style={{ marginLeft: 4 }} title={feeds.join(", ")}>⚠ {feeds[0]}{feeds.length > 1 ? ` +${feeds.length - 1}` : ""}</span>;
+}
+
 // MitreBadges zeigt die ATT&CK-Techniken eines Vorfalls als Links in die MITRE-Matrix.
 export function MitreBadges({ items }: { items?: MitreTechnique[] }) {
   if (!items?.length) return null;
@@ -70,7 +76,7 @@ export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, a
               {showDevice && <td><Link to={`/devices/${i.device_id}`} className="link-strong" onClick={(e) => e.stopPropagation()}>{i.hostname}</Link>{i.client_name && <span className="muted"> · {i.client_name}</span>}</td>}
               <td><SeverityPill severity={i.severity} /></td>
               <td><span className="muted">{open === i.id ? "▾" : "▸"}</span> <strong>{t(INCIDENT_KIND[i.kind] ?? i.kind)}</strong> <span className="muted">· {i.title}</span><MitreBadges items={i.mitre} /></td>
-              <td className="mono"><Flag cc={i.country} />{i.source_ip || "—"}{i.username && <span className="muted"> · {i.username}</span>}</td>
+              <td className="mono"><Flag cc={i.country} />{i.source_ip || "—"}{i.username && <span className="muted"> · {i.username}</span>}<ThreatBadge feeds={i.threat} /></td>
               <td>{i.status === "open" ? <span className="badge badge-warn">{t("offen")}</span> : i.status === "acknowledged" ? <span className="badge badge-unknown">{t("bestätigt")}</span> : <span className="badge badge-online">{t("erledigt")}</span>}
                 {i.response && <div className="muted small" title={i.response_status}>↳ {i.response}{i.response_status ? ` (${i.response_status})` : ""}</div>}</td>
               <td style={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
@@ -110,7 +116,7 @@ export function AuthEventsTable({ events, showDevice, maxHeight }: { events: Aut
                 {showDevice && <td><Link to={`/devices/${e.device_id}`} className="link-strong">{e.hostname}</Link></td>}
                 <td><span className={`badge ${m.cls}`}>{t(m.label)}</span></td>
                 <td>{e.username || "—"}</td>
-                <td className="mono"><Flag cc={e.country} />{e.source_ip || "—"}</td>
+                <td className="mono"><Flag cc={e.country} />{e.source_ip || "—"}<ThreatBadge feeds={e.threat} /></td>
                 <td className="muted">{e.service || "—"}</td>
                 <td className="muted" title={e.detail}>{e.detail ? (e.detail.length > 80 ? e.detail.slice(0, 80) + "…" : e.detail) : ""}</td>
               </tr>

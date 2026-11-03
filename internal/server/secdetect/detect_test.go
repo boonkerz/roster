@@ -165,3 +165,39 @@ func TestScanIncident(t *testing.T) {
 		t.Fatalf("dedupe: %+v", inc)
 	}
 }
+
+// TestThreatListed: eine gelistete IP erzeugt beim ersten Fehlversuch genau einen Vorfall
+// (24-h-Dedupe), ungelistete keinen; ohne ThreatAlert passiert nichts.
+func TestThreatListed(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	lookup := func(ip string) []string {
+		if ip == "203.0.113.5" {
+			return []string{"Spamhaus DROP"}
+		}
+		return nil
+	}
+	cfg := DefaultConfig()
+	cfg.ThreatAlert = true
+	in := Input{Now: base.Add(time.Minute), ThreatLookup: lookup, Events: []shared.AuthEvent{
+		ev("login_failed", "root", "203.0.113.5", base),
+		ev("login_failed", "root", "203.0.113.5", base.Add(time.Second)),
+		ev("login_failed", "root", "198.51.100.7", base.Add(2*time.Second)),
+		ev("login_ok", "bob", "203.0.113.5", base.Add(3*time.Second)),
+	}}
+	got := Detect(in, cfg)
+	if ks := kinds(got); len(ks) != 1 || ks[0] != "threat_listed" || got[0].SourceIP != "203.0.113.5" {
+		t.Fatalf("got %v", ks)
+	}
+	if got[0].Detail == "" || got[0].Title != "Bekannte Angriffsquelle: 203.0.113.5" {
+		t.Fatalf("title/detail: %+v", got[0])
+	}
+	in.RecentThreat = map[string]time.Time{"203.0.113.5": base.Add(-time.Hour)}
+	if ks := kinds(Detect(in, cfg)); len(ks) != 0 {
+		t.Fatalf("dedupe: %v", ks)
+	}
+	cfg.ThreatAlert = false
+	in.RecentThreat = nil
+	if ks := kinds(Detect(in, cfg)); len(ks) != 0 {
+		t.Fatalf("aus: %v", ks)
+	}
+}

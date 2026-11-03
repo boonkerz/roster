@@ -29,6 +29,9 @@ type Config struct {
 	// ScanThreshold: verdächtige Anfragen (Kind probe, z. B. Web-Scanner) je IP im Fenster
 	// bis zum Vorfall „scan“ (Standard 20).
 	ScanThreshold int
+	// ThreatAlert: Quell-IPs aus Blocklisten (Input.ThreatLookup) beim ersten Fehlversuch/Probe
+	// als Vorfall „threat_listed“ melden – ohne Schwellwert.
+	ThreatAlert bool
 }
 
 // InvalidUserWindow ist das Fenster der Regel „unbekannte Benutzer“.
@@ -58,6 +61,10 @@ type Input struct {
 	KnownIP func(user, ip string) bool
 	// MonitoringSince ist der Beginn der Überwachung des Geräts (Lernphase für „neue IP“).
 	MonitoringSince time.Time
+	// ThreatLookup liefert die Blocklisten, in denen eine IP steht (nil = nicht gelistet).
+	ThreatLookup func(ip string) []string
+	// RecentThreat: Quell-IPs, für die in den letzten 24 h bereits ein threat_listed-Vorfall existiert.
+	RecentThreat map[string]time.Time
 }
 
 // Incident ist ein abgeleiteter Vorfall.
@@ -108,8 +115,24 @@ func Detect(in Input, cfg Config) []Incident {
 	}
 	var out []Incident
 	seenNewIP := map[string]bool{}
+	threatAt := map[string]time.Time{}
+	for ip, t := range in.RecentThreat {
+		threatAt[ip] = t
+	}
 	for _, e := range in.Events {
 		ip := strings.TrimSpace(e.SourceIP)
+		// Bekannte Angriffsquelle: gelistete IP beim ersten feindlichen Ereignis melden (ein
+		// Vorfall je IP und 24 h); die übrigen Regeln laufen zusätzlich weiter.
+		if cfg.ThreatAlert && in.ThreatLookup != nil && ip != "" && (isFail(e.Kind) || e.Kind == "probe" || e.Kind == "fw_drop") {
+			if last, ok := threatAt[ip]; !ok || e.Time.Sub(last) >= 24*time.Hour {
+				if feeds := in.ThreatLookup(ip); len(feeds) > 0 {
+					threatAt[ip] = e.Time
+					out = append(out, Incident{Time: e.Time, Kind: "threat_listed", Severity: "warning", SourceIP: ip, User: e.User,
+						Title:  "Bekannte Angriffsquelle: " + ip,
+						Detail: "Gelistet in: " + strings.Join(feeds, ", ") + " · erstes Ereignis: " + e.Kind + " über " + e.Service})
+				}
+			}
+		}
 		switch {
 		case isFail(e.Kind) && ip != "":
 			fails[ip] = append(fails[ip], e.Time)

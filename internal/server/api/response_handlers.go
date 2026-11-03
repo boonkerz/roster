@@ -20,9 +20,9 @@ import (
 
 // Trigger und Aktionen der Active Response.
 var (
-	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true, "scan": true}
+	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true, "scan": true, "threat_listed": true}
 	responseActions   = map[string]bool{"block_ip": true, "lock_user": true, "run_script": true}
-	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "scan": true}
+	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "scan": true, "threat_listed": true}
 	userTriggers      = map[string]bool{"brute_force_success": true, "account_change": true, "lockout": true, "new_source_ip": true}
 	protectedAccounts = map[string]bool{"root": true, "administrator": true, "system": true}
 )
@@ -212,6 +212,14 @@ func (s *Server) runResponses(ctx context.Context, device *model.Device, inciden
 			s.executeResponse(ctx, device, inc, rule, cfg, "system")
 			handled = true
 			break // eine Reaktion je Vorfall und Regel-Trigger reicht … pro Aktion weiter unten unterschieden
+		}
+		if !handled && inc.Kind == "threat_listed" && cfg.ThreatBlock && inc.SourceIP != "" {
+			// Gelistete Quelle: immer flottenweit sperren (Entscheidung der Einstellungen), auch
+			// wenn die allgemeine Flottensperre aus ist. Never-Block/Privat-Prüfung wie üblich.
+			fleet := cfg
+			fleet.FleetBlock = true
+			s.executeResponse(ctx, device, inc, model.PolicyResponse{Trigger: inc.Kind, Action: "block_ip", Minutes: cfg.AutoBlockMinutes}, fleet, "system")
+			continue
 		}
 		if !handled && cfg.AutoBlock && autoBlockTriggers[inc.Kind] && inc.SourceIP != "" {
 			s.executeResponse(ctx, device, inc, model.PolicyResponse{Trigger: inc.Kind, Action: "block_ip", Minutes: cfg.AutoBlockMinutes}, cfg, "system")

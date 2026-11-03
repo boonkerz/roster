@@ -199,3 +199,30 @@ func TestConcurrentAccess(t *testing.T) {
 		t.Fatalf("blocks: %v %d", err, len(blocks))
 	}
 }
+
+// TestThreatFeedStore: Feed-Stand speichern, Fehler vermerken (alter Stand bleibt), auflisten.
+func TestThreatFeedStore(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	if r, err := st.ThreatFeed(ctx, "x"); err != nil || r != nil {
+		t.Fatalf("leer: %v %v", r, err)
+	}
+	if err := st.SetThreatFeed(ctx, "x", "1.2.3.4\n", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetThreatFeedError(ctx, "x", "HTTP 503"); err != nil {
+		t.Fatal(err)
+	}
+	r, err := st.ThreatFeed(ctx, "x")
+	if err != nil || r == nil || r.Data != "1.2.3.4\n" || r.Entries != 1 || r.Error != "HTTP 503" {
+		t.Fatalf("roundtrip: %+v %v", r, err)
+	}
+	if err := st.SetThreatFeed(ctx, "x", "1.2.3.4\n5.6.7.8\n", 2); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.SetThreatFeedError(ctx, "y", "timeout")
+	all, err := st.ThreatFeeds(ctx)
+	if err != nil || len(all) != 2 || all["x"].Error != "" || all["x"].Entries != 2 || all["y"].Error != "timeout" {
+		t.Fatalf("list: %+v %v", all, err)
+	}
+}

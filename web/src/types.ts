@@ -426,6 +426,7 @@ export interface AuthEvent {
   username?: string;
   source_ip?: string;
   country?: string;
+  threat?: string[]; // Blocklisten, in denen die Quell-IP steht
   service?: string;
   detail?: string;
 }
@@ -445,6 +446,7 @@ export interface SecurityIncident {
   kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | "portscan" | "threat_listed" | "persistence" | "audit_cleared" | "suspicious_process" | "state_change" | "rootkit" | "malware" | "container_exec" | string;
   severity: "info" | "warning" | "critical";
   mitre?: MitreTechnique[]; // ATT&CK-Techniken der Art
+  threat?: string[]; // Blocklisten, in denen die Quell-IP steht
   source_ip?: string;
   country?: string; // ISO-3166-Code der Quell-IP
   username?: string;
@@ -522,7 +524,13 @@ export interface SecuritySettings {
   subnet_ips: number;
   block_private: boolean; // auch private/interne Adressen automatisch sperren
   severity: Record<string, string>; // Schweregrad-Override je Vorfallsart ("" = Standard)
+  threat_enabled: boolean; // Blocklisten abgleichen
+  threat_block: boolean;   // gelistete IPs beim ersten Ereignis flottenweit sperren
+  threat_feeds: string[];  // Feed-IDs, leer = alle
 }
+
+export interface ThreatFeedStatus { id: string; name: string; url: string; enabled: boolean; entries: number; fetched_at?: string; error?: string }
+export interface ThreatStatus { enabled: boolean; block: boolean; active: boolean; feeds: ThreatFeedStatus[] }
 
 // PolicyResponse ist eine Active-Response-Regel (Auslöser → Aktion).
 export interface PolicyResponse {
@@ -551,6 +559,7 @@ export interface IPBlock {
   command_id?: string;
   created_by: string;
   created_at: string;
+  threat?: string[]; // Blocklisten, in denen die IP steht
 }
 
 // FIMEvent ist eine erkannte Datei-Änderung (Datei-Integrität).

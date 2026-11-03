@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- **Bedrohungsdaten**: Der Server lädt täglich fünf öffentliche Blocklisten (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor-Exit-Nodes; in der Datenbank zwischengespeichert, Feeds einzeln wählbar). Quell-IPs von Vorfällen, Anmeldungen und Sperren werden mit dem Listennamen markiert, beide Listen lassen sich auf gelistete IPs filtern. Eine gelistete IP erzeugt beim ersten Fehlversuch, Scan-Treffer oder Firewall-Drop den Vorfall **Bekannte Angriffsquelle** und wird sofort flottenweit gesperrt – unabhängig von Schwellwerten und vom allgemeinen Flottensperren-Schalter (Einstellungen → Sicherheitsüberwachung; Nie-sperren-Liste und private Adressen bleiben ausgenommen). Neuer Tab Sicherheit → **Bedrohungsdaten** mit Feed-Status, Aktualisieren und IP-Nachschlagen; Migration 0074.
+
+### Neu
 - Sicherheit → Vorfälle: Jeder Vorfall trägt seine **MITRE-ATT&CK-Techniken** (z. B. T1110 Brute Force, T1070.001 Clear Windows Event Logs) als Links in die ATT&CK-Matrix, die Liste lässt sich nach Technik filtern. Der Katalog der Vorfallsarten (`GET /security/kinds`) ist jetzt die eine Quelle für Server, Richtlinien und Oberfläche.
 - Einstellungen → Sicherheitsüberwachung: **Schweregrad je Vorfallsart** überschreibt den Standard (Info unterdrückt die Benachrichtigung, die automatische Reaktion läuft trotzdem).
 

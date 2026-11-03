@@ -7,6 +7,9 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Threat intelligence**: the server fetches five public block lists daily (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor exit nodes; cached in the database, feeds selectable). Source IPs of incidents, login events and blocks are flagged with the list name, and both lists can be filtered to listed IPs. A listed IP raises the incident **Known attack source** on its first failed login, suspicious request or firewall drop and is blocked fleet-wide right away – regardless of thresholds and of the general fleet-block switch (Settings → Security monitoring; never-block list and private addresses stay exempt). New tab Security → **Threat intelligence** with feed status, refresh and IP lookup; migration 0074.
+
+### Added
 - Security → Incidents: every incident carries its **MITRE ATT&CK** techniques (e.g. T1110 Brute Force, T1070.001 Clear Windows Event Logs) as links into the ATT&CK matrix, and the incident list can be filtered by technique. The catalog of incident kinds (`GET /security/kinds`) is now the single source for server, policies and UI.
 - Settings → Security monitoring: **severity per incident kind** can override the default (Info suppresses the notification, the automatic response still runs).
 

@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 import { TRIGGER_LABEL } from "../components/SecuritySection";
 import { BlockDurationSelect } from "../components/IncidentActions";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings, IncidentKindInfo } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings, IncidentKindInfo, ThreatStatus } from "../types";
 
 // SettingsArea sind die Bereiche der (nach Themen gegliederten) Einstellungen.
 export type SettingsArea = "general" | "users" | "notify" | "devices" | "downloads" | "security" | "secmon";
@@ -125,7 +125,8 @@ function SecurityMonitoring() {
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
   const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
-    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {} };
+    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {}, threat_enabled: true, threat_block: true, threat_feeds: [] };
+  const { data: threatStatus } = useQuery<ThreatStatus>({ queryKey: ["threat-status"], queryFn: () => api.get("/security/threat") });
   const { data: kinds } = useQuery<IncidentKindInfo[]>({ queryKey: ["incident-kinds"], queryFn: () => api.get("/security/kinds"), staleTime: 600000 });
   const save = useMutation({
     mutationFn: (v: SecuritySettings) => api.put("/settings/security", v),
@@ -165,6 +166,23 @@ function SecurityMonitoring() {
         <label className="field"><span>{t("Nie sperren (Active Response) – IPs/CIDRs, kommagetrennt, z. B. 192.168.1.0/24, 10.0.0.5")}</span>
           <input value={cur.never_block.join(", ")} onChange={(e) => upd({ never_block: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} placeholder="192.168.0.0/16" />
         </label>
+        <h3 className="muted small" style={{ marginTop: 10 }}>{t("Bedrohungsdaten")}</h3>
+        <p className="muted small">{t("Der Server lädt täglich öffentliche Blocklisten (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor-Exit-Nodes). Quell-IPs daraus werden markiert und erzeugen beim ersten Fehlversuch oder Scan-Treffer den Vorfall „Bekannte Angriffsquelle“.")}</p>
+        <div className="inline-form">
+          <label className="chip"><input type="checkbox" checked={cur.threat_enabled} onChange={(e) => upd({ threat_enabled: e.target.checked })} /> {t("Blocklisten abgleichen")}</label>
+          <label className="chip" title={t("Unabhängig von Schwellwerten und von der allgemeinen Flottensperre; Nie-sperren-Liste und private Adressen bleiben ausgenommen.")}><input type="checkbox" checked={cur.threat_block} disabled={!cur.threat_enabled} onChange={(e) => upd({ threat_block: e.target.checked })} /> {t("gelistete IPs beim ersten Ereignis auf allen überwachten Geräten sperren")}</label>
+        </div>
+        <div className="inline-form">
+          {(threatStatus?.feeds ?? []).map((f) => {
+            const all = (cur.threat_feeds ?? []).length === 0;
+            const on = all || cur.threat_feeds.includes(f.id);
+            return <label key={f.id} className="chip" title={f.url}><input type="checkbox" checked={on} disabled={!cur.threat_enabled} onChange={(e) => {
+              const ids = all ? (threatStatus?.feeds ?? []).map((x) => x.id) : [...cur.threat_feeds];
+              const next = e.target.checked ? [...new Set([...ids, f.id])] : ids.filter((x) => x !== f.id);
+              upd({ threat_feeds: next.length === (threatStatus?.feeds ?? []).length ? [] : next });
+            }} /> {f.name}</label>;
+          })}
+        </div>
         <h3 className="muted small" style={{ marginTop: 10 }}>{t("Schweregrad je Vorfallsart")}</h3>
         <p className="muted small">{t("Überschreibt den Standard. „Info“ unterdrückt die Benachrichtigung, die automatische Reaktion läuft trotzdem. Die MITRE-ATT&CK-Techniken erscheinen an jedem Vorfall.")}</p>
         <table className="table small">

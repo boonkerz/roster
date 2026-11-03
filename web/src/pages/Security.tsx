@@ -5,21 +5,22 @@ import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
-import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
+import { AuthEventsTable, IncidentsTable, INCIDENT_KIND, ThreatBadge } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
-import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary, IncidentKindInfo } from "../types";
+import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary, IncidentKindInfo, ThreatStatus } from "../types";
 import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
 import { CountryChips, Flag, countryFlag, countryName } from "../components/Country";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
-type SecTab = "incidents" | "auth" | "fim" | "compliance" | "blocks";
+type SecTab = "incidents" | "auth" | "fim" | "compliance" | "blocks" | "threat";
 const TABS: { key: SecTab; label: string }[] = [
   { key: "incidents", label: "Vorfälle" },
   { key: "auth", label: "Anmeldungen" },
   { key: "fim", label: "Datei-Integrität" },
   { key: "compliance", label: "Compliance" },
   { key: "blocks", label: "Sperren" },
+  { key: "threat", label: "Bedrohungsdaten" },
 ];
 
 export function Security() {
@@ -43,6 +44,7 @@ export function Security() {
       {tab === "fim" && <FimTab />}
       {tab === "compliance" && <FleetCompliance />}
       {tab === "blocks" && <BlocksTab />}
+      {tab === "threat" && <ThreatTab />}
     </div>
   );
 }
@@ -68,6 +70,7 @@ function IncidentsTab() {
   const client = params.get("client") || "";
   const country = params.get("country") || "";
   const technique = params.get("technique") || "";
+  const onlyThreat = params.get("threat") === "1";
   const [q, setQ] = useState("");
   const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
@@ -79,6 +82,7 @@ function IncidentsTab() {
   if (client) qs.set("client", client);
   if (country) qs.set("country", country);
   if (technique) qs.set("technique", technique);
+  if (onlyThreat) qs.set("threat", "1");
   if (q.trim()) qs.set("q", q.trim());
   const key = qs.toString();
   const { data: kinds } = useQuery({ queryKey: ["incident-kinds"], queryFn: () => api.get<IncidentKindInfo[]>("/security/kinds"), staleTime: 600000 });
@@ -181,6 +185,7 @@ function IncidentsTab() {
               <option value="">{t("Alle Techniken")}</option>
               {techniques.map((m) => <option key={m.id} value={m.id}>{m.id} {m.name}</option>)}
             </select>
+            <label className="chip" title={t("Nur Quell-IPs, die in einer Blockliste stehen (Bedrohungsdaten)")}><input type="checkbox" checked={onlyThreat} onChange={(e) => setParam("threat", e.target.checked ? "1" : "")} /> ⚠ {t("nur gelistete IPs")}</label>
             <select value={country} onChange={(e) => setParam("country", e.target.value)} title={t("Land der Quell-IP")}>
               <option value="">{t("Alle Länder")}</option>
               {countryOptions.map((c) => <option key={c.cc} value={c.cc}>{countryFlag(c.cc)} {c.name}</option>)}
@@ -293,7 +298,7 @@ function BlocksTab() {
                 <tr key={b.id} className="small">
                   <td className="mono muted">{new Date(b.created_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</td>
                   <td><Link to={`/devices/${b.device_id}`} className="link-strong">{b.hostname}</Link></td>
-                  <td className="mono">{b.ip}</td>
+                  <td className="mono">{b.ip}<ThreatBadge feeds={b.threat} /></td>
                   <td><CountryCell cc={b.country} /></td>
                   <td className="muted">{b.reason || "—"}</td>
                   <td className="muted">{b.until ? new Date(b.until).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : t("dauerhaft")}</td>
@@ -320,6 +325,7 @@ function AuthTab() {
   const kind = params.get("kind") || "";
   const ip = params.get("ip") || "";
   const client = params.get("client") || "";
+  const onlyThreat = params.get("threat") === "1";
   const [q, setQ] = useState("");
   const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
@@ -327,6 +333,7 @@ function AuthTab() {
   if (kind) qs.set("kind", kind);
   if (ip) qs.set("ip", ip);
   if (client) qs.set("client", client);
+  if (onlyThreat) qs.set("threat", "1");
   if (q.trim()) qs.set("q", q.trim());
   const key = qs.toString();
   const { data: rows, isLoading } = useQuery({ queryKey: ["auth-events", "fleet", key], queryFn: () => api.get<AuthEvent[]>(`/security/auth-events?${key}`), refetchInterval: 30000 });
@@ -348,6 +355,7 @@ function AuthTab() {
             <option value="password_changed">{t("Passwort geändert")}</option>
             <option value="lockout">{t("Kontosperre")}</option>
           </select>
+          <label className="chip" title={t("Nur Quell-IPs, die in einer Blockliste stehen (Bedrohungsdaten)")}><input type="checkbox" checked={onlyThreat} onChange={(e) => setParam("threat", e.target.checked ? "1" : "")} /> ⚠ {t("nur gelistete IPs")}</label>
           <select value={days} onChange={(e) => setParam("days", e.target.value)}>
             <option value="1">{t("24 Stunden")}</option>
             <option value="7">{t("7 Tage")}</option>
@@ -414,6 +422,61 @@ function FimTab() {
         <span className="muted small">{t("{n} Ereignisse", { n: (rows ?? []).length })}</span>
       </div>
       {isLoading ? <p className="muted">{t("Lädt…")}</p> : <FimEventsTable events={rows ?? []} showDevice canOperate={hasPerm("devices.operate")} />}
+    </section>
+  );
+}
+
+// ThreatTab zeigt die Blocklisten (Bedrohungsdaten): Stand, Einträge, Fehler, Aktualisieren
+// und ein Nachschlagen einzelner IPs.
+function ThreatTab() {
+  const { t } = useI18n();
+  const { hasPerm } = useAuth();
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["threat-status"], queryFn: () => api.get<ThreatStatus>("/security/threat"), refetchInterval: 60000 });
+  const refresh = useMutation({
+    mutationFn: () => api.post<{ loaded: Record<string, number>; failed: string[] }>("/security/threat/refresh", {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["threat-status"] }),
+  });
+  const [ip, setIp] = useState("");
+  const [hit, setHit] = useState<{ ip: string; feeds: string[] } | null>(null);
+  const [lookupErr, setLookupErr] = useState("");
+  const lookup = async () => {
+    try { setLookupErr(""); setHit(await api.get<{ ip: string; feeds: string[] }>(`/security/threat/lookup?ip=${encodeURIComponent(ip.trim())}`)); }
+    catch (e) { setHit(null); setLookupErr(e instanceof ApiError ? e.message : String(e)); }
+  };
+  return (
+    <section className="card">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <h2 style={{ margin: 0 }}>{t("Bedrohungsdaten")}</h2>
+        <div className="head-actions">
+          {hasPerm("settings") && <button className="btn ghost sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>{refresh.isPending ? t("Lädt…") : "↻ " + t("Jetzt aktualisieren")}</button>}
+        </div>
+      </div>
+      <p className="muted small">{t("Quell-IPs von Fehlversuchen, verdächtigen Anfragen und Sperren werden mit öffentlichen Blocklisten abgeglichen. Gelistete Adressen erzeugen beim ersten Ereignis den Vorfall „Bekannte Angriffsquelle“ und werden – je nach Einstellung – sofort auf allen überwachten Geräten gesperrt. Ein- und Ausschalten unter Einstellungen → Sicherheitsüberwachung.")}</p>
+      {data && !data.enabled && <p className="error small">{t("Bedrohungsdaten sind ausgeschaltet (Einstellungen → Sicherheitsüberwachung).")}</p>}
+      {data && data.enabled && !data.active && <p className="muted small">{t("Noch keine Liste geladen – der erste Abruf läuft zwei Minuten nach dem Serverstart.")}</p>}
+      {isLoading ? <p className="muted">{t("Lädt…")}</p> : (
+        <table className="table">
+          <thead><tr><th>{t("Liste")}</th><th>{t("Aktiv")}</th><th>{t("Einträge")}</th><th>{t("Stand")}</th><th>{t("Fehler")}</th></tr></thead>
+          <tbody>
+            {(data?.feeds ?? []).map((f) => (
+              <tr key={f.id} className="small">
+                <td><a href={f.url} target="_blank" rel="noreferrer" className="link-strong">{f.name}</a></td>
+                <td>{f.enabled ? <span className="badge badge-online">{t("an")}</span> : <span className="badge badge-unknown">{t("aus")}</span>}</td>
+                <td className="mono">{f.entries.toLocaleString()}</td>
+                <td className="muted">{f.fetched_at ? new Date(f.fetched_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
+                <td className="error small">{f.error || ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="inline-form" style={{ marginTop: 12 }}>
+        <input className="search" placeholder={t("IP nachschlagen…")} value={ip} onChange={(e) => setIp(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void lookup(); }} />
+        <button className="btn ghost sm" onClick={() => void lookup()} disabled={!ip.trim()}>{t("Prüfen")}</button>
+        {hit && (hit.feeds.length ? <span className="badge badge-offline">⚠ {hit.ip}: {hit.feeds.join(", ")}</span> : <span className="badge badge-online">✓ {hit.ip} {t("nicht gelistet")}</span>)}
+        {lookupErr && <span className="error small">{lookupErr}</span>}
+      </div>
     </section>
   );
 }

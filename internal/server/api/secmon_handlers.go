@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/boonkerz/roster/internal/server/threat"
 	"github.com/boonkerz/roster/internal/shared/mitre"
 	"net/http"
 	"strconv"
@@ -37,6 +38,10 @@ type securitySettings struct {
 	// Severity überschreibt je Vorfallsart den Standard-Schweregrad des Katalogs (leer = Standard).
 	// "info" unterdrückt die Benachrichtigung, nicht die automatische Reaktion.
 	Severity map[string]string `json:"severity"`
+	// Bedrohungsdaten: Blocklisten abgleichen, gelistete IPs beim ersten Ereignis flottenweit sperren.
+	ThreatEnabled bool     `json:"threat_enabled"`
+	ThreatBlock   bool     `json:"threat_block"`
+	ThreatFeeds   []string `json:"threat_feeds"` // leer = alle Feeds
 }
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
@@ -57,6 +62,20 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecScanThreshold, &cfg.ScanThreshold)
 	geti(store.SettingSecAutoBlockMinutes, &cfg.AutoBlockMinutes)
 	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
+	cfg.ThreatEnabled, cfg.ThreatBlock, cfg.ThreatFeeds = true, true, []string{}
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecThreatEnabled); v == "0" {
+		cfg.ThreatEnabled = false
+	}
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecThreatBlock); v == "0" {
+		cfg.ThreatBlock = false
+	}
+	if v, _ := s.store.GetSetting(ctx, store.SettingSecThreatFeeds); v != "" {
+		for _, id := range strings.Split(v, ",") {
+			if _, ok := threat.FeedByID(id); ok {
+				cfg.ThreatFeeds = append(cfg.ThreatFeeds, id)
+			}
+		}
+	}
 	cfg.Severity = map[string]string{}
 	for _, k := range mitre.AllKinds() {
 		if v, _ := s.store.GetSetting(ctx, store.SettingSecSeverityPrefix+k); mitre.ValidSeverity(v) {
@@ -137,6 +156,17 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
 		store.SettingSecBlockPrivate: b2s(req.BlockPrivate),
 	}
+	var feedIDs []string
+	for _, id := range req.ThreatFeeds {
+		if _, ok := threat.FeedByID(id); !ok {
+			s.writeErr(w, http.StatusBadRequest, "unbekannter Feed: "+id)
+			return
+		}
+		feedIDs = append(feedIDs, id)
+	}
+	set[store.SettingSecThreatEnabled] = b2s(req.ThreatEnabled)
+	set[store.SettingSecThreatBlock] = b2s(req.ThreatBlock)
+	set[store.SettingSecThreatFeeds] = strings.Join(feedIDs, ",")
 	for k, v := range req.Severity {
 		if !mitre.IsKind(k) || (v != "" && !mitre.ValidSeverity(v)) {
 			s.writeErr(w, http.StatusBadRequest, "ungültiger Schweregrad für "+k)
@@ -152,6 +182,8 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
+	// Feeds im Hintergrund neu laden, damit Schalter/Feed-Auswahl sofort wirken.
+	go s.RefreshThreat(context.Background(), false)
 	s.handleGetSecuritySettings(w, r)
 }
 
@@ -186,6 +218,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	dcfg.BFThreshold, dcfg.BFWindow = cfg.BFThreshold, time.Duration(cfg.BFWindowMin)*time.Minute
 	dcfg.NewIPAlert, dcfg.IgnorePrivateIP, dcfg.LearnDays = cfg.NewIPAlert, cfg.NewIPIgnorePriv, cfg.LearnDays
 	dcfg.InvalidUserMax, dcfg.ScanThreshold = cfg.InvalidUserMax, cfg.ScanThreshold
+	dcfg.ThreatAlert = cfg.ThreatEnabled && threat.Active()
 	now := time.Now()
 	// Die gerade eingefügten Ereignisse stecken schon in der Datenbank – herausrechnen,
 	// damit sie nicht doppelt zählen: nur ältere als das erste neue Ereignis behalten.
@@ -212,11 +245,14 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	priorProbes, _ := s.store.ProbesSince(ctx, device.ID, now.Add(-time.Hour))
 	recentBF, _ := s.store.RecentIncidentIPs(ctx, device.ID, "brute_force", now.Add(-time.Hour))
 	recentScan, _ := s.store.RecentIncidentIPs(ctx, device.ID, "scan", now.Add(-time.Hour))
+	recentThreat, _ := s.store.RecentIncidentIPs(ctx, device.ID, "threat_listed", time.Now().Add(-24*time.Hour))
 	known, _ := s.store.KnownIPs(ctx, device.ID)
 	incidents := secdetect.Detect(secdetect.Input{
 		Now: now, Events: fresh, PriorFails: older(prior), PriorInvalid: older(priorInvalid), PriorProbes: older(priorProbes), RecentBF: recentBF, RecentScan: recentScan,
 		KnownIP:         func(u, ip string) bool { return known[u+"@"+ip] },
 		MonitoringSince: s.store.AuthMonitorSince(ctx, device.ID),
+		ThreatLookup:    threat.Lookup,
+		RecentThreat:    recentThreat,
 	}, dcfg)
 	_ = s.store.UpsertKnownIPs(ctx, device.ID, fresh)
 	var saved []model.SecurityIncident
@@ -288,7 +324,7 @@ func (s *Server) incidentFilter(r *http.Request) store.IncidentFilter {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	return store.IncidentFilter{Allowed: s.scopeFilter(r), ClientID: q.Get("client"), SiteID: q.Get("site"), Since: time.Now().AddDate(0, 0, -days),
 		Status: q.Get("status"), Kind: q.Get("kind"), Severity: q.Get("severity"), Query: q.Get("q"), Country: q.Get("country"),
-		Technique: strings.ToUpper(strings.TrimSpace(q.Get("technique"))), Limit: limit}
+		Technique: strings.ToUpper(strings.TrimSpace(q.Get("technique"))), Threat: q.Get("threat") == "1", Limit: limit}
 }
 
 func (s *Server) handleIncidents(w http.ResponseWriter, r *http.Request) {
@@ -354,7 +390,7 @@ func (s *Server) authEventFilter(r *http.Request) store.AuthEventFilter {
 	}
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	return store.AuthEventFilter{Allowed: s.scopeFilter(r), ClientID: q.Get("client"), SiteID: q.Get("site"), Since: time.Now().AddDate(0, 0, -days),
-		Kind: q.Get("kind"), IP: q.Get("ip"), User: q.Get("user"), Query: q.Get("q"), Limit: limit}
+		Kind: q.Get("kind"), IP: q.Get("ip"), User: q.Get("user"), Query: q.Get("q"), Threat: q.Get("threat") == "1", Limit: limit}
 }
 
 func (s *Server) handleAuthEvents(w http.ResponseWriter, r *http.Request) {

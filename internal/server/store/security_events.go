@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/boonkerz/roster/internal/server/geoip"
+	"github.com/boonkerz/roster/internal/server/threat"
 	"github.com/boonkerz/roster/internal/shared/mitre"
 	"sort"
 	"strings"
@@ -29,6 +30,9 @@ const (
 	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
 	SettingSecSubnetIPs        = "sec_subnet_ips"         // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
 	SettingSecSeverityPrefix   = "sec_severity_"          // + Vorfallsart: Schweregrad-Override (info|warning|critical)
+	SettingSecThreatEnabled    = "sec_threat_enabled"     // "0" = Bedrohungsdaten aus (Standard an)
+	SettingSecThreatBlock      = "sec_threat_block"       // "0" = gelistete IPs nicht automatisch sperren (Standard an)
+	SettingSecThreatFeeds      = "sec_threat_feeds"       // Feed-IDs kommagetrennt, leer = alle
 	SettingSecBlockPrivate     = "sec_block_private"      // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
 )
 
@@ -216,6 +220,7 @@ type IncidentFilter struct {
 	Query     string
 	Country   string // ISO-Code der Quell-IP; "?" = unbekannt/keine (wird nach dem Laden über GeoIP gefiltert)
 	Technique string // ATT&CK-Technik (z. B. "T1110") – filtert über die Arten des Katalogs
+	Threat    bool   // nur Quell-IPs, die in einer Blockliste stehen (nach dem Laden gefiltert)
 	Limit     int
 }
 
@@ -233,6 +238,7 @@ func scanIncident(rows *sql.Rows) (model.SecurityIncident, error) {
 	}
 	i.Country = geoip.Country(i.SourceIP)
 	i.Mitre = mitre.ByKind(i.Kind)
+	i.Threat = threat.Lookup(i.SourceIP)
 	return i, err
 }
 
@@ -296,6 +302,9 @@ func (s *Store) Incidents(ctx context.Context, f IncidentFilter) ([]model.Securi
 		// Land steht nicht in der Tabelle (GeoIP beim Lesen) → großzügig laden, danach filtern.
 		queryLimit = 50000
 	}
+	if f.Threat {
+		queryLimit = 50000
+	}
 	q += ` ORDER BY i.ts DESC LIMIT ?`
 	args = append(args, queryLimit)
 	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
@@ -308,6 +317,9 @@ func (s *Store) Incidents(ctx context.Context, f IncidentFilter) ([]model.Securi
 		i, err := scanIncident(rows)
 		if err != nil {
 			return nil, err
+		}
+		if f.Threat && len(i.Threat) == 0 {
+			continue
 		}
 		if country != "" {
 			if country == "?" {
@@ -366,6 +378,7 @@ type AuthEventFilter struct {
 	IP       string
 	User     string
 	Query    string
+	Threat   bool // nur Quell-IPs aus Blocklisten (nach dem Laden gefiltert)
 	Limit    int
 }
 
@@ -419,8 +432,12 @@ func (s *Store) AuthEvents(ctx context.Context, f AuthEventFilter) ([]model.Auth
 	if limit <= 0 || limit > 5000 {
 		limit = 1000
 	}
+	queryLimit := limit
+	if f.Threat {
+		queryLimit = 50000
+	}
 	q += ` ORDER BY a.ts DESC LIMIT ?`
-	args = append(args, limit)
+	args = append(args, queryLimit)
 	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
 	if err != nil {
 		return nil, err
@@ -433,6 +450,13 @@ func (s *Store) AuthEvents(ctx context.Context, f AuthEventFilter) ([]model.Auth
 			return nil, err
 		}
 		e.Country = geoip.Country(e.SourceIP)
+		e.Threat = threat.Lookup(e.SourceIP)
+		if f.Threat && len(e.Threat) == 0 {
+			continue
+		}
+		if len(out) >= limit {
+			break
+		}
 		out = append(out, e)
 	}
 	return out, rows.Err()
