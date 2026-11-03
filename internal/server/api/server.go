@@ -177,6 +177,7 @@ func (s *Server) routes() http.Handler {
 						r.Get("/security/incidents", s.handleIncidents)
 						r.Get("/security/auth-events", s.handleAuthEvents)
 						r.Get("/security/summary", s.handleSecuritySummary)
+						r.Get("/security/kinds", s.handleIncidentKinds)
 						r.Get("/devices/{id}/incidents", s.handleDeviceIncidents)
 						r.Get("/devices/{id}/auth-events", s.handleDeviceAuthEvents)
 						r.Get("/compliance/rules", s.handleComplianceRules)

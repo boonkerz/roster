@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/boonkerz/roster/internal/shared/mitre"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,6 +34,9 @@ type securitySettings struct {
 	FleetBlock       bool     `json:"fleet_block"`        // Sperren auf allen überwachten Geräten
 	SubnetIPs        int      `json:"subnet_ips"`         // ab so vielen IPs aus einem /24 das Netz sperren (0 = aus)
 	BlockPrivate     bool     `json:"block_private"`      // auch private/interne Adressen automatisch sperren (Standard aus)
+	// Severity überschreibt je Vorfallsart den Standard-Schweregrad des Katalogs (leer = Standard).
+	// "info" unterdrückt die Benachrichtigung, nicht die automatische Reaktion.
+	Severity map[string]string `json:"severity"`
 }
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
@@ -53,6 +57,12 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecScanThreshold, &cfg.ScanThreshold)
 	geti(store.SettingSecAutoBlockMinutes, &cfg.AutoBlockMinutes)
 	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
+	cfg.Severity = map[string]string{}
+	for _, k := range mitre.AllKinds() {
+		if v, _ := s.store.GetSetting(ctx, store.SettingSecSeverityPrefix+k); mitre.ValidSeverity(v) {
+			cfg.Severity[k] = v
+		}
+	}
 	if v, _ := s.store.GetSetting(ctx, store.SettingSecAutoBlock); v == "1" {
 		cfg.AutoBlock = true
 	}
@@ -127,6 +137,15 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
 		store.SettingSecBlockPrivate: b2s(req.BlockPrivate),
 	}
+	for k, v := range req.Severity {
+		if !mitre.IsKind(k) || (v != "" && !mitre.ValidSeverity(v)) {
+			s.writeErr(w, http.StatusBadRequest, "ungültiger Schweregrad für "+k)
+			return
+		}
+	}
+	for _, k := range mitre.AllKinds() {
+		set[store.SettingSecSeverityPrefix+k] = req.Severity[k] // "" = Standard
+	}
 	for k, v := range set {
 		if err := s.store.SetSetting(r.Context(), k, v); err != nil {
 			s.mapStoreErr(w, err)
@@ -134,6 +153,19 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	s.handleGetSecuritySettings(w, r)
+}
+
+// applySeverity wendet den Schweregrad-Override aus den Einstellungen auf einen Vorfall an.
+func applySeverity(cfg securitySettings, inc *model.SecurityIncident) {
+	if v := cfg.Severity[inc.Kind]; v != "" {
+		inc.Severity = v
+	}
+}
+
+// handleIncidentKinds liefert den Katalog der Vorfallsarten (Standard-Schweregrad, ATT&CK-
+// Techniken) – die Oberfläche baut daraus Filter und die Schweregrad-Tabelle.
+func (s *Server) handleIncidentKinds(w http.ResponseWriter, r *http.Request) {
+	s.writeJSON(w, http.StatusOK, mitre.Kinds)
 }
 
 // --- Checkin: Ereignisse speichern, Vorfälle ableiten, melden ---
@@ -191,6 +223,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	for _, inc := range incidents {
 		m := model.SecurityIncident{DeviceID: device.ID, TS: inc.Time, Kind: inc.Kind, Severity: inc.Severity, SourceIP: inc.SourceIP,
 			Username: inc.User, Title: inc.Title, Detail: inc.Detail, Status: "open"}
+		applySeverity(cfg, &m)
 		if err := s.store.InsertIncident(ctx, &m); err != nil {
 			s.log.Error("vorfall speichern", "err", err)
 			continue
@@ -254,7 +287,8 @@ func (s *Server) incidentFilter(r *http.Request) store.IncidentFilter {
 	}
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	return store.IncidentFilter{Allowed: s.scopeFilter(r), ClientID: q.Get("client"), SiteID: q.Get("site"), Since: time.Now().AddDate(0, 0, -days),
-		Status: q.Get("status"), Kind: q.Get("kind"), Severity: q.Get("severity"), Query: q.Get("q"), Country: q.Get("country"), Limit: limit}
+		Status: q.Get("status"), Kind: q.Get("kind"), Severity: q.Get("severity"), Query: q.Get("q"), Country: q.Get("country"),
+		Technique: strings.ToUpper(strings.TrimSpace(q.Get("technique"))), Limit: limit}
 }
 
 func (s *Server) handleIncidents(w http.ResponseWriter, r *http.Request) {

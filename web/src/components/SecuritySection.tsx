@@ -16,9 +16,11 @@ const PLATFORMS: [string, string][] = [["linux", "Linux"], ["windows", "Windows"
 export const TRIGGER_LABEL: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
   account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
+  portscan: "Portscan", threat_listed: "Bekannte Angriffsquelle", persistence: "Persistenz", audit_cleared: "Protokoll gelöscht",
+  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container",
 };
 export const ACTION_LABEL: Record<string, string> = { block_ip: "Quell-IP sperren", lock_user: "Konto sperren", run_script: "Skript ausführen" };
-const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "scan"];
+const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "scan", "portscan", "threat_listed"];
 
 // Log-Quellen: Formate und Vorlagen für typische Dienste (Datei oder Docker-Container).
 const LOG_FORMATS: [PolicyLogSource["format"], string][] = [
@@ -37,7 +39,7 @@ const LOG_TEMPLATES: (LogDraft & { label: string })[] = [
 ];
 const emptyLog = (): LogDraft => ({ name: "", type: "docker", target: "", format: "nginx_access", pattern: "", kind: "login_failed" });
 const logDraftFrom = (l: PolicyLogSource): LogDraft => ({ name: l.name, type: l.type, target: l.target, format: l.format, pattern: l.pattern ?? "", kind: l.kind ?? "login_failed" });
-const USER_TRIGGERS = ["brute_force_success", "account_change", "lockout", "new_source_ip"];
+const USER_TRIGGERS = ["brute_force_success", "account_change", "lockout", "new_source_ip", "persistence", "suspicious_process"];
 
 // Standardpfade je Plattform (nur Dateien, keine Registry).
 const TEMPLATES: { path: string; recursive: boolean; exclude: string[]; platforms: string[] }[] = [

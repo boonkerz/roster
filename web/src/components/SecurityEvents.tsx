@@ -3,13 +3,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { AuthEvent, SecurityIncident } from "../types";
+import type { AuthEvent, MitreTechnique, SecurityIncident } from "../types";
 import { Flag } from "./Country";
 
 export const INCIDENT_KIND: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
   account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
+  portscan: "Portscan", threat_listed: "Bekannte Angriffsquelle", persistence: "Persistenz", audit_cleared: "Protokoll gelöscht",
+  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container",
 };
+
+// MitreBadges zeigt die ATT&CK-Techniken eines Vorfalls als Links in die MITRE-Matrix.
+export function MitreBadges({ items }: { items?: MitreTechnique[] }) {
+  if (!items?.length) return null;
+  return <>{items.map((m) => <a key={m.id} className="badge badge-unknown" style={{ marginLeft: 4 }} href={`https://attack.mitre.org/techniques/${m.id.replace(".", "/")}/`} target="_blank" rel="noreferrer" title={`${m.name} · ${m.tactic}`} onClick={(e) => e.stopPropagation()}>{m.id}</a>)}</>;
+}
 export const AUTH_KIND: Record<string, { label: string; cls: string }> = {
   login_failed: { label: "Anmeldung fehlgeschlagen", cls: "badge-offline" },
   invalid_user: { label: "unbekannter Benutzer", cls: "badge-offline" },
@@ -61,7 +69,7 @@ export function IncidentsTable({ incidents, showDevice, canOperate, maxHeight, a
               <td className="mono muted">{new Date(i.ts).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</td>
               {showDevice && <td><Link to={`/devices/${i.device_id}`} className="link-strong" onClick={(e) => e.stopPropagation()}>{i.hostname}</Link>{i.client_name && <span className="muted"> · {i.client_name}</span>}</td>}
               <td><SeverityPill severity={i.severity} /></td>
-              <td><span className="muted">{open === i.id ? "▾" : "▸"}</span> <strong>{t(INCIDENT_KIND[i.kind] ?? i.kind)}</strong> <span className="muted">· {i.title}</span></td>
+              <td><span className="muted">{open === i.id ? "▾" : "▸"}</span> <strong>{t(INCIDENT_KIND[i.kind] ?? i.kind)}</strong> <span className="muted">· {i.title}</span><MitreBadges items={i.mitre} /></td>
               <td className="mono"><Flag cc={i.country} />{i.source_ip || "—"}{i.username && <span className="muted"> · {i.username}</span>}</td>
               <td>{i.status === "open" ? <span className="badge badge-warn">{t("offen")}</span> : i.status === "acknowledged" ? <span className="badge badge-unknown">{t("bestätigt")}</span> : <span className="badge badge-online">{t("erledigt")}</span>}
                 {i.response && <div className="muted small" title={i.response_status}>↳ {i.response}{i.response_status ? ` (${i.response_status})` : ""}</div>}</td>

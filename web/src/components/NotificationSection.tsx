@@ -12,7 +12,7 @@ import { TRIGGER_LABEL } from "./SecuritySection";
 
 const KINDS: [string, string][] = [["added", "installiert"], ["removed", "entfernt"], ["updated", "aktualisiert"]];
 // Vorfallsarten der Sicherheitsüberwachung (Reihenfolge wie im Server).
-const SEC_KINDS = ["brute_force", "brute_force_success", "scan", "new_source_ip", "account_change", "lockout", "fim_change"];
+const SEC_KINDS = Object.keys(TRIGGER_LABEL);
 
 export function NotificationSection({ policy }: { policy: Policy }) {
   const { t } = useI18n();

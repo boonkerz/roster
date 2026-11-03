@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/boonkerz/roster/internal/server/geoip"
+	"github.com/boonkerz/roster/internal/shared/mitre"
 	"sort"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ const (
 	SettingSecAutoBlockMinutes = "sec_auto_block_minutes" // Dauer der automatischen Sperre (0 = dauerhaft)
 	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
 	SettingSecSubnetIPs        = "sec_subnet_ips"         // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
+	SettingSecSeverityPrefix   = "sec_severity_"          // + Vorfallsart: Schweregrad-Override (info|warning|critical)
 	SettingSecBlockPrivate     = "sec_block_private"      // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
 )
 
@@ -203,17 +205,18 @@ func (s *Store) SetIncidentResponse(ctx context.Context, id, response, status, c
 
 // IncidentFilter grenzt die Vorfallsliste ein.
 type IncidentFilter struct {
-	Allowed  map[string]bool
-	DeviceID string
-	ClientID string
-	SiteID   string
-	Since    time.Time
-	Status   string
-	Kind     string
-	Severity string
-	Query    string
-	Country  string // ISO-Code der Quell-IP; "?" = unbekannt/keine (wird nach dem Laden über GeoIP gefiltert)
-	Limit    int
+	Allowed   map[string]bool
+	DeviceID  string
+	ClientID  string
+	SiteID    string
+	Since     time.Time
+	Status    string
+	Kind      string
+	Severity  string
+	Query     string
+	Country   string // ISO-Code der Quell-IP; "?" = unbekannt/keine (wird nach dem Laden über GeoIP gefiltert)
+	Technique string // ATT&CK-Technik (z. B. "T1110") – filtert über die Arten des Katalogs
+	Limit     int
 }
 
 const incidentCols = `i.id, i.device_id, d.hostname, COALESCE(c.name,''), COALESCE(st.name,''), i.ts, i.kind, i.severity, i.source_ip, i.username,
@@ -229,6 +232,7 @@ func scanIncident(rows *sql.Rows) (model.SecurityIncident, error) {
 		i.AcknowledgedAt = &t
 	}
 	i.Country = geoip.Country(i.SourceIP)
+	i.Mitre = mitre.ByKind(i.Kind)
 	return i, err
 }
 
@@ -267,6 +271,15 @@ func (s *Store) Incidents(ctx context.Context, f IncidentFilter) ([]model.Securi
 	if f.Severity != "" {
 		q += ` AND i.severity = ?`
 		args = append(args, f.Severity)
+	}
+	if f.Technique != "" {
+		kinds := mitre.KindsForTechnique(f.Technique)
+		if len(kinds) == 0 {
+			return []model.SecurityIncident{}, nil
+		}
+		marks, a := placeholders(kinds)
+		q += ` AND i.kind IN (` + marks + `)`
+		args = append(args, a...)
 	}
 	if t := strings.TrimSpace(f.Query); t != "" {
 		like := "%" + strings.ToLower(t) + "%"

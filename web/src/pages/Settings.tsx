@@ -2,9 +2,10 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
+import { TRIGGER_LABEL } from "../components/SecuritySection";
 import { BlockDurationSelect } from "../components/IncidentActions";
 import { useAuth } from "../auth";
-import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings } from "../types";
+import type { AlertChannel, AlertProvider, AlertsResponse, AuditEntry, ChannelScope, ClientTree, CustomField, CustomFieldType, CustomRole, DeployPackage, Device, EnrollmentToken, GeneralSettings, MaintenanceWindow, ProxmoxGuest, ProxmoxHost, ReportSchedule, User, SecuritySettings, IncidentKindInfo } from "../types";
 
 // SettingsArea sind die Bereiche der (nach Themen gegliederten) Einstellungen.
 export type SettingsArea = "general" | "users" | "notify" | "devices" | "downloads" | "security" | "secmon";
@@ -115,6 +116,8 @@ function Timezone() {
 
 // SecurityMonitoring: Schwellwerte der Anmeldungs-Überwachung und Schranken der
 // automatischen Reaktion (Never-Block, Cooldown).
+const SEVERITY_WORD: Record<string, string> = { info: "Info", warning: "Warnung", critical: "kritisch" };
+
 function SecurityMonitoring() {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -122,7 +125,8 @@ function SecurityMonitoring() {
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
   const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
-    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false };
+    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {} };
+  const { data: kinds } = useQuery<IncidentKindInfo[]>({ queryKey: ["incident-kinds"], queryFn: () => api.get("/security/kinds"), staleTime: 600000 });
   const save = useMutation({
     mutationFn: (v: SecuritySettings) => api.put("/settings/security", v),
     onSuccess: () => { setDraft(null); setErr(""); qc.invalidateQueries({ queryKey: ["settings", "security"] }); },
@@ -161,6 +165,26 @@ function SecurityMonitoring() {
         <label className="field"><span>{t("Nie sperren (Active Response) – IPs/CIDRs, kommagetrennt, z. B. 192.168.1.0/24, 10.0.0.5")}</span>
           <input value={cur.never_block.join(", ")} onChange={(e) => upd({ never_block: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} placeholder="192.168.0.0/16" />
         </label>
+        <h3 className="muted small" style={{ marginTop: 10 }}>{t("Schweregrad je Vorfallsart")}</h3>
+        <p className="muted small">{t("Überschreibt den Standard. „Info“ unterdrückt die Benachrichtigung, die automatische Reaktion läuft trotzdem. Die MITRE-ATT&CK-Techniken erscheinen an jedem Vorfall.")}</p>
+        <table className="table small">
+          <thead><tr><th>{t("Vorfallsart")}</th><th>{t("Standard")}</th><th>{t("Schweregrad")}</th><th>ATT&CK</th></tr></thead>
+          <tbody>
+            {(kinds ?? []).map((k) => (
+              <tr key={k.kind}>
+                <td>{t(TRIGGER_LABEL[k.kind] ?? k.kind)}</td>
+                <td className="muted">{t(SEVERITY_WORD[k.default_severity])}</td>
+                <td><select value={cur.severity?.[k.kind] ?? ""} onChange={(e) => upd({ severity: { ...(cur.severity ?? {}), [k.kind]: e.target.value } })}>
+                  <option value="">{t("Standard")}</option>
+                  <option value="info">{t("Info")}</option>
+                  <option value="warning">{t("Warnung")}</option>
+                  <option value="critical">{t("kritisch")}</option>
+                </select></td>
+                <td className="muted mono">{k.techniques.map((m) => m.id).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         <div className="inline-form">
           <label className="num">{t("Cooldown automatischer Reaktionen (Min.)")}<input type="number" min={0} max={10080} value={cur.response_cooldown_min} onChange={(e) => upd({ response_cooldown_min: Number(e.target.value) })} style={{ width: 80 }} /></label>
           <button className="btn primary" disabled={draft === null || save.isPending} onClick={() => save.mutate(cur)}>{t("Speichern")}</button>

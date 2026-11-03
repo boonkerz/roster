@@ -241,6 +241,7 @@ func (s *Server) alertFIMEvents(ctx context.Context, device *model.Device, event
 	// Die Meldung verschickt alertIncidents nach der Active Response (Richtlinien-Filter).
 	inc := &model.SecurityIncident{DeviceID: device.ID, TS: time.Now(), Kind: "fim_change", Severity: "warning",
 		Title: fmt.Sprintf("Datei-Änderungen (%d)", len(lines)), Detail: strings.Join(lines, "\n"), Status: "open"}
+	applySeverity(s.securitySettings(ctx), inc)
 	if err := s.store.InsertIncident(ctx, inc); err != nil {
 		s.log.Error("fim-vorfall speichern", "err", err)
 		return nil

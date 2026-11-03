@@ -7,7 +7,7 @@ import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
-import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary } from "../types";
+import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary, IncidentKindInfo } from "../types";
 import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
 import { CountryChips, Flag, countryFlag, countryName } from "../components/Country";
 
@@ -67,6 +67,7 @@ function IncidentsTab() {
   const days = params.get("days") || "30";
   const client = params.get("client") || "";
   const country = params.get("country") || "";
+  const technique = params.get("technique") || "";
   const [q, setQ] = useState("");
   const setParam = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
@@ -77,8 +78,11 @@ function IncidentsTab() {
   if (severity) qs.set("severity", severity);
   if (client) qs.set("client", client);
   if (country) qs.set("country", country);
+  if (technique) qs.set("technique", technique);
   if (q.trim()) qs.set("q", q.trim());
   const key = qs.toString();
+  const { data: kinds } = useQuery({ queryKey: ["incident-kinds"], queryFn: () => api.get<IncidentKindInfo[]>("/security/kinds"), staleTime: 600000 });
+  const techniques = [...new Map((kinds ?? []).flatMap((k) => k.techniques).map((m) => [m.id, m])).values()].sort((a, b) => a.id.localeCompare(b.id));
   const { data: rows, isLoading } = useQuery({ queryKey: ["incidents", "fleet", key], queryFn: () => api.get<SecurityIncident[]>(`/security/incidents?${key}`), refetchInterval: 30000 });
   // Länder-Auswahl: alle Länder aus Zusammenfassung und geladenen Vorfällen, gesammelt über die Zeit,
   // damit die Liste beim Filtern nicht zusammenschrumpft.
@@ -172,6 +176,10 @@ function IncidentsTab() {
             <select value={client} onChange={(e) => setParam("client", e.target.value)}>
               <option value="">{t("Alle Clients")}</option>
               {(tree?.clients ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select value={technique} onChange={(e) => setParam("technique", e.target.value)} title={t("MITRE-ATT&CK-Technik")}>
+              <option value="">{t("Alle Techniken")}</option>
+              {techniques.map((m) => <option key={m.id} value={m.id}>{m.id} {m.name}</option>)}
             </select>
             <select value={country} onChange={(e) => setParam("country", e.target.value)} title={t("Land der Quell-IP")}>
               <option value="">{t("Alle Länder")}</option>

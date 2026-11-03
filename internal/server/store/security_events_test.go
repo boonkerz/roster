@@ -106,3 +106,31 @@ func TestSecurityEventsStore(t *testing.T) {
 		t.Fatalf("prune incidents (offene bleiben): %+v", rows)
 	}
 }
+
+// TestIncidentTechniqueFilter: der Technik-Filter trifft über den Katalog alle Arten mit
+// dieser Technik (T1110 = Brute-Force und Kontosperre), unbekannte Techniken liefern nichts.
+func TestIncidentTechniqueFilter(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "srv", OS: "debian"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("s")); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"brute_force", "lockout", "scan"} {
+		if err := st.InsertIncident(ctx, &model.SecurityIncident{DeviceID: dev.ID, TS: time.Now(), Kind: k, Severity: "warning", Title: k, Status: "open"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := st.Incidents(ctx, store.IncidentFilter{Technique: "T1110"})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("T1110: %v %d", err, len(got))
+	}
+	for _, i := range got {
+		if len(i.Mitre) == 0 || i.Mitre[0].ID != "T1110" {
+			t.Errorf("Mitre fehlt: %+v", i.Mitre)
+		}
+	}
+	if got, _ := st.Incidents(ctx, store.IncidentFilter{Technique: "T9999"}); len(got) != 0 {
+		t.Fatalf("unbekannte Technik: %d", len(got))
+	}
+}

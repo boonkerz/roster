@@ -431,6 +431,10 @@ export interface AuthEvent {
 }
 
 // SecurityIncident ist ein abgeleiteter Sicherheitsvorfall.
+export interface MitreTechnique { id: string; name: string; tactic: string }
+// IncidentKindInfo ist ein Eintrag des Katalogs der Vorfallsarten (GET /security/kinds).
+export interface IncidentKindInfo { kind: string; default_severity: "info" | "warning" | "critical"; techniques: MitreTechnique[] }
+
 export interface SecurityIncident {
   id: string;
   device_id: string;
@@ -438,8 +442,9 @@ export interface SecurityIncident {
   client_name?: string;
   site_name?: string;
   ts: string;
-  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | string;
+  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | "portscan" | "threat_listed" | "persistence" | "audit_cleared" | "suspicious_process" | "state_change" | "rootkit" | "malware" | "container_exec" | string;
   severity: "info" | "warning" | "critical";
+  mitre?: MitreTechnique[]; // ATT&CK-Techniken der Art
   source_ip?: string;
   country?: string; // ISO-3166-Code der Quell-IP
   username?: string;
@@ -516,6 +521,7 @@ export interface SecuritySettings {
   fleet_block: boolean;
   subnet_ips: number;
   block_private: boolean; // auch private/interne Adressen automatisch sperren
+  severity: Record<string, string>; // Schweregrad-Override je Vorfallsart ("" = Standard)
 }
 
 // PolicyResponse ist eine Active-Response-Regel (Auslöser → Aktion).

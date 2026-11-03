@@ -6,6 +6,10 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Security → Incidents: every incident carries its **MITRE ATT&CK** techniques (e.g. T1110 Brute Force, T1070.001 Clear Windows Event Logs) as links into the ATT&CK matrix, and the incident list can be filtered by technique. The catalog of incident kinds (`GET /security/kinds`) is now the single source for server, policies and UI.
+- Settings → Security monitoring: **severity per incident kind** can override the default (Info suppresses the notification, the automatic response still runs).
+
 ## [0.18.19] - 2026-11-03
 
 ### Changed

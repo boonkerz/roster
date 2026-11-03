@@ -1,7 +1,11 @@
 // Package model definiert die Domänentypen des Servers.
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/boonkerz/roster/internal/shared/mitre"
+)
 
 // Role legt die Berechtigungsstufe eines Benutzers fest.
 type Role string
@@ -616,25 +620,26 @@ type AuthEvent struct {
 
 // SecurityIncident ist ein abgeleiteter Sicherheitsvorfall eines Geräts.
 type SecurityIncident struct {
-	ID                string     `json:"id"`
-	DeviceID          string     `json:"device_id"`
-	Hostname          string     `json:"hostname,omitempty"`
-	ClientName        string     `json:"client_name,omitempty"`
-	SiteName          string     `json:"site_name,omitempty"`
-	TS                time.Time  `json:"ts"`
-	Kind              string     `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change | scan
-	Severity          string     `json:"severity"` // info | warning | critical
-	SourceIP          string     `json:"source_ip,omitempty"`
-	Country           string     `json:"country,omitempty"` // Land der Quell-IP
-	Username          string     `json:"username,omitempty"`
-	Title             string     `json:"title"`
-	Detail            string     `json:"detail,omitempty"`
-	Status            string     `json:"status"` // open | acknowledged | resolved
-	Response          string     `json:"response,omitempty"`
-	ResponseStatus    string     `json:"response_status,omitempty"`
-	ResponseCommandID string     `json:"response_command_id,omitempty"`
-	AcknowledgedBy    string     `json:"acknowledged_by,omitempty"`
-	AcknowledgedAt    *time.Time `json:"acknowledged_at,omitempty"`
+	ID                string            `json:"id"`
+	DeviceID          string            `json:"device_id"`
+	Hostname          string            `json:"hostname,omitempty"`
+	ClientName        string            `json:"client_name,omitempty"`
+	SiteName          string            `json:"site_name,omitempty"`
+	TS                time.Time         `json:"ts"`
+	Kind              string            `json:"kind"`     // brute_force | brute_force_success | new_source_ip | account_change | lockout | fim_change | scan
+	Severity          string            `json:"severity"` // info | warning | critical
+	SourceIP          string            `json:"source_ip,omitempty"`
+	Country           string            `json:"country,omitempty"`
+	Mitre             []mitre.Technique `json:"mitre,omitempty"` // ATT&CK-Techniken der Art (beim Lesen aus dem Katalog) // Land der Quell-IP
+	Username          string            `json:"username,omitempty"`
+	Title             string            `json:"title"`
+	Detail            string            `json:"detail,omitempty"`
+	Status            string            `json:"status"` // open | acknowledged | resolved
+	Response          string            `json:"response,omitempty"`
+	ResponseStatus    string            `json:"response_status,omitempty"`
+	ResponseCommandID string            `json:"response_command_id,omitempty"`
+	AcknowledgedBy    string            `json:"acknowledged_by,omitempty"`
+	AcknowledgedAt    *time.Time        `json:"acknowledged_at,omitempty"`
 }
 
 // IPCount ist eine Quell-IP mit Trefferzahl.
@@ -703,7 +708,7 @@ type PolicyNotifications struct {
 var AllSoftwareAlertKinds = []string{"added", "removed", "updated"}
 
 // AllIncidentKinds sind die Vorfallsarten der Sicherheitsüberwachung.
-var AllIncidentKinds = []string{"brute_force", "brute_force_success", "scan", "new_source_ip", "account_change", "lockout", "fim_change"}
+var AllIncidentKinds = mitre.AllKinds()
 
 // PolicyBackup ist ein Backup-Eintrag einer Richtlinie: was gesichert wird, wann, und
 // was danach passiert. Geplant wird serverseitig (siehe RunBackupLoop), ausgeführt über

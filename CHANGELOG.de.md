@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Sicherheit → Vorfälle: Jeder Vorfall trägt seine **MITRE-ATT&CK-Techniken** (z. B. T1110 Brute Force, T1070.001 Clear Windows Event Logs) als Links in die ATT&CK-Matrix, die Liste lässt sich nach Technik filtern. Der Katalog der Vorfallsarten (`GET /security/kinds`) ist jetzt die eine Quelle für Server, Richtlinien und Oberfläche.
+- Einstellungen → Sicherheitsüberwachung: **Schweregrad je Vorfallsart** überschreibt den Standard (Info unterdrückt die Benachrichtigung, die automatische Reaktion läuft trotzdem).
+
 ## [0.18.19] - 2026-11-03
 
 ### Geändert
