@@ -195,3 +195,9 @@ wahlweise auf allen überwachten Geräten); Vorfälle bieten *IP sperren*
 mit derselben Dauer-Auswahl und *Konto sperren*. Eine bereits gesperrte IP wird nicht doppelt
 angelegt, sondern mit der neuen Dauer erneuert – so lässt sich eine befristete Sperre an Ort
 und Stelle dauerhaft machen.
+
+!!! tip "Sperrdauer und Datenmenge"
+    Mit Flottensperre entsteht je gesperrter Adresse ein Sperreintrag und ein Befehl **pro Gerät**. Bei kurzer
+    Sperrdauer (z. B. 60 min) werden dieselben Angreifer stündlich neu gesperrt – bei tausenden Vorfällen am Tag
+    sind das hunderttausende Zeilen. Empfehlung: Sperrdauer 24 h oder länger. Aufbewahrung: rohe Anmelde-/
+    Log-Ereignisse 30 Tage, beendete Sperren 14 Tage, erledigte Sperrbefehle 2 Tage, Vorfälle ein Jahr.

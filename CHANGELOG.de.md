@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Regressionstest für den Windows-Agent: schlägt fehl, wenn die eingebettete EXE nicht mehr auf Windows Server 2012 starten würde (PE-Mindestversion über 6.1 oder statische Importe von Windows-10-APIs).
+
 ## [0.18.16] - 2026-11-03
 
 ### Behoben

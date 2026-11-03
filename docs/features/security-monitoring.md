@@ -188,3 +188,9 @@ monitored devices); incidents offer *Block IP* with the
 same duration choice and *Lock account*. Blocking an IP that is already blocked does not create
 a duplicate: the existing block is renewed with the new duration, so a temporary block can be
 made permanent in place.
+
+!!! tip "Block duration and data volume"
+    With fleet blocking every blocked address creates one block row and one command **per device**. A short
+    block duration (e.g. 60 min) re-blocks the same attackers every hour – with thousands of incidents a day
+    that is hundreds of thousands of rows. Recommendation: 24 h or longer. Retention: raw login/log events
+    30 days, finished blocks 14 days, finished block commands 2 days, incidents one year.

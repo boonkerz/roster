@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Regression test for the Windows agent: fails when the embedded EXE would no longer start on Windows Server 2012 (PE minimum version above 6.1 or static imports of Windows-10-only APIs).
+
 ## [0.18.16] - 2026-11-03
 
 ### Fixed
