@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Die Flottensperre weckte für jede kopierte Sperre sofort alle Geräte, sodass bei tausenden Vorfällen am Tag die ganze Flotte etwa alle 20 s eincheckte (das Zwölffache, ~1.500 Checkins je 10 Minuten) und jeder Checkin die tausenden Sperrzeilen des Geräts nach verfallenen Befehlen durchsuchte. Die Kopien kommen jetzt mit dem nächsten regulären Checkin an, und die Verfallsprüfung geht über die wenigen offenen Befehle des Geräts (dazu Index `ip_blocks(status, device_id)`, Migration 0071).
+
 ## [0.18.14] - 2026-11-03
 
 ### Behoben

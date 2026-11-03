@@ -191,17 +191,19 @@ func (s *Store) BlockIPOnDevices(ctx context.Context, deviceIDs []string, target
 // Liefert die Zahl der bereinigten Befehle.
 func (s *Store) ExpireUndeliveredBlocks(ctx context.Context, deviceID string) (int64, error) {
 	now := time.Now().UTC()
+	// Über die (wenigen) offenen Befehle des Geräts, nicht über seine Sperren – von denen
+	// hat ein Gerät mit Flottensperre schnell tausende.
 	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE commands SET status='done', result='Sperre vor Zustellung abgelaufen (Gerät war offline)'
 		WHERE device_id=? AND status='pending' AND type='block_ip'
-		  AND id IN (SELECT command_id FROM ip_blocks WHERE device_id=? AND status='pending' AND until_at IS NOT NULL AND until_at < ?)`),
-		deviceID, deviceID, now)
+		  AND EXISTS (SELECT 1 FROM ip_blocks b WHERE b.command_id = commands.id AND b.until_at IS NOT NULL AND b.until_at < ?)`),
+		deviceID, now)
 	if err != nil {
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
 	if n > 0 {
 		_, err = s.db.ExecContext(ctx, s.rebind(`UPDATE ip_blocks SET status='expired', detail='vor Zustellung abgelaufen (Gerät war offline)'
-			WHERE device_id=? AND status='pending' AND until_at IS NOT NULL AND until_at < ?`), deviceID, now)
+			WHERE status='pending' AND device_id=? AND until_at IS NOT NULL AND until_at < ?`), deviceID, now)
 	}
 	return n, err
 }

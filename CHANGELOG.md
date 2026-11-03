@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Fleet blocking woke every device immediately for each copied block, so with thousands of incidents a day the whole fleet checked in every ~20 s (12× the regular rate, ~1,500 check-ins per 10 minutes) and each check-in scanned the device's thousands of block rows for expired commands. Copies now arrive with the next regular check-in, and the expiry check walks the device's few pending commands instead (plus index `ip_blocks(status, device_id)`, migration 0071).
+
 ## [0.18.14] - 2026-11-03
 
 ### Fixed

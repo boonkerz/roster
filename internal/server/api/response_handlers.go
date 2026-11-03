@@ -315,9 +315,9 @@ func (s *Server) blockFleet(ctx context.Context, originID, target string, minute
 		s.log.Error("flottensperre", "ip", target, "err", err)
 		return 0
 	}
-	for _, id := range queued {
-		s.term.requestWake(id, shared.WaitResponse{Type: "checkin"})
-	}
+	// Bewusst kein Weckruf an die anderen Geräte: Jede Flottensperre würde sonst die ganze
+	// Flotte sofort einchecken lassen (bei tausenden Vorfällen am Tag das Zwölffache der
+	// regulären Checkins). Die Kopien kommen mit dem nächsten regulären Checkin an.
 	if len(queued) > 0 {
 		_ = s.store.InsertAudit(ctx, model.AuditEntry{TS: time.Now(), Username: by, Action: fmt.Sprintf("IP %s auf %d weiteren Geräten gesperrt (Flotte)", target, len(queued)), Method: "AUTO", Path: "/security/response", Status: 201})
 	}
