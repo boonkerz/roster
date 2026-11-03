@@ -1,6 +1,8 @@
 package rootcheck
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,6 +30,18 @@ func TestEvents(t *testing.T) {
 	ev := Events([]Finding{{Check: "versteckter Prozess", Item: "PID 4711"}}, now)
 	if len(ev) != 1 || ev[0].Kind != "rootkit" || ev[0].Detail != "versteckter Prozess: PID 4711" || ev[0].RecordID == "" {
 		t.Fatalf("%+v", ev)
+	}
+	var many []Finding
+	for i := 0; i < 15; i++ {
+		many = append(many, Finding{Check: "ausführbare Datei in Temp-Verzeichnis", Item: fmt.Sprintf("/tmp/x%02d", i)})
+	}
+	many = append(many, Finding{Check: "ld.so.preload gesetzt", Item: "/x.so"})
+	agg := Events(many, now)
+	if len(agg) != 2 || !strings.Contains(agg[0].Detail, "(+5 weitere)") || strings.Count(agg[0].Detail, "/tmp/x") != 10 {
+		t.Fatalf("Bündelung: %+v", agg)
+	}
+	if Critical(agg[0].Detail) || !Critical(agg[1].Detail) {
+		t.Fatal("Critical")
 	}
 	ev2 := Events([]Finding{{Check: "versteckter Prozess", Item: "PID 4711"}}, now.Add(time.Hour))
 	if ev2[0].RecordID != ev[0].RecordID {

@@ -312,6 +312,9 @@ func TestRootkitMalware(t *testing.T) {
 	if len(got) != 2 || got[0].Severity != "critical" || got[0].Title != "Rootkit-Hinweis: versteckter Prozess" || got[1].Title != "Malware gefunden: /var/www/x.php" {
 		t.Fatalf("got %+v", got)
 	}
+	if w := Detect(Input{Now: base.Add(time.Minute), Events: []shared.AuthEvent{{Time: base, Kind: "rootkit", Service: "rootcheck", Detail: "ausführbare Datei in Temp-Verzeichnis: /tmp/a, /tmp/b"}}}, DefaultConfig()); len(w) != 1 || w[0].Severity != "warning" {
+		t.Fatalf("got %+v", got)
+	}
 	recent := map[string]time.Time{"rootkit|Rootkit-Hinweis: versteckter Prozess|versteckter Prozess: PID 4711": base.Add(-time.Hour)}
 	if got := Detect(Input{Now: base.Add(time.Minute), Events: evs, RecentTitles: recent}, DefaultConfig()); len(got) != 1 {
 		t.Fatalf("dedupe: %+v", got)

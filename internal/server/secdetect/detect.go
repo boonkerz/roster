@@ -282,7 +282,13 @@ func Detect(in Input, cfg Config) []Incident {
 			}
 			out = append(out, inc)
 		case e.Kind == "rootkit":
-			inc := Incident{Time: e.Time, Kind: "rootkit", Severity: "critical", Title: "Rootkit-Hinweis: " + firstField(e.Detail), Detail: e.Detail}
+			sev := "warning" // ausführbare Dateien in /tmp, Promiscuous, Dateien in /dev
+			for _, p := range []string{"versteckter Prozess", "verstecktes Kernelmodul", "ld.so.preload", "bekannter Rootkit-Pfad"} {
+				if strings.HasPrefix(e.Detail, p) {
+					sev = "critical"
+				}
+			}
+			inc := Incident{Time: e.Time, Kind: "rootkit", Severity: sev, Title: "Rootkit-Hinweis: " + firstField(e.Detail), Detail: e.Detail}
 			if dup(in, inc) {
 				continue
 			}

@@ -7,6 +7,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/boonkerz/roster/internal/shared"
@@ -21,15 +24,46 @@ type Finding struct {
 // Run führt alle Rootkit-Prüfungen der Plattform aus.
 func Run(ctx context.Context) []Finding { return run(ctx) }
 
-// Events macht aus Befunden Ereignisse; RecordID je Befund und Tag (ein Vorfall pro Tag).
+// Events bündelt Befunde je Prüfung zu einem Ereignis (bis zu 10 Elemente genannt, Rest
+// gezählt); RecordID je Prüfung, Elementmenge und Tag – ein Vorfall pro Prüfung und Tag,
+// auch wenn /tmp hunderte ausführbare Dateien enthält.
 func Events(findings []Finding, now time.Time) []shared.AuthEvent {
-	var out []shared.AuthEvent
+	byCheck := map[string][]string{}
+	var order []string
 	for _, f := range findings {
-		h := sha256.Sum256([]byte(f.Check + "|" + f.Item))
-		out = append(out, shared.AuthEvent{Time: now, Kind: "rootkit", Service: "rootcheck", Detail: f.Check + ": " + f.Item,
+		if _, ok := byCheck[f.Check]; !ok {
+			order = append(order, f.Check)
+		}
+		byCheck[f.Check] = append(byCheck[f.Check], f.Item)
+	}
+	var out []shared.AuthEvent
+	for _, check := range order {
+		items := byCheck[check]
+		sort.Strings(items)
+		h := sha256.Sum256([]byte(check + "|" + strings.Join(items, "|")))
+		shown := items
+		if len(shown) > 10 {
+			shown = shown[:10]
+		}
+		detail := check + ": " + strings.Join(shown, ", ")
+		if len(items) > len(shown) {
+			detail += fmt.Sprintf(" (+%d weitere)", len(items)-len(shown))
+		}
+		out = append(out, shared.AuthEvent{Time: now, Kind: "rootkit", Service: "rootcheck", Detail: detail,
 			RecordID: "rk:" + hex.EncodeToString(h[:6]) + ":" + now.Format("2006-01-02")})
 	}
 	return out
+}
+
+// Critical meldet, ob ein Befund-Detail auf eine kritische Prüfung zurückgeht (versteckte
+// Prozesse/Module, ld.so.preload, bekannte Rootkit-Pfade); der Rest ist eine Warnung.
+func Critical(detail string) bool {
+	for _, p := range []string{"versteckter Prozess", "verstecktes Kernelmodul", "ld.so.preload", "bekannter Rootkit-Pfad"} {
+		if strings.HasPrefix(detail, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // MalwareEvents macht aus Scanner-Funden Ereignisse (Detail "pfad: signatur").
