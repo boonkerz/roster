@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-03
+
 ### Added
 - File integrity **who-data**: with the policy switch "Identify who changed files" the agent maintains auditd watch rules on Linux (`-w <path> -p wa -k roster_fim`, read via `ausearch --checkpoint`) and on Windows sets success SACLs on the monitored paths and reads events 4663/4660. Changes then carry user and process in the event list (column "Who") and in notifications. Migration 0075 also adds the policy switches for system-state monitoring and the rootkit check.
 
@@ -336,7 +338,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.19...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/boonkerz/roster/compare/v0.18.19...v0.19.0
 [0.18.19]: https://github.com/boonkerz/roster/compare/v0.18.18...v0.18.19
 [0.18.18]: https://github.com/boonkerz/roster/compare/v0.18.17...v0.18.18
 [0.18.17]: https://github.com/boonkerz/roster/compare/v0.18.16...v0.18.17
