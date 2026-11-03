@@ -759,6 +759,10 @@ func (s *Store) PruneHistory(ctx context.Context, cutoff, auditCutoff time.Time)
 	_ = s.PruneSecurityEvents(ctx, time.Now().AddDate(0, 0, -30), time.Now().AddDate(-1, 0, 0))
 	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM ip_blocks WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?))`),
 		time.Now().AddDate(0, 0, -14).UTC(), time.Now().AddDate(0, 0, -14).UTC())
+	// Erledigte Sperrbefehle sind Massenware (Flottensperre: ein Befehl je Gerät und
+	// Adresse) und nach zwei Tagen ohne Wert – unabhängig von der übrigen Aufbewahrung.
+	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM commands WHERE type IN ('block_ip','unblock_ip') AND status IN ('done','failed') AND created_at < ?`),
+		time.Now().AddDate(0, 0, -2).UTC())
 	if s.dialect == DialectSQLite {
 		// Planer-Statistiken auffrischen (nur wo nötig), sonst wählt SQLite bei großen
 		// Tabellen ohne Statistik falsche Indizes.

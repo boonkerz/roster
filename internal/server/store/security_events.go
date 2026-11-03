@@ -433,103 +433,133 @@ func (s *Store) SecuritySummary(ctx context.Context, allowed map[string]bool) (m
 	if empty {
 		return sum, nil
 	}
-	day := time.Now().Add(-24 * time.Hour).UTC()
 	if err := s.db.QueryRowContext(ctx, s.rebind(`
 		SELECT COALESCE(SUM(CASE WHEN i.status='open' THEN 1 ELSE 0 END),0),
 			COALESCE(SUM(CASE WHEN i.status='open' AND i.severity='critical' THEN 1 ELSE 0 END),0)
 		FROM security_incidents i JOIN devices d ON d.id = i.device_id WHERE d.revoked = FALSE`+scope), args...).Scan(&sum.OpenIncidents, &sum.CriticalOpen); err != nil {
 		return sum, err
 	}
-	args2 := append([]any{day}, args...)
-	if err := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT COUNT(*) FROM auth_events a JOIN devices d ON d.id = a.device_id
-		WHERE a.kind IN ('login_failed','invalid_user') AND a.ts >= ? AND d.revoked = FALSE`+scope), args2...).Scan(&sum.FailedLogins24h); err != nil {
-		return sum, err
-	}
 	if err := s.db.QueryRowContext(ctx, s.rebind(`SELECT COUNT(*) FROM devices d WHERE d.auth_monitor_since IS NOT NULL AND d.revoked = FALSE`+scope), args...).Scan(&sum.DevicesMonitored); err != nil {
 		return sum, err
 	}
-	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT a.source_ip, COUNT(*) AS n FROM auth_events a JOIN devices d ON d.id = a.device_id
-		WHERE a.kind IN ('login_failed','invalid_user') AND a.source_ip <> '' AND a.ts >= ? AND d.revoked = FALSE`+scope+`
-		GROUP BY a.source_ip ORDER BY n DESC LIMIT 10`), args2...)
+	sites, err := s.deviceSites(ctx, allowed)
 	if err != nil {
 		return sum, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var c model.IPCount
-		if err := rows.Scan(&c.IP, &c.Count); err != nil {
-			return sum, err
+	// Ein Durchlauf über die Ereignisse der letzten 24 h (abdeckender Zeitindex, kein Join –
+	// der Planer wählt sonst je nach Statistik den Geräte-Index und liest verstreute Zeilen):
+	// Fehlversuche, Top-IPs und Herkunftsländer aller Angriffsquellen.
+	failedByIP := map[string]int{}
+	attackByIP := map[string]int{}
+	err = s.attackEvents(ctx, time.Now().Add(-24*time.Hour), func(deviceID, kind, ip string) {
+		if _, ok := sites[deviceID]; !ok {
+			return
 		}
-		c.Country = geoip.Country(c.IP)
-		sum.TopIPs = append(sum.TopIPs, c)
-	}
-	if err := rows.Err(); err != nil {
-		return sum, err
-	}
-	rows.Close()
-	// Herkunftsländer: alle Quell-IPs der Fehlversuche (24 h) zählen, dann je Land bündeln.
-	attack, err := s.ipCounts(ctx, `SELECT a.source_ip, COUNT(*) FROM auth_events a JOIN devices d ON d.id = a.device_id
-		WHERE a.kind IN ('login_failed','invalid_user','probe') AND a.source_ip <> '' AND a.ts >= ? AND d.revoked = FALSE`+scope+` GROUP BY a.source_ip`, args2...)
+		if kind != "probe" {
+			sum.FailedLogins24h++
+			if ip != "" {
+				failedByIP[ip]++
+			}
+		}
+		if ip != "" {
+			attackByIP[ip]++
+		}
+	})
 	if err != nil {
 		return sum, err
 	}
-	sum.TopCountries = CountriesOf(attack)
-	month := append([]any{time.Now().Add(-30 * 24 * time.Hour).UTC()}, args...)
-	// Ohne GROUP BY, damit SQLite den Zeitstempel-Index nutzt (mit GROUP BY wählt der Planer
-	// ohne Statistik den IP-Index und liest die gesamte – mit Flottensperre große – Tabelle);
-	// gezählt wird in Go.
-	blocked, err := s.ipCountsGrouped(ctx, `SELECT b.ip FROM ip_blocks b JOIN devices d ON d.id = b.device_id
-		WHERE b.created_at >= ? AND d.revoked = FALSE`+scope, month...)
+	for ip, n := range failedByIP {
+		sum.TopIPs = append(sum.TopIPs, model.IPCount{IP: ip, Count: n, Country: geoip.Country(ip)})
+	}
+	sort.Slice(sum.TopIPs, func(i, j int) bool {
+		if sum.TopIPs[i].Count != sum.TopIPs[j].Count {
+			return sum.TopIPs[i].Count > sum.TopIPs[j].Count
+		}
+		return sum.TopIPs[i].IP < sum.TopIPs[j].IP
+	})
+	if len(sum.TopIPs) > 10 {
+		sum.TopIPs = sum.TopIPs[:10]
+	}
+	sum.TopCountries = CountriesOf(countsToList(attackByIP))
+	blockedByIP := map[string]int{}
+	err = s.blockRows(ctx, time.Now().Add(-30*24*time.Hour), func(deviceID, ip string) {
+		if _, ok := sites[deviceID]; ok {
+			blockedByIP[ip]++
+		}
+	})
 	if err != nil {
 		return sum, err
 	}
-	sum.BlockedCountries = CountriesOf(blocked)
+	sum.BlockedCountries = CountriesOf(countsToList(blockedByIP))
 	return sum, nil
 }
 
-// ipCounts führt eine Abfrage „IP, Anzahl“ aus.
-func (s *Store) ipCounts(ctx context.Context, q string, args ...any) ([]model.IPCount, error) {
-	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
+// deviceSites liefert Gerät → Standort (” = keiner) aller nicht widerrufenen Geräte im
+// Sichtbarkeitsbereich – zum Filtern der Massen-Tabellen in Go statt per Join.
+func (s *Store) deviceSites(ctx context.Context, allowed map[string]bool) (map[string]string, error) {
+	scope, args, empty := scopeWhere(allowed)
+	out := map[string]string{}
+	if empty {
+		return out, nil
+	}
+	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT d.id, COALESCE(d.site_id,'') FROM devices d WHERE d.revoked = FALSE`+scope), args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []model.IPCount
 	for rows.Next() {
-		var c model.IPCount
-		if err := rows.Scan(&c.IP, &c.Count); err != nil {
+		var id, site string
+		if err := rows.Scan(&id, &site); err != nil {
 			return nil, err
 		}
-		out = append(out, c)
+		out[id] = site
 	}
 	return out, rows.Err()
 }
 
-// ipCountsGrouped führt eine Abfrage „IP“ (eine Zeile je Vorkommen) aus und zählt je IP.
-func (s *Store) ipCountsGrouped(ctx context.Context, q string, args ...any) ([]model.IPCount, error) {
-	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
+// attackEvents ruft fn für jedes Fehlversuchs-/Probe-Ereignis seit since auf (nur Spalten
+// des abdeckenden Index idx_auth_events_ts_kind).
+func (s *Store) attackEvents(ctx context.Context, since time.Time, fn func(deviceID, kind, ip string)) error {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT device_id, kind, source_ip FROM auth_events
+		WHERE ts >= ? AND kind IN ('login_failed','invalid_user','probe')`), since.UTC())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	idx := map[string]int{}
-	var out []model.IPCount
 	for rows.Next() {
-		var ip string
-		if err := rows.Scan(&ip); err != nil {
-			return nil, err
+		var d, k, ip string
+		if err := rows.Scan(&d, &k, &ip); err != nil {
+			return err
 		}
-		i, ok := idx[ip]
-		if !ok {
-			idx[ip] = len(out)
-			out = append(out, model.IPCount{IP: ip})
-			i = len(out) - 1
-		}
-		out[i].Count++
+		fn(d, k, ip)
 	}
-	return out, rows.Err()
+	return rows.Err()
+}
+
+// blockRows ruft fn für jede Sperre seit since auf (Spalten des Index idx_ip_blocks_created).
+func (s *Store) blockRows(ctx context.Context, since time.Time, fn func(deviceID, ip string)) error {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT device_id, ip FROM ip_blocks WHERE created_at >= ?`), since.UTC())
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var d, ip string
+		if err := rows.Scan(&d, &ip); err != nil {
+			return err
+		}
+		fn(d, ip)
+	}
+	return rows.Err()
+}
+
+func countsToList(m map[string]int) []model.IPCount {
+	out := make([]model.IPCount, 0, len(m))
+	for ip, n := range m {
+		out = append(out, model.IPCount{IP: ip, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].IP < out[j].IP })
+	return out
 }
 
 // CountriesOf bündelt IP-Zähler nach Land (absteigend nach Zahl der IPs, unbekannt zuletzt).
@@ -563,36 +593,35 @@ func CountriesOf(ips []model.IPCount) []model.CountryCount {
 // Länder-Kennzahlen des Dashboards. kind: "blocked" (Sperren der letzten 30 Tage) oder
 // "attack" (Quell-IPs von Fehlversuchen/verdächtigen Anfragen der letzten 7 Tage).
 func (s *Store) SiteIPs(ctx context.Context, allowed map[string]bool, kind string) (map[string][]string, error) {
-	scope, args, empty := scopeWhere(allowed)
-	out := map[string][]string{}
-	if empty {
-		return out, nil
-	}
-	var q string
-	var since time.Time
-	switch kind {
-	case "blocked":
-		since = time.Now().Add(-30 * 24 * time.Hour).UTC()
-		q = `SELECT DISTINCT COALESCE(d.site_id,''), b.ip FROM ip_blocks b JOIN devices d ON d.id = b.device_id
-			WHERE b.created_at >= ? AND d.revoked = FALSE` + scope
-	default:
-		since = time.Now().Add(-7 * 24 * time.Hour).UTC()
-		q = `SELECT DISTINCT COALESCE(d.site_id,''), a.source_ip FROM auth_events a JOIN devices d ON d.id = a.device_id
-			WHERE a.kind IN ('login_failed','invalid_user','probe') AND a.source_ip <> '' AND a.ts >= ? AND d.revoked = FALSE` + scope
-	}
-	rows, err := s.db.QueryContext(ctx, s.rebind(q), append([]any{since}, args...)...)
+	sites, err := s.deviceSites(ctx, allowed)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var site, ip string
-		if err := rows.Scan(&site, &ip); err != nil {
-			return nil, err
+	out := map[string][]string{}
+	seen := map[string]map[string]bool{}
+	add := func(deviceID, ip string) {
+		site, ok := sites[deviceID]
+		if !ok || ip == "" {
+			return
 		}
-		out[site] = append(out[site], ip)
+		if seen[site] == nil {
+			seen[site] = map[string]bool{}
+		}
+		if !seen[site][ip] {
+			seen[site][ip] = true
+			out[site] = append(out[site], ip)
+		}
 	}
-	return out, rows.Err()
+	switch kind {
+	case "blocked":
+		err = s.blockRows(ctx, time.Now().Add(-30*24*time.Hour), add)
+	default:
+		err = s.attackEvents(ctx, time.Now().Add(-7*24*time.Hour), func(deviceID, _, ip string) { add(deviceID, ip) })
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // PruneSecurityEvents löscht Rohereignisse älter als eventCutoff und Vorfälle älter als incidentCutoff.

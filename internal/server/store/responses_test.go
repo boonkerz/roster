@@ -2,6 +2,8 @@ package store_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -143,5 +145,57 @@ func TestExpireUndeliveredBlocks(t *testing.T) {
 	}
 	if b, _ := st.ActiveIPBlock(ctx, dev.ID, "203.0.113.10"); b == nil {
 		t.Fatal("gültige Sperre fehlt")
+	}
+}
+
+// TestConcurrentAccess: mehrere Verbindungen (WAL, BEGIN IMMEDIATE) – parallele Schreiber
+// und Leser dürfen weder „database is locked“ liefern noch sich gegenseitig blockieren.
+func TestConcurrentAccess(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	var devs []*model.Device
+	for i := 0; i < 4; i++ {
+		d := &model.Device{ID: store.NewID(), Hostname: fmt.Sprintf("srv-%d", i), OS: "debian"}
+		if err := st.CreateDevice(ctx, d, auth.HashToken(d.ID)); err != nil {
+			t.Fatal(err)
+		}
+		devs = append(devs, d)
+	}
+	errs := make(chan error, 64)
+	var wg sync.WaitGroup
+	for w := 0; w < 8; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			d := devs[w%len(devs)]
+			for i := 0; i < 40; i++ {
+				ip := fmt.Sprintf("198.51.%d.%d", w, i)
+				if _, err := st.BlockIPOnDevices(ctx, []string{d.ID}, ip, 5, nil, "test", "", "system", "x"); err != nil {
+					errs <- fmt.Errorf("block: %w", err)
+					return
+				}
+				if _, err := st.ActiveIPBlock(ctx, d.ID, ip); err != nil {
+					errs <- fmt.Errorf("read: %w", err)
+					return
+				}
+				if _, err := st.PendingCommands(ctx, d.ID); err != nil {
+					errs <- fmt.Errorf("pending: %w", err)
+					return
+				}
+				if _, err := st.ListDevices(ctx, nil); err != nil {
+					errs <- fmt.Errorf("list: %w", err)
+					return
+				}
+			}
+		}(w)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+	blocks, err := st.IPBlocksFiltered(ctx, store.IPBlockFilter{Limit: 1000})
+	if err != nil || len(blocks) != 320 {
+		t.Fatalf("blocks: %v %d", err, len(blocks))
 	}
 }

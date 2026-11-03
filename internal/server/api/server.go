@@ -57,6 +57,7 @@ func (s *Server) routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	r.Use(s.logSlowRequests)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// --- Realtime: Wake-Poll + Terminal-WebSockets (KEIN Request-Timeout) ---

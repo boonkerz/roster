@@ -46,7 +46,12 @@ func Open(databaseURL string) (*Store, error) {
 		return nil, fmt.Errorf("db öffnen: %w", err)
 	}
 	if dialect == DialectSQLite {
-		db.SetMaxOpenConns(1) // SQLite verträgt nur einen Schreiber
+		// WAL erlaubt beliebig viele Leser neben einem Schreiber. Mit nur einer Verbindung
+		// warteten Oberfläche und Checkins hintereinander auf jede einzelne Abfrage.
+		// Transaktionen starten mit BEGIN IMMEDIATE (_txlock), damit Schreiber sofort die
+		// Sperre nehmen und über busy_timeout warten statt in einen Deadlock zu laufen.
+		db.SetMaxOpenConns(4)
+		db.SetMaxIdleConns(4)
 	}
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("db erreichen: %w", err)
@@ -73,7 +78,7 @@ func parseURL(u string) (driver, dsn string, d Dialect, err error) {
 			return "", "", 0, fmt.Errorf("sqlite-pfad fehlt in %q", u)
 		}
 		// Foreign Keys aktivieren + WAL für bessere Nebenläufigkeit.
-		dsn = path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+		dsn = path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(15000)&_pragma=synchronous(NORMAL)&_txlock=immediate"
 		return "sqlite", dsn, DialectSQLite, nil
 	case strings.HasPrefix(u, "postgres://"), strings.HasPrefix(u, "postgresql://"):
 		return "pgx", u, DialectPostgres, nil

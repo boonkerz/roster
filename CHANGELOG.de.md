@@ -6,6 +6,15 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Dashboard brauchte Sekunden und trieb die CPU hoch: Sicherheitsübersicht und Länder-Widgets verknüpften die großen Ereignis-/Sperrtabellen mit der Gerätetabelle, und sobald SQLite Planer-Statistiken hatte, ging es je Gerät durch (11 s für die Zählung gesperrter IPs, 1,5–2,3 s je Anmelde-Abfrage). Diese Abfragen lesen jetzt nur noch abdeckende Zeitindizes ohne Join (neuer Index `auth_events(ts, kind, source_ip, device_id)`, Migration 0072) und filtern die Geräte in Go.
+- SQLite lief über eine einzige Verbindung, jede Oberflächen-Anfrage wartete hinter jedem Checkin-Schreibzugriff und umgekehrt. Der Server nutzt jetzt einen kleinen Pool (WAL-Leser laufen parallel; Transaktionen starten mit `BEGIN IMMEDIATE`, Busy-Timeout 15 s, `synchronous=NORMAL`).
+- Erledigte `block_ip`-Befehle werden nach zwei Tagen gelöscht, unabhängig von der Ergebnis-Aufbewahrung – mit Flottensperre waren das 155 MB Massenzeilen.
+
+### Neu
+- Anfragen über 5 s werden mit Pfad, Status und Dauer protokolliert (Long-Polls ausgenommen).
+- `ROSTER_PPROF_ADDR` (z. B. `127.0.0.1:6060`) schaltet die pprof-Endpunkte von Go zur Diagnose frei.
+
 ## [0.18.15] - 2026-11-03
 
 ### Behoben

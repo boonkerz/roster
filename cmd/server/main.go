@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"strings"
 	"time"
@@ -139,6 +140,20 @@ func (p *program) Start(s service.Service) error {
 	go p.cveScanLoop()
 	go p.statsLoop(srv)
 
+	if addr := os.Getenv("ROSTER_PPROF_ADDR"); addr != "" {
+		// Diagnose: Go-Profile (CPU, Goroutines, Heap) nur auf der angegebenen Adresse,
+		// z. B. 127.0.0.1:6060 – nie nach außen freigeben.
+		go func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			p.log.Info("pprof aktiv", "addr", addr)
+			if err := http.ListenAndServe(addr, mux); err != nil {
+				p.log.Warn("pprof", "err", err)
+			}
+		}()
+	}
 	go p.serve(cfg)
 	return nil
 }
