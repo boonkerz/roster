@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Device list (polled every 15 s by dashboard and device page) was expensive per device: the "latest result per task" subquery ran quadratically over the device's task results, and the open-incident count read rows instead of an index. Migration 0073 adds `task_results(device_id, task_id, ran_at)` and `security_incidents(device_id, status)`.
+
 ### Added
 - Regression test for the Windows agent: fails when the embedded EXE would no longer start on Windows Server 2012 (PE minimum version above 6.1 or static imports of Windows-10-only APIs).
 

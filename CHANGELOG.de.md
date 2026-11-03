@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Geräteliste (alle 15 s von Dashboard und Geräteseite geladen) war je Gerät teuer: Die Unterabfrage „letztes Ergebnis je Task“ lief quadratisch über die Task-Ergebnisse des Geräts, die Zählung offener Vorfälle las Zeilen statt eines Index. Migration 0073 ergänzt `task_results(device_id, task_id, ran_at)` und `security_incidents(device_id, status)`.
+
 ### Neu
 - Regressionstest für den Windows-Agent: schlägt fehl, wenn die eingebettete EXE nicht mehr auf Windows Server 2012 starten würde (PE-Mindestversion über 6.1 oder statische Importe von Windows-10-APIs).
 
