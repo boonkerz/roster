@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.13] - 2026-11-03
+
 ### Fixed
 - Server CPU at 100 % of a core and check-ins still timing out: every command result looked up its incident with a full scan of `security_incidents` (several times a second with fleet blocking), and the dashboard scanned the whole `ip_blocks` table every 15 s for the blocked-IP counts. Migration 0070 adds indexes on `security_incidents(response_command_id)` and `ip_blocks(created_at, ip, device_id)`; the security summary is cached for 60 s.
 
@@ -266,7 +268,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.12...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.13...HEAD
+[0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
 [0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
 [0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10

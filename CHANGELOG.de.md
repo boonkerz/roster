@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.13] - 2026-11-03
+
 ### Behoben
 - Server-CPU bei 100 % eines Kerns und weiterhin Checkin-Timeouts: Jede Befehlsrückmeldung suchte ihren Vorfall mit einem vollen Durchlauf von `security_incidents` (mit Flottensperre mehrmals pro Sekunde), und das Dashboard las alle 15 s die komplette `ip_blocks`-Tabelle für die Zählung gesperrter IPs. Migration 0070 ergänzt Indizes auf `security_incidents(response_command_id)` und `ip_blocks(created_at, ip, device_id)`; die Sicherheitsübersicht wird 60 s zwischengespeichert.
 
@@ -266,7 +268,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.12...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.13...HEAD
+[0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
 [0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
 [0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
