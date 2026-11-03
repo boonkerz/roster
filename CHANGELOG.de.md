@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Server-CPU bei 100 % eines Kerns und weiterhin Checkin-Timeouts: Jede Befehlsrückmeldung suchte ihren Vorfall mit einem vollen Durchlauf von `security_incidents` (mit Flottensperre mehrmals pro Sekunde), und das Dashboard las alle 15 s die komplette `ip_blocks`-Tabelle für die Zählung gesperrter IPs. Migration 0070 ergänzt Indizes auf `security_incidents(response_command_id)` und `ip_blocks(created_at, ip, device_id)`; die Sicherheitsübersicht wird 60 s zwischengespeichert.
+
 ## [0.18.12] - 2026-11-03
 
 ### Behoben

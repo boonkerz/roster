@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -343,8 +344,45 @@ func (s *Server) handleDeviceAuthEvents(w http.ResponseWriter, r *http.Request) 
 	s.writeJSON(w, http.StatusOK, rows)
 }
 
+// securitySummary liefert die Sicherheitsübersicht aus einem 60-s-Cache je Sichtbarkeits-
+// bereich: Dashboard und Sicherheitsseite fragen sie alle 15–30 s ab, und die Zählung der
+// Sperren/Angriffsquellen über Wochen hinweg ist bei großen Tabellen teuer.
+func (s *Server) securitySummary(ctx context.Context, allowed map[string]bool) (model.SecuritySummary, error) {
+	key := "*"
+	if allowed != nil {
+		ids := make([]string, 0, len(allowed))
+		for id := range allowed {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		key = strings.Join(ids, ",")
+	}
+	s.secSumMu.Lock()
+	if c, ok := s.secSumCache[key]; ok && time.Since(c.at) < time.Minute {
+		s.secSumMu.Unlock()
+		return c.sum, nil
+	}
+	s.secSumMu.Unlock()
+	sum, err := s.store.SecuritySummary(ctx, allowed)
+	if err != nil {
+		return sum, err
+	}
+	s.secSumMu.Lock()
+	if s.secSumCache == nil {
+		s.secSumCache = map[string]secSumEntry{}
+	}
+	s.secSumCache[key] = secSumEntry{sum: sum, at: time.Now()}
+	s.secSumMu.Unlock()
+	return sum, nil
+}
+
+type secSumEntry struct {
+	sum model.SecuritySummary
+	at  time.Time
+}
+
 func (s *Server) handleSecuritySummary(w http.ResponseWriter, r *http.Request) {
-	sum, err := s.store.SecuritySummary(r.Context(), s.scopeFilter(r))
+	sum, err := s.securitySummary(r.Context(), s.scopeFilter(r))
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return

@@ -31,6 +31,9 @@ type Server struct {
 	fileCaps *fileCapHub // Datei-Capabilities des nativen Viewers (Token→Gerät)
 	router   http.Handler
 
+	secSumMu    sync.Mutex // schützt secSumCache (siehe securitySummary)
+	secSumCache map[string]secSumEntry
+
 	responses chan responseJob // Aufträge für den seriellen Reaktions-Worker (Sperren usw.)
 
 	tzMu   sync.RWMutex   // schützt den Zeitzonen-Cache (siehe timezone.go)

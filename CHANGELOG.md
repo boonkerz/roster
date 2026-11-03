@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Server CPU at 100 % of a core and check-ins still timing out: every command result looked up its incident with a full scan of `security_incidents` (several times a second with fleet blocking), and the dashboard scanned the whole `ip_blocks` table every 15 s for the blocked-IP counts. Migration 0070 adds indexes on `security_incidents(response_command_id)` and `ip_blocks(created_at, ip, device_id)`; the security summary is cached for 60 s.
+
 ## [0.18.12] - 2026-11-03
 
 ### Fixed
