@@ -155,7 +155,49 @@ func fieldLabels(typ, value string) []string {
 }
 
 // currentStats lädt den Ist-Zustand für die angegebenen Standorte (allowed nil = alle).
+// currentStats liefert die aktuellen Kennzahlen aus einem 30-s-Cache je Sichtbarkeits-
+// bereich: Jedes Dashboard-Widget fragt sie einzeln ab, und die Berechnung (alle Geräte,
+// Check-Status, Länder der Sperren und Angriffsquellen) ist bei großen Tabellen teuer.
 func (s *Server) currentStats(ctx context.Context, allowed map[string]bool) ([]store.StatSample, error) {
+	key := scopeKey(allowed)
+	s.statsMu.Lock()
+	if c, ok := s.statsCache[key]; ok && time.Since(c.at) < 30*time.Second {
+		s.statsMu.Unlock()
+		return c.samples, nil
+	}
+	s.statsMu.Unlock()
+	samples, err := s.computeCurrentStats(ctx, allowed)
+	if err != nil {
+		return nil, err
+	}
+	s.statsMu.Lock()
+	if s.statsCache == nil {
+		s.statsCache = map[string]statsEntry{}
+	}
+	s.statsCache[key] = statsEntry{samples: samples, at: time.Now()}
+	s.statsMu.Unlock()
+	return samples, nil
+}
+
+type statsEntry struct {
+	samples []store.StatSample
+	at      time.Time
+}
+
+// scopeKey bildet den Sichtbarkeitsbereich auf einen Cache-Schlüssel ab ("*" = alles).
+func scopeKey(allowed map[string]bool) string {
+	if allowed == nil {
+		return "*"
+	}
+	ids := make([]string, 0, len(allowed))
+	for id := range allowed {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return strings.Join(ids, ",")
+}
+
+func (s *Server) computeCurrentStats(ctx context.Context, allowed map[string]bool) ([]store.StatSample, error) {
 	devices, err := s.store.ListDevices(ctx, allowed)
 	if err != nil {
 		return nil, err

@@ -33,6 +33,8 @@ type Server struct {
 
 	secSumMu    sync.Mutex // schützt secSumCache (siehe securitySummary)
 	secSumCache map[string]secSumEntry
+	statsMu     sync.Mutex // schützt statsCache (siehe currentStats)
+	statsCache  map[string]statsEntry
 
 	responses chan responseJob // Aufträge für den seriellen Reaktions-Worker (Sperren usw.)
 

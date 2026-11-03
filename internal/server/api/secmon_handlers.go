@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -348,15 +347,7 @@ func (s *Server) handleDeviceAuthEvents(w http.ResponseWriter, r *http.Request) 
 // bereich: Dashboard und Sicherheitsseite fragen sie alle 15–30 s ab, und die Zählung der
 // Sperren/Angriffsquellen über Wochen hinweg ist bei großen Tabellen teuer.
 func (s *Server) securitySummary(ctx context.Context, allowed map[string]bool) (model.SecuritySummary, error) {
-	key := "*"
-	if allowed != nil {
-		ids := make([]string, 0, len(allowed))
-		for id := range allowed {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		key = strings.Join(ids, ",")
-	}
+	key := scopeKey(allowed)
 	s.secSumMu.Lock()
 	if c, ok := s.secSumCache[key]; ok && time.Since(c.at) < time.Minute {
 		s.secSumMu.Unlock()

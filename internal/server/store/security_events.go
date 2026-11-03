@@ -477,8 +477,11 @@ func (s *Store) SecuritySummary(ctx context.Context, allowed map[string]bool) (m
 	}
 	sum.TopCountries = CountriesOf(attack)
 	month := append([]any{time.Now().Add(-30 * 24 * time.Hour).UTC()}, args...)
-	blocked, err := s.ipCounts(ctx, `SELECT b.ip, COUNT(*) FROM ip_blocks b JOIN devices d ON d.id = b.device_id
-		WHERE b.created_at >= ? AND d.revoked = FALSE`+scope+` GROUP BY b.ip`, month...)
+	// Ohne GROUP BY, damit SQLite den Zeitstempel-Index nutzt (mit GROUP BY wählt der Planer
+	// ohne Statistik den IP-Index und liest die gesamte – mit Flottensperre große – Tabelle);
+	// gezählt wird in Go.
+	blocked, err := s.ipCountsGrouped(ctx, `SELECT b.ip FROM ip_blocks b JOIN devices d ON d.id = b.device_id
+		WHERE b.created_at >= ? AND d.revoked = FALSE`+scope, month...)
 	if err != nil {
 		return sum, err
 	}
@@ -500,6 +503,31 @@ func (s *Store) ipCounts(ctx context.Context, q string, args ...any) ([]model.IP
 			return nil, err
 		}
 		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ipCountsGrouped führt eine Abfrage „IP“ (eine Zeile je Vorkommen) aus und zählt je IP.
+func (s *Store) ipCountsGrouped(ctx context.Context, q string, args ...any) ([]model.IPCount, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	idx := map[string]int{}
+	var out []model.IPCount
+	for rows.Next() {
+		var ip string
+		if err := rows.Scan(&ip); err != nil {
+			return nil, err
+		}
+		i, ok := idx[ip]
+		if !ok {
+			idx[ip] = len(out)
+			out = append(out, model.IPCount{IP: ip})
+			i = len(out) - 1
+		}
+		out[i].Count++
 	}
 	return out, rows.Err()
 }

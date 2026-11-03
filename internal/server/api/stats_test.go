@@ -48,7 +48,7 @@ func TestComputeStatSamples(t *testing.T) {
 		"a|summary|failing_checks|": 2, "a|summary|pending_patches|": 3, "a|summary|vulnerabilities|": 1, "a|summary|failing_tasks|": 0,
 		"b|summary|devices_total|": 1, "b|summary|devices_online|": 1, "b|summary|device_status|online": 1,
 		"b|summary|pending_patches|": 0,
-		"a|check|c1|failing": 1, "a|check|c1|passing": 1, "b|check|c1|unknown": 1,
+		"a|check|c1|failing":         1, "a|check|c1|passing": 1, "b|check|c1|unknown": 1,
 		"a|field|f1|nginx:1.27": 2, "b|field|f1|nginx:1.25": 1,
 		"b|field|f2|web": 1, "b|field|f2|prod": 1, "a|field|f2|web": 1,
 	}

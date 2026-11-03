@@ -759,6 +759,11 @@ func (s *Store) PruneHistory(ctx context.Context, cutoff, auditCutoff time.Time)
 	_ = s.PruneSecurityEvents(ctx, time.Now().AddDate(0, 0, -30), time.Now().AddDate(-1, 0, 0))
 	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM ip_blocks WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?))`),
 		time.Now().AddDate(0, 0, -14).UTC(), time.Now().AddDate(0, 0, -14).UTC())
+	if s.dialect == DialectSQLite {
+		// Planer-Statistiken auffrischen (nur wo nötig), sonst wählt SQLite bei großen
+		// Tabellen ohne Statistik falsche Indizes.
+		_, _ = s.db.ExecContext(ctx, `PRAGMA optimize`)
+	}
 	cut := cutoff.UTC()
 	tr, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM task_results WHERE ran_at < ?`), cut)
 	if err != nil {

@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Dashboard slow: every widget recomputed all current metrics on each poll (all devices, check states, countries of blocked IPs and attack sources – two passes over the block table with 380,000 rows). The metrics are now cached for 30 s per visibility scope, the blocked-IP count uses the time index instead of scanning the whole table (2.6 s → 0.3 s), and SQLite's planner statistics are refreshed (`PRAGMA optimize`) with each cleanup run.
+
 ## [0.18.13] - 2026-11-03
 
 ### Fixed

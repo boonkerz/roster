@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Dashboard langsam: Jedes Widget berechnete bei jedem Abruf alle aktuellen Kennzahlen neu (alle Geräte, Check-Status, Länder gesperrter IPs und Angriffsquellen – zwei Durchläufe über die Sperrtabelle mit 380.000 Zeilen). Die Kennzahlen werden jetzt 30 s je Sichtbarkeitsbereich zwischengespeichert, die Zählung gesperrter IPs nutzt den Zeitstempel-Index statt die ganze Tabelle zu lesen (2,6 s → 0,3 s), und die Planer-Statistik von SQLite wird mit jedem Aufräumlauf aufgefrischt (`PRAGMA optimize`).
+
 ## [0.18.13] - 2026-11-03
 
 ### Behoben
