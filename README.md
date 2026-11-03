@@ -81,7 +81,7 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 - **Patch management** – fleet-wide Patches page with security updates first, approve and
   install in bulk (apt `upgrade` vs `dist-upgrade` selectable), patch history per device and
   fleet, package versions and repositories across the fleet, OS lifecycle (EOL) warnings.
-- **Security monitoring** (Wazuh-style) – file integrity monitoring with a baseline per
+- **Security monitoring** (Wazuh-style) – 0.19 adds threat-intelligence feeds with instant fleet-wide blocking, Windows persistence/process/PowerShell events, registry FIM, who-data (auditd/SACL), system-state and rootkit/malware checks, HAProxy/Traefik/MySQL/firewall/journal/Docker-event log sources with port-scan detection, 106 CIS-style compliance rules with framework references, MITRE ATT&CK tags – file integrity monitoring with a baseline per
   device, login monitoring (sshd/journald, Windows Security log, macOS log) that turns brute
   force, logins after brute force, new source IPs and account changes into **incidents**,
   CIS-style **compliance** checks with a score per device, and **active response**: block
@@ -266,7 +266,7 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 - **Patch-Management** – flottenweite Patches-Seite mit Sicherheits-Updates zuerst, gesammelt
   freigeben und installieren (apt `upgrade` vs `dist-upgrade` wählbar), Patch-Verlauf je Gerät
   und Flotte, Paketversionen und Repositories der Flotte, Support-Ende-Warnungen (EOL).
-- **Sicherheitsüberwachung** (Wazuh-artig) – Datei-Integritätsüberwachung mit Baseline je
+- **Sicherheitsüberwachung** (Wazuh-artig) – 0.19 ergänzt Bedrohungsdaten-Feeds mit sofortiger Flottensperre, Windows-Persistenz-/Prozess-/PowerShell-Ereignisse, Registry-FIM, Who-Data (auditd/SACL), Systemzustand- und Rootkit-/Malware-Prüfung, Log-Quellen HAProxy/Traefik/MySQL/Firewall/Journal/Docker-Ereignisse mit Portscan-Erkennung, 106 CIS-artige Compliance-Regeln mit Framework-Referenzen, MITRE-ATT&CK-Tags – Datei-Integritätsüberwachung mit Baseline je
   Gerät, Anmeldungs-Überwachung (sshd/journald, Windows-Sicherheitsprotokoll, macOS-Log), die
   Brute-Force, Anmeldungen nach Brute-Force, neue Quell-IPs und Kontoänderungen zu
   **Vorfällen** macht, CIS-artige **Compliance**-Prüfungen mit Score je Gerät und **Active

@@ -43,6 +43,8 @@ Roster ist dafür gebaut, sicher im Internet erreichbar zu sein.
 
 ## Sicherheitsüberwachung der Hosts
 
+Der Server lädt einmal täglich per HTTPS fünf öffentliche IP-Blocklisten (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor-Exit-Nodes), wenn Bedrohungsdaten aktiv sind (Standard). Es werden keine Daten über Ihre Geräte gesendet; unter Einstellungen → Sicherheitsüberwachung lässt sich der Abruf abschalten.
+
 Datei-Integritätsüberwachung, Anmeldungs-Überwachung mit Brute-Force-Erkennung, Compliance-Prüfung
 und Active Response sind unter **[Sicherheitsüberwachung](features/security-monitoring.md)**
 beschrieben.

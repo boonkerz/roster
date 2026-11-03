@@ -139,6 +139,8 @@ logs as well (with a test button and a read status per device), block attackers
 fleet-wide or by subnet without clicking, and the block holds for Docker containers too.
 Source IPs show their country from an embedded database: flags, a country filter on
 incidents and dashboard charts of blocked IPs and attack sources by country.
+ Threat-intelligence feeds, Windows persistence and process events, registry monitoring, who-data, system-state and rootkit checks, port-scan detection and 106 compliance rules with MITRE ATT&CK tags round it off.
+
 [Security monitoring](features/security-monitoring.md){ .rs-more }
 </div>
 </section>

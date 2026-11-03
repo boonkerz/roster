@@ -43,7 +43,7 @@ With **Monitor logins** enabled the agent reads new events incrementally:
 | Platform | Source | Events |
 |---|---|---|
 | Linux | journald (cursor) or `/var/log/auth.log` / `secure` (offset) | sshd failed/accepted/invalid user, sudo, su, useradd/userdel/usermod/gpasswd/passwd, console login |
-| Windows | Security log (RecordId cursor) | 4624/4625 (logon types 2/3/7/10/11), 4740 lockout, 4720/4726 user created/deleted, 4722/4725/4767, 4728/4732/4756 group membership, 4723/4724 password |
+| Windows | Security, System and PowerShell/Operational logs (RecordId cursor per log) | 4624/4625 (logon types 2/3/7/10/11), 4740 lockout, 4720/4726 user created/deleted, 4722/4725/4767, 4728/4732/4756 group membership, 4723/4724 password; 7045 service installed, 4698/4702 scheduled task, 1102 audit log cleared, 4688 suspicious process, 4104 suspicious PowerShell (see below) |
 | macOS | unified log (`log show`) | sshd, sudo, su, login |
 
 ### Log sources: nginx, SFTP and FTP containers, custom patterns
@@ -109,6 +109,104 @@ IPs by country (30 days)** and **Attack sources by country (7 days)** as bar, do
 charts (see [Dashboard](dashboard.md)). Thresholds, the learning
 phase and the never-block list live in Settings → **Security monitoring**.
 
+
+### Windows events beyond logons
+
+Besides the Security log the Windows agent reads the **System** log (7045 service installed) and
+**Microsoft-Windows-PowerShell/Operational** (4104 script block), each with its own cursor, and
+evaluates 4698/4702 (scheduled task created/changed), 1102 (audit log cleared) and 4688 (process
+creation). 4688 and 4104 only leave the agent when they match suspicious patterns: certutil/bitsadmin
+downloads, encoded or hidden PowerShell, download cradles (`IEX (New-Object Net.WebClient)…`),
+AMSI/Defender tampering, mimikatz/procdump/psexec, `vssadmin delete shadows`, `wevtutil cl`,
+`schtasks /create`, `net user … /add`, Office programs spawning shells. Incidents: **Persistence**
+(service/task, warning), **Audit log cleared** (critical), **Suspicious process** (warning).
+
+!!! note "Audit policy prerequisites"
+    4688 needs the subcategory *Process Creation* (success) plus *Include command line in process
+    creation events*; 4698 needs *Other Object Access Events*; 4104 needs *Turn on PowerShell Script
+    Block Logging*. The compliance rules `audit_process_creation` and `powershell_logging` check
+    exactly that. A missing PowerShell/Operational log (Server 2012 without WMF 5) is skipped.
+
+### More log sources: HAProxy, Traefik, MySQL, firewall drops, journal, Docker events
+
+| Format / type | Produces |
+|---|---|
+| HAProxy (HTTP log) | same classification as the web access log; requests rejected by the proxy (`PR` flags, `<BADREQ>`) → suspicious request |
+| Traefik (JSON or common log) | same classification as the web access log |
+| MySQL/MariaDB error log | `Access denied for user`, `Host … is not allowed` → failed login; aborted connections before authorisation → suspicious request |
+| Firewall drops (iptables/nft/ufw kernel log, Windows `pfirewall.log`) | one `fw_drop` event per dropped inbound packet (`tcp/22`); N distinct target ports from one IP within the brute-force window (default 10) → incident **Port scan**, auto-blocked like brute force |
+| Source type **systemd journal** | target `kernel` (nft/iptables `log prefix`, ufw) or a `SYSLOG_IDENTIFIER`; cursor-based like the auth log |
+| Source type **Docker events** | `docker events` since the last run: `exec` in a container → incident **Command in container**; start/stop/die/oom are listed as events |
+
+## Threat intelligence
+
+The server fetches five public block lists daily – **Spamhaus DROP**, **blocklist.de**, **Feodo
+Tracker**, **CINS Army** and the **Tor exit node list** – caches them in the database and keeps
+them as an in-memory index. Source IPs of incidents, login events and blocks are flagged with the
+list name (⚠ badge), and both lists can be filtered to *listed IPs only*. A listed IP raises the
+incident **Known attack source** on its first failed login, suspicious request or firewall drop
+and is blocked on all monitored devices right away – regardless of thresholds and of the general
+fleet-block switch; the never-block list and private addresses stay exempt. The tab Security →
+**Threat intelligence** shows each feed's state, entry count and errors, refreshes on demand and
+looks up single IPs. Settings → Security monitoring switches the match, the immediate block and
+the individual feeds; the feature is on by default (five outbound HTTPS requests a day).
+
+## Registry monitoring (Windows)
+
+File integrity rules accept registry paths: `HKLM\SOFTWARE\…`, `HKU\*\…` (all loaded user
+profiles – `HKCU` is mapped to that because the agent runs as SYSTEM) or `HKCR\…`. Keys count like
+directories, values like files (hash over type and data), and new or removed sub-keys are reported,
+so a new service under `Services` or a new Run entry shows up as **created**. *Insert registry
+defaults (Windows)* adds 18 persistence locations: Run/RunOnce (machine, WOW6432Node, per user),
+Winlogon, Image File Execution Options, AppInit_DLLs, Services, LSA, Session Manager, Browser
+Helper Objects, scheduled-task cache, UAC policies, Terminal Server, Defender exclusions.
+
+## Who changed the file (who-data)
+
+With the policy switch *Identify who changed files* the file-integrity events carry **user and
+process** (column "Who", also in notifications). Linux: the agent maintains auditd watch rules
+(`-w <path> -p wa -k roster_fim`) for the monitored paths and reads new records with
+`ausearch --checkpoint` after every scan – package `auditd` required; a locked audit
+configuration is reported once. Windows: the agent sets success SACLs (Everyone: write/delete/
+permissions) on the monitored files and directories, enables the *File System* audit subcategory
+and correlates events 4663/4660 with the changed paths.
+
+## System-state monitoring
+
+*Monitor system state* takes an hourly snapshot and compares it with the baseline: listening
+ports (without PIDs), kernel modules, cron entries, UID-0 and administrator accounts, enabled
+systemd units/timers (Linux); administrators (`net localgroup`), auto-start services (WMI) and
+scheduled tasks (`schtasks`) on Windows; admin group and launchd jobs on macOS. Every change
+becomes the incident **System change** with a `+ new, - gone` list; a new UID-0 or administrator
+account is critical. The first run after enabling only records the baseline.
+
+## Rootkit and malware check
+
+*Rootkit/malware check* runs once a day on Linux: hidden processes (answer to `kill(pid,0)` but
+missing in `/proc`), a non-empty `/etc/ld.so.preload`, hidden kernel modules, interfaces in
+promiscuous mode, executables, setuid files and ELF binaries in `/tmp`, `/var/tmp`, `/dev/shm`,
+regular files in `/dev` and known rootkit paths (Reptile, Diamorphine, Jynx, BEURK). Findings are
+critical **Rootkit indicator** incidents; *Rootkit check now* on the device's file-integrity tab
+runs it immediately. In addition, files created or modified according to file integrity
+monitoring are handed to ClamAV (`clamdscan` or `clamscan`, Linux) or Defender (`MpCmdRun`,
+Windows) if present – a hit is the critical incident **Malware**. Windows and macOS have no
+rootkit scan of their own (Defender/XProtect cover that).
+
+## MITRE ATT&CK and severity per kind
+
+Every incident carries its ATT&CK techniques (e.g. T1110 Brute Force, T1543.003 Windows Service,
+T1070.001 Clear Windows Event Logs, T1014 Rootkit) as links into the ATT&CK matrix, and the
+Incidents tab filters by technique. Settings → Security monitoring → *Severity per incident kind*
+overrides the default severity; **Info** suppresses the notification while the automatic
+response still runs. All kinds come from one catalog (`GET /security/kinds`) that also drives the
+policy's notification and active-response choices.
+
+!!! note "Policies with an explicit alert list"
+    A policy whose *Report security incidents* list was saved explicitly keeps that list – new kinds
+    (Port scan, Known attack source, Persistence, Audit log cleared, Suspicious process, System
+    change, Rootkit indicator, Malware, Command in container) are reported only after editing it;
+    policies set to "all kinds" report them right away.
+
 ## Compliance (baseline) checks
 
 ![Compliance scores across the fleet](../screenshots/security-compliance.png){ .shadow }
@@ -121,11 +219,20 @@ Rule families: Linux – SSH hardening (root login, password auth, MaxAuthTries,
 ciphers), `/etc/shadow` and `/etc/passwd` permissions, empty passwords, extra UID 0, sudo
 `NOPASSWD: ALL`, password aging, firewall active, auditd, NTP, SELinux/AppArmor, ASLR, IP
 forwarding, ICMP redirects, SYN cookies, world-writable files in `/etc`, telnet/rsh services,
-core dumps. Windows – UAC, SMBv1, RDP NLA / RDP disabled, guest and built-in Administrator,
-firewall profiles, Defender real-time, BitLocker system drive, AutoPlay, LLMNR, password
-length, lockout threshold, PowerShell 2.0, WDigest, LSA protection. macOS – FileVault,
-firewall and stealth mode, Gatekeeper, SIP, screen-saver password, guest, remote login. All
-platforms – automatic updates enabled, no reboot pending. Each rule carries a remediation hint.
+core dumps, plus (0.19) SSH idle/grace/empty passwords/rhosts/sessions/log level, pam_pwquality and
+pam_faillock, password ageing and umask, cron permissions and cron.allow, log permissions, sticky
+bit, `/tmp` and `/dev/shm` mount options, home permissions, further sysctl keys, persistent journald,
+unused filesystem modules. Windows – UAC, SMBv1, RDP NLA / RDP disabled, guest and built-in
+Administrator, firewall profiles, Defender real-time, BitLocker system drive, AutoPlay, LLMNR,
+password length, lockout threshold, PowerShell 2.0, WDigest, LSA protection, plus (0.19) password
+history/age, lockout duration, anonymous enumeration, SMB signing, NTLMv2 only, RDP idle timeout,
+screen lock, firewall logging, Remote Registry, Print Spooler, WinRM, NetBIOS, Defender cloud/PUA,
+UAC secure desktop, SEHOP, DEP, script block logging, audit policies, event log sizes, cached
+logons, autologon (all PowerShell-3-safe). macOS – FileVault, firewall and stealth mode,
+Gatekeeper, SIP, screen-saver password, guest, remote login. All platforms – automatic updates
+enabled, no reboot pending. 106 rules in total; each carries a remediation hint and **framework
+references** (CIS section, PCI DSS, ISO 27001) shown as badges, with a framework filter on the
+device, fleet and policy views.
 
 Results appear in the device tab **Compliance** and on the Security page (by device and by
 rule, with the failing devices per rule). The check type **Compliance score** (minimum score,
@@ -139,7 +246,9 @@ A policy can react to incidents automatically:
 |---|---|
 | Brute force, login after brute force, new source IP, attack pattern | block source IP, run script |
 | Login after brute force, account change, lockout, new source IP | lock account, run script |
-| File change | run script |
+| File change, system change, rootkit indicator, malware, command in container | run script |
+| Known attack source, port scan | block source IP, run script |
+| Persistence, suspicious process | lock account, run script |
 
 - **Block IP** – Linux: nftables sets `inet roster blocked4/6` (single addresses) and `net4/6`
   (networks) with a timeout, dropped in the **input and forward** hooks so that traffic to Docker

@@ -40,5 +40,7 @@ Roster is built to be exposed to the internet safely.
 
 ## Host security monitoring
 
+The server fetches five public IP block lists once a day over HTTPS (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor exit nodes) when threat intelligence is enabled (default). No data about your devices is sent; switch it off under Settings → Security monitoring if outbound requests are not wanted.
+
 File integrity monitoring, login monitoring with brute-force detection, compliance checks and
 active response are described under **[Security monitoring](features/security-monitoring.md)**.

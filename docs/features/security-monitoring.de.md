@@ -44,7 +44,7 @@ Mit **Anmeldungen überwachen** liest der Agent neue Ereignisse inkrementell:
 | Plattform | Quelle | Ereignisse |
 |---|---|---|
 | Linux | journald (Cursor) oder `/var/log/auth.log` / `secure` (Offset) | sshd fehlgeschlagen/akzeptiert/unbekannter Benutzer, sudo, su, useradd/userdel/usermod/gpasswd/passwd, Konsolen-Login |
-| Windows | Sicherheitsprotokoll (RecordId-Cursor) | 4624/4625 (Anmeldetypen 2/3/7/10/11), 4740 Sperre, 4720/4726 Benutzer angelegt/gelöscht, 4722/4725/4767, 4728/4732/4756 Gruppenmitgliedschaft, 4723/4724 Passwort |
+| Windows | Sicherheits-, System- und PowerShell/Operational-Protokoll (RecordId-Cursor je Protokoll) | 4624/4625 (Anmeldetypen 2/3/7/10/11), 4740 Sperre, 4720/4726 Benutzer angelegt/gelöscht, 4722/4725/4767, 4728/4732/4756 Gruppenmitgliedschaft, 4723/4724 Passwort; 7045 Dienst installiert, 4698/4702 geplante Aufgabe, 1102 Protokoll gelöscht, 4688 verdächtiger Prozess, 4104 verdächtiges PowerShell (siehe unten) |
 | macOS | Unified Log (`log show`) | sshd, sudo, su, login |
 
 ### Log-Quellen: nginx, SFTP-/FTP-Container, eigene Muster
@@ -113,6 +113,109 @@ gibt es die Kennzahlen **Gesperrte IPs nach Land (30 Tage)** und **Angriffsquell
 (7 Tage)** als Balken-, Ring- oder Verlaufsdiagramm (siehe [Dashboard](dashboard.md)). Schwellwerte,
 Lernphase und Nie-sperren-Liste stehen unter Einstellungen → **Sicherheitsüberwachung**.
 
+
+### Windows-Ereignisse jenseits der Anmeldung
+
+Neben dem Sicherheitsprotokoll liest der Windows-Agent das **System**-Protokoll (7045 Dienst
+installiert) und **Microsoft-Windows-PowerShell/Operational** (4104 Skriptblock), jeweils mit
+eigenem Cursor, und wertet 4698/4702 (geplante Aufgabe angelegt/geändert), 1102 (Sicherheitsprotokoll
+gelöscht) und 4688 (Prozessstart) aus. 4688 und 4104 verlassen den Agent nur bei verdächtigen Mustern:
+certutil-/bitsadmin-Downloads, kodiertes oder verstecktes PowerShell, Download-Cradles
+(`IEX (New-Object Net.WebClient)…`), AMSI-/Defender-Manipulation, mimikatz/procdump/psexec,
+`vssadmin delete shadows`, `wevtutil cl`, `schtasks /create`, `net user … /add`, Office-Programme,
+die Shells starten. Vorfälle: **Persistenz** (Dienst/Aufgabe, Warnung), **Protokoll gelöscht**
+(kritisch), **Verdächtiger Prozess** (Warnung).
+
+!!! note "Voraussetzungen in der Überwachungsrichtlinie"
+    4688 braucht die Unterkategorie *Prozesserstellung* (Erfolg) plus *Befehlszeile in
+    Prozesserstellungsereignisse einschließen*; 4698 braucht *Andere Objektzugriffsereignisse*; 4104
+    braucht *Skriptblockprotokollierung aktivieren*. Die Compliance-Regeln `audit_process_creation`
+    und `powershell_logging` prüfen genau das. Ein fehlendes PowerShell/Operational-Protokoll
+    (Server 2012 ohne WMF 5) wird übersprungen.
+
+### Weitere Log-Quellen: HAProxy, Traefik, MySQL, Firewall-Drops, Journal, Docker-Ereignisse
+
+| Format / Typ | Erzeugt |
+|---|---|
+| HAProxy (HTTP-Log) | dieselbe Bewertung wie das Web-Zugriffsprotokoll; vom Proxy abgewiesene Anfragen (`PR`-Flags, `<BADREQ>`) → verdächtige Anfrage |
+| Traefik (JSON oder Common Log) | dieselbe Bewertung wie das Web-Zugriffsprotokoll |
+| MySQL/MariaDB-Fehlerprotokoll | `Access denied for user`, `Host … is not allowed` → Fehlversuch; abgebrochene Verbindungen vor der Autorisierung → verdächtige Anfrage |
+| Firewall-Drops (iptables/nft/ufw-Kernel-Log, Windows `pfirewall.log`) | je verworfenem eingehendem Paket ein `fw_drop`-Ereignis (`tcp/22`); N verschiedene Zielports einer IP im Brute-Force-Fenster (Standard 10) → Vorfall **Portscan**, automatische Sperre wie bei Brute-Force |
+| Quelltyp **systemd-Journal** | Ziel `kernel` (nft/iptables `log prefix`, ufw) oder eine `SYSLOG_IDENTIFIER`-Kennung; Cursor wie beim Anmeldeprotokoll |
+| Quelltyp **Docker-Ereignisse** | `docker events` seit dem letzten Lauf: `exec` im Container → Vorfall **Befehl im Container**; Start/Stop/Die/OOM erscheinen als Ereignisse |
+
+## Bedrohungsdaten
+
+Der Server lädt täglich fünf öffentliche Blocklisten – **Spamhaus DROP**, **blocklist.de**,
+**Feodo Tracker**, **CINS Army** und die **Tor-Exit-Node-Liste** –, speichert sie in der Datenbank
+zwischen und hält sie als Index im Speicher. Quell-IPs von Vorfällen, Anmeldungen und Sperren werden
+mit dem Listennamen markiert (⚠-Badge), beide Listen lassen sich auf *nur gelistete IPs* filtern.
+Eine gelistete IP erzeugt beim ersten Fehlversuch, Scan-Treffer oder Firewall-Drop den Vorfall
+**Bekannte Angriffsquelle** und wird sofort auf allen überwachten Geräten gesperrt – unabhängig von
+Schwellwerten und vom allgemeinen Flottensperren-Schalter; Nie-sperren-Liste und private Adressen
+bleiben ausgenommen. Der Tab Sicherheit → **Bedrohungsdaten** zeigt Stand, Einträge und Fehler je
+Feed, aktualisiert auf Wunsch und schlägt einzelne IPs nach. Einstellungen → Sicherheitsüberwachung
+schaltet Abgleich, Sofortsperre und die einzelnen Feeds; die Funktion ist standardmäßig an (fünf
+ausgehende HTTPS-Abrufe am Tag).
+
+## Registry-Überwachung (Windows)
+
+Regeln der Datei-Integritätsprüfung nehmen Registry-Pfade an: `HKLM\SOFTWARE\…`, `HKU\*\…` (alle
+geladenen Benutzerprofile – `HKCU` wird darauf abgebildet, weil der Agent als SYSTEM läuft) oder
+`HKCR\…`. Schlüssel zählen wie Verzeichnisse, Werte wie Dateien (Hash über Typ und Daten), neue oder
+entfernte Unterschlüssel werden gemeldet – ein neuer Dienst unter `Services` oder ein neuer
+Run-Eintrag erscheint als **angelegt**. *Registry-Standardpfade (Windows) einfügen* ergänzt 18
+Persistenz-Orte: Run/RunOnce (Maschine, WOW6432Node, je Benutzer), Winlogon, Image File Execution
+Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, Aufgaben-Cache,
+UAC-Richtlinien, Terminal Server, Defender-Ausnahmen.
+
+## Verursacher von Dateiänderungen (Who-Data)
+
+Mit dem Richtlinienschalter *Verursacher von Dateiänderungen ermitteln* tragen die
+Integritätsereignisse **Benutzer und Prozess** (Spalte „Wer“, auch in Benachrichtigungen). Linux: Der
+Agent pflegt auditd-Watch-Regeln (`-w <Pfad> -p wa -k roster_fim`) für die überwachten Pfade und liest
+nach jedem Scan neue Einträge mit `ausearch --checkpoint` – Paket `auditd` nötig; eine gesperrte
+Audit-Konfiguration wird einmal gemeldet. Windows: Der Agent setzt Erfolgs-SACLs (Jeder:
+Schreiben/Löschen/Rechte) auf die überwachten Dateien und Verzeichnisse, schaltet die
+Überwachungs-Unterkategorie *Dateisystem* ein und ordnet die Ereignisse 4663/4660 den geänderten
+Pfaden zu.
+
+## Systemzustand überwachen
+
+*Systemzustand überwachen* nimmt stündlich einen Schnappschuss und vergleicht ihn mit der Baseline:
+lauschende Ports (ohne PIDs), Kernelmodule, Cron-Einträge, UID-0- und Administratorkonten,
+aktivierte systemd-Units/Timer (Linux); Administratoren (`net localgroup`), Autostart-Dienste (WMI)
+und geplante Aufgaben (`schtasks`) unter Windows; Admin-Gruppe und launchd-Jobs unter macOS. Jede
+Änderung wird zum Vorfall **Systemänderung** mit einer Liste `+ neu, - weg`; ein neues UID-0- oder
+Administratorkonto ist kritisch. Der erste Lauf nach dem Einschalten nimmt nur die Baseline auf.
+
+## Rootkit- und Malware-Prüfung
+
+*Rootkit-/Malware-Prüfung* läuft unter Linux einmal täglich: versteckte Prozesse (antworten auf
+`kill(pid,0)`, fehlen aber in `/proc`), ein gefülltes `/etc/ld.so.preload`, versteckte Kernelmodule,
+Schnittstellen im Promiscuous-Modus, ausführbare, setuid- und ELF-Dateien in `/tmp`, `/var/tmp`,
+`/dev/shm`, reguläre Dateien in `/dev` und bekannte Rootkit-Pfade (Reptile, Diamorphine, Jynx, BEURK).
+Befunde sind kritische Vorfälle **Rootkit-Hinweis**; *Rootkit-Prüfung jetzt* im Geräte-Tab
+Datei-Integrität startet sie sofort. Zusätzlich werden Dateien, die laut Integritätsprüfung neu oder
+geändert sind, an ClamAV (`clamdscan` oder `clamscan`, Linux) bzw. Defender (`MpCmdRun`, Windows)
+übergeben, falls vorhanden – ein Fund ist der kritische Vorfall **Malware**. Windows und macOS haben
+keinen eigenen Rootkit-Scan (Defender/XProtect decken das ab).
+
+## MITRE ATT&CK und Schweregrad je Art
+
+Jeder Vorfall trägt seine ATT&CK-Techniken (z. B. T1110 Brute Force, T1543.003 Windows Service,
+T1070.001 Clear Windows Event Logs, T1014 Rootkit) als Links in die ATT&CK-Matrix, der Tab Vorfälle
+filtert nach Technik. Einstellungen → Sicherheitsüberwachung → *Schweregrad je Vorfallsart*
+überschreibt den Standard; **Info** unterdrückt die Benachrichtigung, die automatische Reaktion läuft
+trotzdem. Alle Arten kommen aus einem Katalog (`GET /security/kinds`), der auch die Auswahl in
+Benachrichtigungen und Active Response der Richtlinie speist.
+
+!!! note "Richtlinien mit ausdrücklicher Alarmliste"
+    Eine Richtlinie, deren Liste *Sicherheitsvorfälle melden* ausdrücklich gespeichert wurde, behält
+    diese Liste – neue Arten (Portscan, Bekannte Angriffsquelle, Persistenz, Protokoll gelöscht,
+    Verdächtiger Prozess, Systemänderung, Rootkit-Hinweis, Malware, Befehl im Container) werden erst
+    nach dem Bearbeiten gemeldet; Richtlinien mit „alle Arten“ melden sie sofort.
+
 ## Compliance-Prüfung (Baseline)
 
 ![Compliance-Werte über die Flotte](../screenshots/security-compliance.png){ .shadow }
@@ -132,6 +235,17 @@ PowerShell 2.0, WDigest, LSA-Schutz. macOS – FileVault, Firewall und Tarnmodus
 Bildschirmschoner-Passwort, Gast, Remote Login. Alle Plattformen – automatische Updates aktiv, kein
 Neustart ausstehend. Jede Regel bringt eine Empfehlung mit.
 
+Seit 0.19 umfasst der Katalog 106 Regeln: zusätzlich Linux – SSH-Leerlauf/Grace/leere
+Passwörter/rhosts/Sessions/LogLevel, pam_pwquality und pam_faillock, Passwortalterung und umask,
+Cron-Rechte und cron.allow, Logdatei-Rechte, Sticky-Bit, Mount-Optionen von `/tmp` und `/dev/shm`,
+Home-Rechte, weitere sysctl-Schlüssel, persistentes journald, unnötige Dateisystemmodule; Windows –
+Kennwortchronik/-alter, Sperrdauer, anonyme Aufzählung, SMB-Signierung, nur NTLMv2, RDP-Leerlauf,
+Bildschirmsperre, Firewall-Protokoll, Remoteregistrierung, Druckwarteschlange, WinRM, NetBIOS,
+Defender Cloud/PUA, UAC sicherer Desktop, SEHOP, DEP, Skriptblock-Protokollierung,
+Überwachungsrichtlinien, Protokollgrößen, zwischengespeicherte Anmeldungen, Autologon (alle
+PowerShell-3-tauglich). Jede Regel trägt **Framework-Referenzen** (CIS-Abschnitt, PCI DSS,
+ISO 27001) als Badges, mit Rahmenwerk-Filter in Geräte-, Flotten- und Richtlinienansicht.
+
 Ergebnisse stehen im Geräte-Tab **Compliance** und auf der Sicherheitsseite (nach Gerät und nach
 Regel, mit den fehlgeschlagenen Geräten je Regel). Der Check-Typ **Compliance-Score** (Mindest-
 Score, optional Fehler bei jeder Regel mit Schwere „hoch“) hängt das Ergebnis an Alarme und
@@ -145,7 +259,9 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
 |---|---|
 | Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP, Angriffsmuster | Quell-IP sperren, Skript ausführen |
 | Anmeldung nach Brute-Force, Kontoänderung, Kontosperre, neue Quell-IP | Konto sperren, Skript ausführen |
-| Datei-Änderung | Skript ausführen |
+| Datei-Änderung, Systemänderung, Rootkit-Hinweis, Malware, Befehl im Container | Skript ausführen |
+| Bekannte Angriffsquelle, Portscan | Quell-IP sperren, Skript ausführen |
+| Persistenz, Verdächtiger Prozess | Konto sperren, Skript ausführen |
 
 - **IP sperren** – Linux: nftables-Sets `inet roster blocked4/6` (Einzeladressen) und `net4/6`
   (Netze) mit Timeout, verworfen im **input- und forward-Hook**, damit auch Verkehr zu

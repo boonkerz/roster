@@ -140,6 +140,8 @@ nginx-, SFTP- und FTP-Containern (mit Test-Knopf und Lesestatus je Gerät), sper
 flottenweit oder je Netz ohne Klick, und die Sperre gilt auch für Docker-Container.
 Quell-IPs zeigen ihr Land aus einer eingebetteten Datenbank: Flaggen, Länderfilter bei den
 Vorfällen und Dashboard-Diagramme gesperrter IPs und Angriffsquellen je Land.
+ Bedrohungsdaten-Feeds, Windows-Persistenz- und Prozessereignisse, Registry-Überwachung, Who-Data, Systemzustand- und Rootkit-Prüfung, Portscan-Erkennung und 106 Compliance-Regeln mit MITRE-ATT&CK-Tags runden es ab.
+
 [Sicherheitsüberwachung](features/security-monitoring.md){ .rs-more }
 </div>
 </section>
