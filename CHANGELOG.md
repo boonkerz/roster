@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.12] - 2026-11-03
+
 ### Fixed
 - Agent: a hanging ad-hoc command no longer freezes the check-in loop (the device then showed as offline although the remote viewer still worked). Synchronous commands are limited to 10 minutes, and **Scan updates** runs in the background with a 30-minute cap – the Windows Update search on an old Windows Server 2012 without current servicing-stack updates can take hours.
 - Server: block commands a device could only pick up after the block had already expired (device offline at the time) are discarded at check-in instead of being executed one by one.
@@ -261,7 +263,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.11...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.12...HEAD
+[0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
 [0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
 [0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9

@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.12] - 2026-11-03
+
 ### Behoben
 - Agent: Ein hängender Ad-hoc-Befehl blockiert die Checkin-Schleife nicht mehr (das Gerät galt dann als offline, obwohl der Viewer noch ging). Synchrone Befehle sind auf 10 Minuten begrenzt, **Updates suchen** läuft im Hintergrund mit 30-Minuten-Obergrenze – die Windows-Update-Suche auf einem alten Windows Server 2012 ohne aktuelle Wartungsstack-Updates kann Stunden dauern.
 - Server: Sperrbefehle, die ein Gerät erst nach Ablauf der Sperre abholen könnte (Gerät war offline), werden beim Checkin verworfen statt einzeln abgearbeitet.
@@ -261,7 +263,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.11...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.12...HEAD
+[0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
 [0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
 [0.18.10]: https://github.com/boonkerz/roster/compare/v0.18.9...v0.18.10
 [0.18.9]: https://github.com/boonkerz/roster/compare/v0.18.8...v0.18.9
