@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.14] - 2026-11-03
+
 ### Behoben
 - Dashboard langsam: Jedes Widget berechnete bei jedem Abruf alle aktuellen Kennzahlen neu (alle Geräte, Check-Status, Länder gesperrter IPs und Angriffsquellen – zwei Durchläufe über die Sperrtabelle mit 380.000 Zeilen). Die Kennzahlen werden jetzt 30 s je Sichtbarkeitsbereich zwischengespeichert, die Zählung gesperrter IPs nutzt den Zeitstempel-Index statt die ganze Tabelle zu lesen (2,6 s → 0,3 s), und die Planer-Statistik von SQLite wird mit jedem Aufräumlauf aufgefrischt (`PRAGMA optimize`).
 
@@ -271,7 +273,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.13...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.14...HEAD
+[0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14
 [0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
 [0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
 [0.18.11]: https://github.com/boonkerz/roster/compare/v0.18.10...v0.18.11
