@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.18] - 2026-11-03
+
 ### Changed
 - Agent: results of `block_ip`/`unblock_ip` commands are reported in a coalesced check-in at most once per minute instead of immediately after each command. With fleet blocking every device received a block command every minute or so and checked in every 30 s (six times the regular rate). Interactive commands still report immediately.
 
@@ -300,7 +302,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.17...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.18...HEAD
+[0.18.18]: https://github.com/boonkerz/roster/compare/v0.18.17...v0.18.18
 [0.18.17]: https://github.com/boonkerz/roster/compare/v0.18.16...v0.18.17
 [0.18.16]: https://github.com/boonkerz/roster/compare/v0.18.15...v0.18.16
 [0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
