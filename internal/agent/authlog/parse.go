@@ -194,6 +194,7 @@ func ParseSyslogLine(line string, now time.Time) (shared.AuthEvent, bool) {
 // WinEvent ist ein Eintrag des Windows-Sicherheitsprotokolls (vom PowerShell-Skript als
 // JSON geliefert; Data enthält die EventData-Felder nach Name).
 type WinEvent struct {
+	Log      string            `json:"Log,omitempty"` // Security | System | Microsoft-Windows-PowerShell/Operational
 	ID       int               `json:"Id"`
 	Time     string            `json:"Time"`
 	RecordID int64             `json:"RecordId"`
@@ -294,8 +295,57 @@ func ParseWindowsEvent(w WinEvent) (shared.AuthEvent, bool) {
 	case 4723, 4724:
 		ev.Kind, ev.User, ev.Detail = "password_changed", d["TargetUserName"], "by "+d["SubjectUserName"]
 		return ev, true
+	case 7045: // System: Dienst installiert
+		ev.Kind, ev.User, ev.Service = "service_installed", d["AccountName"], "system"
+		ev.Detail = d["ServiceName"] + " → " + d["ImagePath"] + " (" + d["StartType"] + ")"
+		return ev, true
+	case 4698, 4702: // geplante Aufgabe angelegt/geändert
+		ev.Kind, ev.User, ev.Service = "task_created", d["SubjectUserName"], "system"
+		ev.Detail = d["TaskName"]
+		if cmd := taskCommand(d["TaskContent"]); cmd != "" {
+			ev.Detail += " → " + cmd
+		}
+		if w.ID == 4702 {
+			ev.Detail = "geändert: " + ev.Detail
+		}
+		return ev, true
+	case 1102: // Sicherheitsprotokoll gelöscht (UserData.LogFileCleared)
+		ev.Kind, ev.User, ev.Service = "audit_cleared", d["SubjectUserName"], "system"
+		ev.Detail = "Sicherheitsprotokoll gelöscht"
+		return ev, true
+	case 4688: // Prozessstart – nur verdächtige Muster
+		exe, cmd, parent := d["NewProcessName"], d["CommandLine"], d["ParentProcessName"]
+		why, ok := suspiciousProcess(exe, cmd, parent)
+		if !ok {
+			return ev, false
+		}
+		ev.Kind, ev.User, ev.Service = "suspicious_process", d["SubjectUserName"], "process"
+		ev.Detail = why + ": " + exe
+		if cmd != "" {
+			ev.Detail += " " + cut(cmd, 160)
+		}
+		if parent != "" {
+			ev.Detail += " [" + parent + "]"
+		}
+		return ev, true
+	case 4104: // PowerShell-Skriptblock – nur verdächtige Muster
+		text := d["ScriptBlockText"]
+		mark, ok := suspiciousScript(text)
+		if !ok {
+			return ev, false
+		}
+		ev.Kind, ev.Service = "powershell_suspicious", "powershell"
+		ev.Detail = mark + " · " + cut(strings.Join(strings.Fields(text), " "), 160)
+		return ev, true
 	}
 	return ev, false
+}
+
+func cut(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 func itoa64(n int64) string {

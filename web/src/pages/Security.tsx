@@ -354,6 +354,11 @@ function AuthTab() {
             <option value="group_changed">{t("Gruppe geändert")}</option>
             <option value="password_changed">{t("Passwort geändert")}</option>
             <option value="lockout">{t("Kontosperre")}</option>
+            <option value="service_installed">{t("Dienst installiert")}</option>
+            <option value="task_created">{t("Aufgabe angelegt")}</option>
+            <option value="audit_cleared">{t("Protokoll gelöscht")}</option>
+            <option value="suspicious_process">{t("verdächtiger Prozess")}</option>
+            <option value="powershell_suspicious">{t("verdächtiges PowerShell")}</option>
           </select>
           <label className="chip" title={t("Nur Quell-IPs, die in einer Blockliste stehen (Bedrohungsdaten)")}><input type="checkbox" checked={onlyThreat} onChange={(e) => setParam("threat", e.target.checked ? "1" : "")} /> ⚠ {t("nur gelistete IPs")}</label>
           <select value={days} onChange={(e) => setParam("days", e.target.value)}>

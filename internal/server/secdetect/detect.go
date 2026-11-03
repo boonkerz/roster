@@ -115,6 +115,7 @@ func Detect(in Input, cfg Config) []Incident {
 	}
 	var out []Incident
 	seenNewIP := map[string]bool{}
+	seenProc := map[string]bool{}
 	threatAt := map[string]time.Time{}
 	for ip, t := range in.RecentThreat {
 		threatAt[ip] = t
@@ -213,6 +214,27 @@ func Detect(in Input, cfg Config) []Incident {
 			}
 			out = append(out, Incident{Time: e.Time, Kind: "account_change", Severity: sev, User: e.User,
 				Title: fmt.Sprintf("Gruppenänderung: %s", strings.TrimSpace(e.User+" "+e.Detail)), Detail: e.Detail})
+		case e.Kind == "service_installed":
+			out = append(out, Incident{Time: e.Time, Kind: "persistence", Severity: "warning", User: e.User,
+				Title: "Dienst installiert: " + firstField(e.Detail), Detail: e.Detail})
+		case e.Kind == "task_created":
+			out = append(out, Incident{Time: e.Time, Kind: "persistence", Severity: "warning", User: e.User,
+				Title: "Geplante Aufgabe angelegt: " + firstField(e.Detail), Detail: e.Detail})
+		case e.Kind == "audit_cleared":
+			out = append(out, Incident{Time: e.Time, Kind: "audit_cleared", Severity: "critical", User: e.User,
+				Title: "Sicherheitsprotokoll gelöscht von " + orDash(e.User), Detail: e.Detail})
+		case e.Kind == "suspicious_process" || e.Kind == "powershell_suspicious":
+			key := e.User + "|" + e.Detail
+			if seenProc[key] {
+				continue
+			}
+			seenProc[key] = true
+			title := "Verdächtiger Prozess"
+			if e.Kind == "powershell_suspicious" {
+				title = "Verdächtiges PowerShell-Skript"
+			}
+			out = append(out, Incident{Time: e.Time, Kind: "suspicious_process", Severity: "warning", User: e.User,
+				Title: title + ": " + firstField(e.Detail), Detail: e.Detail})
 		case e.Kind == "password_changed" || e.Kind == "user_modified":
 			out = append(out, Incident{Time: e.Time, Kind: "account_change", Severity: "info", User: e.User,
 				Title: fmt.Sprintf("Kontoänderung: %s", e.User), Detail: strings.TrimSpace(e.Kind + " " + e.Detail)})
@@ -270,3 +292,25 @@ func isPrivate(ip string) bool {
 
 // Private meldet, ob eine IP privat/lokal ist (für Einstellungen/Active Response).
 func Private(ip string) bool { return isPrivate(ip) || isLoopback(ip) }
+
+// firstField liefert den Teil eines Details vor dem ersten " → " bzw. ": " (Name des
+// Dienstes/der Aufgabe, Grund beim Prozess) – für kurze Vorfallstitel.
+func firstField(detail string) string {
+	d := detail
+	for _, sep := range []string{" → ", ": "} {
+		if i := strings.Index(d, sep); i > 0 {
+			d = d[:i]
+		}
+	}
+	if len(d) > 80 {
+		d = d[:80] + "…"
+	}
+	return d
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}

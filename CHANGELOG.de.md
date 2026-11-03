@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- Windows-Anmeldeüberwachung liest neben dem Sicherheitsprotokoll jetzt auch **System** (7045 Dienst installiert) und **PowerShell/Operational** (4104 Skriptblock), mit eigenem Cursor je Protokoll, und wertet 4698/4702 (geplante Aufgabe angelegt/geändert), 1102 (Sicherheitsprotokoll gelöscht) und 4688 (Prozessstart – nur verdächtige Muster: certutil-/bitsadmin-Downloads, kodiertes oder verstecktes PowerShell, mimikatz/procdump/psexec, vssadmin delete shadows, wevtutil cl, schtasks /create, net user, Office startet Shell, …) aus. Neue Vorfallsarten **Persistenz** (Warnung), **Protokoll gelöscht** (kritisch) und **Verdächtiger Prozess** (Warnung). Voraussetzungen: Überwachungsrichtlinie „Prozesserstellung“ mit Befehlszeile, „Andere Objektzugriffsereignisse“, Skriptblock-Protokollierung (fehlende Protokolle werden übersprungen).
+
+### Neu
 - **Bedrohungsdaten**: Der Server lädt täglich fünf öffentliche Blocklisten (Spamhaus DROP, blocklist.de, Feodo Tracker, CINS Army, Tor-Exit-Nodes; in der Datenbank zwischengespeichert, Feeds einzeln wählbar). Quell-IPs von Vorfällen, Anmeldungen und Sperren werden mit dem Listennamen markiert, beide Listen lassen sich auf gelistete IPs filtern. Eine gelistete IP erzeugt beim ersten Fehlversuch, Scan-Treffer oder Firewall-Drop den Vorfall **Bekannte Angriffsquelle** und wird sofort flottenweit gesperrt – unabhängig von Schwellwerten und vom allgemeinen Flottensperren-Schalter (Einstellungen → Sicherheitsüberwachung; Nie-sperren-Liste und private Adressen bleiben ausgenommen). Neuer Tab Sicherheit → **Bedrohungsdaten** mit Feed-Status, Aktualisieren und IP-Nachschlagen; Migration 0074.
 
 ### Neu

@@ -1468,4 +1468,9 @@ export const EN: Record<string, string> = {
   "Blocklisten abgleichen": "Match block lists",
   "Unabhängig von Schwellwerten und von der allgemeinen Flottensperre; Nie-sperren-Liste und private Adressen bleiben ausgenommen.": "Regardless of thresholds and of the general fleet block; the never-block list and private addresses stay exempt.",
   "gelistete IPs beim ersten Ereignis auf allen überwachten Geräten sperren": "block listed IPs on all monitored devices on their first event",
+  // --- Windows-Ereignisse (0.19) ---
+  "Dienst installiert": "Service installed",
+  "Aufgabe angelegt": "Task created",
+  "verdächtiger Prozess": "suspicious process",
+  "verdächtiges PowerShell": "suspicious PowerShell",
 };

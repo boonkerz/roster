@@ -37,6 +37,9 @@ export const AUTH_KIND: Record<string, { label: string; cls: string }> = {
   group_changed: { label: "Gruppe geändert", cls: "badge-warn" },
   password_changed: { label: "Passwort geändert", cls: "badge-unknown" },
   probe: { label: "verdächtige Anfrage", cls: "badge-warn" },
+  service_installed: { label: "Dienst installiert", cls: "badge-warn" }, task_created: { label: "Aufgabe angelegt", cls: "badge-warn" },
+  audit_cleared: { label: "Protokoll gelöscht", cls: "badge-offline" }, suspicious_process: { label: "verdächtiger Prozess", cls: "badge-warn" },
+  powershell_suspicious: { label: "verdächtiges PowerShell", cls: "badge-warn" },
 };
 
 export function SeverityPill({ severity }: { severity: string }) {

@@ -15,9 +15,40 @@ type Cursor struct {
 	Inode    uint64 `json:"inode,omitempty"`
 	LastTime string `json:"last_time,omitempty"` // RFC3339 (Windows/macOS)
 	RecordID int64  `json:"record_id,omitempty"`
+	// Logs: Cursor je Windows-Protokoll (Security, System, PowerShell) – RecordIds sind je
+	// Protokoll vergeben. LastTime/RecordID oben bleiben der Legacy-Cursor für "Security".
+	Logs map[string]LogCursor `json:"logs,omitempty"`
 }
 
 const maxBatch = 500 // Ereignisse je Lauf; der Rest folgt beim nächsten
+
+// LogCursor ist der Stand eines Windows-Protokolls.
+type LogCursor struct {
+	LastTime string `json:"last_time,omitempty"`
+	RecordID int64  `json:"record_id,omitempty"`
+}
+
+// logCursor liefert den Cursor eines Protokolls; "Security" fällt auf die Legacy-Felder zurück.
+func (c *Cursor) logCursor(log string) LogCursor {
+	if lc, ok := c.Logs[log]; ok {
+		return lc
+	}
+	if log == "Security" {
+		return LogCursor{LastTime: c.LastTime, RecordID: c.RecordID}
+	}
+	return LogCursor{}
+}
+
+// setLogCursor setzt den Cursor eines Protokolls (Security zusätzlich in die Legacy-Felder).
+func (c *Cursor) setLogCursor(log string, lc LogCursor) {
+	if c.Logs == nil {
+		c.Logs = map[string]LogCursor{}
+	}
+	c.Logs[log] = lc
+	if log == "Security" {
+		c.LastTime, c.RecordID = lc.LastTime, lc.RecordID
+	}
+}
 
 func cursorPath(stateDir string) string { return filepath.Join(stateDir, "auth-cursor.json") }
 

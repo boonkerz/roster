@@ -73,6 +73,11 @@ export function DeviceAuth({ deviceId, canOperate }: { deviceId: string; canOper
               <option value="sudo">sudo</option>
               <option value="user_added">{t("Benutzer angelegt")}</option>
               <option value="group_changed">{t("Gruppe geändert")}</option>
+              <option value="service_installed">{t("Dienst installiert")}</option>
+              <option value="task_created">{t("Aufgabe angelegt")}</option>
+              <option value="audit_cleared">{t("Protokoll gelöscht")}</option>
+              <option value="suspicious_process">{t("verdächtiger Prozess")}</option>
+              <option value="powershell_suspicious">{t("verdächtiges PowerShell")}</option>
             </select>
             <select value={days} onChange={(e) => setDays(e.target.value)}>
               <option value="1">{t("24 Stunden")}</option>

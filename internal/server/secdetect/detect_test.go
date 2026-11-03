@@ -201,3 +201,34 @@ func TestThreatListed(t *testing.T) {
 		t.Fatalf("aus: %v", ks)
 	}
 }
+
+// TestWindowsKinds: Dienst/Aufgabe → persistence, gelöschtes Protokoll → critical,
+// verdächtige Prozesse → ein Vorfall je Benutzer+Detail im Batch.
+func TestWindowsKinds(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	mk := func(kind, user, detail string, i int) shared.AuthEvent {
+		return shared.AuthEvent{Time: base.Add(time.Duration(i) * time.Second), Kind: kind, User: user, Detail: detail, Service: "system"}
+	}
+	in := Input{Now: base.Add(time.Minute), Events: []shared.AuthEvent{
+		mk("service_installed", "LocalSystem", "EvilSvc → C:\\e.exe (auto start)", 0),
+		mk("task_created", "admin", "\\Updater → C:\\x.exe", 1),
+		mk("audit_cleared", "admin", "Sicherheitsprotokoll gelöscht", 2),
+		mk("suspicious_process", "bob", "verdächtige Argumente (-urlcache): certutil.exe", 3),
+		mk("suspicious_process", "bob", "verdächtige Argumente (-urlcache): certutil.exe", 4),
+		mk("powershell_suspicious", "", "downloadstring · IEX (New-Object …)", 5),
+	}}
+	got := Detect(in, DefaultConfig())
+	ks := kinds(got)
+	want := []string{"persistence", "persistence", "audit_cleared", "suspicious_process", "suspicious_process"}
+	if len(ks) != len(want) {
+		t.Fatalf("got %v", ks)
+	}
+	for i := range want {
+		if ks[i] != want[i] {
+			t.Fatalf("got %v, want %v", ks, want)
+		}
+	}
+	if got[0].Title != "Dienst installiert: EvilSvc" || got[2].Severity != "critical" || got[3].Title != "Verdächtiger Prozess: verdächtige Argumente (-urlcache)" {
+		t.Fatalf("titles: %+v", got)
+	}
+}
