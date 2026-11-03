@@ -113,6 +113,9 @@ function MonitoringCard({ mon, deviceId, canOperate, testSrc, setTestSrc }: { mo
           <span className={`badge ${mon.fim_rules > 0 ? "badge-online" : "badge-unknown"}`}>{mon.fim_rules > 0 ? `✓ ${t("Datei-Integrität")} · ${mon.fim_rules}` : t("Datei-Integrität: aus")}</span>
           <span className={`badge ${mon.compliance ? "badge-online" : "badge-unknown"}`}>{mon.compliance ? `✓ ${t("Compliance")}` : t("Compliance: aus")}</span>
           <span className={`badge ${mon.log_sources.length > 0 ? "badge-online" : "badge-unknown"}`}>{t("Log-Quellen")} · {mon.log_sources.length}</span>
+          {mon.fim_whodata && <span className="badge badge-online">✓ {t("Verursacher")}</span>}
+          <span className={`badge ${mon.state_monitor ? "badge-online" : "badge-unknown"}`}>{mon.state_monitor ? `✓ ${t("Systemzustand")}` : t("Systemzustand: aus")}</span>
+          <span className={`badge ${mon.rootcheck ? "badge-online" : "badge-unknown"}`}>{mon.rootcheck ? `✓ ${t("Rootkit-Prüfung")}` : t("Rootkit-Prüfung: aus")}</span>
         </div>
       )}
       {mon.log_sources.length > 0 && (

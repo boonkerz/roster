@@ -1502,4 +1502,17 @@ export const EN: Record<string, string> = {
   // --- Compliance-Ausbau (0.19) ---
   "Nach Rahmenwerk filtern": "Filter by framework",
   "Alle Rahmenwerke": "All frameworks",
+  // --- Who-Data / Schalter (0.19) ---
+  "Wer": "Who",
+  "Verursacher": "Who-data",
+  "Systemzustand": "System state",
+  "Systemzustand: aus": "System state: off",
+  "Rootkit-Prüfung": "Rootkit check",
+  "Rootkit-Prüfung: aus": "Rootkit check: off",
+  "Verursacher von Dateiänderungen ermitteln (auditd / SACL)": "Identify who changed files (auditd / SACL)",
+  "Datei-Integrität: Benutzer und Prozess der Änderung ermitteln. Linux: auditd-Watch-Regeln (Paket auditd nötig). Windows: der Agent setzt Erfolgs-SACLs auf die überwachten Pfade und liest Ereignis 4663/4660.": "File integrity: identify user and process of a change. Linux: auditd watch rules (package auditd required). Windows: the agent sets success SACLs on the monitored paths and reads events 4663/4660.",
+  "Systemzustand überwachen (Ports, Module, Cron, Admins, Autostart)": "Monitor system state (ports, modules, cron, admins, autostart)",
+  "Stündlicher Abgleich: lauschende Ports, Kernelmodule, Cron-Einträge, UID-0-/Administratorkonten, Autostart-Dienste und geplante Aufgaben. Änderungen werden als Vorfall „Systemänderung“ gemeldet.": "Hourly comparison: listening ports, kernel modules, cron entries, UID-0/administrator accounts, autostart services and scheduled tasks. Changes are reported as incident \"System change\".",
+  "Rootkit-/Malware-Prüfung (täglich; FIM-geänderte Dateien scannen)": "Rootkit/malware check (daily; scan files changed per FIM)",
+  "Täglich: versteckte Prozesse, ld.so.preload, versteckte Kernelmodule, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade. Geänderte Dateien der Integritätsprüfung werden per ClamAV (Linux) bzw. Defender (Windows) geprüft, falls vorhanden.": "Daily: hidden processes, ld.so.preload, hidden kernel modules, executables in /tmp, known rootkit paths. Files changed per integrity monitoring are scanned with ClamAV (Linux) or Defender (Windows) if present.",
 };

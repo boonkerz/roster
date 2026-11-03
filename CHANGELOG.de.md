@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- Datei-Integrität **Who-Data**: Mit dem Richtlinienschalter „Verursacher von Dateiänderungen ermitteln“ pflegt der Agent unter Linux auditd-Watch-Regeln (`-w <Pfad> -p wa -k roster_fim`, gelesen per `ausearch --checkpoint`) und setzt unter Windows Erfolgs-SACLs auf die überwachten Pfade und liest die Ereignisse 4663/4660. Änderungen tragen dann Benutzer und Prozess in der Ereignisliste (Spalte „Wer“) und in Benachrichtigungen. Migration 0075 ergänzt auch die Richtlinienschalter für Systemzustand und Rootkit-Prüfung.
+
+### Neu
 - Compliance-Katalog von 48 auf 106 Regeln in Richtung CIS Level 1 ausgebaut: Linux (SSH-Leerlauf/Grace/leere Passwörter/rhosts/Sessions/LogLevel, pam_pwquality und pam_faillock, Passwortalterung und umask, Cron-Rechte und cron.allow, Logdatei-Rechte, Sticky-Bit, Mount-Optionen von /tmp und /dev/shm, Home-Rechte, sysctl rp_filter/log_martians/Redirects/Source-Route/ICMP-Broadcasts/kptr_restrict, persistentes journald, unnötige Dateisystemmodule) und Windows Server (Kennwortchronik/-alter, Sperrdauer, anonyme Aufzählung, SMB-Signierung, nur NTLMv2, RDP-Leerlauf, Bildschirmsperre, Firewall-Protokoll, Remoteregistrierung, Druckwarteschlange, WinRM Basic/unverschlüsselt, NetBIOS, Defender Cloud/PUA, UAC sicherer Desktop, SEHOP, DEP, PowerShell-Skriptblock-Protokollierung, Überwachungsrichtlinien für Anmeldung/Kontenverwaltung/Prozesserstellung/Richtlinienänderung, Protokollgrößen, zwischengespeicherte Anmeldungen, Autologon) – PowerShell-3-tauglich (`net accounts`, WMI, `auditpol` per GUID, `bcdedit`). Jede Regel trägt **Framework-Referenzen** (CIS, PCI DSS, ISO 27001) als Badges mit Rahmenwerk-Filter in Geräte-, Flotten- und Richtlinienansicht, dazu englische Beschreibungen und Empfehlungen.
 
 ### Neu

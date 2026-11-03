@@ -41,7 +41,7 @@ export function FimEventsTable({ events, showDevice, canOperate, onChanged, maxH
       )}
       <div className="scroll-list" style={{ maxHeight: maxHeight ?? "65vh" }}>
         <table className="table">
-          <thead><tr>{canOperate && <th></th>}<th>{t("Zeit")}</th>{showDevice && <th>{t("Gerät")}</th>}<th>{t("Änderung")}</th><th>{t("Pfad")}</th><th>{t("Details")}</th><th></th></tr></thead>
+          <thead><tr>{canOperate && <th></th>}<th>{t("Zeit")}</th>{showDevice && <th>{t("Gerät")}</th>}<th>{t("Änderung")}</th><th>{t("Pfad")}</th><th>{t("Details")}</th><th>{t("Wer")}</th><th></th></tr></thead>
           <tbody>
             {events.map((e) => {
               const m = FIM_CHANGE[e.change] ?? { label: e.change, cls: "badge-unknown" };
@@ -59,6 +59,7 @@ export function FimEventsTable({ events, showDevice, canOperate, onChanged, maxH
                     {e.change === "created" && <>{e.new_mode} {e.new_owner} · {e.size} B</>}
                     {e.change === "deleted" && <>{e.old_mode} {e.old_owner}</>}
                   </td>
+                  <td className="small">{e.user && <span title={e.process}>{e.user}{e.process && <span className="muted mono"> · {e.process.length > 40 ? "…" + e.process.slice(-40) : e.process}</span>}</span>}</td>
                   <td>{e.acknowledged && !isMeta && <span className="muted small">✓ {t("bestätigt")}</span>}</td>
                 </tr>
               );

@@ -7,6 +7,9 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- File integrity **who-data**: with the policy switch "Identify who changed files" the agent maintains auditd watch rules on Linux (`-w <path> -p wa -k roster_fim`, read via `ausearch --checkpoint`) and on Windows sets success SACLs on the monitored paths and reads events 4663/4660. Changes then carry user and process in the event list (column "Who") and in notifications. Migration 0075 also adds the policy switches for system-state monitoring and the rootkit check.
+
+### Added
 - Compliance catalog grown from 48 to 106 rules towards CIS Level 1: Linux (SSH idle/grace/empty passwords/rhosts/sessions/log level, pam_pwquality and pam_faillock, password ageing and umask, cron permissions and cron.allow, log file permissions, sticky bit, /tmp and /dev/shm mount options, home directory permissions, sysctl rp_filter/log_martians/redirects/source route/ICMP broadcasts/kptr_restrict, persistent journald, unused filesystem modules) and Windows Server (password history/age, lockout duration, anonymous enumeration, SMB signing, NTLMv2 only, RDP idle timeout, screen lock, firewall logging, Remote Registry, Print Spooler, WinRM basic/unencrypted, NetBIOS, Defender cloud/PUA, UAC secure desktop, SEHOP, DEP, PowerShell script block logging, audit policies for logon/account management/process creation/policy change, event log sizes, cached logons, autologon) – PowerShell-3-safe (`net accounts`, WMI, `auditpol` by GUID, `bcdedit`). Every rule carries **framework references** (CIS, PCI DSS, ISO 27001) shown as badges with a framework filter on the device, fleet and policy views, plus English descriptions and remediations.
 
 ### Added
