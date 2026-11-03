@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.16] - 2026-11-03
+
 ### Behoben
 - Dashboard brauchte Sekunden und trieb die CPU hoch: Sicherheitsübersicht und Länder-Widgets verknüpften die großen Ereignis-/Sperrtabellen mit der Gerätetabelle, und sobald SQLite Planer-Statistiken hatte, ging es je Gerät durch (11 s für die Zählung gesperrter IPs, 1,5–2,3 s je Anmelde-Abfrage). Diese Abfragen lesen jetzt nur noch abdeckende Zeitindizes ohne Join (neuer Index `auth_events(ts, kind, source_ip, device_id)`, Migration 0072) und filtern die Geräte in Go.
 - SQLite lief über eine einzige Verbindung, jede Oberflächen-Anfrage wartete hinter jedem Checkin-Schreibzugriff und umgekehrt. Der Server nutzt jetzt einen kleinen Pool (WAL-Leser laufen parallel; Transaktionen starten mit `BEGIN IMMEDIATE`, Busy-Timeout 15 s, `synchronous=NORMAL`).
@@ -287,7 +289,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.15...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.16...HEAD
+[0.18.16]: https://github.com/boonkerz/roster/compare/v0.18.15...v0.18.16
 [0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
 [0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14
 [0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
