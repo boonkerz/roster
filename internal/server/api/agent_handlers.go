@@ -171,6 +171,9 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		// Zeitpläne des Agents laufen in der zentral eingestellten Zone (leer = lokal).
 		policy.Timezone = s.timezoneName(r.Context())
 	}
+	if n, err := s.store.ExpireUndeliveredBlocks(r.Context(), device.ID); err == nil && n > 0 {
+		s.log.Info("abgelaufene sperrbefehle verworfen", "device", device.Hostname, "n", n)
+	}
 	commands, err := s.store.PendingCommands(r.Context(), device.ID)
 	if err != nil {
 		s.log.Error("offene befehle", "err", err)

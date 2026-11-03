@@ -185,6 +185,27 @@ func (s *Store) BlockIPOnDevices(ctx context.Context, deviceIDs []string, target
 	return queued, tx.Commit()
 }
 
+// ExpireUndeliveredBlocks räumt Sperrbefehle auf, die ein Gerät noch nicht abgeholt hat,
+// obwohl die Sperre schon abgelaufen wäre (Gerät war offline): Befehl erledigt, Sperre
+// abgelaufen. Sonst arbeitet ein zurückkehrendes Gerät hunderte wirkungslose Sperren ab.
+// Liefert die Zahl der bereinigten Befehle.
+func (s *Store) ExpireUndeliveredBlocks(ctx context.Context, deviceID string) (int64, error) {
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE commands SET status='done', result='Sperre vor Zustellung abgelaufen (Gerät war offline)'
+		WHERE device_id=? AND status='pending' AND type='block_ip'
+		  AND id IN (SELECT command_id FROM ip_blocks WHERE device_id=? AND status='pending' AND until_at IS NOT NULL AND until_at < ?)`),
+		deviceID, deviceID, now)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		_, err = s.db.ExecContext(ctx, s.rebind(`UPDATE ip_blocks SET status='expired', detail='vor Zustellung abgelaufen (Gerät war offline)'
+			WHERE device_id=? AND status='pending' AND until_at IS NOT NULL AND until_at < ?`), deviceID, now)
+	}
+	return n, err
+}
+
 // RenewIPBlock setzt eine bestehende Sperre neu an (neue Dauer/Begründung, neuer Befehl,
 // Status pending) – statt eines Duplikats, wenn dieselbe IP erneut gesperrt wird.
 func (s *Store) RenewIPBlock(ctx context.Context, id string, until *time.Time, reason, commandID, by string) error {

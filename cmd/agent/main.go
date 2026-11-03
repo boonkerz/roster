@@ -66,7 +66,7 @@ func main() {
 		return
 	}
 
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	log := slog.New(slog.NewTextHandler(logWriter(*configPath), &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	prg := &program{configPath: *configPath, log: log}
 	svcConfig := &service.Config{
@@ -409,6 +409,11 @@ func (p *program) runPolicy(ctx context.Context) {
 	for _, cmd := range queue {
 		var exit int
 		var output string
+		// Synchrone Befehle bekommen ein Zeitlimit, damit ein hängendes Werkzeug (z. B. die
+		// Windows-Update-Suche auf alten Servern, ein blockierter Dienst-Aufruf) nicht die
+		// ganze Checkin-Schleife anhält – der Agent gälte sonst als offline.
+		cmdCtx, cancelCmd := context.WithTimeout(ctx, cmdTimeout)
+		defer cancelCmd()
 		switch cmd.Type {
 		case "run_check":
 			cid, _ := cmd.Payload["check_id"].(string)
@@ -448,21 +453,15 @@ func (p *program) runPolicy(ctx context.Context) {
 			shell, _ := cmd.Payload["shell"].(string)
 			script, _ := cmd.Payload["script"].(string)
 			var ok bool
-			exit, output, ok = policy.RunScriptEnv(ctx, shell, script, stringList(cmd.Payload["platforms"]), stringMap(cmd.Payload["env"]))
+			exit, output, ok = policy.RunScriptEnv(cmdCtx, shell, script, stringList(cmd.Payload["platforms"]), stringMap(cmd.Payload["env"]))
 			if !ok {
 				exit = -1
 				output = "Nicht unterstützt auf diesem Betriebssystem (" + runtime.GOOS + ")"
 			}
 		case "scan_updates":
-			u := collect.OSUpdates(ctx)
-			p.mu.Lock()
-			p.updates = u
-			p.mu.Unlock()
-			if u != nil {
-				output = fmt.Sprintf("%d Updates gefunden", u.Count)
-			} else {
-				output = "Update-Status unbekannt"
-			}
+			// Die Update-Suche kann auf alten Windows-Servern Stunden dauern -> asynchron.
+			go p.scanUpdates(ctx, cmd.ID)
+			continue
 		case "install_updates":
 			// Kann lange dauern -> asynchron, um den Checkin-Loop nicht zu blockieren.
 			// full=true (Default) -> apt full-upgrade; false -> konservatives upgrade.
@@ -500,9 +499,9 @@ func (p *program) runPolicy(ctx context.Context) {
 			p.log.Info("speicher-scan gestartet", "command", cmd.ID, "path", path)
 			continue
 		case "list_services":
-			output = collect.ListServices(ctx)
+			output = collect.ListServices(cmdCtx)
 		case "list_processes":
-			output = collect.ListProcesses(ctx)
+			output = collect.ListProcesses(cmdCtx)
 		case "list_resolutions":
 			output = collect.ListResolutions()
 		case "set_resolution":
@@ -517,10 +516,10 @@ func (p *program) runPolicy(ctx context.Context) {
 		case "service_control":
 			name, _ := cmd.Payload["name"].(string)
 			action, _ := cmd.Payload["action"].(string)
-			exit, output = collect.ControlService(ctx, name, action)
+			exit, output = collect.ControlService(cmdCtx, name, action)
 		case "docker_start", "docker_stop", "docker_restart":
 			id, _ := cmd.Payload["container_id"].(string)
-			exit, output = collect.DockerControl(ctx, id, strings.TrimPrefix(cmd.Type, "docker_"))
+			exit, output = collect.DockerControl(cmdCtx, id, strings.TrimPrefix(cmd.Type, "docker_"))
 		case "proxmox_backup":
 			// Kann Stunden dauern -> asynchron; Zwischenstände meldet der Lauf selbst.
 			var spec collect.BackupSpec
@@ -561,27 +560,27 @@ func (p *program) runPolicy(ctx context.Context) {
 			path, _ := cmd.Payload["path"].(string)
 			output = collect.BrowseDir(path)
 		case "metrics":
-			output = collect.MetricsJSON(ctx)
+			output = collect.MetricsJSON(cmdCtx)
 		case "av_status":
-			output = collect.AVStatusJSON(ctx)
+			output = collect.AVStatusJSON(cmdCtx)
 		case "bitlocker_status":
-			output = collect.BitLockerJSON(ctx)
+			output = collect.BitLockerJSON(cmdCtx)
 		case "smart_status":
-			output = collect.SmartJSON(ctx)
+			output = collect.SmartJSON(cmdCtx)
 		case "event_log":
 			logName, _ := cmd.Payload["log"].(string)
 			n := 100
 			if f, ok := cmd.Payload["count"].(float64); ok {
 				n = int(f)
 			}
-			output = collect.EventLogJSON(ctx, logName, n)
+			output = collect.EventLogJSON(cmdCtx, logName, n)
 		case "read_file":
 			path, _ := cmd.Payload["path"].(string)
-			exit, output = p.readFile(ctx, cmd.ID, path)
+			exit, output = p.readFile(cmdCtx, cmd.ID, path)
 		case "write_file":
 			path, _ := cmd.Payload["path"].(string)
 			xfer, _ := cmd.Payload["xfer"].(string)
-			exit, output = p.writeFile(ctx, xfer, path)
+			exit, output = p.writeFile(cmdCtx, xfer, path)
 		case "make_dir":
 			path, _ := cmd.Payload["path"].(string)
 			if err := collect.MakeDir(path); err != nil {
@@ -602,16 +601,16 @@ func (p *program) runPolicy(ctx context.Context) {
 			if f, ok := cmd.Payload["minutes"].(float64); ok {
 				minutes = int(f)
 			}
-			exit, output = response.BlockIP(ctx, ip, minutes)
+			exit, output = response.BlockIP(cmdCtx, ip, minutes)
 		case "unblock_ip":
 			ip, _ := cmd.Payload["ip"].(string)
-			exit, output = response.UnblockIP(ctx, ip)
+			exit, output = response.UnblockIP(cmdCtx, ip)
 		case "lock_user":
 			user, _ := cmd.Payload["user"].(string)
-			exit, output = response.LockUser(ctx, user)
+			exit, output = response.LockUser(cmdCtx, user)
 		case "unlock_user":
 			user, _ := cmd.Payload["user"].(string)
-			exit, output = response.UnlockUser(ctx, user)
+			exit, output = response.UnlockUser(cmdCtx, user)
 		case "list_blocks":
 			exit, output = 0, response.ListJSON()
 		case "test_log_source":
@@ -625,7 +624,7 @@ func (p *program) runPolicy(ctx context.Context) {
 			if f, ok := cmd.Payload["lines"].(float64); ok {
 				n = int(f)
 			}
-			res := logmon.Test(ctx, src, n)
+			res := logmon.Test(cmdCtx, src, n)
 			if res.Error != "" {
 				exit = 1
 			}
@@ -658,6 +657,9 @@ func (p *program) runPolicy(ctx context.Context) {
 			p.log.Info("neustart angefordert", "command", cmd.ID)
 		default:
 			continue
+		}
+		if cmdCtx.Err() == context.DeadlineExceeded {
+			exit, output = 124, strings.TrimSpace(output+"\n[abgebrochen: Zeitlimit "+cmdTimeout.String()+" überschritten]")
 		}
 		p.mu.Lock()
 		p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
@@ -974,6 +976,33 @@ func (p *program) proxmoxControl(ctx context.Context, cmdID, node, gtype string,
 	})
 	p.mu.Unlock()
 	p.log.Info("proxmox-aktion abgeschlossen", "command", cmdID, "action", action, "vmid", vmid, "exit", exit)
+	p.requestCheckin()
+}
+
+// cmdTimeout begrenzt synchrone Ad-hoc-Befehle (siehe runPolicy).
+const cmdTimeout = 10 * time.Minute
+
+// scanUpdates führt die Update-Suche im Hintergrund aus (Obergrenze 30 min) und meldet
+// das Ergebnis mit dem nächsten Checkin.
+func (p *program) scanUpdates(ctx context.Context, cmdID string) {
+	uctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+	u := collect.OSUpdates(uctx)
+	exit, output := 0, "Update-Status unbekannt"
+	if u != nil {
+		output = fmt.Sprintf("%d Updates gefunden", u.Count)
+	} else if uctx.Err() == context.DeadlineExceeded {
+		exit, output = 124, "Update-Suche nach 30 min abgebrochen"
+	}
+	p.mu.Lock()
+	if u != nil {
+		p.updates = u
+	}
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmdID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
+	p.log.Info("update-suche abgeschlossen", "command", cmdID, "exit", exit)
 	p.requestCheckin()
 }
 

@@ -110,3 +110,38 @@ func TestResponsesAndIPBlocks(t *testing.T) {
 		t.Fatalf("IncidentByResponseCommand: %+v", i2)
 	}
 }
+
+// TestExpireUndeliveredBlocks: Sperrbefehle, deren Sperre vor der Zustellung abläuft
+// (Gerät offline), werden erledigt und die Sperre als abgelaufen markiert; noch gültige
+// und bereits zugestellte bleiben unberührt.
+func TestExpireUndeliveredBlocks(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "srv", OS: "debian"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("s")); err != nil {
+		t.Fatal(err)
+	}
+	past, future := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
+	queued, err := st.BlockIPOnDevices(ctx, []string{dev.ID}, "203.0.113.9", 60, &past, "alt", "", "system", "IP sperren")
+	if err != nil || len(queued) != 1 {
+		t.Fatalf("BlockIPOnDevices: %v %v", err, queued)
+	}
+	if _, err := st.BlockIPOnDevices(ctx, []string{dev.ID}, "203.0.113.10", 60, &future, "neu", "", "system", "IP sperren"); err != nil {
+		t.Fatal(err)
+	}
+	n, err := st.ExpireUndeliveredBlocks(ctx, dev.ID)
+	if err != nil || n != 1 {
+		t.Fatalf("ExpireUndeliveredBlocks: n=%d err=%v", n, err)
+	}
+	cmds, err := st.PendingCommands(ctx, dev.ID)
+	if err != nil || len(cmds) != 1 || cmds[0].Payload["ip"] != "203.0.113.10" {
+		t.Fatalf("PendingCommands: %v %+v", err, cmds)
+	}
+	blocks, err := st.IPBlocksFiltered(ctx, store.IPBlockFilter{DeviceID: dev.ID, Status: "expired"})
+	if err != nil || len(blocks) != 1 || blocks[0].IP != "203.0.113.9" {
+		t.Fatalf("expired: %v %+v", err, blocks)
+	}
+	if b, _ := st.ActiveIPBlock(ctx, dev.ID, "203.0.113.10"); b == nil {
+		t.Fatal("gültige Sperre fehlt")
+	}
+}

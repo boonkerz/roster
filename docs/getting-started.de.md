@@ -53,6 +53,7 @@ Agents beim nächsten Checkin das neue Binary.
     Go-Linker sonst auf Windows 10 setzt (ältere Windows lehnen die Datei dann als „keine
     gültige Win32-Anwendung“ ab). Der Installationsbefehl kommt mit PowerShell 3 aus und
     erzwingt TLS 1.2.
+    Der Windows-Dienst protokolliert nach `C:\ProgramData\Roster\agent.log`.
 
 ## 4. Flotte organisieren
 

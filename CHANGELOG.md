@@ -6,6 +6,13 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Agent: a hanging ad-hoc command no longer freezes the check-in loop (the device then showed as offline although the remote viewer still worked). Synchronous commands are limited to 10 minutes, and **Scan updates** runs in the background with a 30-minute cap – the Windows Update search on an old Windows Server 2012 without current servicing-stack updates can take hours.
+- Server: block commands a device could only pick up after the block had already expired (device offline at the time) are discarded at check-in instead of being executed one by one.
+
+### Added
+- Windows agent service writes its log to `C:\ProgramData\Roster\agent.log` (rotated at 5 MB), since the Service Control Manager discards stderr.
+
 ## [0.18.11] - 2026-11-02
 
 ### Fixed

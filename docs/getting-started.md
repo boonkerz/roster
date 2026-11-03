@@ -49,6 +49,7 @@ next check-in.
     the build lowers the minimum OS version in the EXE header, which the Go linker would
     otherwise set to Windows 10 (older Windows then refuses the file as "not a valid Win32
     application"). The install snippet works with PowerShell 3 and forces TLS 1.2.
+    The Windows service logs to `C:\ProgramData\Roster\agent.log`.
 
 ## 4. Organize your fleet
 
