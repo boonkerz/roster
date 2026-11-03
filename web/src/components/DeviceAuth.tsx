@@ -78,6 +78,9 @@ export function DeviceAuth({ deviceId, canOperate }: { deviceId: string; canOper
               <option value="audit_cleared">{t("Protokoll gelöscht")}</option>
               <option value="suspicious_process">{t("verdächtiger Prozess")}</option>
               <option value="powershell_suspicious">{t("verdächtiges PowerShell")}</option>
+              <option value="fw_drop">{t("Firewall-Drop")}</option>
+              <option value="docker_exec">{t("Befehl im Container")}</option>
+              <option value="docker_event">{t("Container-Ereignis")}</option>
             </select>
             <select value={days} onChange={(e) => setDays(e.target.value)}>
               <option value="1">{t("24 Stunden")}</option>

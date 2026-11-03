@@ -85,6 +85,10 @@ func Collect(ctx context.Context, stateDir string, sources []shared.LogSource) (
 			ev, st.Targets, st.Error = collectFiles(src, cur, now, budget)
 		case "docker":
 			ev, st.Targets, st.Error = collectDocker(ctx, src, cur, now, budget)
+		case "journal":
+			ev, st.Targets, st.Error = collectJournal(ctx, src, cur, now, budget)
+		case "docker_events":
+			ev, st.Targets, st.Error = collectDockerEvents(ctx, src, cur, now, budget)
 		default:
 			st.Error = "unbekannter Typ " + src.Type
 		}

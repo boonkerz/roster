@@ -25,7 +25,9 @@ const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "sca
 // Log-Quellen: Formate und Vorlagen für typische Dienste (Datei oder Docker-Container).
 const LOG_FORMATS: [PolicyLogSource["format"], string][] = [
   ["nginx_access", "Web-Zugriffsprotokoll (nginx, Apache, Traefik – Combined Log)"], ["nginx_error", "Web-Fehlerprotokoll (nginx, Apache)"],
-  ["sshd", "sshd (SSH-/SFTP-Server oder -Container)"], ["ftp", "FTP (vsftpd, proftpd, pure-ftpd)"], ["mail", "Mail (Postfix, Dovecot, Exim)"], ["regex", "Eigenes Muster"],
+  ["sshd", "sshd (SSH-/SFTP-Server oder -Container)"], ["ftp", "FTP (vsftpd, proftpd, pure-ftpd)"], ["mail", "Mail (Postfix, Dovecot, Exim)"],
+  ["haproxy", "HAProxy (HTTP-Log)"], ["traefik", "Traefik (JSON oder Common Log)"], ["mysql", "MySQL/MariaDB-Fehlerprotokoll"],
+  ["firewall", "Firewall-Drops (iptables/nft/ufw-Kernel-Log, Windows pfirewall.log)"], ["docker_events", "Docker-Ereignisse (exec, start, stop)"], ["regex", "Eigenes Muster"],
 ];
 type LogDraft = { name: string; type: PolicyLogSource["type"]; target: string; format: PolicyLogSource["format"]; pattern: string; kind: "login_failed" | "probe" };
 const LOG_TEMPLATES: (LogDraft & { label: string })[] = [
@@ -35,6 +37,12 @@ const LOG_TEMPLATES: (LogDraft & { label: string })[] = [
   { label: "SSH-/SFTP-Server im Docker-Container", name: "sftp", type: "docker", target: "*sftp*", format: "sshd", pattern: "", kind: "login_failed" },
   { label: "FTP-Server (Datei)", name: "ftp", type: "file", target: "/var/log/vsftpd.log", format: "ftp", pattern: "", kind: "login_failed" },
   { label: "Mailserver (Datei)", name: "mail", type: "file", target: "/var/log/mail.log", format: "mail", pattern: "", kind: "login_failed" },
+  { label: "HAProxy (Datei)", name: "lb", type: "file", target: "/var/log/haproxy.log", format: "haproxy", pattern: "", kind: "probe" },
+  { label: "Traefik im Docker-Container", name: "web", type: "docker", target: "traefik*", format: "traefik", pattern: "", kind: "probe" },
+  { label: "MySQL/MariaDB-Fehlerprotokoll (Datei)", name: "db", type: "file", target: "/var/log/mysql/error.log", format: "mysql", pattern: "", kind: "login_failed" },
+  { label: "Firewall-Drops aus dem Kernel-Journal (nft/iptables/ufw log)", name: "fw", type: "journal", target: "kernel", format: "firewall", pattern: "", kind: "probe" },
+  { label: "Windows-Firewall-Protokoll (pfirewall.log)", name: "fw", type: "file", target: "C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewall.log", format: "firewall", pattern: "", kind: "probe" },
+  { label: "Docker-Ereignisse (exec/start/stop aller Container)", name: "docker", type: "docker_events", target: "*", format: "docker_events", pattern: "", kind: "probe" },
   { label: "Eigenes Muster", name: "app", type: "file", target: "/var/log/app.log", format: "regex", pattern: "login failed for (?P<user>\\S+) from (?P<ip>[0-9a-f.:]+)", kind: "login_failed" },
 ];
 const emptyLog = (): LogDraft => ({ name: "", type: "docker", target: "", format: "nginx_access", pattern: "", kind: "login_failed" });
@@ -263,6 +271,8 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
               <select value={logDraft.type} onChange={(e) => setLogDraft({ ...logDraft, type: e.target.value as LogDraft["type"] })}>
                 <option value="docker">{t("Docker-Container")}</option>
                 <option value="file">{t("Datei")}</option>
+                <option value="journal">{t("systemd-Journal")}</option>
+                <option value="docker_events">{t("Docker-Ereignisse")}</option>
               </select>
             </label>
           </div>

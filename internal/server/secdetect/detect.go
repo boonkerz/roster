@@ -32,6 +32,9 @@ type Config struct {
 	// ThreatAlert: Quell-IPs aus Blocklisten (Input.ThreatLookup) beim ersten Fehlversuch/Probe
 	// als Vorfall „threat_listed“ melden – ohne Schwellwert.
 	ThreatAlert bool
+	// PortscanPorts: ab so vielen verschiedenen Zielports (Firewall-Drops) je Quell-IP im
+	// Fenster gilt die IP als Portscan (Standard 10).
+	PortscanPorts int
 }
 
 // InvalidUserWindow ist das Fenster der Regel „unbekannte Benutzer“.
@@ -65,6 +68,16 @@ type Input struct {
 	ThreatLookup func(ip string) []string
 	// RecentThreat: Quell-IPs, für die in den letzten 24 h bereits ein threat_listed-Vorfall existiert.
 	RecentThreat map[string]time.Time
+	// PriorDrops: Firewall-Drops je Quell-IP innerhalb des Fensters (ohne die neuen).
+	PriorDrops map[string][]PortHit
+	// RecentPortscan: Quell-IPs mit Portscan-Vorfall in den letzten 60 min.
+	RecentPortscan map[string]time.Time
+}
+
+// PortHit ist ein Firewall-Drop (Zeit, Ziel "tcp/22").
+type PortHit struct {
+	Time time.Time
+	Port string
 }
 
 // Incident ist ein abgeleiteter Vorfall.
@@ -91,6 +104,18 @@ func Detect(in Input, cfg Config) []Incident {
 	if cfg.ScanThreshold <= 0 {
 		cfg.ScanThreshold = 20
 	}
+	if cfg.PortscanPorts <= 0 {
+		cfg.PortscanPorts = 10
+	}
+	drops := map[string][]PortHit{}
+	for ip, h := range in.PriorDrops {
+		drops[ip] = append(drops[ip], h...)
+	}
+	portscanAt := map[string]time.Time{}
+	for ip, t := range in.RecentPortscan {
+		portscanAt[ip] = t
+	}
+	seenExec := map[string]bool{}
 	fails := map[string][]time.Time{}
 	invalid := map[string][]time.Time{}
 	probes := map[string][]time.Time{}
@@ -214,6 +239,35 @@ func Detect(in Input, cfg Config) []Incident {
 			}
 			out = append(out, Incident{Time: e.Time, Kind: "account_change", Severity: sev, User: e.User,
 				Title: fmt.Sprintf("Gruppenänderung: %s", strings.TrimSpace(e.User+" "+e.Detail)), Detail: e.Detail})
+		case e.Kind == "fw_drop" && ip != "":
+			drops[ip] = append(drops[ip], PortHit{Time: e.Time, Port: e.Detail})
+			if last, ok := portscanAt[ip]; ok && e.Time.Sub(last) < time.Hour {
+				continue
+			}
+			ports := map[string]bool{}
+			var first []string
+			for _, h := range drops[ip] {
+				if e.Time.Sub(h.Time) <= cfg.BFWindow && !ports[h.Port] {
+					ports[h.Port] = true
+					if len(first) < 10 {
+						first = append(first, h.Port)
+					}
+				}
+			}
+			if len(ports) >= cfg.PortscanPorts {
+				portscanAt[ip] = e.Time
+				out = append(out, Incident{Time: e.Time, Kind: "portscan", Severity: "warning", SourceIP: ip,
+					Title:  "Portscan von " + ip,
+					Detail: fmt.Sprintf("%d verschiedene Ports in %s: %s", len(ports), cfg.BFWindow, strings.Join(first, ", "))})
+			}
+		case e.Kind == "docker_exec":
+			name, cmd, _ := strings.Cut(e.Detail, ": ")
+			if seenExec[name] {
+				continue
+			}
+			seenExec[name] = true
+			out = append(out, Incident{Time: e.Time, Kind: "container_exec", Severity: "warning", User: e.User,
+				Title: "Befehl im Container " + name, Detail: cmd})
 		case e.Kind == "service_installed":
 			out = append(out, Incident{Time: e.Time, Kind: "persistence", Severity: "warning", User: e.User,
 				Title: "Dienst installiert: " + firstField(e.Detail), Detail: e.Detail})

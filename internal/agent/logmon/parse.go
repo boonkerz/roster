@@ -119,8 +119,16 @@ func Parse(src shared.LogSource, l Line, now time.Time) (shared.AuthEvent, bool)
 	var ev shared.AuthEvent
 	var ok bool
 	switch src.Format {
-	case "nginx_access":
+	case "nginx_access", "apache_access":
 		ev, ok = parseAccess(l.Text, ts)
+	case "haproxy":
+		ev, ok = parseHAProxy(l.Text, ts)
+	case "traefik":
+		ev, ok = parseTraefik(l.Text, ts)
+	case "mysql":
+		ev, ok = parseMySQL(l.Text, ts)
+	case "firewall":
+		ev, ok = parseFirewall(l.Text, ts)
 	case "nginx_error":
 		ev, ok = parseNginxError(l.Text, ts)
 	case "sshd":
@@ -231,6 +239,14 @@ func parseAccess(line string, ts time.Time) (shared.AuthEvent, bool) {
 	if user != "-" && user != "" {
 		ev.User = user
 	}
+	host := strings.TrimSpace(line[:strings.Index(line, m[0])])
+	return classifyHTTP(ev, host, req, status)
+}
+
+// classifyHTTP bewertet eine HTTP-Anfrage (Combined Log, HAProxy, Traefik …): 401 →
+// Fehlversuch; kaputte Anfragen, Scanner-Pfade und fehlgeschlagene Anfragen an die nackte
+// Server-IP → verdächtige Anfrage. host ist der vorangestellte vhost (leer = unbekannt).
+func classifyHTTP(ev shared.AuthEvent, host, req string, status int) (shared.AuthEvent, bool) {
 	rm := reRequest.FindStringSubmatch(req)
 	method, path := "", req
 	if rm != nil {
@@ -253,7 +269,7 @@ func parseAccess(line string, ts time.Time) (shared.AuthEvent, bool) {
 	case suspiciousPath(path, status):
 		ev.Kind = "probe"
 		return ev, true
-	case status >= 400 && hostIsLiteral(strings.TrimSpace(line[:strings.Index(line, m[0])])) && path != "/" && path != "/robots.txt" && path != "/favicon.ico":
+	case status >= 400 && host != "" && hostIsLiteral(host) && path != "/" && path != "/robots.txt" && path != "/favicon.ico":
 		// Fehlgeschlagene Anfrage an die nackte Server-IP / den Default-Host: Scanner.
 		ev.Kind = "probe"
 		return ev, true

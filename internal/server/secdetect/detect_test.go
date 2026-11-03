@@ -1,6 +1,7 @@
 package secdetect
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -232,3 +233,54 @@ func TestWindowsKinds(t *testing.T) {
 		t.Fatalf("titles: %+v", got)
 	}
 }
+
+// TestPortscan: ab 10 verschiedenen Zielports einer IP im Fenster ein Vorfall, danach 1 h Ruhe;
+// 9 Ports reichen nicht; Vorwissen aus der Datenbank zählt mit.
+func TestPortscan(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	drop := func(ip string, port int, i int) shared.AuthEvent {
+		return shared.AuthEvent{Time: base.Add(time.Duration(i) * time.Second), Kind: "fw_drop", SourceIP: ip, Detail: "tcp/" + itoa(port), Service: "fw"}
+	}
+	var evs []shared.AuthEvent
+	for p := 1; p <= 9; p++ {
+		evs = append(evs, drop("203.0.113.5", p, p))
+	}
+	cfg := DefaultConfig()
+	if ks := kinds(Detect(Input{Now: base.Add(time.Minute), Events: evs}, cfg)); len(ks) != 0 {
+		t.Fatalf("9 Ports: %v", ks)
+	}
+	evs = append(evs, drop("203.0.113.5", 10, 10), drop("203.0.113.5", 11, 11))
+	got := Detect(Input{Now: base.Add(time.Minute), Events: evs}, cfg)
+	if ks := kinds(got); len(ks) != 1 || ks[0] != "portscan" || got[0].SourceIP != "203.0.113.5" {
+		t.Fatalf("10 Ports: %v", ks)
+	}
+	// Vorwissen: 8 Ports aus der DB + 2 neue.
+	prior := map[string][]PortHit{}
+	for p := 1; p <= 8; p++ {
+		prior["203.0.113.6"] = append(prior["203.0.113.6"], PortHit{Time: base.Add(-time.Minute), Port: "tcp/" + itoa(p)})
+	}
+	got = Detect(Input{Now: base.Add(time.Minute), Events: []shared.AuthEvent{drop("203.0.113.6", 20, 1), drop("203.0.113.6", 21, 2)}, PriorDrops: prior}, cfg)
+	if ks := kinds(got); len(ks) != 1 || ks[0] != "portscan" {
+		t.Fatalf("mit Vorwissen: %v", ks)
+	}
+	got = Detect(Input{Now: base.Add(time.Minute), Events: evs, RecentPortscan: map[string]time.Time{"203.0.113.5": base.Add(-10 * time.Minute)}}, cfg)
+	if ks := kinds(got); len(ks) != 0 {
+		t.Fatalf("Dedupe: %v", ks)
+	}
+}
+
+func TestContainerExec(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	evs := []shared.AuthEvent{
+		{Time: base, Kind: "docker_exec", Detail: "web-1: /bin/sh -c id", Service: "docker"},
+		{Time: base.Add(time.Second), Kind: "docker_exec", Detail: "web-1: /bin/sh -c ls", Service: "docker"},
+		{Time: base.Add(2 * time.Second), Kind: "docker_exec", Detail: "db-1: bash", Service: "docker"},
+		{Time: base.Add(3 * time.Second), Kind: "docker_event", Detail: "start web-1 (nginx)", Service: "docker"},
+	}
+	got := Detect(Input{Now: base.Add(time.Minute), Events: evs}, DefaultConfig())
+	if ks := kinds(got); len(ks) != 2 || ks[0] != "container_exec" || got[0].Title != "Befehl im Container web-1" || got[1].Title != "Befehl im Container db-1" {
+		t.Fatalf("got %v %+v", ks, got)
+	}
+}
+
+func itoa(n int) string { return fmt.Sprint(n) }

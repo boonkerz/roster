@@ -33,6 +33,7 @@ const (
 	SettingSecThreatEnabled    = "sec_threat_enabled"     // "0" = Bedrohungsdaten aus (Standard an)
 	SettingSecThreatBlock      = "sec_threat_block"       // "0" = gelistete IPs nicht automatisch sperren (Standard an)
 	SettingSecThreatFeeds      = "sec_threat_feeds"       // Feed-IDs kommagetrennt, leer = alle
+	SettingSecPortscanPorts    = "sec_portscan_ports"     // verschiedene Zielports je IP im Fenster bis zum Vorfall „portscan“
 	SettingSecBlockPrivate     = "sec_block_private"      // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
 )
 
@@ -109,6 +110,31 @@ func (s *Store) eventTimesSince(ctx context.Context, deviceID string, since time
 			return nil, err
 		}
 		out[ip] = append(out[ip], ts)
+	}
+	return out, rows.Err()
+}
+
+// PortHit ist ein verworfenes Paket (Firewall-Drop) für die Portscan-Erkennung.
+type PortHit struct {
+	Time time.Time
+	Port string // "tcp/22"
+}
+
+// DropsSince liefert Firewall-Drops je Quell-IP seit since (für die Portscan-Erkennung).
+func (s *Store) DropsSince(ctx context.Context, deviceID string, since time.Time) (map[string][]PortHit, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT source_ip, ts, detail FROM auth_events WHERE device_id=? AND ts >= ? AND kind='fw_drop' AND source_ip <> ''`), deviceID, since.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]PortHit{}
+	for rows.Next() {
+		var ip, port string
+		var ts time.Time
+		if err := rows.Scan(&ip, &ts, &port); err != nil {
+			return nil, err
+		}
+		out[ip] = append(out[ip], PortHit{Time: ts, Port: port})
 	}
 	return out, rows.Err()
 }

@@ -3,9 +3,11 @@ package logmon
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -59,6 +61,49 @@ func Test(ctx context.Context, src shared.LogSource, n int) TestResult {
 		res.Targets = append(res.Targets, tr)
 	}
 	switch src.Type {
+	case "journal":
+		sel, ok := journalArgs(src.Target)
+		if !ok {
+			res.Error = "ungültiges Journal-Ziel " + src.Target
+			break
+		}
+		args := append([]string{"-o", "json", "--no-pager", "-q", "-n", fmt.Sprint(n)}, sel...)
+		out, err := exec.CommandContext(ctx, "journalctl", args...).Output()
+		var lines []string
+		for _, raw := range strings.Split(string(out), "\n") {
+			var jl journalLine
+			if json.Unmarshal([]byte(raw), &jl) == nil {
+				if t := jl.text(); t != "" {
+					lines = append(lines, t)
+				}
+			}
+		}
+		if err != nil && len(lines) == 0 {
+			err = shortErr(err)
+		} else {
+			err = nil
+		}
+		add("journal:"+strings.Join(sel, " "), lines, err)
+	case "docker_events":
+		out, err := dockerOut(ctx, "events", "--since", "24h", "--until", "0s", "--format", "{{json .}}")
+		tr := TargetResult{Target: "docker events (24 h)"}
+		if err != nil {
+			tr.Error = err.Error()
+		}
+		for _, raw := range strings.Split(out, "\n") {
+			if strings.TrimSpace(raw) == "" {
+				continue
+			}
+			tr.Lines++
+			if ev, ok := mapDockerEvent(src, raw, now); ok {
+				tr.Matched++
+				if len(res.Events) < 20 {
+					res.Events = append(res.Events, ev)
+				}
+			}
+		}
+		res.Lines, res.Matched = tr.Lines, tr.Matched
+		res.Targets = append(res.Targets, tr)
 	case "file":
 		paths := globPaths(src.Target)
 		if len(paths) == 0 {

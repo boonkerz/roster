@@ -7,6 +7,10 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Log sources: new formats **HAProxy** (HTTP log), **Traefik** (JSON or common log), **MySQL/MariaDB** error log (access denied, host not allowed) and **firewall drops** (iptables/nft/ufw kernel log, Windows `pfirewall.log`), plus `apache_access` as an alias of the combined log. New source types **systemd journal** (target `kernel` or a SYSLOG_IDENTIFIER – nft/iptables logs on hosts without rsyslog) and **Docker events** (`exec` in a container, start/stop/die). Templates for all of them in the policy.
+- New incidents **Port scan** (≥ N distinct target ports from one IP within the brute-force window, default 10, Settings → Security monitoring; auto-blocked like brute force) and **Command in container** (`docker exec`).
+
+### Added
 - Windows login monitoring now also reads the **System** log (7045 service installed) and **PowerShell/Operational** (4104 script block) besides Security, with a cursor per log, and evaluates 4698/4702 (scheduled task created/changed), 1102 (audit log cleared) and 4688 (process creation – only suspicious patterns: certutil/bitsadmin downloads, encoded or hidden PowerShell, mimikatz/procdump/psexec, vssadmin delete shadows, wevtutil cl, schtasks /create, net user, Office spawning shells, …). New incident kinds **Persistence** (warning), **Audit log cleared** (critical) and **Suspicious process** (warning). Prerequisites: audit policy "Process Creation" with command line, "Other Object Access", Script Block Logging (missing logs are skipped).
 
 ### Added

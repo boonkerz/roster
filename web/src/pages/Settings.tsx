@@ -125,7 +125,7 @@ function SecurityMonitoring() {
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
   const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
-    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {}, threat_enabled: true, threat_block: true, threat_feeds: [] };
+    invalid_user_max: 5, scan_threshold: 20, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {}, threat_enabled: true, threat_block: true, threat_feeds: [], portscan_ports: 10 };
   const { data: threatStatus } = useQuery<ThreatStatus>({ queryKey: ["threat-status"], queryFn: () => api.get("/security/threat") });
   const { data: kinds } = useQuery<IncidentKindInfo[]>({ queryKey: ["incident-kinds"], queryFn: () => api.get("/security/kinds"), staleTime: 600000 });
   const save = useMutation({
@@ -146,6 +146,7 @@ function SecurityMonitoring() {
         <div className="inline-form">
           <label className="num" title={t("Verteilte, langsame Angriffe: Versuche mit nicht existierenden Benutzernamen gelten unabhängig vom Zeitfenster ab dieser Zahl in 24 h als Brute-Force.")}>{t("Unbekannte Benutzer: Brute-Force ab … Versuchen in 24 h (0 = aus)")}<input type="number" min={0} max={1000} value={cur.invalid_user_max} onChange={(e) => upd({ invalid_user_max: Number(e.target.value) })} style={{ width: 80 }} /></label>
           <label className="num" title={t("Verdächtige Anfragen aus Log-Quellen (Scanner-Pfade, kaputte Anfragen) je Quell-IP im Zeitfenster bis zum Vorfall „Angriffsmuster“.")}>{t("Angriffsmuster: verdächtige Anfragen im Zeitfenster")}<input type="number" min={2} max={10000} value={cur.scan_threshold} onChange={(e) => upd({ scan_threshold: Number(e.target.value) })} style={{ width: 80 }} /></label>
+          <label className="num" title={t("Firewall-Drops (Log-Quelle „Firewall-Drops“) auf so viele verschiedene Zielports je Quell-IP im Zeitfenster gelten als Portscan.")}>{t("Portscan: verschiedene Zielports im Zeitfenster")}<input type="number" min={2} max={1000} value={cur.portscan_ports ?? 10} onChange={(e) => upd({ portscan_ports: Number(e.target.value) })} style={{ width: 80 }} /></label>
         </div>
         <h3 className="muted small" style={{ marginTop: 10 }}>{t("Automatische Sperre")}</h3>
         <p className="muted small">{t("Sperrt die Quell-IP bei Brute-Force, Anmeldung nach Brute-Force und Angriffsmuster auf jedem überwachten Gerät – ohne Regel in der Richtlinie und ohne Klick. Eine Active-Response-Regel der Richtlinie hat Vorrang. Die Sperre greift auch für Verkehr zu Docker-Containern.")}</p>

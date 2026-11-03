@@ -173,7 +173,7 @@ type SecuritySpec struct {
 type LogSource struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`              // Dienstname in den Ereignissen (z. B. nginx-proxy, sftp)
-	Type    string `json:"type"`              // file | docker
+	Type    string `json:"type"`              // file | docker | journal | docker_events
 	Target  string `json:"target"`            // Dateipfad (Glob erlaubt) bzw. Container-Name/-Muster
 	Format  string `json:"format"`            // nginx_access | nginx_error | sshd | ftp | mail | regex
 	Pattern string `json:"pattern,omitempty"` // regex: Muster mit (?P<ip>…) und optional (?P<user>…)

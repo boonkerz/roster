@@ -15,8 +15,9 @@ import (
 // Agent auf Anmeldeversuche und Angriffsmuster liest.
 
 var (
-	logSourceTypes   = map[string]bool{"file": true, "docker": true}
-	logSourceFormats = map[string]bool{"nginx_access": true, "nginx_error": true, "sshd": true, "ftp": true, "mail": true, "regex": true}
+	logSourceTypes   = map[string]bool{"file": true, "docker": true, "journal": true, "docker_events": true}
+	logSourceFormats = map[string]bool{"nginx_access": true, "apache_access": true, "nginx_error": true, "sshd": true, "ftp": true, "mail": true, "haproxy": true, "traefik": true, "mysql": true, "firewall": true, "docker_events": true, "regex": true}
+	reJournalTarget  = regexp.MustCompile(`^[A-Za-z0-9_.@:-]{1,64}$`)
 	logSourceKinds   = map[string]bool{"login_failed": true, "probe": true}
 	reServiceName    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`)
 )
@@ -37,14 +38,26 @@ func (req logSourceRequest) apply(l *model.PolicyLogSource) error {
 		return errors.New("Name: 1–40 Zeichen aus Buchstaben, Ziffern, Punkt, Bindestrich, Unterstrich")
 	}
 	if !logSourceTypes[req.Type] {
-		return errors.New("type muss file|docker sein")
+		return errors.New("type muss file|docker|journal|docker_events sein")
+	}
+	if req.Type == "docker_events" {
+		req.Format = "docker_events" // der Typ bestimmt das Format
+		if strings.TrimSpace(req.Target) == "" {
+			req.Target = "*"
+		}
 	}
 	if !logSourceFormats[req.Format] {
-		return errors.New("format muss nginx_access|nginx_error|sshd|ftp|mail|regex sein")
+		return errors.New("format muss nginx_access|apache_access|nginx_error|sshd|ftp|mail|haproxy|traefik|mysql|firewall|docker_events|regex sein")
+	}
+	if (req.Format == "docker_events") != (req.Type == "docker_events") {
+		return errors.New("Format docker_events gehört zum Typ docker_events")
 	}
 	target := strings.TrimSpace(req.Target)
 	if target == "" {
-		return errors.New("Ziel fehlt (Dateipfad bzw. Container-Name)")
+		return errors.New("Ziel fehlt (Dateipfad, Container-Name bzw. Journal-Kennung)")
+	}
+	if req.Type == "journal" && !reJournalTarget.MatchString(target) {
+		return errors.New("Journal-Ziel: „kernel“ oder eine SYSLOG_IDENTIFIER-Kennung (Buchstaben, Ziffern, ._@:-)")
 	}
 	if req.Type == "file" && !strings.HasPrefix(target, "/") && !winAbsPath.MatchString(target) {
 		return errors.New("Dateipfad muss absolut sein")

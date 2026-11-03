@@ -371,9 +371,9 @@ export interface PolicyLogSource {
   id: string;
   policy_id: string;
   name: string;
-  type: "file" | "docker";
+  type: "file" | "docker" | "journal" | "docker_events";
   target: string;
-  format: "nginx_access" | "nginx_error" | "sshd" | "ftp" | "mail" | "regex";
+  format: "nginx_access" | "apache_access" | "nginx_error" | "sshd" | "ftp" | "mail" | "haproxy" | "traefik" | "mysql" | "firewall" | "docker_events" | "regex";
   pattern?: string;
   kind?: "login_failed" | "probe";
   enabled: boolean;
@@ -472,7 +472,7 @@ export interface SecuritySummary {
 }
 
 // Log-Quelle (ungespeichert) für den Probelauf auf einem Gerät.
-export interface LogSourceSpec { name: string; type: "file" | "docker"; target: string; format: PolicyLogSource["format"]; pattern?: string; kind?: string }
+export interface LogSourceSpec { name: string; type: PolicyLogSource["type"]; target: string; format: PolicyLogSource["format"]; pattern?: string; kind?: string }
 export interface LogSourceTestResult {
   targets: { target: string; lines: number; matched: number; error?: string }[];
   lines: number;
@@ -488,7 +488,7 @@ export interface DeviceLogSource {
   policy_id?: string;
   policy_name?: string;
   name: string;
-  type: "file" | "docker";
+  type: PolicyLogSource["type"];
   target: string;
   format?: PolicyLogSource["format"];
   pattern?: string;
@@ -527,6 +527,7 @@ export interface SecuritySettings {
   threat_enabled: boolean; // Blocklisten abgleichen
   threat_block: boolean;   // gelistete IPs beim ersten Ereignis flottenweit sperren
   threat_feeds: string[];  // Feed-IDs, leer = alle
+  portscan_ports: number;  // verschiedene Zielports je IP im Fenster bis zum Vorfall „Portscan“
 }
 
 export interface ThreatFeedStatus { id: string; name: string; url: string; enabled: boolean; entries: number; fetched_at?: string; error?: string }

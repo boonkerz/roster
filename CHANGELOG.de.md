@@ -7,6 +7,10 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- Log-Quellen: neue Formate **HAProxy** (HTTP-Log), **Traefik** (JSON oder Common Log), **MySQL/MariaDB**-Fehlerprotokoll (Access denied, Host not allowed) und **Firewall-Drops** (iptables/nft/ufw-Kernel-Log, Windows `pfirewall.log`), dazu `apache_access` als Alias des Combined Log. Neue Quelltypen **systemd-Journal** (Ziel `kernel` oder eine SYSLOG_IDENTIFIER-Kennung – nft-/iptables-Protokolle auf Hosts ohne rsyslog) und **Docker-Ereignisse** (`exec` im Container, Start/Stop/Die). Vorlagen für alle in der Richtlinie.
+- Neue Vorfälle **Portscan** (≥ N verschiedene Zielports einer IP im Brute-Force-Fenster, Standard 10, Einstellungen → Sicherheitsüberwachung; automatische Sperre wie bei Brute-Force) und **Befehl im Container** (`docker exec`).
+
+### Neu
 - Windows-Anmeldeüberwachung liest neben dem Sicherheitsprotokoll jetzt auch **System** (7045 Dienst installiert) und **PowerShell/Operational** (4104 Skriptblock), mit eigenem Cursor je Protokoll, und wertet 4698/4702 (geplante Aufgabe angelegt/geändert), 1102 (Sicherheitsprotokoll gelöscht) und 4688 (Prozessstart – nur verdächtige Muster: certutil-/bitsadmin-Downloads, kodiertes oder verstecktes PowerShell, mimikatz/procdump/psexec, vssadmin delete shadows, wevtutil cl, schtasks /create, net user, Office startet Shell, …) aus. Neue Vorfallsarten **Persistenz** (Warnung), **Protokoll gelöscht** (kritisch) und **Verdächtiger Prozess** (Warnung). Voraussetzungen: Überwachungsrichtlinie „Prozesserstellung“ mit Befehlszeile, „Andere Objektzugriffsereignisse“, Skriptblock-Protokollierung (fehlende Protokolle werden übersprungen).
 
 ### Neu

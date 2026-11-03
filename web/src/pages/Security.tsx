@@ -359,6 +359,9 @@ function AuthTab() {
             <option value="audit_cleared">{t("Protokoll gelöscht")}</option>
             <option value="suspicious_process">{t("verdächtiger Prozess")}</option>
             <option value="powershell_suspicious">{t("verdächtiges PowerShell")}</option>
+            <option value="fw_drop">{t("Firewall-Drop")}</option>
+            <option value="docker_exec">{t("Befehl im Container")}</option>
+            <option value="docker_event">{t("Container-Ereignis")}</option>
           </select>
           <label className="chip" title={t("Nur Quell-IPs, die in einer Blockliste stehen (Bedrohungsdaten)")}><input type="checkbox" checked={onlyThreat} onChange={(e) => setParam("threat", e.target.checked ? "1" : "")} /> ⚠ {t("nur gelistete IPs")}</label>
           <select value={days} onChange={(e) => setParam("days", e.target.value)}>

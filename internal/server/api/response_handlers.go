@@ -20,9 +20,9 @@ import (
 
 // Trigger und Aktionen der Active Response.
 var (
-	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true, "scan": true, "threat_listed": true, "persistence": true, "audit_cleared": true, "suspicious_process": true}
+	responseTriggers  = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "account_change": true, "lockout": true, "fim_change": true, "scan": true, "threat_listed": true, "persistence": true, "audit_cleared": true, "suspicious_process": true, "portscan": true, "container_exec": true}
 	responseActions   = map[string]bool{"block_ip": true, "lock_user": true, "run_script": true}
-	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "scan": true, "threat_listed": true}
+	ipTriggers        = map[string]bool{"brute_force": true, "brute_force_success": true, "new_source_ip": true, "scan": true, "threat_listed": true, "portscan": true}
 	userTriggers      = map[string]bool{"brute_force_success": true, "account_change": true, "lockout": true, "new_source_ip": true, "persistence": true, "suspicious_process": true}
 	protectedAccounts = map[string]bool{"root": true, "administrator": true, "system": true}
 )
@@ -228,7 +228,7 @@ func (s *Server) runResponses(ctx context.Context, device *model.Device, inciden
 }
 
 // autoBlockTriggers sind die Vorfallsarten, die die globale automatische Sperre auslöst.
-var autoBlockTriggers = map[string]bool{"brute_force": true, "brute_force_success": true, "scan": true}
+var autoBlockTriggers = map[string]bool{"brute_force": true, "brute_force_success": true, "scan": true, "portscan": true}
 
 // subnet24 liefert das /24-Netz einer IPv4-Adresse ("" bei IPv6/ungültig).
 func subnet24(ip string) string {
