@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Agent: Ergebnisse von `block_ip`/`unblock_ip` werden gebündelt gemeldet, höchstens ein Checkin je Minute statt sofort nach jedem Befehl. Mit Flottensperre bekam jedes Gerät etwa jede Minute einen Sperrbefehl und checkte alle 30 s ein (das Sechsfache der regulären Rate). Interaktive Befehle melden weiter sofort.
+
 ## [0.18.17] - 2026-11-03
 
 ### Behoben

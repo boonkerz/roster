@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Agent: results of `block_ip`/`unblock_ip` commands are reported in a coalesced check-in at most once per minute instead of immediately after each command. With fleet blocking every device received a block command every minute or so and checked in every 30 s (six times the regular rate). Interactive commands still report immediately.
+
 ## [0.18.17] - 2026-11-03
 
 ### Fixed
