@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.17] - 2026-11-03
+
 ### Fixed
 - Device list (polled every 15 s by dashboard and device page) was expensive per device: the "latest result per task" subquery ran quadratically over the device's task results, and the open-incident count read rows instead of an index. Migration 0073 adds `task_results(device_id, task_id, ran_at)` and `security_incidents(device_id, status)`.
 
@@ -295,7 +297,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.16...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.17...HEAD
+[0.18.17]: https://github.com/boonkerz/roster/compare/v0.18.16...v0.18.17
 [0.18.16]: https://github.com/boonkerz/roster/compare/v0.18.15...v0.18.16
 [0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
 [0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14

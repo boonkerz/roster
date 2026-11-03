@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.17] - 2026-11-03
+
 ### Behoben
 - Geräteliste (alle 15 s von Dashboard und Geräteseite geladen) war je Gerät teuer: Die Unterabfrage „letztes Ergebnis je Task“ lief quadratisch über die Task-Ergebnisse des Geräts, die Zählung offener Vorfälle las Zeilen statt eines Index. Migration 0073 ergänzt `task_results(device_id, task_id, ran_at)` und `security_incidents(device_id, status)`.
 
@@ -295,7 +297,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.16...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.17...HEAD
+[0.18.17]: https://github.com/boonkerz/roster/compare/v0.18.16...v0.18.17
 [0.18.16]: https://github.com/boonkerz/roster/compare/v0.18.15...v0.18.16
 [0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
 [0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14
