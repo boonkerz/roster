@@ -413,6 +413,9 @@ export interface ComplianceRule {
   platforms: string[];
   profiles: string[];
   remediation: string;
+  frameworks: string[];    // z. B. "CIS 5.2.10", "PCI DSS 8.6"
+  description_en?: string;
+  remediation_en?: string;
 }
 export interface ComplianceResult { device_id: string; hostname?: string; rule_id: string; status: "pass" | "fail" | "na" | "error"; evidence?: string; checked_at: string; }
 export interface ComplianceDevice { device_id: string; hostname: string; os: string; client_name?: string; site_name?: string; score: number; profile: string; passed: number; failed: number; skipped: number; checked_at: string; }

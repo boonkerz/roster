@@ -1499,4 +1499,7 @@ export const EN: Record<string, string> = {
   "Rootkit-Prüfung jetzt": "Rootkit check now",
   "Rootkit-Prüfung eingereiht – Befunde erscheinen als Vorfälle (nur wenn die Richtlinie die Prüfung aktiviert).": "Rootkit check queued – findings show up as incidents (only if the policy enables the check).",
   "Versteckte Prozesse, ld.so.preload, versteckte Module, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade (Linux)": "Hidden processes, ld.so.preload, hidden modules, executables in /tmp, known rootkit paths (Linux)",
+  // --- Compliance-Ausbau (0.19) ---
+  "Nach Rahmenwerk filtern": "Filter by framework",
+  "Alle Rahmenwerke": "All frameworks",
 };

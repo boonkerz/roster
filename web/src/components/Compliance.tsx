@@ -18,6 +18,37 @@ export function ruleTitle(r: ComplianceRule | undefined, lang: string, id: strin
   if (!r) return id;
   return lang === "en" && r.title_en ? r.title_en : r.title;
 }
+export function ruleDesc(r: ComplianceRule | undefined, lang: string) {
+  if (!r) return "";
+  return lang === "en" && r.description_en ? r.description_en : r.description;
+}
+export function ruleRemediation(r: ComplianceRule | undefined, lang: string) {
+  if (!r) return "";
+  return lang === "en" && r.remediation_en ? r.remediation_en : r.remediation;
+}
+
+// Framework-Familien für den Filter ("CIS", "PCI DSS", "ISO 27001").
+export function frameworkFamily(ref: string) {
+  const m = ref.match(/^(CIS|PCI DSS|ISO 27001|BSI)\b/);
+  return m ? m[1] : ref.split(" ")[0];
+}
+export function FrameworkBadges({ items }: { items?: string[] }) {
+  if (!items?.length) return null;
+  return <>{items.map((f) => <span key={f} className="badge badge-unknown" style={{ marginLeft: 4 }} title={f}>{f}</span>)}</>;
+}
+export function FrameworkSelect({ rules, value, onChange }: { rules: ComplianceRule[]; value: string; onChange: (v: string) => void }) {
+  const { t } = useI18n();
+  const fams = [...new Set(rules.flatMap((r) => (r.frameworks ?? []).map(frameworkFamily)))].sort();
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} title={t("Nach Rahmenwerk filtern")}>
+      <option value="">{t("Alle Rahmenwerke")}</option>
+      {fams.map((f) => <option key={f} value={f}>{f}</option>)}
+    </select>
+  );
+}
+export function matchesFramework(r: ComplianceRule | undefined, fam: string) {
+  return !fam || !!r?.frameworks?.some((f) => frameworkFamily(f) === fam);
+}
 
 // ScoreBar zeigt einen Score 0–100 als Balken mit Farbe.
 export function ScoreBar({ score, width = 120 }: { score: number; width?: number }) {
@@ -46,10 +77,11 @@ export function DeviceCompliance({ deviceId, canOperate, score, checkedAt }: { d
   const rules = useComplianceRules();
   const byId = useMemo(() => new Map(rules.map((r) => [r.id, r])), [rules]);
   const [onlyFail, setOnlyFail] = useState(false);
+  const [fam, setFam] = useState("");
   const [msg, setMsg] = useState("");
   const { data, isLoading } = useQuery({ queryKey: ["compliance", deviceId], queryFn: () => api.get<ComplianceResult[]>(`/devices/${deviceId}/compliance`), refetchInterval: 30000 });
   const scan = useMutation({ mutationFn: () => api.post(`/devices/${deviceId}/compliance-scan`), onSuccess: () => { setMsg(t("Prüfung eingereiht – Ergebnis erscheint nach dem nächsten Checkin.")); setTimeout(() => qc.invalidateQueries({ queryKey: ["compliance", deviceId] }), 8000); } });
-  const results = (data ?? []).filter((r) => !onlyFail || r.status === "fail");
+  const results = (data ?? []).filter((r) => (!onlyFail || r.status === "fail") && matchesFramework(byId.get(r.rule_id), fam));
   const order: Record<string, number> = { fail: 0, error: 1, pass: 2, na: 3 };
   results.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.rule_id.localeCompare(b.rule_id));
   return (
@@ -57,6 +89,7 @@ export function DeviceCompliance({ deviceId, canOperate, score, checkedAt }: { d
       <div className="page-head" style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 12 }}>{t("Compliance")} {score !== undefined && score !== null && <ScoreBar score={score} />}</h2>
         <div className="actions">
+          <FrameworkSelect rules={rules} value={fam} onChange={setFam} />
           <label className={`chip ${onlyFail ? "chip-on" : ""}`}><input type="checkbox" checked={onlyFail} onChange={(e) => setOnlyFail(e.target.checked)} /> {t("nur Fehlschläge")}</label>
           {canOperate && <button className="btn ghost sm" disabled={scan.isPending} onClick={() => { setMsg(""); scan.mutate(); }}>↻ {t("Jetzt prüfen")}</button>}
         </div>
@@ -75,10 +108,10 @@ export function DeviceCompliance({ deviceId, canOperate, score, checkedAt }: { d
                 return (
                   <tr key={r.rule_id} className="small">
                     <td><StatusPill status={r.status} /></td>
-                    <td><strong>{ruleTitle(rule, lang, r.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · <span className="mono">{r.rule_id}</span></div>}</td>
+                    <td><strong>{ruleTitle(rule, lang, r.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · <span className="mono">{r.rule_id}</span><FrameworkBadges items={rule.frameworks} /></div>}</td>
                     <td>{rule ? <span className={`badge ${sevCls(rule.severity)}`}>{t(SEVERITY_LABEL[rule.severity])}</span> : "—"}</td>
                     <td className="mono muted" style={{ wordBreak: "break-word" }}>{r.evidence || "—"}</td>
-                    <td className="muted">{r.status === "fail" && rule ? rule.remediation : ""}</td>
+                    <td className="muted">{r.status === "fail" && rule ? ruleRemediation(rule, lang) : ""}</td>
                   </tr>
                 );
               })}
@@ -96,6 +129,7 @@ export function FleetCompliance() {
   const rules = useComplianceRules();
   const byId = useMemo(() => new Map(rules.map((r) => [r.id, r])), [rules]);
   const [view, setView] = useState<"devices" | "rules">("devices");
+  const [fam, setFam] = useState("");
   const [openRule, setOpenRule] = useState<string | null>(null);
   const { data: devices, isLoading } = useQuery({ queryKey: ["compliance-fleet"], queryFn: () => api.get<ComplianceDevice[]>("/compliance"), refetchInterval: 60000 });
   const { data: stats } = useQuery({ queryKey: ["compliance-by-rule"], queryFn: () => api.get<ComplianceRuleStat[]>("/compliance/by-rule"), refetchInterval: 60000, enabled: view === "rules" });
@@ -109,6 +143,7 @@ export function FleetCompliance() {
             <button className={`tab ${view === "devices" ? "tab-on" : ""}`} onClick={() => setView("devices")}>{t("nach Gerät")}</button>
             <button className={`tab ${view === "rules" ? "tab-on" : ""}`} onClick={() => setView("rules")}>{t("nach Regel")}</button>
           </div>
+          {view === "rules" && <FrameworkSelect rules={rules} value={fam} onChange={setFam} />}
         </div>
         {avg !== null && <span className="small">{t("Ø Score")}: <ScoreBar score={avg} /></span>}
       </div>
@@ -138,14 +173,14 @@ export function FleetCompliance() {
           <table className="table">
             <thead><tr><th>{t("Regel")}</th><th>{t("Schwere")}</th><th>{t("Erfüllt")}</th><th>{t("Fehlgeschlagen")}</th><th>{t("n/a")}</th></tr></thead>
             <tbody>
-              {(stats ?? []).map((s) => s).sort((a, b) => b.failed - a.failed || a.rule_id.localeCompare(b.rule_id)).map((s) => {
+              {(stats ?? []).filter((s) => matchesFramework(byId.get(s.rule_id), fam)).sort((a, b) => b.failed - a.failed || a.rule_id.localeCompare(b.rule_id)).map((s) => {
                 const rule = byId.get(s.rule_id);
                 const total = s.passed + s.failed;
                 const pct = total ? Math.round((s.passed / total) * 100) : 100;
                 const isOpen = openRule === s.rule_id;
                 return [
                   <tr key={s.rule_id} className="small" style={{ cursor: s.failed > 0 ? "pointer" : undefined }} onClick={() => s.failed > 0 && setOpenRule(isOpen ? null : s.rule_id)}>
-                    <td>{s.failed > 0 && <span className="muted">{isOpen ? "▾ " : "▸ "}</span>}<strong>{ruleTitle(rule, lang, s.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · {(rule.platforms ?? []).join(", ")}</div>}</td>
+                    <td>{s.failed > 0 && <span className="muted">{isOpen ? "▾ " : "▸ "}</span>}<strong>{ruleTitle(rule, lang, s.rule_id)}</strong>{rule && <div className="muted">{t(CATEGORY_LABEL[rule.category] ?? rule.category)} · {(rule.platforms ?? []).join(", ")}<FrameworkBadges items={rule.frameworks} /></div>}</td>
                     <td>{rule ? <span className={`badge ${sevCls(rule.severity)}`}>{t(SEVERITY_LABEL[rule.severity])}</span> : "—"}</td>
                     <td><ScoreBar score={pct} width={90} /> <span className="muted">{s.passed}/{total}</span></td>
                     <td>{s.failed > 0 ? <span className="badge badge-offline">{s.failed}</span> : <span className="muted">0</span>}</td>
@@ -153,7 +188,7 @@ export function FleetCompliance() {
                   </tr>,
                   ...(isOpen ? [(
                     <tr key={s.rule_id + ":d"}><td colSpan={5} style={{ paddingLeft: 28 }}>
-                      {rule && <p className="muted small" style={{ marginTop: 0 }}>{rule.description} <strong>{t("Empfehlung")}:</strong> {rule.remediation}</p>}
+                      {rule && <p className="muted small" style={{ marginTop: 0 }}>{ruleDesc(rule, lang)} <strong>{t("Empfehlung")}:</strong> {ruleRemediation(rule, lang)}</p>}
                       {(ruleDevices ?? []).map((r) => (
                         <div key={r.device_id} className="small"><Link to={`/devices/${r.device_id}`} className="link-strong">{r.hostname}</Link> <span className="mono muted">{r.evidence}</span></div>
                       ))}

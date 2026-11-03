@@ -14,6 +14,11 @@ type Rule struct {
 	Platforms   []string `json:"platforms"` // linux | windows | darwin
 	Profiles    []string `json:"profiles"`  // leer = server + workstation
 	Remediation string   `json:"remediation"`
+	// Frameworks: Referenzen wie "CIS 5.2.10", "PCI DSS 8.6", "ISO 27001 A.9.4.2" (Filter/Badges).
+	Frameworks []string `json:"frameworks,omitempty"`
+	// DescriptionEN/RemediationEN: englische Texte (leer = deutsche anzeigen).
+	DescriptionEN string `json:"description_en,omitempty"`
+	RemediationEN string `json:"remediation_en,omitempty"`
 }
 
 var (

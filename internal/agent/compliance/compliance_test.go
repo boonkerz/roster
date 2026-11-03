@@ -135,9 +135,9 @@ func TestLinuxRules(t *testing.T) {
 	// Gehärtetes System: alles grün.
 	good := &fakeEnv{os: "linux",
 		files: map[string]string{
-			"/etc/ssh/sshd_config": "PermitRootLogin no\nPasswordAuthentication no\nMaxAuthTries 4\n",
+			"/etc/ssh/sshd_config": "PermitRootLogin no\nPasswordAuthentication no\nMaxAuthTries 4\nClientAliveInterval 300\nClientAliveCountMax 3\nLoginGraceTime 60\n",
 			"/etc/shadow":          "root:!:1::::::\n", "/etc/passwd": "root:x:0:0::/root:/bin/bash\n", "/etc/sudoers": "root ALL=(ALL) ALL\n",
-			"/etc/login.defs":                     "PASS_MAX_DAYS 365\n",
+			"/etc/login.defs": "PASS_MAX_DAYS 365\nPASS_MIN_DAYS 1\nPASS_WARN_AGE 7\nUMASK 027\n", "/var/log/journal": "",
 			"/proc/sys/kernel/randomize_va_space": "2", "/proc/sys/net/ipv4/ip_forward": "0", "/proc/sys/net/ipv4/tcp_syncookies": "1",
 			"/proc/sys/net/ipv4/conf/all/accept_redirects": "0", "/proc/sys/fs/suid_dumpable": "0",
 			"/sys/module/apparmor/parameters/enabled": "Y\n", "/sys/kernel/security/apparmor/profiles": "/usr/sbin/sshd (enforce)\n",

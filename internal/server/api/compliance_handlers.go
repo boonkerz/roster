@@ -20,6 +20,9 @@ func (s *Server) handleComplianceRules(w http.ResponseWriter, r *http.Request) {
 		if rule.Platforms == nil {
 			rule.Platforms = []string{}
 		}
+		if rule.Frameworks == nil {
+			rule.Frameworks = []string{}
+		}
 		out[i] = rule
 	}
 	s.writeJSON(w, http.StatusOK, out)
