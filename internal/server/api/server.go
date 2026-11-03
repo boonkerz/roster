@@ -280,6 +280,7 @@ func (s *Server) routes() http.Handler {
 						r.Put("/security/incidents/{id}", s.handleSetIncidentStatus)
 						r.Post("/devices/{id}/fim/rescan", s.handleFIMRescan)
 						r.Post("/devices/{id}/fim/reset", s.handleFIMReset)
+						r.Post("/devices/{id}/rootcheck", s.handleRootcheckNow)
 						r.Post("/devices/{id}/compliance-scan", s.handleComplianceScan)
 						r.Post("/devices/{id}/block-ip", s.handleBlockIP)
 						r.Post("/devices/{id}/unblock-ip", s.handleUnblockIP)

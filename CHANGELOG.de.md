@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- **Rootkit- und Malware-Prüfung** (Richtlinienschalter): Einmal täglich sucht der Linux-Agent nach versteckten Prozessen (antworten auf `kill(pid,0)`, fehlen aber in `/proc`), einem gefüllten `/etc/ld.so.preload`, versteckten Kernelmodulen, Schnittstellen im Promiscuous-Modus, ausführbaren/setuid-/ELF-Dateien in `/tmp`, `/var/tmp`, `/dev/shm`, regulären Dateien in `/dev` und bekannten Rootkit-Pfaden (Reptile, Diamorphine, Jynx, BEURK). Befunde werden zum kritischen Vorfall **Rootkit-Hinweis**. Laut Datei-Integritätsprüfung neue oder geänderte Dateien werden mit ClamAV (`clamdscan`/`clamscan`, Linux) bzw. Defender (`MpCmdRun`, Windows) geprüft, falls vorhanden → kritischer Vorfall **Malware**. Knopf „Rootkit-Prüfung jetzt“ im Geräte-Tab Datei-Integrität.
+
+### Neu
 - **Systemzustand überwachen** (Richtlinienschalter): Der Agent vergleicht stündlich lauschende Ports, Kernelmodule, Cron-Einträge, UID-0- und Administratorkonten, aktivierte systemd-Units/Timer (Linux), Autostart-Dienste und geplante Aufgaben (Windows, über `net localgroup`/WMI/`schtasks`, Server-2012-tauglich) sowie launchd-Jobs (macOS) mit seiner Baseline. Jede Änderung wird zum Vorfall **Systemänderung** (kritisch bei neuem UID-0- oder Administratorkonto), aufgelistet als „+ neu, - weg“.
 
 ### Neu

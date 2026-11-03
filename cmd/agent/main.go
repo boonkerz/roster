@@ -34,6 +34,7 @@ import (
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/response"
+	"github.com/boonkerz/roster/internal/agent/rootcheck"
 	"github.com/boonkerz/roster/internal/agent/statemon"
 	"github.com/boonkerz/roster/internal/agent/transport"
 	"github.com/boonkerz/roster/internal/agent/update"
@@ -118,6 +119,8 @@ type program struct {
 	fimEvents []shared.FIMEvent
 	fimNow    chan struct{}
 	fimReset  bool
+	// Rootkit-Prüfung: Anstoß für sofortigen Lauf (Befehl rootcheck_now).
+	rootcheckNow chan struct{}
 	// Anmeldungs-Überwachung: wartende Ereignisse (Cursor hält das authlog-Paket).
 	authEvents []shared.AuthEvent
 	// Lesestatus der Log-Quellen (kumuliert seit Agent-Start), geht mit jedem Checkin mit.
@@ -214,6 +217,8 @@ func (p *program) run(ctx context.Context) {
 	go p.fimLoop(ctx)
 	go p.authLoop(ctx)
 	go p.stateLoop(ctx)
+	p.rootcheckNow = make(chan struct{}, 1)
+	go p.rootcheckLoop(ctx)
 	p.complianceNow = make(chan struct{}, 1)
 	policy.ComplianceReport = func() *shared.ComplianceReport {
 		p.mu.Lock()
@@ -644,6 +649,12 @@ func (p *program) runPolicy(ctx context.Context) {
 			default:
 			}
 			exit, output = 0, "Compliance-Prüfung angestoßen"
+		case "rootcheck_now":
+			select {
+			case p.rootcheckNow <- struct{}{}:
+			default:
+			}
+			exit, output = 0, "Rootkit-Prüfung angestoßen"
 		case "fim_rescan", "fim_reset":
 			p.mu.Lock()
 			if cmd.Type == "fim_reset" {
@@ -1197,6 +1208,42 @@ func defaultConfigPath() string {
 
 // fimLoop führt die Datei-Integritätsprüfung nach dem Intervall der wirksamen Richtlinie
 // aus (Standard 60 min), auf Anstoß sofort; ohne Regeln passiert nichts. Die Baseline
+// rootcheckLoop führt täglich die Rootkit-Prüfung aus (Richtlinienschalter), auf Befehl sofort.
+func (p *program) rootcheckLoop(ctx context.Context) {
+	var last time.Time
+	run := func(force bool) {
+		p.mu.Lock()
+		on := p.policy != nil && p.policy.Security != nil && p.policy.Security.Rootcheck
+		p.mu.Unlock()
+		if !on || (!force && time.Since(last) < 24*time.Hour) {
+			return
+		}
+		sctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		findings := rootcheck.Run(sctx)
+		cancel()
+		last = time.Now()
+		p.log.Info("rootcheck", "befunde", len(findings))
+		if len(findings) > 0 {
+			p.mu.Lock()
+			p.authEvents = append(p.authEvents, rootcheck.Events(findings, last.UTC())...)
+			p.mu.Unlock()
+			p.requestCheckin()
+		}
+	}
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-p.rootcheckNow:
+			run(true)
+		case <-t.C:
+			run(false)
+		}
+	}
+}
+
 // stateLoop überwacht den Systemzustand (statemon): stündlicher Abgleich mit der Baseline
 // (state-baseline.json), Änderungen als Ereignisse „state_change“ an den Server.
 func (p *program) stateLoop(ctx context.Context) {
@@ -1255,6 +1302,7 @@ func (p *program) fimLoop(ctx context.Context) {
 		}
 		reset := p.fimReset
 		p.fimReset = false
+		rootcheckOn := p.policy != nil && p.policy.Security != nil && p.policy.Security.Rootcheck
 		p.mu.Unlock()
 		if spec == nil || len(spec.Rules) == 0 {
 			return
@@ -1281,6 +1329,21 @@ func (p *program) fimLoop(ctx context.Context) {
 		if spec.WhoData && len(events) > 0 {
 			if n := fim.ApplyWho(events, fim.CollectWho(sctx, p.stateDir)); n > 0 {
 				p.log.Info("fim: verursacher ermittelt", "ereignisse", n)
+			}
+		}
+		if rootcheckOn && len(events) > 0 {
+			// Neue/geänderte Dateien mit dem vorhandenen Virenscanner prüfen (ClamAV/Defender).
+			var files []string
+			for _, e := range events {
+				if (e.Change == "created" || e.Change == "modified") && !shared.IsRegistryPath(e.Path) && len(files) < 200 {
+					files = append(files, e.Path)
+				}
+			}
+			if hits, scanner := rootcheck.ScanFiles(sctx, files); len(hits) > 0 {
+				p.log.Warn("malware-fund", "scanner", scanner, "treffer", len(hits))
+				p.mu.Lock()
+				p.authEvents = append(p.authEvents, rootcheck.MalwareEvents(hits, scanner, time.Now().UTC())...)
+				p.mu.Unlock()
 			}
 		}
 		cancel()

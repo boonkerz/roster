@@ -218,6 +218,10 @@ func (s *Server) handleFIMRescan(w http.ResponseWriter, r *http.Request) {
 	s.queueDeviceCmd(w, r, "fim_rescan", "Datei-Integrität prüfen", nil)
 }
 
+func (s *Server) handleRootcheckNow(w http.ResponseWriter, r *http.Request) {
+	s.queueDeviceCmd(w, r, "rootcheck_now", "Rootkit-Prüfung ausführen", nil)
+}
+
 func (s *Server) handleFIMReset(w http.ResponseWriter, r *http.Request) {
 	s.queueDeviceCmd(w, r, "fim_reset", "Datei-Integrität: Baseline neu setzen", nil)
 }

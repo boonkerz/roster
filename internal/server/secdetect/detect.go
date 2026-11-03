@@ -281,6 +281,18 @@ func Detect(in Input, cfg Config) []Incident {
 				continue
 			}
 			out = append(out, inc)
+		case e.Kind == "rootkit":
+			inc := Incident{Time: e.Time, Kind: "rootkit", Severity: "critical", Title: "Rootkit-Hinweis: " + firstField(e.Detail), Detail: e.Detail}
+			if dup(in, inc) {
+				continue
+			}
+			out = append(out, inc)
+		case e.Kind == "malware":
+			inc := Incident{Time: e.Time, Kind: "malware", Severity: "critical", Title: "Malware gefunden: " + firstField(e.Detail), Detail: e.Detail + " (" + e.Service + ")"}
+			if dup(in, inc) {
+				continue
+			}
+			out = append(out, inc)
 		case e.Kind == "service_installed":
 			out = append(out, Incident{Time: e.Time, Kind: "persistence", Severity: "warning", User: e.User,
 				Title: "Dienst installiert: " + firstField(e.Detail), Detail: e.Detail})

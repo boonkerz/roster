@@ -301,3 +301,19 @@ func TestStateChange(t *testing.T) {
 		t.Fatalf("dedupe: %+v", got)
 	}
 }
+
+func TestRootkitMalware(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	evs := []shared.AuthEvent{
+		{Time: base, Kind: "rootkit", Service: "rootcheck", Detail: "versteckter Prozess: PID 4711"},
+		{Time: base.Add(time.Second), Kind: "malware", Service: "clamdscan", Detail: "/var/www/x.php: Php.Malware.Webshell-1"},
+	}
+	got := Detect(Input{Now: base.Add(time.Minute), Events: evs}, DefaultConfig())
+	if len(got) != 2 || got[0].Severity != "critical" || got[0].Title != "Rootkit-Hinweis: versteckter Prozess" || got[1].Title != "Malware gefunden: /var/www/x.php" {
+		t.Fatalf("got %+v", got)
+	}
+	recent := map[string]time.Time{"rootkit|Rootkit-Hinweis: versteckter Prozess|versteckter Prozess: PID 4711": base.Add(-time.Hour)}
+	if got := Detect(Input{Now: base.Add(time.Minute), Events: evs, RecentTitles: recent}, DefaultConfig()); len(got) != 1 {
+		t.Fatalf("dedupe: %+v", got)
+	}
+}

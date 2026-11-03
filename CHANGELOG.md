@@ -7,6 +7,9 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Rootkit and malware check** (policy switch): once a day the Linux agent looks for hidden processes (answer to `kill(pid,0)` but missing in `/proc`), a non-empty `/etc/ld.so.preload`, hidden kernel modules, interfaces in promiscuous mode, executables/setuid files/ELF binaries in `/tmp`, `/var/tmp`, `/dev/shm`, regular files in `/dev` and known rootkit paths (Reptile, Diamorphine, Jynx, BEURK). Findings become the critical incident **Rootkit indicator**. Files created or modified according to file integrity monitoring are scanned with ClamAV (`clamdscan`/`clamscan`, Linux) or Defender (`MpCmdRun`, Windows) if present → critical incident **Malware**. Button "Rootkit check now" on the device's file-integrity tab.
+
+### Added
 - **System-state monitoring** (policy switch): every hour the agent compares listening ports, kernel modules, cron entries, UID-0 and administrator accounts, enabled systemd units/timers (Linux), auto-start services and scheduled tasks (Windows, via `net localgroup`/WMI/`schtasks`, Server-2012-safe) and launchd jobs (macOS) with its baseline. Each change becomes the incident **System change** (critical for a new UID-0 or administrator account), listed as "+ new, - gone".
 
 ### Added

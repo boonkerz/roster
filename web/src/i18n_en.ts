@@ -1495,4 +1495,8 @@ export const EN: Record<string, string> = {
   "Registry-Standardpfade (Windows) einfügen": "Insert registry defaults (Windows)",
   "Windows-Registry: Run/RunOnce (auch je Benutzer), Winlogon, Image File Execution Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, geplante Aufgaben, UAC, RDP, Defender-Ausnahmen": "Windows registry: Run/RunOnce (also per user), Winlogon, Image File Execution Options, AppInit_DLLs, services, LSA, Session Manager, Browser Helper Objects, scheduled tasks, UAC, RDP, Defender exclusions",
   "/etc, C:\\Windows\\Tasks oder HKLM\\SOFTWARE\\…": "/etc, C:\\Windows\\Tasks or HKLM\\SOFTWARE\\…",
+  // --- Rootkit/Malware (0.19) ---
+  "Rootkit-Prüfung jetzt": "Rootkit check now",
+  "Rootkit-Prüfung eingereiht – Befunde erscheinen als Vorfälle (nur wenn die Richtlinie die Prüfung aktiviert).": "Rootkit check queued – findings show up as incidents (only if the policy enables the check).",
+  "Versteckte Prozesse, ld.so.preload, versteckte Module, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade (Linux)": "Hidden processes, ld.so.preload, hidden modules, executables in /tmp, known rootkit paths (Linux)",
 };

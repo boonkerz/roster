@@ -18,6 +18,7 @@ export function DeviceFim({ deviceId, canOperate }: { deviceId: string; canOpera
   });
   const rescan = useMutation({ mutationFn: () => api.post(`/devices/${deviceId}/fim/rescan`), onSuccess: () => setMsg(t("Prüfung eingereiht – Ergebnis erscheint nach dem nächsten Checkin.")) });
   const reset = useMutation({ mutationFn: () => api.post(`/devices/${deviceId}/fim/reset`), onSuccess: () => setMsg(t("Baseline wird neu aufgebaut – bisherige Vergleichswerte verfallen.")) });
+  const rootcheck = useMutation({ mutationFn: () => api.post(`/devices/${deviceId}/rootcheck`), onSuccess: () => setMsg(t("Rootkit-Prüfung eingereiht – Befunde erscheinen als Vorfälle (nur wenn die Richtlinie die Prüfung aktiviert).")) });
   const events = data ?? [];
   const hasBaseline = events.some((e) => e.change === "baseline") || events.length > 0;
   return (
@@ -32,6 +33,7 @@ export function DeviceFim({ deviceId, canOperate }: { deviceId: string; canOpera
           </select>
           {canOperate && <button className="btn ghost sm" disabled={rescan.isPending} onClick={() => { setMsg(""); rescan.mutate(); }}>↻ {t("Jetzt prüfen")}</button>}
           {canOperate && <button className="btn ghost sm" disabled={reset.isPending} onClick={() => { if (confirm(t("Baseline neu setzen? Alle aktuellen Dateistände gelten danach als Soll."))) { setMsg(""); reset.mutate(); } }}>{t("Baseline neu setzen")}</button>}
+          {canOperate && <button className="btn ghost sm" disabled={rootcheck.isPending} onClick={() => { setMsg(""); rootcheck.mutate(); }} title={t("Versteckte Prozesse, ld.so.preload, versteckte Module, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade (Linux)")}>🕵 {t("Rootkit-Prüfung jetzt")}</button>}
         </div>
       </div>
       <p className="muted small">{t("Überwachte Pfade kommen aus dem Bereich „Sicherheitsüberwachung“ der zugewiesenen Richtlinien. Der erste Lauf legt die Baseline an; danach wird jede Abweichung gemeldet.")}</p>
