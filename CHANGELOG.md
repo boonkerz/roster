@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Agent: results of `block_ip`/`unblock_ip` are reported with the next regular check-in only (no extra check-in at all). The one-per-minute coalescing from 0.18.18 still fired once a minute per device because every device receives a block command about every 30 s under fleet blocking.
+
 ## [0.18.18] - 2026-11-03
 
 ### Changed

@@ -137,7 +137,6 @@ type program struct {
 	checkLastStatus   map[string]string      // zuletzt gemeldeter Status je Check-ID
 	lastQuickCheckin  time.Time              // letzter Sofort-Checkin wegen Check-/Task-Ergebnissen
 	checkinNow        chan struct{}          // Server-Push: sofort einchecken
-	checkinTimer      *time.Timer            // gebündelter Checkin für Massenbefehle (scheduleCheckin)
 	tzName            string                 // zuletzt vom Server gemeldete Zeitzone
 	tzLoc             *time.Location         // dazu aufgelöste Zone (nil = lokale Zeit)
 }
@@ -380,27 +379,8 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 // Befehlsergebnis ohne Wartezeit zu melden.
 // bulkCommand sind Massenbefehle (Active Response / Flottensperre), deren Ergebnis nicht
 // sofort gemeldet werden muss: Bei vielen Sperren je Minute checkte sonst jedes Gerät
-// alle 30 s ein (Sechsfaches der regulären Last auf dem Server).
+// ständig ein (Sechsfaches der regulären Last auf dem Server).
 var bulkCommand = map[string]bool{"block_ip": true, "unblock_ip": true}
-
-// bulkReportDelay bündelt Ergebnisse von Massenbefehlen zu höchstens einem Checkin je Minute.
-const bulkReportDelay = time.Minute
-
-// scheduleCheckin stößt einen Checkin nach d an; mehrere Aufrufe innerhalb der Frist
-// werden zu einem zusammengefasst.
-func (p *program) scheduleCheckin(d time.Duration) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.checkinTimer != nil {
-		return
-	}
-	p.checkinTimer = time.AfterFunc(d, func() {
-		p.mu.Lock()
-		p.checkinTimer = nil
-		p.mu.Unlock()
-		p.requestCheckin()
-	})
-}
 
 func (p *program) requestCheckin() {
 	if p.checkinNow == nil {
@@ -431,7 +411,7 @@ func (p *program) runPolicy(ctx context.Context) {
 	// ausgeführt – unabhängig vom Zeitplan („sofort neu starten").
 	var forceChecks, forceTasks []string
 
-	var reportNow, reportSoon bool
+	var reportNow bool
 	for _, cmd := range queue {
 		var exit int
 		var output string
@@ -693,17 +673,15 @@ func (p *program) runPolicy(ctx context.Context) {
 		})
 		p.mu.Unlock()
 		p.log.Info("befehl ausgeführt", "command", cmd.ID, "type", cmd.Type, "exit", exit)
-		// Ergebnis melden: interaktive Befehle sofort, Sperren gebündelt (siehe unten).
-		if bulkCommand[cmd.Type] {
-			reportSoon = true
-		} else {
+		// Ergebnis melden: interaktive Befehle sofort; Sperren (Massenbefehle) erst mit dem
+		// nächsten regulären Checkin – jeder zusätzliche Checkin je Sperre vervielfachte
+		// die Serverlast bei vielen Vorfällen.
+		if !bulkCommand[cmd.Type] {
 			reportNow = true
 		}
 	}
 	if reportNow {
 		p.requestCheckin()
-	} else if reportSoon {
-		p.scheduleCheckin(bulkReportDelay)
 	}
 
 	if bundle == nil {

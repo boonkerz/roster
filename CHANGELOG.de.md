@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Agent: Ergebnisse von `block_ip`/`unblock_ip` werden nur noch mit dem nächsten regulären Checkin gemeldet (kein zusätzlicher Checkin mehr). Die Minuten-Bündelung aus 0.18.18 feuerte trotzdem jede Minute je Gerät, weil mit Flottensperre etwa alle 30 s ein Sperrbefehl ankommt.
+
 ## [0.18.18] - 2026-11-03
 
 ### Geändert
