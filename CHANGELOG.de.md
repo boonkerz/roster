@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.19] - 2026-11-03
+
 ### Geändert
 - Agent: Ergebnisse von `block_ip`/`unblock_ip` werden nur noch mit dem nächsten regulären Checkin gemeldet (kein zusätzlicher Checkin mehr). Die Minuten-Bündelung aus 0.18.18 feuerte trotzdem jede Minute je Gerät, weil mit Flottensperre etwa alle 30 s ein Sperrbefehl ankommt.
 
@@ -305,7 +307,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.18...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.19...HEAD
+[0.18.19]: https://github.com/boonkerz/roster/compare/v0.18.18...v0.18.19
 [0.18.18]: https://github.com/boonkerz/roster/compare/v0.18.17...v0.18.18
 [0.18.17]: https://github.com/boonkerz/roster/compare/v0.18.16...v0.18.17
 [0.18.16]: https://github.com/boonkerz/roster/compare/v0.18.15...v0.18.16
