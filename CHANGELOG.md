@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.15] - 2026-11-03
+
 ### Fixed
 - Fleet blocking woke every device immediately for each copied block, so with thousands of incidents a day the whole fleet checked in every ~20 s (12× the regular rate, ~1,500 check-ins per 10 minutes) and each check-in scanned the device's thousands of block rows for expired commands. Copies now arrive with the next regular check-in, and the expiry check walks the device's few pending commands instead (plus index `ip_blocks(status, device_id)`, migration 0071).
 
@@ -276,7 +278,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.14...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.15...HEAD
+[0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
 [0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14
 [0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
 [0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12

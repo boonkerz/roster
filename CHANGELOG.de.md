@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.18.15] - 2026-11-03
+
 ### Behoben
 - Die Flottensperre weckte für jede kopierte Sperre sofort alle Geräte, sodass bei tausenden Vorfällen am Tag die ganze Flotte etwa alle 20 s eincheckte (das Zwölffache, ~1.500 Checkins je 10 Minuten) und jeder Checkin die tausenden Sperrzeilen des Geräts nach verfallenen Befehlen durchsuchte. Die Kopien kommen jetzt mit dem nächsten regulären Checkin an, und die Verfallsprüfung geht über die wenigen offenen Befehle des Geräts (dazu Index `ip_blocks(status, device_id)`, Migration 0071).
 
@@ -276,7 +278,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.14...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.18.15...HEAD
+[0.18.15]: https://github.com/boonkerz/roster/compare/v0.18.14...v0.18.15
 [0.18.14]: https://github.com/boonkerz/roster/compare/v0.18.13...v0.18.14
 [0.18.13]: https://github.com/boonkerz/roster/compare/v0.18.12...v0.18.13
 [0.18.12]: https://github.com/boonkerz/roster/compare/v0.18.11...v0.18.12
