@@ -16,7 +16,7 @@ V="${1:-}"
 unreleased() { awk '/^## \[Unreleased\]/{p=1; next} /^## \[/{p=0} p' "$1"; }
 for f in CHANGELOG.md CHANGELOG.de.md; do
   grep -q '^## \[Unreleased\]' "$f" || { echo "$f: kein Abschnitt [Unreleased]." >&2; exit 1; }
-  unreleased "$f" | grep -q '^- ' || { echo "$f: [Unreleased] ist leer." >&2; exit 1; }
+  [ "$(unreleased "$f" | grep -c '^- ')" -gt 0 ] || { echo "$f: [Unreleased] ist leer." >&2; exit 1; }
   grep -q "^## \[$V\]" "$f" && { echo "$f: Abschnitt [$V] existiert schon." >&2; exit 1; }
 done
 
