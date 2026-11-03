@@ -49,7 +49,31 @@ const emptyLog = (): LogDraft => ({ name: "", type: "docker", target: "", format
 const logDraftFrom = (l: PolicyLogSource): LogDraft => ({ name: l.name, type: l.type, target: l.target, format: l.format, pattern: l.pattern ?? "", kind: l.kind ?? "login_failed" });
 const USER_TRIGGERS = ["brute_force_success", "account_change", "lockout", "new_source_ip", "persistence", "suspicious_process"];
 
-// Standardpfade je Plattform (nur Dateien, keine Registry).
+// Registry-Standardpfade (Windows): Autostart, Dienste, Winlogon, IFEO, geplante Aufgaben,
+// Sicherheitsrichtlinien – Persistenz-Orte, die Angreifer ändern. Schlüssel zählen wie
+// Verzeichnisse, Werte wie Dateien; neue Unterschlüssel (z. B. Dienste) werden gemeldet.
+const REGISTRY_TEMPLATES: { path: string; recursive: boolean; exclude: string[]; platforms: string[] }[] = [
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKU\\*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKU\\*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options", recursive: true, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SYSTEM\\CurrentControlSet\\Services", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Browser Helper Objects", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ShellServiceObjectDelayLoad", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree", recursive: true, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server", recursive: false, exclude: [], platforms: ["windows"] },
+  { path: "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions", recursive: true, exclude: [], platforms: ["windows"] },
+];
+
+// Standardpfade je Plattform (Dateien; Registry siehe REGISTRY_TEMPLATES).
 const TEMPLATES: { path: string; recursive: boolean; exclude: string[]; platforms: string[] }[] = [
   { path: "/etc", recursive: true, exclude: ["/etc/mtab", "*.dpkg-new", "/etc/ld.so.cache", "/etc/resolv.conf", "/etc/adjtime"], platforms: ["linux"] },
   { path: "/usr/local/bin", recursive: true, exclude: [], platforms: ["linux", "darwin"] },
@@ -147,9 +171,9 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
   });
   const delRule = useMutation({ mutationFn: (id: string) => api.del(`/fim/${id}`), onSuccess: invalidate });
   const addTemplates = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (set: typeof TEMPLATES = TEMPLATES) => {
       const have = new Set(rules.map((r) => r.path));
-      for (const tpl of TEMPLATES) {
+      for (const tpl of set) {
         if (have.has(tpl.path)) continue;
         await api.post(`/policies/${policy.id}/fim`, { ...tpl, alert: true });
       }
@@ -197,7 +221,8 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
       )}
       <div className="inline-form" style={{ marginTop: 8 }}>
         {!showForm && <button className="btn ghost sm" onClick={() => { setEditId(null); setDraft(emptyDraft()); setShowForm(true); }}>+ {t("Pfad überwachen")}</button>}
-        <button className="btn ghost sm" disabled={addTemplates.isPending} onClick={() => addTemplates.mutate()} title={t("Typische Systempfade je Plattform (/etc, /usr/local/bin, ~/.ssh, cron; Windows hosts/Tasks/Autostart; macOS LaunchDaemons)")}>{t("Standardpfade einfügen")}</button>
+        <button className="btn ghost sm" disabled={addTemplates.isPending} onClick={() => addTemplates.mutate(TEMPLATES)} title={t("Typische Systempfade je Plattform (/etc, /usr/local/bin, ~/.ssh, cron; Windows hosts/Tasks/Autostart; macOS LaunchDaemons)")}>{t("Standardpfade einfügen")}</button>
+        <button className="btn ghost sm" disabled={addTemplates.isPending} onClick={() => addTemplates.mutate(REGISTRY_TEMPLATES)} title={t("Windows-Registry: Run/RunOnce (auch je Benutzer), Winlogon, Image File Execution Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, geplante Aufgaben, UAC, RDP, Defender-Ausnahmen")}>{t("Registry-Standardpfade (Windows) einfügen")}</button>
         <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{t("Prüfabstand (Min.)")}
           <input type="number" min={5} max={1440} value={interval} onChange={(e) => setInterval_(Number(e.target.value))} style={{ width: 80 }} />
         </label>
@@ -205,7 +230,7 @@ export function SecuritySection({ policy, devices }: { policy: Policy; devices: 
       {showForm && (
         <form className="form-col" style={{ marginTop: 10, maxWidth: 640 }} onSubmit={(e) => { e.preventDefault(); saveRule.mutate(draft); }}>
           <label className="field"><span>{t("Pfad (Datei, Verzeichnis oder Glob, z. B. /home/*/.ssh/authorized_keys)")}</span>
-            <input className="mono" value={draft.path} onChange={(e) => setDraft({ ...draft, path: e.target.value })} placeholder="/etc" required />
+            <input className="mono" value={draft.path} onChange={(e) => setDraft({ ...draft, path: e.target.value })} placeholder={t("/etc, C:\\Windows\\Tasks oder HKLM\\SOFTWARE\\…")} required />
           </label>
           <div className="inline-form">
             <label className="chip"><input type="checkbox" checked={draft.recursive} onChange={(e) => setDraft({ ...draft, recursive: e.target.checked })} /> {t("Unterverzeichnisse einschließen")}</label>

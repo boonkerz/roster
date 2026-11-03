@@ -75,8 +75,13 @@ func (req fimRuleRequest) apply(r *model.PolicyFIMRule) error {
 	if p == "" {
 		return errors.New("Pfad fehlt")
 	}
-	if !strings.HasPrefix(p, "/") && !winAbsPath.MatchString(p) {
-		return errors.New("Pfad muss absolut sein (/… oder C:\\…)")
+	if shared.IsRegistryPath(p) {
+		p = shared.NormalizeRegistryPath(p)
+		if len(req.Platforms) == 0 {
+			req.Platforms = []string{"windows"}
+		}
+	} else if !strings.HasPrefix(p, "/") && !winAbsPath.MatchString(p) {
+		return errors.New("Pfad muss absolut sein (/…, C:\\… oder HKLM\\…)")
 	}
 	r.Path = p
 	r.Recursive = req.Recursive

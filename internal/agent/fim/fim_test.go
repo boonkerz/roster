@@ -105,3 +105,16 @@ func TestExcluded(t *testing.T) {
 		t.Error("excluded")
 	}
 }
+
+// TestRegistryRuleSkippedOffWindows: Registry-Regeln sind auf Linux/macOS wirkungslos, aber
+// fehlerfrei (Plattformfilter oder Walker-No-op).
+func TestRegistryRuleSkippedOffWindows(t *testing.T) {
+	rule := shared.FIMRule{ID: "reg", Path: `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`, Recursive: false, Alert: true}
+	bl, ev, st := Scan(context.Background(), []shared.FIMRule{rule}, &Baseline{}, time.Now())
+	if st.Errors != 0 || len(bl.Entries) != 0 {
+		t.Fatalf("Registry-Regel darf hier nichts liefern: %+v %+v", st, bl.Entries)
+	}
+	if len(ev) != 1 || ev[0].Change != "baseline" {
+		t.Fatalf("baseline: %+v", ev)
+	}
+}

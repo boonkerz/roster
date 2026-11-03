@@ -105,7 +105,9 @@ func Scan(ctx context.Context, rules []shared.FIMRule, prev *Baseline, now time.
 		if !e.Dir {
 			st.Files++
 			old, had := prev.Entries[p]
-			if had && old.Size == e.Size && old.ModTime == e.ModTime && old.Hash != "" {
+			if rv, ok := info.Sys().(regValue); ok {
+				e.Hash = rv.hash // Registry-Wert: Hash kommt vom Walker (Typ + Daten)
+			} else if had && old.Size == e.Size && old.ModTime == e.ModTime && old.Hash != "" {
 				e.Hash = old.Hash // unverändert laut Metadaten: Hash übernehmen
 			} else if e.Size <= maxHashSize {
 				if h, err := hashFile(p); err == nil {
@@ -144,8 +146,8 @@ func Scan(ctx context.Context, rules []shared.FIMRule, prev *Baseline, now time.
 		old, had := prev.Entries[p]
 		switch {
 		case !had:
-			if cur.Dir {
-				continue // neue Verzeichnisse nicht einzeln melden (ihre Dateien schon)
+			if cur.Dir && !shared.IsRegistryPath(p) {
+				continue // neue Verzeichnisse nicht einzeln melden (ihre Dateien schon); neue Registry-Schlüssel schon
 			}
 			events = append(events, shared.FIMEvent{Time: now, RuleID: cur.RuleID, Path: p, Change: "created",
 				NewHash: cur.Hash, NewMode: cur.Mode, NewOwner: cur.Owner, Size: cur.Size, Alert: r.Alert})
@@ -168,8 +170,8 @@ func Scan(ctx context.Context, rules []shared.FIMRule, prev *Baseline, now time.
 	for _, p := range gone {
 		old := prev.Entries[p]
 		r, ruleStillActive := active[old.RuleID]
-		if !ruleStillActive || old.Dir {
-			continue // Regel entfernt/anderes System: still verwerfen; Verzeichnisse nicht melden
+		if !ruleStillActive || (old.Dir && !shared.IsRegistryPath(p)) {
+			continue // Regel entfernt/anderes System: still verwerfen; Verzeichnisse nicht melden (Registry-Schlüssel schon)
 		}
 		events = append(events, shared.FIMEvent{Time: now, RuleID: old.RuleID, Path: p, Change: "deleted",
 			OldHash: old.Hash, OldMode: old.Mode, OldOwner: old.Owner, Size: old.Size, Alert: r.Alert})
@@ -183,6 +185,10 @@ func Scan(ctx context.Context, rules []shared.FIMRule, prev *Baseline, now time.
 // walkRule besucht alle Pfade einer Regel (Glob im Pfad erlaubt, Symlinks werden nicht
 // verfolgt, Sockets/Gerätedateien übersprungen).
 func walkRule(r shared.FIMRule, visit func(r shared.FIMRule, p string, info fs.FileInfo) bool) {
+	if shared.IsRegistryPath(r.Path) {
+		walkRegistry(r, visit)
+		return
+	}
 	roots := []string{r.Path}
 	if strings.ContainsAny(r.Path, "*?[") {
 		roots, _ = filepath.Glob(r.Path)

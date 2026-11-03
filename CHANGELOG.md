@@ -7,6 +7,9 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- File integrity monitoring covers the **Windows registry**: rule paths like `HKLM\SOFTWARE\…`, `HKU\*\…` (all loaded user profiles; `HKCU` maps to that) or `HKCR\…`. Keys count like directories, values like files (hash over type and data), new or removed sub-keys are reported (e.g. a new service). The policy gets a button with 18 registry defaults: Run/RunOnce (machine, WOW6432Node, per user), Winlogon, Image File Execution Options, AppInit_DLLs, Services, LSA, Session Manager, Browser Helper Objects, scheduled-task cache, UAC policies, Terminal Server, Defender exclusions.
+
+### Added
 - Log sources: new formats **HAProxy** (HTTP log), **Traefik** (JSON or common log), **MySQL/MariaDB** error log (access denied, host not allowed) and **firewall drops** (iptables/nft/ufw kernel log, Windows `pfirewall.log`), plus `apache_access` as an alias of the combined log. New source types **systemd journal** (target `kernel` or a SYSLOG_IDENTIFIER – nft/iptables logs on hosts without rsyslog) and **Docker events** (`exec` in a container, start/stop/die). Templates for all of them in the policy.
 - New incidents **Port scan** (≥ N distinct target ports from one IP within the brute-force window, default 10, Settings → Security monitoring; auto-blocked like brute force) and **Command in container** (`docker exec`).
 

@@ -1491,4 +1491,8 @@ export const EN: Record<string, string> = {
   "Firewall-Drops aus dem Kernel-Journal (nft/iptables/ufw log)": "Firewall drops from the kernel journal (nft/iptables/ufw log)",
   "Windows-Firewall-Protokoll (pfirewall.log)": "Windows Firewall log (pfirewall.log)",
   "Docker-Ereignisse (exec/start/stop aller Container)": "Docker events (exec/start/stop of all containers)",
+  // --- Registry-FIM (0.19) ---
+  "Registry-Standardpfade (Windows) einfügen": "Insert registry defaults (Windows)",
+  "Windows-Registry: Run/RunOnce (auch je Benutzer), Winlogon, Image File Execution Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, geplante Aufgaben, UAC, RDP, Defender-Ausnahmen": "Windows registry: Run/RunOnce (also per user), Winlogon, Image File Execution Options, AppInit_DLLs, services, LSA, Session Manager, Browser Helper Objects, scheduled tasks, UAC, RDP, Defender exclusions",
+  "/etc, C:\\Windows\\Tasks oder HKLM\\SOFTWARE\\…": "/etc, C:\\Windows\\Tasks or HKLM\\SOFTWARE\\…",
 };

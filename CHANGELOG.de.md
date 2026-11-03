@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- Datei-Integritätsprüfung umfasst die **Windows-Registry**: Regelpfade wie `HKLM\SOFTWARE\…`, `HKU\*\…` (alle geladenen Benutzerprofile; `HKCU` wird darauf abgebildet) oder `HKCR\…`. Schlüssel zählen wie Verzeichnisse, Werte wie Dateien (Hash über Typ und Daten), neue oder entfernte Unterschlüssel werden gemeldet (z. B. ein neuer Dienst). Die Richtlinie bekommt einen Knopf mit 18 Registry-Standardpfaden: Run/RunOnce (Maschine, WOW6432Node, je Benutzer), Winlogon, Image File Execution Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, Aufgaben-Cache, UAC-Richtlinien, Terminal Server, Defender-Ausnahmen.
+
+### Neu
 - Log-Quellen: neue Formate **HAProxy** (HTTP-Log), **Traefik** (JSON oder Common Log), **MySQL/MariaDB**-Fehlerprotokoll (Access denied, Host not allowed) und **Firewall-Drops** (iptables/nft/ufw-Kernel-Log, Windows `pfirewall.log`), dazu `apache_access` als Alias des Combined Log. Neue Quelltypen **systemd-Journal** (Ziel `kernel` oder eine SYSLOG_IDENTIFIER-Kennung – nft-/iptables-Protokolle auf Hosts ohne rsyslog) und **Docker-Ereignisse** (`exec` im Container, Start/Stop/Die). Vorlagen für alle in der Richtlinie.
 - Neue Vorfälle **Portscan** (≥ N verschiedene Zielports einer IP im Brute-Force-Fenster, Standard 10, Einstellungen → Sicherheitsüberwachung; automatische Sperre wie bei Brute-Force) und **Befehl im Container** (`docker exec`).
 
