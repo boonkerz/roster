@@ -72,6 +72,9 @@ type Input struct {
 	PriorDrops map[string][]PortHit
 	// RecentPortscan: Quell-IPs mit Portscan-Vorfall in den letzten 60 min.
 	RecentPortscan map[string]time.Time
+	// RecentTitles: "kind|title|detail" → Zeit jüngerer Vorfälle (24 h) für zustandsartige
+	// Arten (state_change, persistence, rootkit, malware) – verhindert Wiederholungen.
+	RecentTitles map[string]time.Time
 }
 
 // PortHit ist ein Firewall-Drop (Zeit, Ziel "tcp/22").
@@ -268,6 +271,16 @@ func Detect(in Input, cfg Config) []Incident {
 			seenExec[name] = true
 			out = append(out, Incident{Time: e.Time, Kind: "container_exec", Severity: "warning", User: e.User,
 				Title: "Befehl im Container " + name, Detail: cmd})
+		case e.Kind == "state_change":
+			sev := "warning"
+			if (e.Service == "uid0" || e.Service == "admins") && strings.Contains(e.Detail, "+ ") {
+				sev = "critical"
+			}
+			inc := Incident{Time: e.Time, Kind: "state_change", Severity: sev, Title: "Systemzustand: " + stateLabel(e.Service) + " geändert", Detail: e.Detail}
+			if dup(in, inc) {
+				continue
+			}
+			out = append(out, inc)
 		case e.Kind == "service_installed":
 			out = append(out, Incident{Time: e.Time, Kind: "persistence", Severity: "warning", User: e.User,
 				Title: "Dienst installiert: " + firstField(e.Detail), Detail: e.Detail})
@@ -367,4 +380,36 @@ func orDash(s string) string {
 		return "—"
 	}
 	return s
+}
+
+// stateLabel übersetzt die Kategorie des Systemzustands in den Vorfallstitel.
+func stateLabel(cat string) string {
+	switch cat {
+	case "ports":
+		return "lauschende Ports"
+	case "modules":
+		return "Kernelmodule"
+	case "cron":
+		return "Cron-Einträge"
+	case "uid0":
+		return "UID-0-Konten"
+	case "admins":
+		return "Administratorkonten"
+	case "units", "services":
+		return "Autostart-Dienste"
+	case "tasks":
+		return "geplante Aufgaben"
+	case "launchd":
+		return "launchd-Dienste"
+	}
+	return cat
+}
+
+// dup meldet, ob ein gleicher Vorfall (Art, Titel, Detail) in RecentTitles bekannt ist.
+func dup(in Input, inc Incident) bool {
+	if in.RecentTitles == nil {
+		return false
+	}
+	_, ok := in.RecentTitles[inc.Kind+"|"+inc.Title+"|"+inc.Detail]
+	return ok
 }

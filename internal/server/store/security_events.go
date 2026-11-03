@@ -139,6 +139,32 @@ func (s *Store) DropsSince(ctx context.Context, deviceID string, since time.Time
 	return out, rows.Err()
 }
 
+// RecentIncidentTitles liefert "kind|title|detail" → Zeit der jüngsten Vorfälle der
+// angegebenen Arten seit since (Dedupe für zustandsartige Vorfälle wie Systemänderungen).
+func (s *Store) RecentIncidentTitles(ctx context.Context, deviceID string, kinds []string, since time.Time) (map[string]time.Time, error) {
+	if len(kinds) == 0 {
+		return map[string]time.Time{}, nil
+	}
+	marks, a := placeholders(kinds)
+	args := append([]any{deviceID}, a...)
+	args = append(args, since.UTC())
+	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT kind, title, detail, ts FROM security_incidents WHERE device_id=? AND kind IN (`+marks+`) AND ts >= ? ORDER BY ts`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]time.Time{}
+	for rows.Next() {
+		var kind, title, detail string
+		var ts time.Time
+		if err := rows.Scan(&kind, &title, &detail, &ts); err != nil {
+			return nil, err
+		}
+		out[kind+"|"+title+"|"+detail] = ts
+	}
+	return out, rows.Err()
+}
+
 // RecentIncidentIPs liefert je Quell-IP den letzten Vorfall einer Art seit since.
 func (s *Store) RecentIncidentIPs(ctx context.Context, deviceID, kind string, since time.Time) (map[string]time.Time, error) {
 	// Kein MAX(ts): Aggregat-Ausdrücke kommen aus SQLite ohne Zeittyp zurück; stattdessen

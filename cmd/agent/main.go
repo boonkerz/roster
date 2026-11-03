@@ -34,6 +34,7 @@ import (
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/response"
+	"github.com/boonkerz/roster/internal/agent/statemon"
 	"github.com/boonkerz/roster/internal/agent/transport"
 	"github.com/boonkerz/roster/internal/agent/update"
 	"github.com/boonkerz/roster/internal/netscan"
@@ -212,6 +213,7 @@ func (p *program) run(ctx context.Context) {
 	p.fimNow = make(chan struct{}, 1)
 	go p.fimLoop(ctx)
 	go p.authLoop(ctx)
+	go p.stateLoop(ctx)
 	p.complianceNow = make(chan struct{}, 1)
 	policy.ComplianceReport = func() *shared.ComplianceReport {
 		p.mu.Lock()
@@ -1195,6 +1197,51 @@ func defaultConfigPath() string {
 
 // fimLoop führt die Datei-Integritätsprüfung nach dem Intervall der wirksamen Richtlinie
 // aus (Standard 60 min), auf Anstoß sofort; ohne Regeln passiert nichts. Die Baseline
+// stateLoop überwacht den Systemzustand (statemon): stündlicher Abgleich mit der Baseline
+// (state-baseline.json), Änderungen als Ereignisse „state_change“ an den Server.
+func (p *program) stateLoop(ctx context.Context) {
+	path := statemon.Path(p.stateDir)
+	var last time.Time
+	run := func() {
+		p.mu.Lock()
+		on := p.policy != nil && p.policy.Security != nil && p.policy.Security.StateMonitor
+		p.mu.Unlock()
+		if !on || time.Since(last) < time.Hour {
+			return
+		}
+		sctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		cur := statemon.Take(sctx)
+		cancel()
+		last = time.Now()
+		prev := statemon.Load(path)
+		if err := statemon.Save(path, &statemon.Baseline{Taken: last, Items: cur}); err != nil {
+			p.log.Warn("statemon: baseline speichern fehlgeschlagen", "err", err)
+		}
+		if prev == nil {
+			p.log.Info("statemon: baseline aufgenommen", "kategorien", len(cur))
+			return
+		}
+		events := statemon.Diff(prev.Items, cur, last.UTC())
+		if len(events) > 0 {
+			p.log.Info("statemon: änderungen", "ereignisse", len(events))
+			p.mu.Lock()
+			p.authEvents = append(p.authEvents, events...)
+			p.mu.Unlock()
+			p.requestCheckin()
+		}
+	}
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			run()
+		}
+	}
+}
+
 // liegt als fim-baseline.json im Zustandsverzeichnis des Agents.
 func (p *program) fimLoop(ctx context.Context) {
 	baselinePath := filepath.Join(p.stateDir, "fim-baseline.json")

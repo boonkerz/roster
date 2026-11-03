@@ -40,7 +40,7 @@ export const AUTH_KIND: Record<string, { label: string; cls: string }> = {
   service_installed: { label: "Dienst installiert", cls: "badge-warn" }, task_created: { label: "Aufgabe angelegt", cls: "badge-warn" },
   audit_cleared: { label: "Protokoll gelöscht", cls: "badge-offline" }, suspicious_process: { label: "verdächtiger Prozess", cls: "badge-warn" },
   powershell_suspicious: { label: "verdächtiges PowerShell", cls: "badge-warn" },
-  fw_drop: { label: "Firewall-Drop", cls: "badge-unknown" }, docker_exec: { label: "Befehl im Container", cls: "badge-warn" }, docker_event: { label: "Container-Ereignis", cls: "badge-unknown" },
+  fw_drop: { label: "Firewall-Drop", cls: "badge-unknown" }, state_change: { label: "Systemänderung", cls: "badge-warn" }, rootkit: { label: "Rootkit-Hinweis", cls: "badge-offline" }, malware: { label: "Malware", cls: "badge-offline" }, docker_exec: { label: "Befehl im Container", cls: "badge-warn" }, docker_event: { label: "Container-Ereignis", cls: "badge-unknown" },
 };
 
 export function SeverityPill({ severity }: { severity: string }) {

@@ -7,6 +7,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [Unreleased]
 
 ### Neu
+- **Systemzustand überwachen** (Richtlinienschalter): Der Agent vergleicht stündlich lauschende Ports, Kernelmodule, Cron-Einträge, UID-0- und Administratorkonten, aktivierte systemd-Units/Timer (Linux), Autostart-Dienste und geplante Aufgaben (Windows, über `net localgroup`/WMI/`schtasks`, Server-2012-tauglich) sowie launchd-Jobs (macOS) mit seiner Baseline. Jede Änderung wird zum Vorfall **Systemänderung** (kritisch bei neuem UID-0- oder Administratorkonto), aufgelistet als „+ neu, - weg“.
+
+### Neu
 - Datei-Integritätsprüfung umfasst die **Windows-Registry**: Regelpfade wie `HKLM\SOFTWARE\…`, `HKU\*\…` (alle geladenen Benutzerprofile; `HKCU` wird darauf abgebildet) oder `HKCR\…`. Schlüssel zählen wie Verzeichnisse, Werte wie Dateien (Hash über Typ und Daten), neue oder entfernte Unterschlüssel werden gemeldet (z. B. ein neuer Dienst). Die Richtlinie bekommt einen Knopf mit 18 Registry-Standardpfaden: Run/RunOnce (Maschine, WOW6432Node, je Benutzer), Winlogon, Image File Execution Options, AppInit_DLLs, Dienste, LSA, Session Manager, Browser Helper Objects, Aufgaben-Cache, UAC-Richtlinien, Terminal Server, Defender-Ausnahmen.
 
 ### Neu

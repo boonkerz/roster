@@ -81,6 +81,9 @@ export function DeviceAuth({ deviceId, canOperate }: { deviceId: string; canOper
               <option value="fw_drop">{t("Firewall-Drop")}</option>
               <option value="docker_exec">{t("Befehl im Container")}</option>
               <option value="docker_event">{t("Container-Ereignis")}</option>
+              <option value="state_change">{t("Systemänderung")}</option>
+              <option value="rootkit">{t("Rootkit-Hinweis")}</option>
+              <option value="malware">{t("Malware")}</option>
             </select>
             <select value={days} onChange={(e) => setDays(e.target.value)}>
               <option value="1">{t("24 Stunden")}</option>

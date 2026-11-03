@@ -7,6 +7,9 @@ All notable changes to Roster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **System-state monitoring** (policy switch): every hour the agent compares listening ports, kernel modules, cron entries, UID-0 and administrator accounts, enabled systemd units/timers (Linux), auto-start services and scheduled tasks (Windows, via `net localgroup`/WMI/`schtasks`, Server-2012-safe) and launchd jobs (macOS) with its baseline. Each change becomes the incident **System change** (critical for a new UID-0 or administrator account), listed as "+ new, - gone".
+
+### Added
 - File integrity monitoring covers the **Windows registry**: rule paths like `HKLM\SOFTWARE\…`, `HKU\*\…` (all loaded user profiles; `HKCU` maps to that) or `HKCR\…`. Keys count like directories, values like files (hash over type and data), new or removed sub-keys are reported (e.g. a new service). The policy gets a button with 18 registry defaults: Run/RunOnce (machine, WOW6432Node, per user), Winlogon, Image File Execution Options, AppInit_DLLs, Services, LSA, Session Manager, Browser Helper Objects, scheduled-task cache, UAC policies, Terminal Server, Defender exclusions.
 
 ### Added

@@ -284,3 +284,20 @@ func TestContainerExec(t *testing.T) {
 }
 
 func itoa(n int) string { return fmt.Sprint(n) }
+
+func TestStateChange(t *testing.T) {
+	base := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	evs := []shared.AuthEvent{
+		{Time: base, Kind: "state_change", Service: "ports", Detail: "+ tcp 0.0.0.0:4444 nc"},
+		{Time: base.Add(time.Second), Kind: "state_change", Service: "uid0", Detail: "+ backdoor"},
+		{Time: base.Add(2 * time.Second), Kind: "state_change", Service: "admins", Detail: "- sudo: alice"},
+	}
+	got := Detect(Input{Now: base.Add(time.Minute), Events: evs}, DefaultConfig())
+	if len(got) != 3 || got[0].Severity != "warning" || got[1].Severity != "critical" || got[2].Severity != "warning" || got[0].Title != "Systemzustand: lauschende Ports geändert" {
+		t.Fatalf("got %+v", got)
+	}
+	recent := map[string]time.Time{"state_change|Systemzustand: lauschende Ports geändert|+ tcp 0.0.0.0:4444 nc": base.Add(-time.Hour)}
+	if got := Detect(Input{Now: base.Add(time.Minute), Events: evs, RecentTitles: recent}, DefaultConfig()); len(got) != 2 {
+		t.Fatalf("dedupe: %+v", got)
+	}
+}

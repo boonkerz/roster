@@ -250,6 +250,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	recentScan, _ := s.store.RecentIncidentIPs(ctx, device.ID, "scan", now.Add(-time.Hour))
 	recentThreat, _ := s.store.RecentIncidentIPs(ctx, device.ID, "threat_listed", time.Now().Add(-24*time.Hour))
 	recentPortscan, _ := s.store.RecentIncidentIPs(ctx, device.ID, "portscan", now.Add(-time.Hour))
+	recentTitles, _ := s.store.RecentIncidentTitles(ctx, device.ID, []string{"state_change", "persistence", "rootkit", "malware"}, now.Add(-24*time.Hour))
 	priorDrops, _ := s.store.DropsSince(ctx, device.ID, now.Add(-dcfg.BFWindow))
 	for ip, hits := range priorDrops {
 		var keep []store.PortHit
@@ -275,6 +276,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 		RecentThreat:    recentThreat,
 		PriorDrops:      drops,
 		RecentPortscan:  recentPortscan,
+		RecentTitles:    recentTitles,
 	}, dcfg)
 	_ = s.store.UpsertKnownIPs(ctx, device.ID, fresh)
 	var saved []model.SecurityIncident
