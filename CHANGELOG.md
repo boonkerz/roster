@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-05
+
 ### Added
 - Ubuntu **phased updates**: the agent asks `apt-get -s dist-upgrade` which upgrades apt defers due to phasing and marks them in the update list (badge "deferred (phasing)"). The install actions on the device, in the bulk action and on the Patches page get the option **Install phased updates now** (`APT::Get::Always-Include-Phased-Updates=true`). Without it, apt skips those packages – which looked like "dist-upgrade did not install everything". Migration 0076.
 
@@ -341,7 +343,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.19.1...HEAD
+[0.19.1]: https://github.com/boonkerz/roster/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/boonkerz/roster/compare/v0.18.19...v0.19.0
 [0.18.19]: https://github.com/boonkerz/roster/compare/v0.18.18...v0.18.19
 [0.18.18]: https://github.com/boonkerz/roster/compare/v0.18.17...v0.18.18
