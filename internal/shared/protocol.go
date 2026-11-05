@@ -486,6 +486,8 @@ type UpdateItem struct {
 	Source string `json:"source,omitempty"`
 	// Security markiert Sicherheits-Updates (Quelle siehe OSUpdateInfo.SecurityCount).
 	Security bool `json:"security,omitempty"`
+	// Phased: Ubuntu stellt das Update per Phasing zurück (apt installiert es noch nicht).
+	Phased bool `json:"phased,omitempty"`
 	// Kind unterscheidet unter Windows: "" (OS/Software) | driver | definition.
 	Kind string `json:"kind,omitempty"`
 }

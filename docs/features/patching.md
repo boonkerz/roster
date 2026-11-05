@@ -24,6 +24,14 @@ with the apt strategy). The same scope selector is available in bulk actions and
 list bar ("Security updates"). Summary tiles show devices with security updates, the share
 of scanned devices without any, and devices never scanned.
 
+!!! tip "Ubuntu phased updates"
+    Ubuntu rolls out `-updates` packages in phases. Until the rollout quota is reached, apt defers
+    them – even with `dist-upgrade` ("deferred due to phasing"). The agent detects this via
+    `apt-get -s dist-upgrade` and marks those packages with the badge **deferred (phasing)**. The
+    option **Install phased updates now** (on the device, in the bulk action and on the Patches
+    page) sets `APT::Get::Always-Include-Phased-Updates=true` and includes them. Security updates
+    from `-security` are never phased.
+
 ## Patch history
 
 ![Patch history across the fleet](../screenshots/patches-history.png){ .shadow }

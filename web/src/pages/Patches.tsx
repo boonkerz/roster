@@ -482,12 +482,13 @@ function PendingTab() {
   });
   const [installMode, setInstallMode] = useState<"approved" | "security" | "approved_security" | "all">("approved");
   const [aptMode, setAptMode] = useState<"full" | "safe">("full");
+  const [phased, setPhased] = useState(false);
   const install = useMutation({
     mutationFn: (deviceIds: string[]) => api.post<{ queued: number; skipped: number }>("/bulk/install-updates", {
       target_type: "devices", device_ids: deviceIds,
       approved: installMode === "approved" || installMode === "approved_security",
       security_only: installMode === "security" || installMode === "approved_security",
-      apt_mode: aptMode,
+      apt_mode: aptMode, phased,
     }),
     onSuccess: (r) => { setMsg({ ok: true, text: t("Installation auf {n} Gerät(en) eingereiht, {s} übersprungen (keine passenden Updates).", { n: r.queued, s: r.skipped }) }); setSel(new Set()); invalidate(); },
     onError: (e) => setMsg({ ok: false, text: e instanceof ApiError ? e.message : t("Fehler") }),
@@ -563,6 +564,7 @@ function PendingTab() {
               <option value="full">{t("Voll-Upgrade (dist-upgrade)")}</option>
               <option value="safe">{t("Sicheres Upgrade (upgrade)")}</option>
             </select>
+            <label className="chip" title={t("Ubuntu Phased Updates werden bis zur Ausrollquote zurückgestellt. Mit dieser Option installiert apt sie sofort (APT::Get::Always-Include-Phased-Updates).")}><input type="checkbox" checked={phased} onChange={(e) => setPhased(e.target.checked)} /> ⏳ {t("Phased Updates sofort installieren")}</label>
             <button className="btn sm primary" disabled={install.isPending || groups.length === 0} onClick={runInstall}>⬇ {t("Installieren")}</button>
             {sel.size > 0 && <button className="btn sm ghost" onClick={() => setSel(new Set())}>{t("Auswahl aufheben")}</button>}
           </div>
@@ -608,7 +610,7 @@ function PendingTab() {
                         <td style={{ paddingLeft: 28 }}>{p.name}{p.kind === "driver" && <span className="muted"> · {t("Treiber")}</span>}{p.kind === "definition" && <span className="muted"> · {t("Definitionen")}</span>}</td>
                         <td className="mono muted">{p.current_version ? <>{p.current_version} → </> : null}{p.version || "—"}</td>
                         <td className="muted">{p.source || "—"}</td>
-                        <td><SeverityBadge severity={p.severity} security={p.security} /></td>
+                        <td><SeverityBadge severity={p.severity} security={p.security} phased={p.phased} /></td>
                         <td>{p.approved ? <span className="badge badge-online">✓</span> : <span className="muted">—</span>}</td>
                         <td>{p.url ? <a className="link-strong" href={p.url} target="_blank" rel="noreferrer">↗</a> : null}</td>
                       </tr>

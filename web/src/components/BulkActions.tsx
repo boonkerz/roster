@@ -19,6 +19,7 @@ export function BulkActions() {
   const [action, setAction] = useState<"script" | "scan" | "install" | "package">("script");
   const [installMode, setInstallMode] = useState<"all" | "approved" | "security">("all");
   const [aptMode, setAptMode] = useState<"full" | "safe">("full");
+  const [phased, setPhased] = useState(false);
   const [scriptId, setScriptId] = useState("");
   const [packageId, setPackageId] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -33,7 +34,7 @@ export function BulkActions() {
     mutationFn: () => {
       const body = {
         target_type: tType, target_id: tType === "all" ? "" : target, script_id: scriptId, package_id: packageId,
-        approved: installMode === "approved", security_only: installMode === "security", apt_mode: aptMode,
+        approved: installMode === "approved", security_only: installMode === "security", apt_mode: aptMode, phased,
       };
       const url = action === "script" ? "/bulk/run-script"
         : action === "install" ? "/bulk/install-updates"
@@ -109,6 +110,7 @@ export function BulkActions() {
                   <option value="full">{t("Voll-Upgrade (dist-upgrade)")}</option>
                   <option value="safe">{t("Sicheres Upgrade (upgrade)")}</option>
                 </select>
+                <label className="chip" title={t("Ubuntu Phased Updates werden bis zur Ausrollquote zurückgestellt. Mit dieser Option installiert apt sie sofort (APT::Get::Always-Include-Phased-Updates).")}><input type="checkbox" checked={phased} onChange={(e) => setPhased(e.target.checked)} /> ⏳ {t("Phased Updates sofort installieren")}</label>
               </div>
               <span className="muted small">{t("Geräte ohne passende Updates werden übersprungen.")}</span>
             </label>

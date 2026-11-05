@@ -279,7 +279,8 @@ type UpdateItem struct {
 	CurrentVersion string `json:"current_version,omitempty"`
 	Source         string `json:"source,omitempty"`
 	Security       bool   `json:"security"`
-	Kind           string `json:"kind,omitempty"` // "" | driver | definition (Windows)
+	Kind           string `json:"kind,omitempty"`   // "" | driver | definition (Windows)
+	Phased         bool   `json:"phased,omitempty"` // Ubuntu: per Phasing zurückgestellt
 }
 
 // PendingPatch ist eine Zeile der flottenweiten Patch-Übersicht (Gerät × Update).
@@ -299,6 +300,7 @@ type PendingPatch struct {
 	Source         string `json:"source,omitempty"`
 	Security       bool   `json:"security"`
 	Kind           string `json:"kind,omitempty"`
+	Phased         bool   `json:"phased,omitempty"`
 	Approved       bool   `json:"approved"`
 }
 

@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Ubuntu **phased updates**: the agent asks `apt-get -s dist-upgrade` which upgrades apt defers due to phasing and marks them in the update list (badge "deferred (phasing)"). The install actions on the device, in the bulk action and on the Patches page get the option **Install phased updates now** (`APT::Get::Always-Include-Phased-Updates=true`). Without it, apt skips those packages – which looked like "dist-upgrade did not install everything". Migration 0076.
+
 ## [0.19.0] - 2026-11-03
 
 ### Added

@@ -8,7 +8,7 @@ import (
 )
 
 // InstallUpdates installiert macOS-Updates (alle, oder die genannten Labels).
-func InstallUpdates(ctx context.Context, names []string, _ bool) (int, string) {
+func InstallUpdates(ctx context.Context, names []string, _ bool, _ bool) (int, string) {
 	args := []string{"-i", "-a"}
 	if len(names) > 0 {
 		args = append([]string{"-i"}, names...)

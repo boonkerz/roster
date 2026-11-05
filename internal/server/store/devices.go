@@ -128,9 +128,9 @@ func (s *Store) UpdateInventory(ctx context.Context, deviceID string, inv shared
 				sev = "Other"
 			}
 			if _, err := tx.ExecContext(ctx, s.rebind(`
-				INSERT INTO os_updates (device_id, package, severity, url, version, current_version, source, security, kind)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-				deviceID, it.Name, sev, it.URL, it.Version, it.CurrentVersion, it.Source, it.Security, it.Kind); err != nil {
+				INSERT INTO os_updates (device_id, package, severity, url, version, current_version, source, security, kind, phased)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+				deviceID, it.Name, sev, it.URL, it.Version, it.CurrentVersion, it.Source, it.Security, it.Kind, it.Phased); err != nil {
 				return err
 			}
 		}
@@ -385,7 +385,7 @@ func (s *Store) updatesFor(ctx context.Context, deviceID string) ([]model.Update
 	// Kritische/Wichtige zuerst, dann nach Name; Genehmigungsstatus per LEFT JOIN.
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
 		SELECT u.package, u.severity, u.url, CASE WHEN a.name IS NULL THEN 0 ELSE 1 END,
-			u.version, u.current_version, u.source, u.security, u.kind
+			u.version, u.current_version, u.source, u.security, u.kind, u.phased
 		FROM os_updates u
 		LEFT JOIN patch_approvals a ON a.device_id = u.device_id AND a.name = u.package
 		WHERE u.device_id = ?
@@ -399,7 +399,7 @@ func (s *Store) updatesFor(ctx context.Context, deviceID string) ([]model.Update
 	for rows.Next() {
 		var it model.UpdateItem
 		var approved int
-		if err := rows.Scan(&it.Name, &it.Severity, &it.URL, &approved, &it.Version, &it.CurrentVersion, &it.Source, &it.Security, &it.Kind); err != nil {
+		if err := rows.Scan(&it.Name, &it.Severity, &it.URL, &approved, &it.Version, &it.CurrentVersion, &it.Source, &it.Security, &it.Kind, &it.Phased); err != nil {
 			return nil, err
 		}
 		it.Approved = approved == 1

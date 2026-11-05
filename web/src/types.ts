@@ -668,6 +668,7 @@ export interface UpdateItem {
   source?: string;
   security?: boolean;
   kind?: string; // "" | driver | definition (Windows)
+  phased?: boolean; // Ubuntu: per Phasing zurückgestellt
 }
 
 // PendingPatch ist eine Zeile der flottenweiten Patch-Übersicht (Gerät × Update).
@@ -688,6 +689,7 @@ export interface PendingPatch {
   security: boolean;
   kind?: string;
   approved: boolean;
+  phased?: boolean;
 }
 
 // PackageRepo ist eine Paketquelle (apt/dnf/zypper/pacman/apk/winget/brew).

@@ -19,6 +19,7 @@ type bulkRequest struct {
 	Approved     bool   `json:"approved"`
 	SecurityOnly bool   `json:"security_only"`
 	AptMode      string `json:"apt_mode"`
+	Phased       bool   `json:"phased"`
 }
 
 // resolveBulkDevices löst die Zielgeräte auf oder schreibt eine Fehlerantwort.
@@ -143,7 +144,7 @@ func (s *Server) handleBulkInstallUpdates(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	ireq := installRequest{Approved: req.Approved, SecurityOnly: req.SecurityOnly, AptMode: req.AptMode}
+	ireq := installRequest{Approved: req.Approved, SecurityOnly: req.SecurityOnly, AptMode: req.AptMode, Phased: req.Phased}
 	queued, skipped := 0, 0
 	for _, dev := range ids {
 		label, payload, msg, err := s.installPayload(r, dev, ireq)

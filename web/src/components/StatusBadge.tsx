@@ -113,10 +113,13 @@ export function CheckStatusBadge({ status }: { status: string }) {
 }
 
 // SeverityBadge färbt den Schweregrad eines Patches; security hebt Sicherheits-Updates hervor.
-export function SeverityBadge({ severity, security }: { severity: string; security?: boolean }) {
+export function SeverityBadge({ severity, security, phased }: { severity: string; security?: boolean; phased?: boolean }) {
   const s = (severity || "Other").toLowerCase();
   const cls = s === "critical" || security ? "badge-offline" : s === "important" ? "badge-warn" : "badge-unknown";
-  return <span className={`badge ${cls}`} title={security ? gt("Sicherheits-Update") : undefined}>{security ? "🛡 " : ""}{severity || "Other"}</span>;
+  return <>
+    <span className={`badge ${cls}`} title={security ? gt("Sicherheits-Update") : undefined}>{security ? "🛡 " : ""}{severity || "Other"}</span>
+    {phased && <span className="badge badge-unknown" style={{ marginLeft: 4 }} title={gt("Ubuntu rollt dieses Update stufenweise aus; apt stellt es bis zur Ausrollquote zurück, auch bei dist-upgrade. Option „Phased Updates sofort installieren“ nimmt es mit.")}>⏳ {gt("zurückgestellt (Phasing)")}</span>}
+  </>;
 }
 
 // relTime formatiert einen ISO-Zeitpunkt als „vor 3 Min." (oder „—").

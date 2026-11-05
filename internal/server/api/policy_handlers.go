@@ -383,6 +383,7 @@ type installRequest struct {
 	Approved     bool   `json:"approved"`      // true = nur genehmigte Patches installieren
 	SecurityOnly bool   `json:"security_only"` // true = nur Sicherheits-Updates installieren
 	AptMode      string `json:"apt_mode"`      // "safe" = apt upgrade; sonst full-upgrade (Default)
+	Phased       bool   `json:"phased"`        // Ubuntu: per Phasing zurückgestellte Updates mitnehmen
 }
 
 // installPayload baut Label + Payload für install_updates: genehmigte und/oder nur
@@ -390,7 +391,7 @@ type installRequest struct {
 // Auswahl leer ist (dann msg als 400-Text).
 func (s *Server) installPayload(r *http.Request, deviceID string, req installRequest) (label string, payload map[string]any, msg string, err error) {
 	label = "Updates installieren"
-	payload = map[string]any{"full": req.AptMode != "safe"}
+	payload = map[string]any{"full": req.AptMode != "safe", "phased": req.Phased}
 	var names []string
 	switch {
 	case req.Approved && req.SecurityOnly:

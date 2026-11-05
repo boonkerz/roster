@@ -13,7 +13,13 @@ import (
 // full=true nutzt bei apt „full-upgrade" (dist-upgrade), das auch Updates mit neuen
 // Abhängigkeiten / Paketwechseln durchzieht (z. B. Kernel); false = konservatives
 // „upgrade" (entfernt nie etwas). Läuft mit den Rechten des Agent-Dienstes (i.d.R. root).
-func InstallUpdates(ctx context.Context, names []string, full bool) (int, string) {
+// phased=true nimmt unter Ubuntu auch per Phasing zurückgestellte Updates mit
+// (APT::Get::Always-Include-Phased-Updates).
+func InstallUpdates(ctx context.Context, names []string, full, phased bool) (int, string) {
+	aptOpt := ""
+	if phased {
+		aptOpt = " -o APT::Get::Always-Include-Phased-Updates=true"
+	}
 	pkgs := strings.Join(names, " ")
 	specific := len(names) > 0
 	var cmd *exec.Cmd
@@ -27,14 +33,14 @@ func InstallUpdates(ctx context.Context, names []string, full bool) (int, string
 	case have("apt-get"):
 		if specific {
 			cmd = exec.CommandContext(ctx, "sh", "-c",
-				"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --only-upgrade -y "+pkgs)
+				"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get"+aptOpt+" install --only-upgrade -y "+pkgs)
 		} else {
 			mode := "upgrade"
 			if full {
 				mode = "dist-upgrade"
 			}
 			cmd = exec.CommandContext(ctx, "sh", "-c",
-				"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y "+mode)
+				"apt-get update && DEBIAN_FRONTEND=noninteractive apt-get"+aptOpt+" -y "+mode)
 		}
 	case have("dnf"):
 		if specific {

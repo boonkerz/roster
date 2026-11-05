@@ -59,6 +59,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   const [runScriptId, setRunScriptId] = useState("");
   const [histCheck, setHistCheck] = useState<CheckResult | null>(null);
   const [aptMode, setAptMode] = useState<"full" | "safe">("full");
+  const [phased, setPhased] = useState(false);
   const [notes, setNotes] = useState<string | null>(null); // null = noch nicht bearbeitet
 
   const { data: device } = useQuery({ queryKey: ["device", id], queryFn: () => api.get<Device>(`/devices/${id}`), refetchInterval: 15000 });
@@ -93,7 +94,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
   const invalidate = () => qc.invalidateQueries({ queryKey: ["device", id] });
   const runScript = useMutation({ mutationFn: () => api.post(`/devices/${id}/run`, { script_id: runScriptId }), onSuccess: invalidate });
   const scanUpdates = useMutation({ mutationFn: () => api.post(`/devices/${id}/scan-updates`), onSuccess: invalidate });
-  const installUpdates = useMutation({ mutationFn: (v: { approved: boolean; security_only?: boolean; apt_mode?: string }) => api.post(`/devices/${id}/install-updates`, v), onSuccess: invalidate });
+  const installUpdates = useMutation({ mutationFn: (v: { approved: boolean; security_only?: boolean; apt_mode?: string; phased?: boolean }) => api.post(`/devices/${id}/install-updates`, { ...v, phased }), onSuccess: invalidate });
   const approvePatch = useMutation({ mutationFn: (v: { name: string; approved: boolean }) => api.put(`/devices/${id}/patches/approve`, v), onSuccess: invalidate });
   const reboot = useMutation({ mutationFn: () => api.post(`/devices/${id}/reboot`), onSuccess: invalidate });
   // Nach dem Anstoßen läuft der Check/Task erst beim (sofort geweckten) Checkin –
@@ -649,6 +650,9 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                           <option value="safe">{t("Sicheres Upgrade (upgrade)")}</option>
                         </select>
                       )}
+                      {/^linux|debian|ubuntu/i.test(device.os) && (device.available_updates ?? []).some((u) => u.phased) && (
+                        <label className="chip" title={t("Ubuntu Phased Updates werden bis zur Ausrollquote zurückgestellt. Mit dieser Option installiert apt sie sofort (APT::Get::Always-Include-Phased-Updates).")}><input type="checkbox" checked={phased} onChange={(e) => setPhased(e.target.checked)} /> ⏳ {t("Phased Updates sofort installieren")}</label>
+                      )}
                       <button className="btn ghost sm" disabled={installUpdates.isPending}
                         onClick={() => confirm(t("Nur die genehmigten Patches installieren?")) && installUpdates.mutate({ approved: true, apt_mode: aptMode })}>
                         {t("Genehmigte installieren")}
@@ -695,7 +699,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
                           <input type="checkbox" checked={u.approved} disabled={!canOperate}
                             onChange={(e) => approvePatch.mutate({ name: u.name, approved: e.target.checked })} />
                         </td>
-                        <td><SeverityBadge severity={u.severity} security={u.security} /></td>
+                        <td><SeverityBadge severity={u.severity} security={u.security} phased={u.phased} /></td>
                         <td>{u.name}{u.kind === "driver" && <span className="muted small"> · {t("Treiber")}</span>}{u.kind === "definition" && <span className="muted small"> · {t("Definitionen")}</span>}</td>
                         <td className="mono small muted">{u.current_version ? <>{u.current_version} → </> : null}{u.version || (u.current_version ? "" : "—")}</td>
                         <td className="muted small">{u.source || "—"}</td>

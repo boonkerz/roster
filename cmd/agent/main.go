@@ -482,8 +482,9 @@ func (p *program) runPolicy(ctx context.Context) {
 			if v, ok := cmd.Payload["full"].(bool); ok {
 				full = v
 			}
-			go p.installUpdates(ctx, cmd.ID, stringList(cmd.Payload["packages"]), full)
-			p.log.Info("update-installation gestartet", "command", cmd.ID, "full", full)
+			phased, _ := cmd.Payload["phased"].(bool)
+			go p.installUpdates(ctx, cmd.ID, stringList(cmd.Payload["packages"]), full, phased)
+			p.log.Info("update-installation gestartet", "command", cmd.ID, "full", full, "phased", phased)
 			continue
 		case "install_package":
 			ids := map[string]string{}
@@ -1033,8 +1034,8 @@ func (p *program) scanUpdates(ctx context.Context, cmdID string) {
 	p.requestCheckin()
 }
 
-func (p *program) installUpdates(ctx context.Context, cmdID string, names []string, full bool) {
-	exit, output := collect.InstallUpdates(ctx, names, full)
+func (p *program) installUpdates(ctx context.Context, cmdID string, names []string, full, phased bool) {
+	exit, output := collect.InstallUpdates(ctx, names, full, phased)
 	u := collect.OSUpdates(ctx)
 	hist := collect.PatchHistory(ctx) // frisch installierte Pakete sofort in den Verlauf
 	p.mu.Lock()

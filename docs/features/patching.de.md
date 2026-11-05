@@ -25,6 +25,15 @@ Sammelaktion und in der Leiste der Geräteliste („Sicherheits-Updates“) zur 
 zeigen Geräte mit Sicherheits-Updates, den Anteil geprüfter Geräte ohne solche und nie geprüfte
 Geräte.
 
+!!! tip "Ubuntu Phased Updates"
+    Ubuntu rollt Updates aus `-updates` stufenweise aus. Bis die Ausrollquote erreicht ist, stellt
+    apt solche Pakete zurück – auch bei `dist-upgrade` („deferred due to phasing“). Der Agent
+    erkennt das per `apt-get -s dist-upgrade` und markiert die Pakete mit dem Badge
+    **zurückgestellt (Phasing)**. Die Option **Phased Updates sofort installieren** (am Gerät,
+    in der Sammelaktion und auf der Patches-Seite) setzt
+    `APT::Get::Always-Include-Phased-Updates=true` und nimmt sie mit. Sicherheits-Updates aus
+    `-security` sind nie phasiert.
+
 ## Patch-Verlauf
 
 ![Patch-Verlauf über die Flotte](../screenshots/patches-history.png){ .shadow }

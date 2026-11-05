@@ -11,7 +11,7 @@ import (
 // InstallUpdates lädt und installiert ausstehende Updates über den Windows-Update-Agenten.
 // Ist names leer, werden alle installiert, sonst nur Updates mit passendem Titel.
 // Kein automatischer Neustart – "Reboot erforderlich" wird nur gemeldet.
-func InstallUpdates(ctx context.Context, names []string, _ bool) (int, string) {
+func InstallUpdates(ctx context.Context, names []string, _ bool, _ bool) (int, string) {
 	// Genehmigte Titel als JSON-Array ins Skript geben (leer = alle).
 	approved, _ := json.Marshal(names)
 	script := `$ProgressPreference='SilentlyContinue'

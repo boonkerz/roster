@@ -25,7 +25,7 @@ func (s *Store) PendingPatches(ctx context.Context, f PatchFilter) ([]model.Pend
 		return []model.PendingPatch{}, nil
 	}
 	q := `SELECT u.device_id, d.hostname, d.os, COALESCE(d.site_id,''), COALESCE(st.name,''), COALESCE(c.id,''), COALESCE(c.name,''),
-			u.package, u.severity, u.url, u.version, u.current_version, u.source, u.security, u.kind,
+			u.package, u.severity, u.url, u.version, u.current_version, u.source, u.security, u.kind, u.phased,
 			CASE WHEN a.name IS NULL THEN 0 ELSE 1 END
 		FROM os_updates u
 		JOIN devices d ON d.id = u.device_id
@@ -74,7 +74,7 @@ func (s *Store) PendingPatches(ctx context.Context, f PatchFilter) ([]model.Pend
 		var p model.PendingPatch
 		var approved int
 		if err := rows.Scan(&p.DeviceID, &p.Hostname, &p.OS, &p.SiteID, &p.SiteName, &p.ClientID, &p.ClientName,
-			&p.Name, &p.Severity, &p.URL, &p.Version, &p.CurrentVersion, &p.Source, &p.Security, &p.Kind, &approved); err != nil {
+			&p.Name, &p.Severity, &p.URL, &p.Version, &p.CurrentVersion, &p.Source, &p.Security, &p.Kind, &p.Phased, &approved); err != nil {
 			return nil, err
 		}
 		p.Approved = approved == 1

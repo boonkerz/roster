@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Ubuntu **Phased Updates**: Der Agent fragt per `apt-get -s dist-upgrade` ab, welche Updates apt wegen Phasing zurückstellt, und markiert sie in der Update-Liste (Badge „zurückgestellt (Phasing)“). Die Installationsaktionen am Gerät, in der Sammelaktion und auf der Patches-Seite bekommen die Option **Phased Updates sofort installieren** (`APT::Get::Always-Include-Phased-Updates=true`). Ohne sie überspringt apt diese Pakete – das sah aus, als würde dist-upgrade nicht alles installieren. Migration 0076.
+
 ## [0.19.0] - 2026-11-03
 
 ### Neu

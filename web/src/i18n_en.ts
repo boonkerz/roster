@@ -1515,4 +1515,9 @@ export const EN: Record<string, string> = {
   "Stündlicher Abgleich: lauschende Ports, Kernelmodule, Cron-Einträge, UID-0-/Administratorkonten, Autostart-Dienste und geplante Aufgaben. Änderungen werden als Vorfall „Systemänderung“ gemeldet.": "Hourly comparison: listening ports, kernel modules, cron entries, UID-0/administrator accounts, autostart services and scheduled tasks. Changes are reported as incident \"System change\".",
   "Rootkit-/Malware-Prüfung (täglich; FIM-geänderte Dateien scannen)": "Rootkit/malware check (daily; scan files changed per FIM)",
   "Täglich: versteckte Prozesse, ld.so.preload, versteckte Kernelmodule, ausführbare Dateien in /tmp, bekannte Rootkit-Pfade. Geänderte Dateien der Integritätsprüfung werden per ClamAV (Linux) bzw. Defender (Windows) geprüft, falls vorhanden.": "Daily: hidden processes, ld.so.preload, hidden kernel modules, executables in /tmp, known rootkit paths. Files changed per integrity monitoring are scanned with ClamAV (Linux) or Defender (Windows) if present.",
+  // --- Phased Updates (0.19.1) ---
+  "zurückgestellt (Phasing)": "deferred (phasing)",
+  "Phased Updates sofort installieren": "Install phased updates now",
+  "Ubuntu rollt dieses Update stufenweise aus; apt stellt es bis zur Ausrollquote zurück, auch bei dist-upgrade. Option „Phased Updates sofort installieren“ nimmt es mit.": "Ubuntu rolls this update out in phases; apt defers it until the rollout quota is reached, even with dist-upgrade. The option \"Install phased updates now\" includes it.",
+  "Ubuntu Phased Updates werden bis zur Ausrollquote zurückgestellt. Mit dieser Option installiert apt sie sofort (APT::Get::Always-Include-Phased-Updates).": "Ubuntu phased updates are deferred until the rollout quota is reached. With this option apt installs them right away (APT::Get::Always-Include-Phased-Updates).",
 };
