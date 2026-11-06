@@ -44,8 +44,9 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 ## Features
 
 - **Inventory** – hardware, OS, network interfaces (IP/MAC), disks, installed
-  software, printers. Cross-platform agents for Windows / Linux / macOS with
-  **auto-update**.
+  software, printers. Cross-platform agents for Windows / Linux / macOS / FreeBSD with
+  **auto-update**; on OPNsense the agent registers itself as plugin `os-roster-agent` so it
+  survives firmware upgrades.
 - **Checks** – disk / memory / CPU / pending-updates / script, plus native
   **Ping / TCP-port / HTTP-status** checks. Per-check frequency, severity, output
   comparison, platform targeting.
@@ -79,8 +80,8 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 - **Security collectors** – Antivirus/Defender status, BitLocker (with recovery-key
   escrow), SMART disk health, Windows Event Log / journald viewer.
 - **Patch management** – fleet-wide Patches page with security updates first, approve and
-  install in bulk (apt `upgrade` vs `dist-upgrade` selectable), patch history per device and
-  fleet, package versions and repositories across the fleet, OS lifecycle (EOL) warnings.
+  install in bulk (apt `upgrade` vs `dist-upgrade` selectable, Ubuntu phased updates marked and
+  optionally included), patch history per device and fleet, package versions and repositories across the fleet, OS lifecycle (EOL) warnings.
 - **Security monitoring** (Wazuh-style) – file integrity monitoring with a baseline per
   device, login monitoring (sshd/journald, Windows Security log, macOS log) that turns brute
   force, logins after brute force, new source IPs and account changes into **incidents**,
@@ -119,6 +120,12 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   brew); roll out to a device / client / site / tag.
 - **Vulnerability scan (CVE)** – match installed software against **OSV.dev**; per-device
   tab + fleet overview + daily background scan (best coverage for Linux packages).
+- **Container security** – packages of every running container image (apk/dpkg/rpm, read via
+  `docker exec`) matched against OSV.dev with the right distro release, services such as sshd
+  flagged, fleet view under *Security → Containers*; database inventory of MongoDB,
+  MySQL/MariaDB and PostgreSQL containers with the incident *Database deviation* for new,
+  deleted or emptied databases (database ransom pattern); Docker checks for expected databases
+  and image age.
 - **Network discovery** – an agent (or the server itself) scans a CIDR (TCP / ARP / DNS),
   imports hosts as **assets** into a site; adopt them as **unmanaged devices**; **SNMP**
   printer info (model / serial / firmware / page count / toner).
@@ -250,7 +257,9 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 ## Funktionen
 
 - **Inventar** – Hardware, OS, Netzwerkschnittstellen (IP/MAC), Datenträger,
-  installierte Software, Drucker. Agents für Windows / Linux / macOS mit **Auto-Update**.
+  installierte Software, Drucker. Agents für Windows / Linux / macOS / FreeBSD mit
+  **Auto-Update**; auf OPNsense registriert sich der Agent als Plugin `os-roster-agent` und
+  übersteht so Firmware-Upgrades.
 - **Checks** – Disk / RAM / CPU / ausstehende Updates / Skript, dazu native
   **Ping / TCP-Port / HTTP-Status**-Checks. Frequenz, Schweregrad, Ausgabe-Vergleich,
   Plattform-Targeting je Check.
@@ -285,7 +294,8 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 - **Security-Collectors** – Virenschutz/Defender, BitLocker (mit Recovery-Key-Escrow),
   SMART-Festplattengesundheit, Windows-Event-Log / journald.
 - **Patch-Management** – flottenweite Patches-Seite mit Sicherheits-Updates zuerst, gesammelt
-  freigeben und installieren (apt `upgrade` vs `dist-upgrade` wählbar), Patch-Verlauf je Gerät
+  freigeben und installieren (apt `upgrade` vs `dist-upgrade` wählbar, Ubuntu-Phased-Updates
+  markiert und wahlweise mitinstalliert), Patch-Verlauf je Gerät
   und Flotte, Paketversionen und Repositories der Flotte, Support-Ende-Warnungen (EOL).
 - **Sicherheitsüberwachung** (Wazuh-artig) – Datei-Integritätsüberwachung mit Baseline je
   Gerät, Anmeldungs-Überwachung (sshd/journald, Windows-Sicherheitsprotokoll, macOS-Log), die
@@ -328,6 +338,12 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   brew); Ausrollen auf Gerät / Client / Standort / Tag.
 - **Schwachstellen-Scan (CVE)** – Abgleich installierter Software gegen **OSV.dev**;
   Tab je Gerät + Flotten-Übersicht + täglicher Hintergrund-Scan (beste Abdeckung: Linux).
+- **Container-Sicherheit** – Pakete jedes laufenden Container-Images (apk/dpkg/rpm, per
+  `docker exec` gelesen) gegen OSV.dev mit passendem Distributions-Release, Dienste wie sshd
+  markiert, Flottenansicht unter *Sicherheit → Container*; Datenbank-Bestand von MongoDB-,
+  MySQL/MariaDB- und PostgreSQL-Containern mit Vorfall *Datenbank-Abweichung* bei neuen,
+  gelöschten oder geleerten Datenbanken (Muster der Datenbank-Erpressung); Docker-Checks für
+  erwartete Datenbanken und Image-Alter.
 - **Netzwerk-Discovery** – ein Agent (oder der Server selbst) scannt eine CIDR (TCP / ARP /
   DNS), importiert Hosts als **Assets** in eine Site; als **nicht verwaltete Geräte**
   übernehmbar; **SNMP**-Druckerinfos (Modell / Seriennr. / Firmware / Seitenzähler / Toner).

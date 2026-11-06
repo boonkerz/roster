@@ -38,7 +38,7 @@ chmod +x roster-server-linux-amd64 && ./roster-server-linux-amd64 run
 <div class="rs-pillars" markdown>
 
 - :material-cube-outline: **One binary, self-hosted.** No external services, no second daemon. Put it behind your reverse proxy or let it serve TLS itself.
-- :material-monitor-cellphone: **Cross-platform agents** for Windows, Linux, macOS and FreeBSD, with auto-update on every new server release.
+- :material-monitor-cellphone: **Cross-platform agents** for Windows, Linux, macOS and FreeBSD, with auto-update on every new server release – on OPNsense as an upgrade-proof plugin.
 - :material-remote-desktop: **Real remote control built in.** Browser or native viewer, interactive terminal and file browser over one on-demand tunnel.
 - :material-shield-account: **Fine-grained access.** Custom roles plus per-user company and site scope, two-factor login, audit log.
 
@@ -120,7 +120,8 @@ built in.
 Assign checks, tasks and backups to companies, sites or single devices. The Patches page
 shows every pending update across the fleet, security updates first: approve and install
 in bulk, follow the patch history, compare package versions and repositories, and see
-which operating systems are about to run out of support.
+which operating systems are about to run out of support. Phased updates held back by Ubuntu
+are marked and can be installed right away on request.
 [Patching & software](features/patching.md){ .rs-more }
 </div>
 </section>
@@ -157,7 +158,9 @@ suspicious processes and PowerShell script blocks; the registry, who changed a f
 rootkit indicators are monitored too, with ClamAV or Defender scanning changed files.
 HAProxy, Traefik, MySQL, firewall drops, the journal and Docker events feed port-scan and
 container-exec detection. 106 CIS-style compliance rules carry framework references, and
-every incident shows its MITRE ATT&CK techniques.
+every incident shows its MITRE ATT&CK techniques. Container images are checked for
+vulnerabilities, and database containers report new, deleted or emptied databases – the
+database ransom pattern.
 [Security monitoring](features/security-monitoring.md#threat-intelligence){ .rs-more }
 </div>
 </section>

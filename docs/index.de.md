@@ -38,7 +38,7 @@ chmod +x roster-server-linux-amd64 && ./roster-server-linux-amd64 run
 <div class="rs-pillars" markdown>
 
 - :material-cube-outline: **Ein Binary, selbst gehostet.** Keine externen Dienste, kein zweiter Daemon. Hinter den eigenen Reverse-Proxy stellen oder TLS direkt ausliefern lassen.
-- :material-monitor-cellphone: **Agents für alle Plattformen:** Windows, Linux, macOS und FreeBSD, mit Auto-Update bei jedem neuen Server-Release.
+- :material-monitor-cellphone: **Agents für alle Plattformen:** Windows, Linux, macOS und FreeBSD, mit Auto-Update bei jedem neuen Server-Release – auf OPNsense als upgrade-festes Plugin.
 - :material-remote-desktop: **Echte Fernsteuerung eingebaut.** Browser oder nativer Viewer, interaktives Terminal und Dateibrowser über einen Tunnel auf Abruf.
 - :material-shield-account: **Feingranulare Rechte.** Eigene Rollen plus Firmen- und Standortbereich je Benutzer, Zwei-Faktor-Login, Audit-Log.
 
@@ -121,7 +121,8 @@ iOS-App und ein Audit-Log sind eingebaut.
 Checks, Tasks und Backups an Firmen, Standorte oder einzelne Geräte zuweisen. Die Seite
 „Patches“ zeigt alle ausstehenden Updates der Flotte, Sicherheits-Updates zuerst: gesammelt
 freigeben und installieren, den Patch-Verlauf verfolgen, Paketversionen und Repositories
-vergleichen und sehen, welchen Betriebssystemen das Support-Ende bevorsteht.
+vergleichen und sehen, welchen Betriebssystemen das Support-Ende bevorsteht. Von Ubuntu
+zurückgestellte Phased Updates sind markiert und lassen sich auf Wunsch sofort mitinstallieren.
 [Patches & Software](features/patching.md){ .rs-more }
 </div>
 </section>
@@ -160,6 +161,8 @@ Admin-Konten, Autostarts) und Rootkit-Spuren werden ebenso überwacht, geändert
 ClamAV oder Defender geprüft. HAProxy, Traefik, MySQL, Firewall-Drops, Journal und
 Docker-Ereignisse speisen Portscan- und Container-Exec-Erkennung. 106 CIS-artige
 Compliance-Regeln tragen Framework-Referenzen, jeder Vorfall seine MITRE-ATT&CK-Techniken.
+Container-Images werden auf Schwachstellen geprüft, und Datenbank-Container melden neue,
+gelöschte oder geleerte Datenbanken – das Muster der Datenbank-Erpressung.
 [Sicherheitsüberwachung](features/security-monitoring.md#bedrohungsdaten){ .rs-more }
 </div>
 </section>
