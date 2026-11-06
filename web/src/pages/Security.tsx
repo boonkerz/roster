@@ -7,18 +7,20 @@ import { useI18n } from "../i18n";
 import { FimEventsTable } from "../components/FimEvents";
 import { AuthEventsTable, IncidentsTable, INCIDENT_KIND, ThreatBadge } from "../components/SecurityEvents";
 import { FleetCompliance } from "../components/Compliance";
+import { FleetContainers } from "../components/FleetContainers";
 import type { AuthEvent, ClientTree, Device, FIMEvent, IPBlock, SecurityIncident, SecuritySummary, IncidentKindInfo, ThreatStatus } from "../types";
 import { BlockDurationSelect, IncidentActions, durationLabel } from "../components/IncidentActions";
 import { CountryChips, Flag, countryFlag, countryName } from "../components/Country";
 
 // Security ist die flottenweite Sicherheitsseite (Wazuh-Stil): Datei-Integrität,
 // später Vorfälle, Anmeldungen, Compliance und Sperren.
-type SecTab = "incidents" | "auth" | "fim" | "compliance" | "blocks" | "threat";
+type SecTab = "incidents" | "auth" | "fim" | "compliance" | "containers" | "blocks" | "threat";
 const TABS: { key: SecTab; label: string }[] = [
   { key: "incidents", label: "Vorfälle" },
   { key: "auth", label: "Anmeldungen" },
   { key: "fim", label: "Datei-Integrität" },
   { key: "compliance", label: "Compliance" },
+  { key: "containers", label: "Container" },
   { key: "blocks", label: "Sperren" },
   { key: "threat", label: "Bedrohungsdaten" },
 ];
@@ -43,6 +45,7 @@ export function Security() {
       {tab === "auth" && <AuthTab />}
       {tab === "fim" && <FimTab />}
       {tab === "compliance" && <FleetCompliance />}
+      {tab === "containers" && <FleetContainers />}
       {tab === "blocks" && <BlocksTab />}
       {tab === "threat" && <ThreatTab />}
     </div>

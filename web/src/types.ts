@@ -99,6 +99,38 @@ export interface DockerDatabase {
   updated_at: string;
 }
 
+// FleetImageRow fasst ein Image über alle Geräte zusammen (Sicherheit → Container).
+export interface FleetImageRow {
+  image: string;
+  os?: string;
+  os_version?: string;
+  os_name?: string;
+  hosts: number;
+  devices: string[];
+  hostnames: string[];
+  packages: number;
+  vulns: number;
+  critical: number;
+  high: number;
+  services?: string[];
+  error?: string;
+  pending: boolean;
+}
+
+export interface FleetDBRow {
+  device_id: string;
+  hostname: string;
+  container: string;
+  engine: string;
+  error?: string;
+  databases: DockerDatabase[];
+}
+
+export interface FleetContainers {
+  images: FleetImageRow[];
+  databases: FleetDBRow[];
+}
+
 // ContainerVulnerability ist ein OSV-Treffer in einem Container-Image.
 export interface ContainerVulnerability {
   device_id?: string;

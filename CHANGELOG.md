@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Security → Containers:** fleet overview of all container images (grouped across devices, critical/high and SSH/FTP/Telnet filters, expandable devices and findings) and the database inventory of all database containers, with a link to database deviations. Route `GET /security/containers`.
+
 ## [0.20.0] - 2026-11-06
 
 ### Added

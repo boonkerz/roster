@@ -195,7 +195,11 @@ rootkit scan of their own (Defender/XProtect cover that).
 ## Container security
 
 On hosts with Docker the agent also inspects the containers themselves – without extra tools such
-as Docker Scout or Trivy, which would need a registry login or their own database:
+as Docker Scout or Trivy, which would need a registry login or their own database.
+The fleet overview lives under **Security → Containers**: all images (identical images on several
+devices grouped, filters "critical/high only" and "only with SSH/FTP/Telnet", expanding a row shows
+the devices and findings) plus the database inventory of all database containers.
+
 
 - **Image vulnerabilities.** For every image of a running container the agent reads os-release and
   the package list (`apk`, `dpkg`, `rpm`) once a day via `docker exec` and reports it to the

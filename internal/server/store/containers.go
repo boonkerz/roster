@@ -235,3 +235,127 @@ func (s *Store) DockerDBsFor(ctx context.Context, deviceID string) ([]model.Dock
 	}
 	return out, rows.Err()
 }
+
+// FleetImageRow fasst ein Image (Referenz + Basis-OS) über alle Geräte zusammen.
+type FleetImageRow struct {
+	Image     string   `json:"image"`
+	OS        string   `json:"os,omitempty"`
+	OSVersion string   `json:"os_version,omitempty"`
+	OSName    string   `json:"os_name,omitempty"`
+	Hosts     int      `json:"hosts"`
+	Devices   []string `json:"devices"` // Geräte-IDs (für Links; max. 50)
+	Hostnames []string `json:"hostnames"`
+	Packages  int      `json:"packages"`
+	Vulns     int      `json:"vulns"`
+	Critical  int      `json:"critical"`
+	High      int      `json:"high"`
+	Services  []string `json:"services,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Pending   bool     `json:"pending"` // OSV-Abgleich steht noch aus
+}
+
+// FleetImages liefert alle gescannten Images der Flotte, je Referenz und Basis-OS gebündelt
+// (Trefferzahlen = Maximum über die Geräte, da gleiche Images gleiche Pakete haben).
+func (s *Store) FleetImages(ctx context.Context) ([]FleetImageRow, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT s.device_id, d.hostname, s.image, s.os, s.os_version, s.os_name, s.package_count, s.services, s.error, s.vuln_scanned_at IS NULL,
+		       COALESCE(v.n, 0), COALESCE(v.crit, 0), COALESCE(v.high, 0)
+		FROM docker_image_scans s
+		JOIN devices d ON d.id=s.device_id
+		LEFT JOIN (SELECT device_id, image_id, COUNT(*) n,
+		                  SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) crit,
+		                  SUM(CASE WHEN severity='HIGH' THEN 1 ELSE 0 END) high
+		           FROM container_vulnerabilities GROUP BY device_id, image_id) v
+		       ON v.device_id=s.device_id AND v.image_id=s.image_id
+		WHERE d.revoked=0`))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byKey := map[string]*FleetImageRow{}
+	var order []string
+	for rows.Next() {
+		var devID, host, image, os, osv, osName, services, errStr string
+		var pkgs, n, crit, high int
+		var pending bool
+		if err := rows.Scan(&devID, &host, &image, &os, &osv, &osName, &pkgs, &services, &errStr, &pending, &n, &crit, &high); err != nil {
+			return nil, err
+		}
+		key := image + "\x00" + os + "\x00" + osv
+		r := byKey[key]
+		if r == nil {
+			r = &FleetImageRow{Image: image, OS: os, OSVersion: osv, OSName: osName, Error: errStr}
+			if services != "" {
+				r.Services = strings.Split(services, ",")
+			}
+			byKey[key] = r
+			order = append(order, key)
+		}
+		r.Hosts++
+		if len(r.Devices) < 50 {
+			r.Devices = append(r.Devices, devID)
+			r.Hostnames = append(r.Hostnames, host)
+		}
+		if errStr == "" {
+			r.Error = ""
+		}
+		if pkgs > r.Packages {
+			r.Packages = pkgs
+		}
+		if pending && errStr == "" {
+			r.Pending = true
+		}
+		if n > r.Vulns {
+			r.Vulns, r.Critical, r.High = n, crit, high
+		}
+	}
+	out := make([]FleetImageRow, 0, len(order))
+	for _, k := range order {
+		out = append(out, *byKey[k])
+	}
+	return out, rows.Err()
+}
+
+// FleetDBRow ist ein Datenbank-Container eines Geräts mit seinem Bestand.
+type FleetDBRow struct {
+	DeviceID  string                 `json:"device_id"`
+	Hostname  string                 `json:"hostname"`
+	Container string                 `json:"container"`
+	Engine    string                 `json:"engine"`
+	Error     string                 `json:"error,omitempty"`
+	Databases []model.DockerDatabase `json:"databases"`
+}
+
+// FleetDBs liefert den Datenbank-Bestand aller DB-Container der Flotte.
+func (s *Store) FleetDBs(ctx context.Context) ([]FleetDBRow, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT x.device_id, d.hostname, x.container_id, x.container, x.engine, x.name, x.collections, x.error, x.updated_at
+		FROM docker_dbs x JOIN devices d ON d.id=x.device_id
+		WHERE d.revoked=0 ORDER BY d.hostname, x.container, x.name`))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetDBRow
+	idx := map[string]int{}
+	for rows.Next() {
+		var devID, host string
+		var db model.DockerDatabase
+		if err := rows.Scan(&devID, &host, &db.ContainerID, &db.Container, &db.Engine, &db.Name, &db.Collections, &db.Error, &db.UpdatedAt); err != nil {
+			return nil, err
+		}
+		key := devID + "\x00" + db.Container
+		i, ok := idx[key]
+		if !ok {
+			i = len(out)
+			idx[key] = i
+			out = append(out, FleetDBRow{DeviceID: devID, Hostname: host, Container: db.Container, Engine: db.Engine, Databases: []model.DockerDatabase{}})
+		}
+		if db.Error != "" {
+			out[i].Error = db.Error
+		} else {
+			out[i].Databases = append(out[i].Databases, db)
+		}
+	}
+	return out, rows.Err()
+}

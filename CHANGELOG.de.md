@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- **Sicherheit → Container:** Flottenübersicht aller Container-Images (über Geräte gebündelt, Filter kritisch/hoch und SSH/FTP/Telnet, aufklappbar mit Geräten und Treffern) und Datenbank-Bestand aller DB-Container mit Link zu den Datenbank-Abweichungen. Route `GET /security/containers`.
+
 ## [0.20.0] - 2026-11-06
 
 ### Neu

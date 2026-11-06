@@ -182,6 +182,7 @@ func (s *Server) routes() http.Handler {
 						r.Get("/security/summary", s.handleSecuritySummary)
 						r.Get("/security/kinds", s.handleIncidentKinds)
 						r.Get("/security/threat", s.handleThreatStatus)
+						r.Get("/security/containers", s.handleFleetContainers)
 						r.Get("/security/threat/lookup", s.handleThreatLookup)
 						r.Get("/devices/{id}/incidents", s.handleDeviceIncidents)
 						r.Get("/devices/{id}/auth-events", s.handleDeviceAuthEvents)

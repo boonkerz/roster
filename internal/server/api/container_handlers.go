@@ -13,6 +13,7 @@ import (
 
 	"github.com/boonkerz/roster/internal/server/cve"
 	"github.com/boonkerz/roster/internal/server/model"
+	"github.com/boonkerz/roster/internal/server/store"
 	"github.com/boonkerz/roster/internal/shared"
 )
 
@@ -255,4 +256,38 @@ func (s *Server) alertDBChanges(ctx context.Context, device *model.Device, old [
 		return nil
 	}
 	return inc
+}
+
+// handleFleetContainers liefert die Flottenübersicht der Container-Sicherheit (Sicherheit → Container).
+func (s *Server) handleFleetContainers(w http.ResponseWriter, r *http.Request) {
+	images, err := s.store.FleetImages(r.Context())
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	dbs, err := s.store.FleetDBs(r.Context())
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	sort.SliceStable(images, func(i, j int) bool {
+		a, b := images[i], images[j]
+		if a.Critical != b.Critical {
+			return a.Critical > b.Critical
+		}
+		if a.High != b.High {
+			return a.High > b.High
+		}
+		if a.Vulns != b.Vulns {
+			return a.Vulns > b.Vulns
+		}
+		return a.Image < b.Image
+	})
+	if images == nil {
+		images = []store.FleetImageRow{}
+	}
+	if dbs == nil {
+		dbs = []store.FleetDBRow{}
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"images": images, "databases": dbs})
 }
