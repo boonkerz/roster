@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { Vulnerability } from "../types";
+import type { ContainerVulnerability, Vulnerability } from "../types";
 
 // sevClass ordnet einer OSV/CVE-Stufe eine Badge-Farbe zu.
 export function sevClass(sev: string): string {
@@ -30,8 +30,13 @@ export function Vulnerabilities({ deviceId }: { deviceId: string }) {
     onError: () => setMsg(t("Scan fehlgeschlagen (OSV.dev nicht erreichbar?).")),
   });
   const vulns = data ?? [];
+  const { data: cdata } = useQuery({
+    queryKey: ["container-vulns", deviceId],
+    queryFn: () => api.get<ContainerVulnerability[]>(`/devices/${deviceId}/container-vulnerabilities`),
+  });
+  const cvulns = cdata ?? [];
 
-  return (
+  return (<>
     <section className="card">
       <div className="inline-form" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>{t("Schwachstellen")} {vulns.length > 0 && <span className="muted">({vulns.length})</span>}</h3>
@@ -61,5 +66,27 @@ export function Vulnerabilities({ deviceId }: { deviceId: string }) {
         </table>
       )}
     </section>
-  );
+    {cvulns.length > 0 && (
+      <section className="card" style={{ marginTop: 12 }}>
+        <h3 style={{ margin: 0 }}>{t("Container-Images")} <span className="muted">({cvulns.length})</span></h3>
+        <p className="muted small">{t("OSV-Treffer in den Paketen der Container-Images (Scan im Tab „Docker“). Behoben wird durch ein neues Image, nicht durch Host-Updates.")}</p>
+        <table className="table">
+          <thead><tr><th>{t("Stufe")}</th><th>Image</th><th>CVE / OSV</th><th>{t("Paket")}</th><th>{t("Version")}</th><th>{t("Behoben in")}</th><th>{t("Beschreibung")}</th></tr></thead>
+          <tbody>
+            {cvulns.map((v) => (
+              <tr key={v.image_id + v.package + v.vuln_id}>
+                <td><span className={`badge ${sevClass(v.severity)}`}>{v.severity || "—"}</span></td>
+                <td className="mono small">{v.image}</td>
+                <td><a href={v.url} target="_blank" rel="noreferrer" className="mono">{v.vuln_id}</a></td>
+                <td className="mono">{v.package}</td>
+                <td className="mono muted">{v.version || "—"}</td>
+                <td className="mono muted">{v.fixed || "—"}</td>
+                <td className="muted small">{v.summary || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )}
+  </>);
 }

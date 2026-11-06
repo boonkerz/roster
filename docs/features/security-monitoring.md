@@ -192,6 +192,32 @@ monitoring are handed to ClamAV (`clamdscan` or `clamscan`, Linux) or Defender (
 Windows) if present – a hit is the critical incident **Malware**. Windows and macOS have no
 rootkit scan of their own (Defender/XProtect cover that).
 
+## Container security
+
+On hosts with Docker the agent also inspects the containers themselves – without extra tools such
+as Docker Scout or Trivy, which would need a registry login or their own database:
+
+- **Image vulnerabilities.** For every image of a running container the agent reads os-release and
+  the package list (`apk`, `dpkg`, `rpm`) once a day via `docker exec` and reports it to the
+  server, which matches it against OSV.dev with the right ecosystem (Alpine 3.x, Debian 12, Ubuntu
+  24.04, Rocky/Alma). Matches appear in the device tab **Docker** per image (base OS, package
+  count, match counts), in the **Vulnerabilities** tab and in the fleet view *Vulnerabilities*
+  under *Container images*. Packages such as `openssh-server`, `vsftpd` or `telnetd` are flagged as
+  a **service** on the image. Images without a shell (distroless/scratch) cannot be checked and are
+  shown as such. *Rescan images* reads them again immediately.
+- **Database inventory.** In MongoDB, MySQL/MariaDB and PostgreSQL containers the agent lists the
+  databases with their collection/table counts on every check-in – via `docker exec` with the
+  credentials from the container environment (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD` or
+  `MYSQL_ROOT_PASSWORD`, `POSTGRES_USER`); passwords never leave the container. The server compares
+  the inventory with the previous check-in: a new, deleted or emptied database becomes the incident
+  **Database deviation** (critical for deleted data, names like `README_TO_RECOVER`/`WARNING` or
+  "data gone, note database present" – the database ransom pattern). Engine-owned databases
+  (`admin`, `config`, `local`, `postgres`) do not count. If no matching credentials are available the
+  Docker tab says so and no comparison takes place.
+- **Docker checks.** The *Docker* check type additionally offers *Databases in container* (expected
+  list per container, failing on a foreign or missing database) and *No image older than N days*
+  (running containers with an old image – a two-year-old SFTP image stands out this way).
+
 ## MITRE ATT&CK and severity per kind
 
 Every incident carries its ATT&CK techniques (e.g. T1110 Brute Force, T1543.003 Windows Service,

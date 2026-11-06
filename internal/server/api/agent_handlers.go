@@ -79,6 +79,27 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.ReplaceDockerImages(r.Context(), device.ID, req.Inventory.Images); err != nil {
 		s.log.Error("docker-images speichern", "err", err)
+	} else if len(req.Inventory.Images) > 0 {
+		if err := s.store.PruneImageScans(r.Context(), device.ID); err != nil {
+			s.log.Error("image-scans bereinigen", "err", err)
+		}
+	}
+	if len(req.ImageScans) > 0 {
+		if err := s.store.UpsertImageScans(r.Context(), device.ID, req.ImageScans); err != nil {
+			s.log.Error("image-scans speichern", "err", err)
+		} else {
+			s.kickImageVulns()
+		}
+	}
+	// Datenbank-Bestand nur von Agents, die ihn liefern (nil = alter Agent / kein Docker).
+	if req.Inventory.Databases != nil || len(req.Inventory.Containers) > 0 {
+		old, err := s.store.ReplaceDockerDBs(r.Context(), device.ID, req.Inventory.Databases)
+		if err != nil {
+			s.log.Error("docker-datenbanken speichern", "err", err)
+		} else if inc := s.alertDBChanges(r.Context(), device, old, req.Inventory.Databases); inc != nil {
+			s.queueResponses(device, []model.SecurityIncident{*inc})
+			s.alertIncidents(r.Context(), device, []model.SecurityIncident{*inc})
+		}
 	}
 	if err := s.store.ReplaceTemperatures(r.Context(), device.ID, req.Inventory.Temperatures); err != nil {
 		s.log.Error("temperaturen speichern", "err", err)

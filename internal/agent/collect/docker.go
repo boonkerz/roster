@@ -52,6 +52,7 @@ type dockerImageLine struct {
 	ID           string `json:"ID"`
 	Size         string `json:"Size"`
 	CreatedSince string `json:"CreatedSince"`
+	CreatedAt    string `json:"CreatedAt"`
 }
 
 // shortID kürzt eine (evtl. sha256:-präfixierte) ID auf 12 Zeichen.
@@ -126,6 +127,7 @@ func parseDockerImages(out string) []shared.DockerImage {
 			ImageID:    shortID(p.ID),
 			Size:       p.Size,
 			Created:    p.CreatedSince,
+			CreatedAt:  p.CreatedAt,
 		})
 	}
 	return list

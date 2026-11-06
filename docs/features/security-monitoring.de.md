@@ -201,6 +201,33 @@ geändert sind, an ClamAV (`clamdscan` oder `clamscan`, Linux) bzw. Defender (`M
 übergeben, falls vorhanden – ein Fund ist der kritische Vorfall **Malware**. Windows und macOS haben
 keinen eigenen Rootkit-Scan (Defender/XProtect decken das ab).
 
+## Container-Sicherheit
+
+Auf Hosts mit Docker prüft der Agent zusätzlich den Inhalt der Container – ohne Zusatzwerkzeuge
+wie Docker Scout oder Trivy, die eine Registry-Anmeldung oder eine eigene Datenbank bräuchten:
+
+- **Image-Schwachstellen.** Je Image eines laufenden Containers liest der Agent einmal täglich per
+  `docker exec` die os-release und die Paketliste (`apk`, `dpkg`, `rpm`) und meldet sie dem
+  Server. Der gleicht sie mit dem passenden Ökosystem (Alpine 3.x, Debian 12, Ubuntu 24.04,
+  Rocky/Alma) gegen OSV.dev ab. Treffer erscheinen im Geräte-Tab **Docker** je Image (Basis-OS,
+  Paketzahl, Trefferzahlen), im Tab **Schwachstellen** und in der Flottenansicht *Schwachstellen*
+  unter *Container-Images*. Pakete wie `openssh-server`, `vsftpd` oder `telnetd` werden als
+  **Dienst** am Image markiert. Images ohne Shell (distroless/scratch) sind nicht prüfbar und
+  werden so angezeigt. *Images neu scannen* liest sofort neu.
+- **Datenbank-Bestand.** In MongoDB-, MySQL/MariaDB- und PostgreSQL-Containern listet der Agent
+  bei jedem Checkin die Datenbanken mit ihrer Collection-/Tabellenzahl – per `docker exec` mit
+  den Zugangsdaten aus der Container-Umgebung (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD`
+  bzw. `MYSQL_ROOT_PASSWORD`, `POSTGRES_USER`); Passwörter verlassen den Container nicht. Der
+  Server vergleicht den Bestand mit dem vorigen Checkin: eine neue, gelöschte oder geleerte
+  Datenbank wird zum Vorfall **Datenbank-Abweichung** (kritisch bei gelöschten Daten, Namen wie
+  `README_TO_RECOVER`/`WARNING` oder „Daten weg, Hinweis-Datenbank da“ – dem Muster der
+  Datenbank-Erpressung). Engine-eigene Datenbanken (`admin`, `config`, `local`, `postgres`) zählen
+  nicht. Fehlen passende Zugangsdaten, zeigt der Docker-Tab das an; es gibt dann keinen Vergleich.
+- **Docker-Checks.** Der Check-Typ *Docker* kennt zusätzlich *Datenbanken im Container*
+  (Erwartungsliste je Container, failing bei fremder oder fehlender Datenbank) und *Kein Image
+  älter als N Tage* (laufende Container mit altem Image – ein zwei Jahre altes SFTP-Image fällt
+  so auf).
+
 ## MITRE ATT&CK und Schweregrad je Art
 
 Jeder Vorfall trägt seine ATT&CK-Techniken (z. B. T1110 Brute Force, T1543.003 Windows Service,
@@ -259,7 +286,7 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
 |---|---|
 | Brute-Force, Anmeldung nach Brute-Force, neue Quell-IP, Angriffsmuster | Quell-IP sperren, Skript ausführen |
 | Anmeldung nach Brute-Force, Kontoänderung, Kontosperre, neue Quell-IP | Konto sperren, Skript ausführen |
-| Datei-Änderung, Systemänderung, Rootkit-Hinweis, Malware, Befehl im Container | Skript ausführen |
+| Datei-Änderung, Systemänderung, Rootkit-Hinweis, Malware, Befehl im Container, Datenbank-Abweichung | Skript ausführen |
 | Bekannte Angriffsquelle, Portscan | Quell-IP sperren, Skript ausführen |
 | Persistenz, Verdächtiger Prozess | Konto sperren, Skript ausführen |
 

@@ -74,6 +74,7 @@ func Collect(ctx context.Context, agentVersion string) shared.Inventory {
 	// Docker (nur wo die docker-CLI vorhanden ist).
 	inv.Containers = DockerContainers(ctx)
 	inv.Images = DockerImages(ctx)
+	inv.Databases = DockerDatabases(ctx, inv.Containers)
 
 	// Temperatursensoren (leer auf VMs / Systemen ohne auslesbare Sensoren).
 	inv.Temperatures = Temperatures(ctx)

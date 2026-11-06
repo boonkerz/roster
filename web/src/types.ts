@@ -67,6 +67,52 @@ export interface DockerImage {
   image_id: string;
   size?: string;
   created?: string;
+  created_at?: string;
+}
+
+// DockerImageScan ist die gescannte Paketliste eines Images inkl. OSV-Trefferzahlen.
+export interface DockerImageScan {
+  image_id: string;
+  image: string;
+  os?: string;
+  os_version?: string;
+  os_name?: string;
+  pkg?: string; // apk | dpkg | rpm | none
+  package_count: number;
+  services?: string[];
+  error?: string;
+  scanned_at: string;
+  vuln_scanned_at?: string;
+  vulns: number;
+  critical: number;
+  high: number;
+}
+
+// DockerDatabase ist eine Datenbank in einem DB-Container (Bestand des letzten Checkins).
+export interface DockerDatabase {
+  container_id: string;
+  container: string;
+  engine: string; // mongo | mysql | postgres
+  name?: string;
+  collections: number;
+  error?: string;
+  updated_at: string;
+}
+
+// ContainerVulnerability ist ein OSV-Treffer in einem Container-Image.
+export interface ContainerVulnerability {
+  device_id?: string;
+  hostname?: string;
+  image_id: string;
+  image: string;
+  package: string;
+  version: string;
+  vuln_id: string;
+  severity: string;
+  summary: string;
+  fixed: string;
+  url: string;
+  detected_at: string;
 }
 
 export interface Group {
@@ -449,7 +495,7 @@ export interface SecurityIncident {
   client_name?: string;
   site_name?: string;
   ts: string;
-  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | "portscan" | "threat_listed" | "persistence" | "audit_cleared" | "suspicious_process" | "state_change" | "rootkit" | "malware" | "container_exec" | string;
+  kind: "brute_force" | "brute_force_success" | "new_source_ip" | "account_change" | "lockout" | "fim_change" | "scan" | "portscan" | "threat_listed" | "persistence" | "audit_cleared" | "suspicious_process" | "state_change" | "rootkit" | "malware" | "container_exec" | "db_change" | string;
   severity: "info" | "warning" | "critical";
   mitre?: MitreTechnique[]; // ATT&CK-Techniken der Art
   threat?: string[]; // Blocklisten, in denen die Quell-IP steht
@@ -798,6 +844,8 @@ export interface Device {
   listen_ports?: ListenPort[];
   docker_containers?: DockerContainer[];
   docker_images?: DockerImage[];
+  docker_image_scans?: DockerImageScan[];
+  docker_dbs?: DockerDatabase[];
   temperatures?: Temperature[];
   fans?: Fan[];
   proxmox_version?: string; // gesetzt = Agent läuft auf einem Proxmox-VE-Host

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { Vulnerability } from "../types";
+import type { ContainerVulnerability, Vulnerability } from "../types";
 import { sevClass } from "./Vulnerabilities";
 
 // FleetVulnerabilities zeigt alle erkannten Schwachstellen der Flotte.
@@ -10,6 +10,9 @@ export function FleetVulnerabilities() {
   const { t } = useI18n();
   const { data } = useQuery({ queryKey: ["fleet-vulns"], queryFn: () => api.get<Vulnerability[]>("/vulnerabilities") });
   const vulns = data ?? [];
+  const { data: cdata } = useQuery({ queryKey: ["fleet-container-vulns"], queryFn: () => api.get<ContainerVulnerability[]>("/container-vulnerabilities") });
+  const cvulns = cdata ?? [];
+  const ccrit = cvulns.filter((v) => v.severity.toUpperCase() === "CRITICAL" || v.severity.toUpperCase() === "HIGH").length;
   const crit = vulns.filter((v) => v.severity.toUpperCase() === "CRITICAL").length;
   const high = vulns.filter((v) => v.severity.toUpperCase() === "HIGH").length;
 
@@ -36,6 +39,28 @@ export function FleetVulnerabilities() {
               <tr key={v.device_id + v.package + v.vuln_id}>
                 <td><span className={`badge ${sevClass(v.severity)}`}>{v.severity || "—"}</span></td>
                 <td><Link to={`/devices/${v.device_id}`} className="link-strong">{v.hostname || v.device_id}</Link></td>
+                <td><a href={v.url} target="_blank" rel="noreferrer" className="mono">{v.vuln_id}</a></td>
+                <td className="mono">{v.package}</td>
+                <td className="mono muted">{v.version || "—"}</td>
+                <td className="mono muted">{v.fixed || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <h2 style={{ marginTop: 18 }}>{t("Container-Images")} <span className="muted">({cvulns.length})</span> {ccrit > 0 && <span className="badge badge-offline">{ccrit} {t("kritisch/hoch")}</span>}</h2>
+      <p className="muted small">{t("Treffer in den Paketen der Container-Images (Agent liest sie per docker exec, Abgleich gegen OSV.dev). Behebung: Image neu bauen oder aktualisieren.")}</p>
+      {cvulns.length === 0 ? (
+        <p className="muted">{t("Keine Schwachstellen in Container-Images erkannt (oder noch nicht gescannt).")}</p>
+      ) : (
+        <table className="table">
+          <thead><tr><th>{t("Stufe")}</th><th>{t("Gerät")}</th><th>Image</th><th>CVE / OSV</th><th>{t("Paket")}</th><th>{t("Version")}</th><th>{t("Behoben in")}</th></tr></thead>
+          <tbody>
+            {cvulns.map((v) => (
+              <tr key={v.device_id + v.image_id + v.package + v.vuln_id}>
+                <td><span className={`badge ${sevClass(v.severity)}`}>{v.severity || "—"}</span></td>
+                <td><Link to={`/devices/${v.device_id}`} className="link-strong">{v.hostname || v.device_id}</Link></td>
+                <td className="mono small">{v.image}</td>
                 <td><a href={v.url} target="_blank" rel="noreferrer" className="mono">{v.vuln_id}</a></td>
                 <td className="mono">{v.package}</td>
                 <td className="mono muted">{v.version || "—"}</td>

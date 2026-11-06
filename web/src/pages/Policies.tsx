@@ -76,6 +76,8 @@ const DOCKER_MODES: Record<string, string> = {
   stopped: "Gestoppte Container (<= max)",
   container: "Bestimmter Container läuft",
   unhealthy: "Keine unhealthy Container",
+  databases: "Datenbanken im Container (Erwartungsliste)",
+  image_age: "Kein Image älter als N Tage",
 };
 
 // Häufigkeits-Presets für Checks und Tasks.
@@ -213,6 +215,8 @@ function PolicyEditor({
   const [cDMin, setCDMin] = useState("1");           // Docker running: min
   const [cDMax, setCDMax] = useState("0");           // Docker stopped: max
   const [cDName, setCDName] = useState("");          // Docker container: Name
+  const [cDExpect, setCDExpect] = useState("");      // Docker databases: erwartete Datenbanken
+  const [cDMaxDays, setCDMaxDays] = useState("365"); // Docker image_age: max. Alter
   const [cAvAge, setCAvAge] = useState("7");         // Virenschutz: max. Signatur-Alter (Tage)
   const [cCertDays, setCCertDays] = useState("14");  // Zertifikat: min. Rest-Tage
   const [cSvcName, setCSvcName] = useState("");       // Dienst-/Prozess-Name
@@ -254,6 +258,8 @@ function PolicyEditor({
         if (cDMode === "running") config.min = Number(cDMin || 1);
         else if (cDMode === "stopped") config.max = Number(cDMax || 0);
         else if (cDMode === "container") config.name = cDName.trim();
+        else if (cDMode === "databases") { config.expect = cDExpect.trim(); if (cDName.trim()) config.container = cDName.trim(); }
+        else if (cDMode === "image_age") config.max_days = Number(cDMaxDays || 365);
       } else if (cType === "compliance") {
         config = { min_score: Number(cMinScore) || 80, fail_on_high: cFailOnHigh };
       } else if (cType === "smart" || cType === "bitlocker" || cType === "reboot") {
@@ -501,6 +507,12 @@ function PolicyEditor({
               {cDMode === "running" && <label className="num" title={t("Failing, wenn weniger als so viele Container laufen.")}>{t("min")}<input type="number" value={cDMin} onChange={(e) => setCDMin(e.target.value)} /></label>}
               {cDMode === "stopped" && <label className="num" title={t("Failing, wenn mehr als so viele Container gestoppt sind.")}>{t("max")}<input type="number" value={cDMax} onChange={(e) => setCDMax(e.target.value)} /></label>}
               {cDMode === "container" && <input placeholder={t("Container-Name (Teilstring)")} value={cDName} onChange={(e) => setCDName(e.target.value)} style={{ minWidth: 160 }} />}
+              {cDMode === "databases" && <>
+                <input placeholder={t("Erwartete Datenbanken (kommagetrennt, leer = nur Abfragbarkeit)")} value={cDExpect} onChange={(e) => setCDExpect(e.target.value)} style={{ minWidth: 260 }}
+                  title={t("Failing, wenn eine andere Datenbank existiert oder eine erwartete fehlt. Abweichungen zwischen Checkins meldet der Server ohnehin als Vorfall.")} />
+                <input placeholder={t("Container-Name (Teilstring, optional)")} value={cDName} onChange={(e) => setCDName(e.target.value)} style={{ minWidth: 160 }} />
+              </>}
+              {cDMode === "image_age" && <label className="num" title={t("Failing, wenn ein laufender Container ein Image nutzt, das älter als so viele Tage ist.")}>{t("max. Tage")}<input type="number" value={cDMaxDays} onChange={(e) => setCDMaxDays(e.target.value)} /></label>}
             </>
           ) : cType === "av" ? (
             <label className="num" title={t("Failing, wenn die Virensignaturen älter als so viele Tage sind.")}>{t("Signatur max. Tage")}<input type="number" value={cAvAge} onChange={(e) => setCAvAge(e.target.value)} /></label>

@@ -17,7 +17,7 @@ export const TRIGGER_LABEL: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
   account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
   portscan: "Portscan", threat_listed: "Bekannte Angriffsquelle", persistence: "Persistenz", audit_cleared: "Protokoll gelöscht",
-  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container",
+  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container", db_change: "Datenbank-Abweichung",
 };
 export const ACTION_LABEL: Record<string, string> = { block_ip: "Quell-IP sperren", lock_user: "Konto sperren", run_script: "Skript ausführen" };
 const IP_TRIGGERS = ["brute_force", "brute_force_success", "new_source_ip", "scan", "portscan", "threat_listed"];

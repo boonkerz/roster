@@ -10,7 +10,7 @@ export const INCIDENT_KIND: Record<string, string> = {
   brute_force: "Brute-Force", brute_force_success: "Anmeldung nach Brute-Force", new_source_ip: "Neue Quell-IP",
   account_change: "Kontoänderung", lockout: "Kontosperre", fim_change: "Datei-Änderung", scan: "Angriffsmuster",
   portscan: "Portscan", threat_listed: "Bekannte Angriffsquelle", persistence: "Persistenz", audit_cleared: "Protokoll gelöscht",
-  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container",
+  suspicious_process: "Verdächtiger Prozess", state_change: "Systemänderung", rootkit: "Rootkit-Hinweis", malware: "Malware", container_exec: "Befehl im Container", db_change: "Datenbank-Abweichung",
 };
 
 // ThreatBadge markiert eine Quell-IP, die in einer Blockliste steht (Bedrohungsdaten).

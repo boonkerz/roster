@@ -37,6 +37,8 @@ var (
 	tRootkit      = Technique{"T1014", "Rootkit", "Defense Evasion"}
 	tToolTransfer = Technique{"T1105", "Ingress Tool Transfer", "Command and Control"}
 	tContainerCmd = Technique{"T1609", "Container Administration Command", "Execution"}
+	tDataDestroy  = Technique{"T1485", "Data Destruction", "Impact"}
+	tDataEncrypt  = Technique{"T1486", "Data Encrypted for Impact", "Impact"}
 	tRemoteSvc    = Technique{"T1021", "Remote Services", "Lateral Movement"}
 )
 
@@ -58,6 +60,7 @@ var Kinds = []Kind{
 	{"rootkit", "critical", []Technique{tRootkit}},
 	{"malware", "critical", []Technique{tToolTransfer}},
 	{"container_exec", "warning", []Technique{tContainerCmd, tRemoteSvc}},
+	{"db_change", "critical", []Technique{tDataDestroy, tDataEncrypt}},
 }
 
 // Severities sind die gültigen Schweregrade.

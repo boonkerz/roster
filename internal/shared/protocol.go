@@ -34,6 +34,8 @@ type CheckinRequest struct {
 	PatchHistory []PatchEvent `json:"patch_history,omitempty"`
 	// FIMEvents sind seit dem letzten Checkin erkannte Datei-Änderungen (Datei-Integrität).
 	FIMEvents []FIMEvent `json:"fim_events,omitempty"`
+	// ImageScans sind neu gelesene Paketlisten von Container-Images (täglich je Image).
+	ImageScans []ImageScan `json:"image_scans,omitempty"`
 	// AuthEvents sind neu gelesene Anmelde-/Kontoereignisse (Anmeldungs-Überwachung).
 	AuthEvents []AuthEvent `json:"auth_events,omitempty"`
 	// Compliance ist ein frischer Prüfbericht (nur mitgeschickt, wenn neu geprüft wurde).
@@ -287,6 +289,7 @@ type Inventory struct {
 	// Docker (nur wo die docker-CLI vorhanden ist): Container + lokale Images.
 	Containers []DockerContainer `json:"docker_containers,omitempty"`
 	Images     []DockerImage     `json:"docker_images,omitempty"`
+	Databases  []DockerDatabase  `json:"docker_dbs,omitempty"`
 
 	// Temperatursensoren (CPU, Chipsatz, NVMe, GPU …), soweit das System sie liefert.
 	// VMs und viele Windows-Rechner haben keine auslesbaren Sensoren.
@@ -444,11 +447,46 @@ type ProxmoxGuest struct {
 
 // DockerImage ist ein lokal vorhandenes Docker-Image.
 type DockerImage struct {
-	Repository string `json:"repository"`        // Repository (oder "<none>")
-	Tag        string `json:"tag"`               // Tag (oder "<none>")
-	ImageID    string `json:"image_id"`          // kurze Image-ID
-	Size       string `json:"size,omitempty"`    // menschlich (z. B. "123MB")
-	Created    string `json:"created,omitempty"` // Alter (z. B. "2 weeks ago")
+	Repository string `json:"repository"`           // Repository (oder "<none>")
+	Tag        string `json:"tag"`                  // Tag (oder "<none>")
+	ImageID    string `json:"image_id"`             // kurze Image-ID
+	Size       string `json:"size,omitempty"`       // menschlich (z. B. "123MB")
+	Created    string `json:"created,omitempty"`    // Alter (z. B. "2 weeks ago")
+	CreatedAt  string `json:"created_at,omitempty"` // Erstellzeitpunkt (docker-Rohformat, z. B. "2024-11-01 10:00:00 +0000 UTC")
+}
+
+// DockerDatabase ist eine Datenbank in einem Datenbank-Container (MongoDB, MySQL/MariaDB,
+// PostgreSQL), vom Agent per `docker exec` mit den Zugangsdaten aus der Container-Umgebung
+// gelesen. Der Server vergleicht den Bestand je Container mit dem letzten Checkin und meldet
+// Abweichungen (neue/gelöschte Datenbanken, geleerte Datenbanken) als Vorfall – das typische
+// Muster bei Datenbank-Erpressung (Daten gelöscht, Datenbank „README"/„WARNING" angelegt).
+type DockerDatabase struct {
+	ContainerID string `json:"container_id"`
+	Container   string `json:"container"`             // Container-Name
+	Engine      string `json:"engine"`                // mongo | mysql | postgres
+	Name        string `json:"name,omitempty"`        // Datenbankname (leer bei Fehler)
+	Collections int    `json:"collections,omitempty"` // Collections bzw. Tabellen
+	Error       string `json:"error,omitempty"`       // Abfrage fehlgeschlagen (eine Zeile je Container)
+}
+
+// ImagePackage ist ein installiertes Paket in einem Container-Image.
+type ImagePackage struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// ImageScan ist die Paketliste eines Container-Images, aus einem laufenden Container per
+// `docker exec` gelesen (apk/dpkg/rpm). Der Server gleicht sie gegen OSV.dev ab.
+type ImageScan struct {
+	ImageID   string         `json:"image_id"`             // kurze Image-ID
+	Image     string         `json:"image"`                // Referenz (repo:tag) des Containers
+	OS        string         `json:"os,omitempty"`         // ID aus /etc/os-release (alpine, debian, ubuntu, …)
+	OSVersion string         `json:"os_version,omitempty"` // VERSION_ID
+	OSName    string         `json:"os_name,omitempty"`    // PRETTY_NAME
+	Pkg       string         `json:"pkg,omitempty"`        // apk | dpkg | rpm | none
+	Packages  []ImagePackage `json:"packages,omitempty"`
+	Services  []string       `json:"services,omitempty"` // erkannte Dienstpakete, z. B. sshd
+	Error     string         `json:"error,omitempty"`    // z. B. keine Shell im Image
 }
 
 // ListenPort ist ein lauschender Socket des Geräts (Angriffsfläche). Public=true,

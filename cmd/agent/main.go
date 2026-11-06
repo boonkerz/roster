@@ -117,8 +117,13 @@ type program struct {
 	// Anstoß für sofortigen Lauf und Reset-Wunsch (Baseline verwerfen).
 	stateDir  string
 	fimEvents []shared.FIMEvent
-	fimNow    chan struct{}
-	fimReset  bool
+	// imageScans sind fertige Image-Paketlisten für den nächsten Checkin; imageScanned merkt
+	// sich je Image-ID den letzten Scan (täglich), imageScanNow stößt einen Lauf an.
+	imageScans   []shared.ImageScan
+	imageScanned map[string]time.Time
+	imageScanNow chan struct{}
+	fimNow       chan struct{}
+	fimReset     bool
 	// Rootkit-Prüfung: Anstoß für sofortigen Lauf (Befehl rootcheck_now).
 	rootcheckNow chan struct{}
 	// Anmeldungs-Überwachung: wartende Ereignisse (Cursor hält das authlog-Paket).
@@ -219,6 +224,8 @@ func (p *program) run(ctx context.Context) {
 	go p.stateLoop(ctx)
 	p.rootcheckNow = make(chan struct{}, 1)
 	go p.rootcheckLoop(ctx)
+	p.imageScanNow = make(chan struct{}, 1)
+	go p.imageScanLoop(ctx)
 	p.complianceNow = make(chan struct{}, 1)
 	policy.ComplianceReport = func() *shared.ComplianceReport {
 		p.mu.Lock()
@@ -325,6 +332,8 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	} else {
 		p.fimEvents = nil
 	}
+	imgScans := p.imageScans
+	p.imageScans = nil
 	authEv := p.authEvents
 	if len(authEv) > 500 {
 		authEv, p.authEvents = authEv[:500], authEv[500:]
@@ -351,7 +360,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 	resp, err := client.Checkin(ctx, state.AgentToken, shared.CheckinRequest{
 		Inventory: inv, CheckResults: checks, TaskResults: tasks, CommandResults: cmds,
 		Sample: sample, PatchHistory: history, FIMEvents: fimEv, AuthEvents: authEv, Compliance: compliance,
-		LogSources: logStatus,
+		LogSources: logStatus, ImageScans: imgScans,
 	})
 	if err != nil {
 		p.log.Warn("checkin fehlgeschlagen", "err", err)
@@ -364,6 +373,7 @@ func (p *program) checkin(ctx context.Context, client *transport.Client, state a
 		}
 		p.fimEvents = append(fimEv, p.fimEvents...)
 		p.authEvents = append(authEv, p.authEvents...)
+		p.imageScans = append(imgScans, p.imageScans...)
 		if compliance != nil {
 			p.compliancePending = true
 		}
@@ -656,6 +666,15 @@ func (p *program) runPolicy(ctx context.Context) {
 			default:
 			}
 			exit, output = 0, "Rootkit-Prüfung angestoßen"
+		case "scan_images":
+			p.mu.Lock()
+			p.imageScanned = map[string]time.Time{}
+			p.mu.Unlock()
+			select {
+			case p.imageScanNow <- struct{}{}:
+			default:
+			}
+			exit, output = 0, "Image-Scan angestoßen"
 		case "fim_rescan", "fim_reset":
 			p.mu.Lock()
 			if cmd.Type == "fim_reset" {
@@ -1488,6 +1507,59 @@ func (p *program) responseExpireLoop(ctx context.Context) {
 			return
 		case <-t.C:
 			response.Expire(ctx)
+		}
+	}
+}
+
+// imageScanLoop liest täglich je Image die Paketliste aus einem laufenden Container (für den
+// OSV-Abgleich auf dem Server). Erster Lauf kurz nach dem Start, danach halbstündliche
+// Prüfung auf neue/abgelaufene Images; scan_images erzwingt einen sofortigen Lauf.
+func (p *program) imageScanLoop(ctx context.Context) {
+	if !collect.DockerAvailable() {
+		return
+	}
+	run := func() {
+		containers := collect.DockerContainers(ctx)
+		p.mu.Lock()
+		if p.imageScanned == nil {
+			p.imageScanned = map[string]time.Time{}
+		}
+		scanned := p.imageScanned
+		p.mu.Unlock()
+		skip := func(id string) bool {
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			return time.Since(scanned[id]) < 24*time.Hour
+		}
+		scans := collect.ScanImages(ctx, containers, skip)
+		if len(scans) == 0 {
+			return
+		}
+		p.mu.Lock()
+		for _, sc := range scans {
+			scanned[sc.ImageID] = time.Now()
+		}
+		p.imageScans = append(p.imageScans, scans...)
+		if len(p.imageScans) > 50 {
+			p.imageScans = p.imageScans[len(p.imageScans)-50:]
+		}
+		p.mu.Unlock()
+		p.log.Info("container-images gescannt", "images", len(scans))
+		p.requestCheckin()
+	}
+	t := time.NewTicker(30 * time.Minute)
+	defer t.Stop()
+	first := time.After(90 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-first:
+			run()
+		case <-t.C:
+			run()
+		case <-p.imageScanNow:
+			run()
 		}
 	}
 }

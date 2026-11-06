@@ -45,6 +45,61 @@ func Ecosystem(os, osVersion string) string {
 	return ""
 }
 
+// ImageEcosystem leitet die OSV-Ökosystem-Kennung eines Container-Images aus os-release
+// (ID, VERSION_ID) und dem Paketmanager ab. Versionierte Kennungen (Alpine:v3.20, Debian:12,
+// Ubuntu:22.04) treffen genauer als die übergreifenden. Leer = nicht abgleichbar (unbekanntes
+// rpm-System) – ohne Ökosystem würde OSV Namen quer über alle Ökosysteme vergleichen.
+func ImageEcosystem(os, version, pkg string) string {
+	os = strings.ToLower(strings.TrimSpace(os))
+	version = strings.TrimSpace(version)
+	major := version
+	if i := strings.Index(major, "."); i > 0 {
+		major = major[:i]
+	}
+	minor := version
+	if parts := strings.SplitN(version, ".", 3); len(parts) >= 2 {
+		minor = parts[0] + "." + parts[1]
+	}
+	withVer := func(name, v string) string {
+		if v != "" {
+			return name + ":" + v
+		}
+		return name
+	}
+	switch os {
+	case "alpine":
+		if minor != "" {
+			return "Alpine:v" + minor
+		}
+		return "Alpine"
+	case "debian":
+		return withVer("Debian", major)
+	case "ubuntu":
+		return withVer("Ubuntu", minor)
+	case "rocky":
+		return withVer("Rocky Linux", major)
+	case "almalinux":
+		return withVer("AlmaLinux", major)
+	case "rhel", "centos":
+		return "Red Hat"
+	case "ol":
+		return "Oracle Linux"
+	case "amzn":
+		return "Amazon Linux"
+	case "wolfi":
+		return "Wolfi"
+	case "chainguard":
+		return "Chainguard"
+	}
+	switch pkg {
+	case "apk":
+		return "Alpine"
+	case "dpkg":
+		return "Debian"
+	}
+	return ""
+}
+
 type osvPkg struct {
 	Name      string `json:"name"`
 	Ecosystem string `json:"ecosystem,omitempty"`
@@ -188,7 +243,7 @@ func (sc *Scanner) Scan(ctx context.Context, client *http.Client, sw []SW, ecosy
 		if d := details[h.id]; d != nil {
 			v.Severity = maxLevel(d.severity(), inherited[h.id])
 			v.Summary = d.summaryText()
-			v.Fixed = d.fixedFor(p.Name)
+			v.Fixed = d.fixedFor(p.Name, ecosystem)
 		} else if k, ok := known[h.id]; ok {
 			v.Severity, v.Summary, v.Fixed = k.Severity, k.Summary, k.Fixed
 		}
@@ -212,7 +267,8 @@ type osvDetail struct {
 	} `json:"database_specific"`
 	Affected []struct {
 		Package struct {
-			Name string `json:"name"`
+			Name      string `json:"name"`
+			Ecosystem string `json:"ecosystem"`
 		} `json:"package"`
 		Ranges []struct {
 			Events []struct {
@@ -253,20 +309,30 @@ func (d *osvDetail) severity() string {
 	return Level(best)
 }
 
-func (d *osvDetail) fixedFor(pkg string) string {
+// fixedFor liefert die behobene Version für das Paket – bevorzugt aus dem Eintrag des
+// abgefragten Ökosystems (Ubuntu/Debian-Datensätze führen je Release eigene Einträge; sonst
+// stünde die Version eines fremden Releases da).
+func (d *osvDetail) fixedFor(pkg, ecosystem string) string {
+	first := ""
 	for _, a := range d.Affected {
 		if a.Package.Name != "" && !strings.EqualFold(a.Package.Name, pkg) {
 			continue
 		}
 		for _, r := range a.Ranges {
 			for _, e := range r.Events {
-				if e.Fixed != "" {
+				if e.Fixed == "" {
+					continue
+				}
+				if ecosystem != "" && strings.EqualFold(a.Package.Ecosystem, ecosystem) {
 					return e.Fixed
+				}
+				if first == "" {
+					first = e.Fixed
 				}
 			}
 		}
 	}
-	return ""
+	return first
 }
 
 func fetchDetail(ctx context.Context, client *http.Client, id string) *osvDetail {

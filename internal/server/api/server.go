@@ -36,7 +36,8 @@ type Server struct {
 	statsMu     sync.Mutex // schützt statsCache (siehe currentStats)
 	statsCache  map[string]statsEntry
 
-	responses chan responseJob // Aufträge für den seriellen Reaktions-Worker (Sperren usw.)
+	responses     chan responseJob // Aufträge für den seriellen Reaktions-Worker (Sperren usw.)
+	imageVulnKick chan struct{}    // stößt den OSV-Abgleich der Container-Images an
 
 	tzMu   sync.RWMutex   // schützt den Zeitzonen-Cache (siehe timezone.go)
 	tzName string         // zuletzt gelesener IANA-Name aus app_settings
@@ -45,7 +46,7 @@ type Server struct {
 
 // New erstellt den Server und registriert alle Routen.
 func New(st *store.Store, cfg config.Config, log *slog.Logger, webFS fs.FS, version string) *Server {
-	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096)}
+	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096), imageVulnKick: make(chan struct{}, 1)}
 	s.router = s.routes()
 	go s.responseWorker()
 	return s
@@ -163,6 +164,8 @@ func (s *Server) routes() http.Handler {
 						r.Get("/devices/{id}/checks/{checkID}/history", s.handleCheckHistory)
 						r.Get("/devices/{id}/vulnerabilities", s.handleDeviceVulns)
 						r.Get("/vulnerabilities", s.handleAllVulns)
+						r.Get("/devices/{id}/container-vulnerabilities", s.handleDeviceContainerVulns)
+						r.Get("/container-vulnerabilities", s.handleAllContainerVulns)
 						r.Get("/patches/pending", s.handlePendingPatches)
 						r.Get("/patches/summary", s.handlePatchSummary)
 						r.Get("/patches/history", s.handlePatchHistory)
@@ -266,6 +269,7 @@ func (s *Server) routes() http.Handler {
 						r.Post("/bulk/install-package", s.handleBulkInstallPackage)
 						r.Post("/devices/{id}/scan-updates", s.handleScanUpdates)
 						r.Post("/devices/{id}/scan-cve", s.handleScanCVE)
+						r.Post("/devices/{id}/scan-images", s.handleScanImages)
 						r.Post("/network-scan", s.handleStartNetworkScan)
 						r.Post("/snmp-printer", s.handleSNMPPrinter)
 						r.Post("/devices/{id}/snmp", s.handleDeviceSNMP)

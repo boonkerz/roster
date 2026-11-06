@@ -164,6 +164,8 @@ type Device struct {
 
 	Containers []DockerContainer `json:"docker_containers,omitempty"`
 	Images     []DockerImage     `json:"docker_images,omitempty"`
+	ImageScans []DockerImageScan `json:"docker_image_scans,omitempty"`
+	Databases  []DockerDatabase  `json:"docker_dbs,omitempty"`
 
 	// Temperatursensoren (leer bei VMs / ohne auslesbare Sensoren).
 	Temperatures []Temperature `json:"temperatures,omitempty"`
@@ -252,6 +254,52 @@ type DockerImage struct {
 	ImageID    string `json:"image_id"`
 	Size       string `json:"size,omitempty"`
 	Created    string `json:"created,omitempty"`
+	CreatedAt  string `json:"created_at,omitempty"`
+}
+
+// DockerImageScan ist die gescannte Paketliste eines Container-Images inkl. OSV-Trefferzahlen.
+type DockerImageScan struct {
+	ImageID       string     `json:"image_id"`
+	Image         string     `json:"image"`
+	OS            string     `json:"os,omitempty"`
+	OSVersion     string     `json:"os_version,omitempty"`
+	OSName        string     `json:"os_name,omitempty"`
+	Pkg           string     `json:"pkg,omitempty"`
+	PackageCount  int        `json:"package_count"`
+	Services      []string   `json:"services,omitempty"`
+	Error         string     `json:"error,omitempty"`
+	ScannedAt     time.Time  `json:"scanned_at"`
+	VulnScannedAt *time.Time `json:"vuln_scanned_at,omitempty"`
+	Vulns         int        `json:"vulns"`
+	Critical      int        `json:"critical"`
+	High          int        `json:"high"`
+}
+
+// ContainerVulnerability ist ein OSV-Treffer in einem Container-Image.
+type ContainerVulnerability struct {
+	DeviceID   string    `json:"device_id,omitempty"`
+	Hostname   string    `json:"hostname,omitempty"`
+	ImageID    string    `json:"image_id"`
+	Image      string    `json:"image"`
+	Package    string    `json:"package"`
+	Version    string    `json:"version"`
+	VulnID     string    `json:"vuln_id"`
+	Severity   string    `json:"severity"`
+	Summary    string    `json:"summary"`
+	Fixed      string    `json:"fixed"`
+	URL        string    `json:"url"`
+	DetectedAt time.Time `json:"detected_at"`
+}
+
+// DockerDatabase ist eine Datenbank in einem DB-Container (Bestand des letzten Checkins).
+type DockerDatabase struct {
+	ContainerID string    `json:"container_id"`
+	Container   string    `json:"container"`
+	Engine      string    `json:"engine"`
+	Name        string    `json:"name,omitempty"`
+	Collections int       `json:"collections"`
+	Error       string    `json:"error,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // Disk ist ein Volume inkl. Belegung (für die Anzeige).

@@ -6,6 +6,14 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Container security.** The agent reads os-release and the package list of every image of a running container once a day via `docker exec` (apk/dpkg/rpm); the server matches them against OSV.dev with the versioned ecosystem (Alpine 3.x, Debian 12, Ubuntu 24.04, Rocky/Alma). Results per image in the Docker tab (base OS, packages, critical/high counts, detected services such as sshd/ftpd, "not checkable" for distroless images), full list in the Vulnerabilities tab and the fleet vulnerability view ("Container images"). Button "Rescan images", command `scan_images`. Migration 0077.
+- **Database deviation (`db_change`).** In MongoDB, MySQL/MariaDB and PostgreSQL containers the agent lists databases and collection/table counts per check-in (credentials from the container environment, never transmitted). The server compares with the previous check-in and raises the incident "Database deviation": new database = warning; deleted or emptied database, ransom-style names (README/WARNING/RECOVER/…) or "data gone + note database" = critical. MITRE T1485/T1486, Active Response trigger (run script). Docker tab shows the inventory per container.
+- **Docker checks:** modes "Databases in container" (expected list, optional container filter) and "No image older than N days" (uses the new image creation timestamp).
+
+### Fixed
+- CVE scan: "Fixed in" now takes the version of the queried ecosystem/release (Ubuntu/Debian records list one entry per release; previously the first entry, often of an older release, was shown).
+
 ## [0.19.1] - 2026-11-05
 
 ### Added

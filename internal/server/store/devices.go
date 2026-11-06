@@ -346,6 +346,16 @@ func (s *Store) GetDevice(ctx context.Context, id string) (*model.Device, error)
 	if d.Images, err = s.DockerImagesFor(ctx, id); err != nil {
 		return nil, err
 	}
+	if len(d.Images) > 0 {
+		if d.ImageScans, err = s.ImageScansFor(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+	if len(d.Containers) > 0 {
+		if d.Databases, err = s.DockerDBsFor(ctx, id); err != nil {
+			return nil, err
+		}
+	}
 	if d.Temperatures, err = s.TemperaturesFor(ctx, id); err != nil {
 		return nil, err
 	}
@@ -1073,9 +1083,9 @@ func (s *Store) ReplaceDockerImages(ctx context.Context, deviceID string, images
 	now := time.Now().UTC()
 	for _, im := range images {
 		if _, err := tx.ExecContext(ctx, s.rebind(`
-			INSERT INTO docker_images (device_id, repository, tag, image_id, size, created, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`),
-			deviceID, im.Repository, im.Tag, im.ImageID, im.Size, im.Created, now); err != nil {
+			INSERT INTO docker_images (device_id, repository, tag, image_id, size, created, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+			deviceID, im.Repository, im.Tag, im.ImageID, im.Size, im.Created, im.CreatedAt, now); err != nil {
 			return err
 		}
 	}
@@ -1085,7 +1095,7 @@ func (s *Store) ReplaceDockerImages(ctx context.Context, deviceID string, images
 // DockerImagesFor liefert die lokalen Images eines Geräts.
 func (s *Store) DockerImagesFor(ctx context.Context, deviceID string) ([]model.DockerImage, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
-		SELECT repository, tag, image_id, size, created
+		SELECT repository, tag, image_id, size, created, created_at
 		FROM docker_images WHERE device_id=? ORDER BY repository, tag`), deviceID)
 	if err != nil {
 		return nil, err
@@ -1094,7 +1104,7 @@ func (s *Store) DockerImagesFor(ctx context.Context, deviceID string) ([]model.D
 	var out []model.DockerImage
 	for rows.Next() {
 		var im model.DockerImage
-		if err := rows.Scan(&im.Repository, &im.Tag, &im.ImageID, &im.Size, &im.Created); err != nil {
+		if err := rows.Scan(&im.Repository, &im.Tag, &im.ImageID, &im.Size, &im.Created, &im.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, im)

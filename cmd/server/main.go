@@ -138,6 +138,7 @@ func (p *program) Start(s service.Service) error {
 	go srv.RunBackupLoop(context.Background())
 	go srv.RunEOLLoop(context.Background())
 	go srv.RunThreatLoop(context.Background())
+	go srv.RunImageVulnLoop(context.Background())
 	go p.cveScanLoop()
 	go p.statsLoop(srv)
 
