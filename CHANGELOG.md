@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-06
+
 ### Added
 - **Container security.** The agent reads os-release and the package list of every image of a running container once a day via `docker exec` (apk/dpkg/rpm); the server matches them against OSV.dev with the versioned ecosystem (Alpine 3.x, Debian 12, Ubuntu 24.04, Rocky/Alma). Results per image in the Docker tab (base OS, packages, critical/high counts, detected services such as sshd/ftpd, "not checkable" for distroless images), full list in the Vulnerabilities tab and the fleet vulnerability view ("Container images"). Button "Rescan images", command `scan_images`. Migration 0077.
 - **Database deviation (`db_change`).** In MongoDB, MySQL/MariaDB and PostgreSQL containers the agent lists databases and collection/table counts per check-in (credentials from the container environment, never transmitted). The server compares with the previous check-in and raises the incident "Database deviation": new database = warning; deleted or emptied database, ransom-style names (README/WARNING/RECOVER/…) or "data gone + note database" = critical. MITRE T1485/T1486, Active Response trigger (run script). Docker tab shows the inventory per container.
@@ -351,7 +353,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/boonkerz/roster/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/boonkerz/roster/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/boonkerz/roster/compare/v0.18.19...v0.19.0
 [0.18.19]: https://github.com/boonkerz/roster/compare/v0.18.18...v0.18.19

@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-06
+
 ### Neu
 - **Container-Sicherheit.** Der Agent liest je Image eines laufenden Containers einmal täglich per `docker exec` os-release und Paketliste (apk/dpkg/rpm); der Server gleicht sie mit dem versionierten Ökosystem (Alpine 3.x, Debian 12, Ubuntu 24.04, Rocky/Alma) gegen OSV.dev ab. Ergebnis je Image im Docker-Tab (Basis-OS, Pakete, kritisch/hoch, erkannte Dienste wie sshd/ftpd, „nicht prüfbar“ bei distroless), vollständige Liste im Tab Schwachstellen und in der Flotten-Schwachstellenansicht („Container-Images“). Button „Images neu scannen“, Befehl `scan_images`. Migration 0077.
 - **Datenbank-Abweichung (`db_change`).** In MongoDB-, MySQL/MariaDB- und PostgreSQL-Containern listet der Agent je Checkin Datenbanken samt Collection-/Tabellenzahl (Zugangsdaten aus der Container-Umgebung, werden nie übertragen). Der Server vergleicht mit dem vorigen Checkin und meldet den Vorfall „Datenbank-Abweichung“: neue Datenbank = Warnung; gelöschte oder geleerte Datenbank, Erpresser-Namen (README/WARNING/RECOVER/…) oder „Daten weg + Hinweis-Datenbank“ = kritisch. MITRE T1485/T1486, Active-Response-Auslöser (Skript). Docker-Tab zeigt den Bestand je Container.
@@ -351,7 +353,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/boonkerz/roster/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/boonkerz/roster/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/boonkerz/roster/compare/v0.18.19...v0.19.0
 [0.18.19]: https://github.com/boonkerz/roster/compare/v0.18.18...v0.18.19
