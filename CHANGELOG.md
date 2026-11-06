@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-11-06
+
 ### Added
 - **OPNsense: agent survives firmware upgrades.** On startup the agent registers itself as OPNsense plugin `os-roster-agent`: local package built with the firewall's own `pkg` (ABI `FreeBSD:*:amd64`, fallback host ABI), local repository `/var/lib/roster/pkg` (+ `/usr/local/etc/pkg/repos/roster.conf`), entry in `config.xml` via `register.php`, service enabled via `/etc/rc.conf.d/rosteragent`. Re-run after every agent self-update. If files are missing after an upgrade, reinstall under System → Firmware → Plugins. Installer also writes `/etc/rc.conf.d/rosteragent`.
 
@@ -361,7 +363,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.2...HEAD
+[0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2
 [0.20.1]: https://github.com/boonkerz/roster/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/boonkerz/roster/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/boonkerz/roster/compare/v0.19.0...v0.19.1
