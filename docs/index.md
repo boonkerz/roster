@@ -158,10 +158,23 @@ suspicious processes and PowerShell script blocks; the registry, who changed a f
 rootkit indicators are monitored too, with ClamAV or Defender scanning changed files.
 HAProxy, Traefik, MySQL, firewall drops, the journal and Docker events feed port-scan and
 container-exec detection. 106 CIS-style compliance rules carry framework references, and
-every incident shows its MITRE ATT&CK techniques. Container images are checked for
-vulnerabilities, and database containers report new, deleted or emptied databases – the
-database ransom pattern.
+every incident shows its MITRE ATT&CK techniques.
 [Security monitoring](features/security-monitoring.md#threat-intelligence){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
+![Container security: images with vulnerabilities and services](screenshots/security-containers.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Container security
+The agent reads the packages of every running container image and matches them against
+OSV.dev with the right distro release – no Docker Scout, Trivy or registry login. Identical
+images on many hosts show up as one row, services such as sshd inside an image are flagged.
+MongoDB, MySQL and PostgreSQL containers report their database inventory: new, deleted or
+emptied databases become an incident – the database ransom pattern.
+[Container security](features/security-monitoring.md#container-security){ .rs-more }
 </div>
 </section>
 

@@ -35,7 +35,9 @@ ROSTER_DB="sqlite://$DD/demo.db" ROSTER_ADDR="127.0.0.1:$PORT" \
   ROSTER_REQUIRE_2FA=false ROSTER_SEED_ENROLL_TOKEN=demotoken ROSTER_CHECKIN_INTERVAL=5s \
   "$DD/server" run &
 sleep 3
-"$DD/agent" -config "$DD/agent.yaml" run &
+# DOCKER_HOST ins Leere: der Demo-Agent soll keine lokalen Container/Images melden
+# (Screenshots zeigen nur die geseedeten Demo-Daten).
+DOCKER_HOST=unix:///nonexistent.sock "$DD/agent" -config "$DD/agent.yaml" run &
 sleep 14  # enroll + ein paar Checkins
 
 echo "→ seed demo data…"
@@ -226,6 +228,47 @@ for h, rules in [("web-01", lin), ("db-01", lin), ("files-02", lin), ("win-01", 
     for r in rules:
         st = "fail" if r in fails[h] else "na" if r in na[h] else "pass"
         c.execute("INSERT INTO compliance_results (device_id, rule_id, status, evidence, checked_at) VALUES (?,?,?,?,?)", (D[h], r, st, fails[h].get(r, ok_ev.get(r, "")), ts(hours=1)))
+
+# Container-Sicherheit: gescannte Images (Basis-OS, Pakete, Dienste), OSV-Treffer und
+# Datenbank-Bestand in DB-Containern (Seite Sicherheit → Container).
+images = [  # (Gerät, Image-ID, Image, os, version, Name, pkg, Pakete, Dienste, Fehler)
+  ("web-01", "a1b2c3d4e5f6", "registry.example.com/shop/php-fpm:2.4", "debian", "13", "Debian GNU/Linux 13 (trixie)", "dpkg", 214, "", ""),
+  ("db-01", "a1b2c3d4e5f6", "registry.example.com/shop/php-fpm:2.4", "debian", "13", "Debian GNU/Linux 13 (trixie)", "dpkg", 214, "", ""),
+  ("web-01", "b2c3d4e5f6a1", "nginxproxy/nginx-proxy:1.6", "debian", "12", "Debian GNU/Linux 12 (bookworm)", "dpkg", 131, "", ""),
+  ("files-02", "c3d4e5f6a1b2", "atmoz/sftp:alpine", "alpine", "3.20.1", "Alpine Linux v3.20", "apk", 38, "sftp,sshd", ""),
+  ("db-01", "d4e5f6a1b2c3", "mongo:7", "ubuntu", "22.04", "Ubuntu 22.04.5 LTS", "dpkg", 130, "", ""),
+  ("db-01", "e5f6a1b2c3d4", "mariadb:11.4", "ubuntu", "24.04", "Ubuntu 24.04.1 LTS", "dpkg", 149, "", ""),
+  ("web-01", "f6a1b2c3d4e5", "redis:7-alpine", "alpine", "3.21.2", "Alpine Linux v3.21", "apk", 19, "redis", ""),
+  ("web-01", "0a1b2c3d4e5f", "ghcr.io/example/webhook:2", "", "", "", "", 0, "", "keine Shell im Image (distroless/scratch) – nicht prüfbar"),
+]
+for h, iid, img, os_, ver, name, pkg, n, svc, err in images:
+    c.execute("INSERT INTO docker_image_scans (device_id, image_id, image, os, os_version, os_name, pkg, packages, package_count, services, error, scanned_at, vuln_scanned_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              (D[h], iid, img, os_, ver, name, pkg, "[]", n, svc, err, ts(hours=3), None if err else ts(hours=2)))
+# Treffer: für das SFTP-Image echte Datensätze (Detailansicht), sonst nur Zählwerte.
+real = [("files-02", "c3d4e5f6a1b2", "atmoz/sftp:alpine", "openssh-server", "9.7_p1-r3", "CVE-2024-6387", "HIGH", "regreSSHion: signal handler race condition in sshd allows unauthenticated remote code execution", "9.7_p1-r4"),
+        ("files-02", "c3d4e5f6a1b2", "atmoz/sftp:alpine", "openssh-sftp-server", "9.7_p1-r3", "CVE-2024-6387", "HIGH", "regreSSHion: signal handler race condition in sshd allows unauthenticated remote code execution", "9.7_p1-r4"),
+        ("files-02", "c3d4e5f6a1b2", "atmoz/sftp:alpine", "libcrypto3", "3.3.1-r3", "CVE-2024-6119", "HIGH", "OpenSSL: possible denial of service in X.509 name checks", "3.3.2-r0"),
+        ("files-02", "c3d4e5f6a1b2", "atmoz/sftp:alpine", "libssl3", "3.3.1-r3", "CVE-2024-6119", "HIGH", "OpenSSL: possible denial of service in X.509 name checks", "3.3.2-r0")]
+for h, iid, img, pk, ver, vid, sev, summ, fixed in real:
+    c.execute("INSERT INTO container_vulnerabilities (device_id, image_id, image, package, version, vuln_id, severity, summary, fixed, url, detected_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+              (D[h], iid, img, pk, ver, vid, sev, summ, fixed, "https://osv.dev/vulnerability/" + vid, ts(hours=2)))
+counts = {("web-01", "a1b2c3d4e5f6"): (2, 11, 64), ("db-01", "a1b2c3d4e5f6"): (2, 11, 64), ("web-01", "b2c3d4e5f6a1"): (0, 7, 41),
+          ("db-01", "d4e5f6a1b2c3"): (0, 3, 27), ("db-01", "e5f6a1b2c3d4"): (1, 6, 52), ("web-01", "f6a1b2c3d4e5"): (0, 0, 0)}
+img_of = {(h, iid): img for h, iid, img, *_ in images}
+for (h, iid), (crit, high, total) in counts.items():
+    for i in range(total):
+        sev = "CRITICAL" if i < crit else "HIGH" if i < crit + high else random.choice(["MEDIUM", "MEDIUM", "LOW", ""])
+        c.execute("INSERT INTO container_vulnerabilities (device_id, image_id, image, package, version, vuln_id, severity, summary, fixed, url, detected_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  (D[h], iid, img_of[(h, iid)], "pkg-%02d" % i, "1.0", "DEMO-%s-%03d" % (iid[:4], i), sev, "", "", "", ts(hours=2)))
+dbs = [("db-01", "c0ffee000001", "shop-mongo", "mongo", [("shop", 14), ("admin", 1), ("config", 1), ("local", 1)], ""),
+       ("db-01", "c0ffee000002", "shop-mariadb", "mysql", [("shop", 38), ("matomo", 52)], ""),
+       ("web-01", "c0ffee000003", "cms-postgres", "postgres", [("cms", 61), ("postgres", 0)], ""),
+       ("files-02", "c0ffee000004", "legacy-mysql", "mysql", [], "Zugriff verweigert – keine passenden Zugangsdaten in der Container-Umgebung")]
+for h, cid, cname, eng, rows, err in dbs:
+    if err:
+        c.execute("INSERT INTO docker_dbs (device_id, container_id, container, engine, name, collections, error, updated_at) VALUES (?,?,?,?,?,?,?,?)", (D[h], cid, cname, eng, "", 0, err, NOW))
+    for name, n in rows:
+        c.execute("INSERT INTO docker_dbs (device_id, container_id, container, engine, name, collections, error, updated_at) VALUES (?,?,?,?,?,?,?,?)", (D[h], cid, cname, eng, name, n, "", NOW))
 db.commit(); print("demo devices:", list(D))
 PY
 

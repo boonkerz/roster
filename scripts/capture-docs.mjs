@@ -240,6 +240,10 @@ await tryShot("security-incidents", async () => { await p.goto(BASE + "/security
 await tryShot("security-auth", () => fleetTab("Anmeldungen"));
 await tryShot("security-fim", () => fleetTab("Datei-Integrität"));
 await tryShot("security-compliance", () => fleetTab("Compliance"));
+await tryShot("security-containers", async () => {
+  await fleetTab("Container");
+  await p.click(`tr.clickable:has-text("atmoz/sftp")`, { timeout: 5000 }); await wait(1200);
+});
 
 // Nav-Modals (auf einer Seite mit sichtbarer Topnav).
 await p.goto(BASE + "/devices"); await wait(1000);

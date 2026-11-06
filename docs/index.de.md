@@ -161,9 +161,22 @@ Admin-Konten, Autostarts) und Rootkit-Spuren werden ebenso überwacht, geändert
 ClamAV oder Defender geprüft. HAProxy, Traefik, MySQL, Firewall-Drops, Journal und
 Docker-Ereignisse speisen Portscan- und Container-Exec-Erkennung. 106 CIS-artige
 Compliance-Regeln tragen Framework-Referenzen, jeder Vorfall seine MITRE-ATT&CK-Techniken.
-Container-Images werden auf Schwachstellen geprüft, und Datenbank-Container melden neue,
-gelöschte oder geleerte Datenbanken – das Muster der Datenbank-Erpressung.
 [Sicherheitsüberwachung](features/security-monitoring.md#bedrohungsdaten){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
+![Container-Sicherheit: Images mit Schwachstellen und Diensten](screenshots/security-containers.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Container-Sicherheit
+Der Agent liest die Pakete jedes laufenden Container-Images und gleicht sie mit dem passenden
+Distributions-Release gegen OSV.dev ab – ohne Docker Scout, Trivy oder Registry-Anmeldung.
+Gleiche Images auf vielen Hosts erscheinen als eine Zeile, Dienste wie sshd im Image sind
+markiert. MongoDB-, MySQL- und PostgreSQL-Container melden ihren Datenbank-Bestand: Neue,
+gelöschte oder geleerte Datenbanken werden zum Vorfall – das Muster der Datenbank-Erpressung.
+[Container-Sicherheit](features/security-monitoring.md#container-sicherheit){ .rs-more }
 </div>
 </section>
 
