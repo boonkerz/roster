@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-06
+
 ### Added
 - **Security → Containers:** fleet overview of all container images (grouped across devices, critical/high and SSH/FTP/Telnet filters, expandable devices and findings) and the database inventory of all database containers, with a link to database deviations. Route `GET /security/containers`.
 
@@ -356,7 +358,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.1...HEAD
+[0.20.1]: https://github.com/boonkerz/roster/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/boonkerz/roster/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/boonkerz/roster/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/boonkerz/roster/compare/v0.18.19...v0.19.0
