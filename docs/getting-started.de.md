@@ -55,6 +55,16 @@ Agents beim nächsten Checkin das neue Binary.
     erzwingt TLS 1.2.
     Der Windows-Dienst protokolliert nach `C:\ProgramData\Roster\agent.log`.
 
+!!! tip "OPNsense: upgrade-fest als Plugin"
+    Auf OPNsense registriert sich der Agent beim Start als Plugin **os-roster-agent**: Er baut
+    mit dem `pkg` der Firewall ein lokales Paket, legt es in ein lokales Repo unter
+    `/var/lib/roster/pkg` (Definition `/usr/local/etc/pkg/repos/roster.conf`) und trägt sich in
+    die Plugin-Liste der `config.xml` ein. Der Dienst wird über `/etc/rc.conf.d/rosteragent`
+    aktiviert. Fehlt der Agent nach einem Firmware-Upgrade, unter **System → Firmware →
+    Plugins** `os-roster-agent` neu installieren bzw. *fehlende Plugins installieren*. Nach
+    einer Neuinstallation mit Konfigurationsimport fehlt das lokale Repo – dann das
+    Installationsskript erneut ausführen.
+
 ## 4. Flotte organisieren
 
 Roster nutzt eine Hierarchie **Firma → Standort → Gerät** (wie TacticalRMM):

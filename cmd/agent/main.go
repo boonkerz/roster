@@ -31,6 +31,7 @@ import (
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/fim"
 	"github.com/boonkerz/roster/internal/agent/logmon"
+	"github.com/boonkerz/roster/internal/agent/persist"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
 	"github.com/boonkerz/roster/internal/agent/response"
@@ -226,6 +227,8 @@ func (p *program) run(ctx context.Context) {
 	go p.rootcheckLoop(ctx)
 	p.imageScanNow = make(chan struct{}, 1)
 	go p.imageScanLoop(ctx)
+	// OPNsense/FreeBSD: Installation upgrade-fest machen (Plugin-Registrierung, rc.conf.d).
+	go persist.Ensure(ctx, p.log, version)
 	p.complianceNow = make(chan struct{}, 1)
 	policy.ComplianceReport = func() *shared.ComplianceReport {
 		p.mu.Lock()

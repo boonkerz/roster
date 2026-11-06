@@ -66,8 +66,12 @@ load_rc_config \$name
 run_rc_command "\$1"
 RC
 chmod +x /usr/local/etc/rc.d/rosteragent
-sysrc rosteragent_enable=YES
-service rosteragent start`;
+mkdir -p /etc/rc.conf.d
+echo 'rosteragent_enable="YES"' > /etc/rc.conf.d/rosteragent
+service rosteragent restart || service rosteragent start
+# Auf OPNsense registriert sich der Agent beim Start als Plugin „os-roster-agent“
+# (lokales Repo /var/lib/roster/pkg) – nach Firmware-Upgrades unter
+# System → Firmware → Plugins wiederherstellbar.`;
   }
 
   const archCase =

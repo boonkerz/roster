@@ -51,6 +51,15 @@ next check-in.
     application"). The install snippet works with PowerShell 3 and forces TLS 1.2.
     The Windows service logs to `C:\ProgramData\Roster\agent.log`.
 
+!!! tip "OPNsense: upgrade-proof as a plugin"
+    On OPNsense the agent registers itself as plugin **os-roster-agent** on startup: it builds a
+    local package with the firewall's own `pkg`, puts it into a local repository under
+    `/var/lib/roster/pkg` (definition `/usr/local/etc/pkg/repos/roster.conf`) and adds itself to
+    the plugin list in `config.xml`. The service is enabled via `/etc/rc.conf.d/rosteragent`. If
+    the agent is missing after a firmware upgrade, reinstall `os-roster-agent` under **System →
+    Firmware → Plugins** or use *install missing plugins*. After a fresh install with config
+    import the local repository is gone – run the install script again.
+
 ## 4. Organize your fleet
 
 Roster uses a **Company → Site → Device** hierarchy (TacticalRMM-style):

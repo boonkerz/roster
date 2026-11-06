@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- **OPNsense: Agent übersteht Firmware-Upgrades.** Der Agent registriert sich beim Start als OPNsense-Plugin `os-roster-agent`: lokales Paket, gebaut mit dem `pkg` der Firewall (ABI `FreeBSD:*:amd64`, sonst Host-ABI), lokales Repo `/var/lib/roster/pkg` (+ `/usr/local/etc/pkg/repos/roster.conf`), Eintrag in der `config.xml` per `register.php`, Dienst über `/etc/rc.conf.d/rosteragent`. Läuft nach jedem Selbst-Update erneut. Fehlen nach einem Upgrade Dateien, unter System → Firmware → Plugins neu installieren. Das Installationsskript schreibt zusätzlich `/etc/rc.conf.d/rosteragent`.
+
 ## [0.20.1] - 2026-11-06
 
 ### Neu
