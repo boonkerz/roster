@@ -4,6 +4,7 @@ package model
 import (
 	"time"
 
+	"github.com/boonkerz/roster/internal/shared"
 	"github.com/boonkerz/roster/internal/shared/mitre"
 )
 
@@ -1167,4 +1168,52 @@ type UserAPIToken struct {
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 	Revoked    bool       `json:"revoked"`
+}
+
+// Flow ist ein Ablauf aus dem Flow-Designer.
+type Flow struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Graph       shared.FlowGraph   `json:"graph"`
+	Params      []shared.FlowParam `json:"params"`
+	CreatedBy   string             `json:"created_by,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+// FlowRun ist ein Lauf eines Ablaufs (Vorschau → Test → Rollout) mit Ergebnis je Gerät.
+type FlowRun struct {
+	ID           string            `json:"id"`
+	FlowID       string            `json:"flow_id"`
+	FlowName     string            `json:"flow_name"`
+	Graph        shared.FlowGraph  `json:"graph"`
+	Params       map[string]string `json:"params"`
+	TestDeviceID string            `json:"test_device_id"`
+	StartedBy    string            `json:"started_by,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
+	Devices      []FlowRunDevice   `json:"devices"`
+}
+
+// FlowRunDevice ist das Ergebnis eines Geräts in einer Stufe.
+type FlowRunDevice struct {
+	DeviceID  string             `json:"device_id"`
+	Hostname  string             `json:"hostname"`
+	Stage     string             `json:"stage"` // preview | test | rollout
+	CommandID string             `json:"command_id"`
+	Status    string             `json:"status"` // queued | ok | fail | rolled_back | dry | nothing
+	Result    *shared.FlowResult `json:"result,omitempty"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
+// FlowRunSummary ist ein Lauf in der Verlaufsliste.
+type FlowRunSummary struct {
+	ID        string    `json:"id"`
+	FlowName  string    `json:"flow_name"`
+	StartedBy string    `json:"started_by,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	Devices   int       `json:"devices"`
+	OK        int       `json:"ok"`
+	Failed    int       `json:"failed"`
+	Pending   int       `json:"pending"`
 }

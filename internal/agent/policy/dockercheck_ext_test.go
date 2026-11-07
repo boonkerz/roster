@@ -14,7 +14,9 @@ func TestEvalDatabases(t *testing.T) {
 		{Container: "shop_db", Engine: "mongo", Name: "admin", Collections: 1},
 		{Container: "stats_db", Engine: "mysql", Error: "Zugriff verweigert"},
 	}
-	spec := func(cfg map[string]any) shared.CheckSpec { return shared.CheckSpec{ID: "c", Type: "docker", Config: cfg} }
+	spec := func(cfg map[string]any) shared.CheckSpec {
+		return shared.CheckSpec{ID: "c", Type: "docker", Config: cfg}
+	}
 	r := evalDatabases(spec(map[string]any{"mode": "databases"}), dbs)
 	if r.Status != "passing" || !strings.Contains(r.Output, "2 Datenbank(en)") || !strings.Contains(r.Output, "stats_db") {
 		t.Fatalf("ohne liste: %+v", r)

@@ -7,6 +7,7 @@ import { Devices } from "./pages/Devices";
 import { DeviceDetail } from "./pages/DeviceDetail";
 import { Policies } from "./pages/Policies";
 import { Scripts } from "./pages/Scripts";
+import { FlowEditPage, FlowRunPage, Flows } from "./pages/Flows";
 import { Patches } from "./pages/Patches";
 import { Security } from "./pages/Security";
 import { TwoFactorSetup } from "./pages/TwoFactorSetup";
@@ -43,6 +44,10 @@ export default function App() {
             <Route path="/security" element={guard("page.devices", <Security />)} />
             <Route path="/policies" element={guard("page.policies", <Policies />)} />
             <Route path="/scripts" element={guard("page.scripts", <Scripts />)} />
+            <Route path="/flows" element={hasPerm("page.scripts") || hasPerm("devices.operate") ? <Flows /> : <Navigate to={home} replace />} />
+            <Route path="/flows/new" element={guard("page.scripts", <FlowEditPage />)} />
+            <Route path="/flows/:id" element={guard("page.scripts", <FlowEditPage />)} />
+            <Route path="/flows/:id/run" element={guard("devices.operate", <FlowRunPage />)} />
             <Route path="*" element={<Navigate to={home} replace />} />
           </Routes>
         </Layout>

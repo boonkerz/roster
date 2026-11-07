@@ -182,6 +182,20 @@ gelöschte oder geleerte Datenbanken werden zum Vorfall – das Muster der Daten
 
 <section class="rs-feature rs-reverse" markdown>
 <div class="rs-feature-shot" markdown>
+![Flow-Designer](screenshots/flows-editor.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Abläufe statt Skript-Gebastel
+Ein Image in fünfzig Compose-Dateien tauschen, einen Port umstellen, eine Version aus einer API
+eintragen: Bausteine ziehen, per Linie verbinden, fertig. Der Assistent zeigt zuerst auf einem
+Server die Vorschau mit Diff, führt dann dort einen Testlauf aus und rollt danach auf die übrigen
+Geräte aus. Jede geänderte Datei bekommt ein Backup, und ein Fehler rollt automatisch zurück.
+[Abläufe](features/flows.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
 ![Netzwerk-Scan](screenshots/network-scan.png){ .shadow }
 </div>
 <div class="rs-feature-text" markdown>

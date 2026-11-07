@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- **Abläufe (Flow-Designer).** Neue Seite *Abläufe*: Bausteine (Dateien finden, Text ersetzen, Docker Compose, Befehl/Skript, API abfragen, Prüfen, Zurückrollen, Warten) auf einer Zeichenfläche (React Flow) über die Ausgänge ok/Fehler verbinden, mit Parametern und Platzhaltern (`{{param.X}}`, `{{steps.ID.value|out|json.pfad}}`, Gerätefelder). Der Agent führt den Graphen nativ aus (Befehl `run_flow`) – Vorschau als Trockenlauf mit Diffs auf einem Server, Testlauf auf diesem Server, danach Rollout auf Firma/Standort/Tag/alle oder die betroffenen Geräte. Backup je Datei, automatisches Zurückrollen bei unverbundenem Fehler-Ausgang, Lauf-Verlauf. Vorlagen: *Image in Compose ersetzen* (auch aus *Sicherheit → Container*: „Image ersetzen …“), *Wert in Datei ersetzen und Dienste neu starten*, *API abfragen und Wert eintragen*. Migration 0078.
+
 ## [0.20.2] - 2026-11-06
 
 ### Neu

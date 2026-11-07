@@ -120,6 +120,10 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   brew); roll out to a device / client / site / tag.
 - **Vulnerability scan (CVE)** – match installed software against **OSV.dev**; per-device
   tab + fleet overview + daily background scan (best coverage for Linux packages).
+- **Flows (flow designer)** – connect blocks (find files, replace text, Docker Compose, command,
+  query API, check, roll back, wait) on a canvas; the agent runs them natively with a dry-run
+  preview and diff on one server, a test run, then rollout to companies/sites/tags. Backups per
+  file and automatic rollback on failure; templates e.g. *Replace image in Compose*.
 - **Container security** – packages of every running container image (apk/dpkg/rpm, read via
   `docker exec`) matched against OSV.dev with the right distro release, services such as sshd
   flagged, fleet view under *Security → Containers*; database inventory of MongoDB,
@@ -338,6 +342,11 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   brew); Ausrollen auf Gerät / Client / Standort / Tag.
 - **Schwachstellen-Scan (CVE)** – Abgleich installierter Software gegen **OSV.dev**;
   Tab je Gerät + Flotten-Übersicht + täglicher Hintergrund-Scan (beste Abdeckung: Linux).
+- **Abläufe (Flow-Designer)** – Bausteine (Dateien finden, Text ersetzen, Docker Compose, Befehl,
+  API abfragen, Prüfen, Zurückrollen, Warten) auf einer Zeichenfläche verbinden; der Agent führt
+  sie nativ aus – mit Vorschau samt Diff auf einem Server, Testlauf und Rollout auf Firmen/Standorte/
+  Tags. Backup je Datei und automatisches Zurückrollen bei Fehlern; Vorlagen wie *Image in Compose
+  ersetzen*.
 - **Container-Sicherheit** – Pakete jedes laufenden Container-Images (apk/dpkg/rpm, per
   `docker exec` gelesen) gegen OSV.dev mit passendem Distributions-Release, Dienste wie sshd
   markiert, Flottenansicht unter *Sicherheit → Container*; Datenbank-Bestand von MongoDB-,

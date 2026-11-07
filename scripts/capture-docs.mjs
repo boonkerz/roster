@@ -240,6 +240,43 @@ await tryShot("security-incidents", async () => { await p.goto(BASE + "/security
 await tryShot("security-auth", () => fleetTab("Anmeldungen"));
 await tryShot("security-fim", () => fleetTab("Datei-Integrität"));
 await tryShot("security-compliance", () => fleetTab("Compliance"));
+// Abläufe: Editor mit Beispiel-Ablauf und Assistent mit Vorschau auf dem lokalen Agent.
+if (process.env.FLOW_DIR) {
+  const D = process.env.FLOW_DIR;
+  const seeded = ["web-01", "db-01", "win-01", "files-02", "mac-studio"];
+  const agentDev = (await api("GET", "/devices")).find((d) => !seeded.includes(d.hostname));
+  const n = (id, type, label, x, y, config) => ({ id, type, label: L(label), x, y, config });
+  const flow = await api("POST", "/flows", {
+    name: L("Port und Image umstellen"), description: "", params: [],
+    graph: {
+      nodes: [
+        n("find", "find_files", "Dateien finden", 0, 0, { mode: "paths", paths: D + "/*.yml" }),
+        n("port", "replace", "Wert ersetzen", 0, 130, { search: '"8000:8000"', replace: '"80:8000"' }),
+        n("img", "replace", "Image ersetzen", 0, 260, { search: "jrcs/letsencrypt-nginx-proxy-companion", replace: "nginxproxy/acme-companion", line_filter: "image:" }),
+        n("up", "compose", "Projekt neu starten", 0, 390, { action: "up", dir: D, all_services: true }),
+        n("chk", "check", "Port erreichbar", 0, 520, { kind: "tcp", host: "127.0.0.1", port: "80", retries: 5, interval_s: 5 }),
+        n("rb", "rollback", "Zurückrollen", 340, 455, { compose_up: true }),
+      ],
+      edges: [
+        { from: "find", port: "ok", to: "port" }, { from: "port", port: "ok", to: "img" }, { from: "img", port: "ok", to: "up" },
+        { from: "up", port: "ok", to: "chk" }, { from: "up", port: "fail", to: "rb" }, { from: "chk", port: "fail", to: "rb" },
+      ],
+    },
+  });
+  await tryShot("flows-editor", async () => {
+    await p.goto(BASE + "/flows/" + flow.id); await wait(1800);
+    await p.click('.flow-node:has-text("' + L("Image ersetzen") + '")', { timeout: 5000 }); await wait(600);
+  });
+  if (agentDev) {
+    const run = await api("POST", "/flows/" + flow.id + "/runs", { params: {}, device_id: agentDev.id });
+    await tryShot("flows-run", async () => {
+      await p.goto(BASE + "/flows/" + flow.id + "/run?run=" + run.id);
+      await p.waitForSelector('button:has-text("' + L("Auf Testserver ausführen") + '")', { timeout: 60000 });
+      await p.evaluate(() => { const s = document.querySelectorAll(".flow-wizard section")[1]; if (s) window.scrollTo(0, s.getBoundingClientRect().top + window.scrollY - 80); });
+      await wait(500);
+    });
+  }
+}
 await tryShot("security-containers", async () => {
   await fleetTab("Container");
   await p.click(`tr.clickable:has-text("atmoz/sftp")`, { timeout: 5000 }); await wait(1200);

@@ -31,6 +31,7 @@ import (
 	agentcfg "github.com/boonkerz/roster/internal/agent/config"
 	"github.com/boonkerz/roster/internal/agent/fim"
 	"github.com/boonkerz/roster/internal/agent/logmon"
+	"github.com/boonkerz/roster/internal/agent/flow"
 	"github.com/boonkerz/roster/internal/agent/persist"
 	"github.com/boonkerz/roster/internal/agent/policy"
 	"github.com/boonkerz/roster/internal/agent/remote"
@@ -484,6 +485,10 @@ func (p *program) runPolicy(ctx context.Context) {
 				exit = -1
 				output = "Nicht unterstützt auf diesem Betriebssystem (" + runtime.GOOS + ")"
 			}
+		case "run_flow":
+			// Abläufe (Flow-Designer) können lange dauern (pull/up) -> asynchron.
+			go p.runFlow(ctx, cmd.ID, cmd.Payload)
+			continue
 		case "scan_updates":
 			// Die Update-Suche kann auf alten Windows-Servern Stunden dauern -> asynchron.
 			go p.scanUpdates(ctx, cmd.ID)
@@ -1565,4 +1570,48 @@ func (p *program) imageScanLoop(ctx context.Context) {
 			run()
 		}
 	}
+}
+
+// runFlow führt einen Ablauf aus dem Flow-Designer aus und meldet das Ergebnis (JSON) als
+// Befehlsausgabe. Exit 0 = ok/Vorschau/nicht betroffen, 1 = fehlgeschlagen, 2 = zurückgerollt.
+func (p *program) runFlow(ctx context.Context, cmdID string, payload map[string]any) {
+	var g shared.FlowGraph
+	if b, err := json.Marshal(payload["graph"]); err == nil {
+		_ = json.Unmarshal(b, &g)
+	}
+	params := map[string]string{}
+	if m, ok := payload["params"].(map[string]any); ok {
+		for k, v := range m {
+			if s, ok := v.(string); ok {
+				params[k] = s
+			}
+		}
+	}
+	dry, _ := payload["dry_run"].(bool)
+	runID, _ := payload["run_id"].(string)
+	if runID == "" {
+		runID = cmdID
+	}
+	p.log.Info("ablauf gestartet", "command", cmdID, "vorschau", dry, "bausteine", len(g.Nodes))
+	res := flow.Run(ctx, g, flow.Options{RunID: runID, DryRun: dry, Params: params,
+		RunScript: func(c context.Context, shell, script string) (int, string) {
+			code, out, ok := policy.RunScriptEnv(c, shell, script, nil, nil)
+			if !ok {
+				return -1, "Nicht unterstützt auf diesem Betriebssystem (" + runtime.GOOS + ")"
+			}
+			return code, out
+		}})
+	exit := 0
+	switch res.Status {
+	case "fail":
+		exit = 1
+	case "rolled_back":
+		exit = 2
+	}
+	out, _ := json.Marshal(res)
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{CommandID: cmdID, ExitCode: exit, Output: string(out), RanAt: time.Now().UTC()})
+	p.mu.Unlock()
+	p.log.Info("ablauf beendet", "command", cmdID, "status", res.Status)
+	p.requestCheckin()
 }

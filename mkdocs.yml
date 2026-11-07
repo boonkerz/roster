@@ -63,6 +63,7 @@ plugins:
             Roles & permissions: Rollen & Berechtigungen
             Network & discovery: Netzwerk & Erkennung
             Patching & software: Patches & Software
+            Flows: Abläufe
             Alerting & reports: Alarme & Berichte
             Security monitoring: Sicherheitsüberwachung
             Configuration: Konfiguration
@@ -99,6 +100,7 @@ nav:
       - Roles & permissions: features/permissions.md
       - Network & discovery: features/network.md
       - Patching & software: features/patching.md
+      - Flows: features/flows.md
       - Alerting & reports: features/alerting.md
       - Security monitoring: features/security-monitoring.md
   - Configuration: configuration.md

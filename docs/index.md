@@ -180,6 +180,20 @@ emptied databases become an incident – the database ransom pattern.
 
 <section class="rs-feature rs-reverse" markdown>
 <div class="rs-feature-shot" markdown>
+![Flow designer](screenshots/flows-editor.png){ .shadow }
+</div>
+<div class="rs-feature-text" markdown>
+### Flows instead of script hacks
+Swap an image in fifty Compose files, change a port, write a version from an API: drag blocks,
+connect them with lines, done. The wizard first shows a preview with diffs on one server, then runs
+a test there and finally rolls out to the other devices. Every changed file gets a backup, and a
+failure rolls back automatically.
+[Flows](features/flows.md){ .rs-more }
+</div>
+</section>
+
+<section class="rs-feature" markdown>
+<div class="rs-feature-shot" markdown>
 ![Network scan](screenshots/network-scan.png){ .shadow }
 </div>
 <div class="rs-feature-text" markdown>

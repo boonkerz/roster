@@ -1078,3 +1078,63 @@ export interface DashWidget {
   width?: DashWidth;      // Spalten von 4 (Standard 2 = halbe Zeile)
 }
 export type DashWidth = 1 | 2 | 3 | 4;
+
+// --- Abläufe (Flow-Designer) ---
+export type FlowNodeType = "find_files" | "replace" | "compose" | "command" | "http" | "check" | "rollback" | "wait";
+export interface FlowNodeDef {
+  id: string;
+  type: FlowNodeType;
+  label?: string;
+  config?: Record<string, string | number | boolean>;
+  x?: number;
+  y?: number;
+}
+export interface FlowEdgeDef { from: string; port: "ok" | "fail"; to: string }
+export interface FlowGraph { nodes: FlowNodeDef[]; edges: FlowEdgeDef[] }
+export interface FlowParam { name: string; label?: string; default?: string; required?: boolean }
+export interface Flow {
+  id: string;
+  name: string;
+  description: string;
+  graph: FlowGraph;
+  params: FlowParam[];
+  created_by?: string;
+  updated_at: string;
+}
+export interface FlowTemplate { key: string; name: string; description: string; graph: FlowGraph; params: FlowParam[] }
+export interface FlowNodeResult {
+  id: string;
+  type: string;
+  label?: string;
+  status: "ok" | "fail" | "dry" | "empty" | "skipped";
+  output?: string;
+  diff?: string;
+  files?: string[];
+  duration_ms: number;
+}
+export interface FlowResult {
+  status: "ok" | "fail" | "rolled_back" | "dry" | "nothing";
+  nodes: FlowNodeResult[];
+  rolled_back?: string[];
+  error?: string;
+}
+export interface FlowRunDevice {
+  device_id: string;
+  hostname: string;
+  stage: "preview" | "test" | "rollout";
+  command_id: string;
+  status: "queued" | "ok" | "fail" | "rolled_back" | "dry" | "nothing";
+  result?: FlowResult;
+  updated_at: string;
+}
+export interface FlowRun {
+  id: string;
+  flow_id: string;
+  flow_name: string;
+  params: Record<string, string>;
+  test_device_id: string;
+  started_by?: string;
+  created_at: string;
+  devices: FlowRunDevice[];
+}
+export interface FlowRunSummary { id: string; flow_name: string; started_by?: string; created_at: string; devices: number; ok: number; failed: number; pending: number }

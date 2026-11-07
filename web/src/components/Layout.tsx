@@ -68,6 +68,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {hasPerm("page.devices") && <NavLink to="/security">{t("Sicherheit")}{openIncidents > 0 && <span className="tab-count tab-count-bad" style={{ marginLeft: 6 }}>{openIncidents}</span>}</NavLink>}
           {hasPerm("page.policies") && <NavLink to="/policies">{t("Richtlinien")}</NavLink>}
           {hasPerm("page.scripts") && <NavLink to="/scripts">{t("Skripte")}</NavLink>}
+          {(hasPerm("page.scripts") || hasPerm("devices.operate")) && <NavLink to="/flows">{t("Abläufe")}</NavLink>}
           {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("groups")}>{t("Tags")}</button>}
           {hasPerm("page.devices") && <button className="navbtn" onClick={() => setModal("vulns")}>{t("Schwachstellen")}</button>}
           {canOperate && <button className="navbtn" onClick={() => setModal("bulk")}>{t("Sammelaktion")}</button>}

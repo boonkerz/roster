@@ -272,6 +272,21 @@ for h, cid, cname, eng, rows, err in dbs:
 db.commit(); print("demo devices:", list(D))
 PY
 
+# Demo-Projekt für die Abläufe-Screenshots (Vorschau auf dem lokalen Agent ändert nichts).
+FLOW_DIR="$DD/opt/shop"; mkdir -p "$FLOW_DIR"
+cat > "$FLOW_DIR/docker-compose.yml" <<'YML'
+services:
+  proxy:
+    image: nginxproxy/nginx-proxy
+    ports:
+      - "8000:8000"
+  companion:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    volumes_from:
+      - proxy
+YML
+export FLOW_DIR
+
 for lang in en de; do
   echo "→ capture ($lang) → $OUT …"
   ( cd web && node ../scripts/capture-docs.mjs "http://127.0.0.1:$PORT" "../$OUT" "$lang" )

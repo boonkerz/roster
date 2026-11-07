@@ -182,6 +182,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		}
 		s.importNetworkScans(r.Context(), req.CommandResults)
 		s.completeBackupRuns(r.Context(), req.CommandResults)
+		s.completeFlowRuns(r.Context(), req.CommandResults)
 		s.completeResponses(r.Context(), req.CommandResults)
 	}
 	policy, err := s.store.EffectivePolicy(r.Context(), device.ID)

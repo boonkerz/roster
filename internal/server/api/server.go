@@ -305,9 +305,29 @@ func (s *Server) routes() http.Handler {
 						r.Post("/devices/{id}/write-file", s.handleWriteFile)
 					})
 
+					// --- Abläufe (Flow-Designer) lesen ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePermAny(model.PermScripts, model.PermDevicesOperate))
+						r.Get("/flows", s.handleListFlows)
+						r.Get("/flows/templates", s.handleFlowTemplates)
+						r.Get("/flows/{id}", s.handleGetFlow)
+						r.Get("/flows/{id}/runs", s.handleListFlowRuns)
+						r.Get("/flow-runs/{id}", s.handleGetFlowRun)
+					})
+					// --- Abläufe ausführen (devices.operate) ---
+					r.Group(func(r chi.Router) {
+						r.Use(s.requirePerm(model.PermDevicesOperate))
+						r.Post("/flows/{id}/runs", s.handleStartFlowRun)
+						r.Post("/flow-runs/{id}/test", s.handleFlowRunTest)
+						r.Post("/flow-runs/{id}/rollout", s.handleFlowRunRollout)
+					})
+
 					// --- Skripte verwalten (page.scripts) ---
 					r.Group(func(r chi.Router) {
 						r.Use(s.requirePerm(model.PermScripts))
+						r.Post("/flows", s.handleSaveFlow)
+						r.Put("/flows/{id}", s.handleSaveFlow)
+						r.Delete("/flows/{id}", s.handleDeleteFlow)
 						r.Post("/scripts", s.handleCreateScript)
 						r.Put("/scripts/{id}", s.handleUpdateScript)
 						r.Delete("/scripts/{id}", s.handleDeleteScript)

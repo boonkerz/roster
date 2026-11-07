@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import type { ContainerVulnerability, FleetContainers as FleetData, FleetImageRow } from "../types";
+import type { ContainerVulnerability, FleetContainers as FleetData, FleetImageRow, Flow, FlowTemplate } from "../types";
 import { sevClass } from "./Vulnerabilities";
+import { localizeTemplate } from "../flows/nodeTypes";
 
 const ENGINE: Record<string, string> = { mongo: "MongoDB", mysql: "MySQL/MariaDB", postgres: "PostgreSQL" };
 const RISKY_SERVICES = new Set(["sshd", "telnetd/ftpd (busybox-extras)", "telnetd", "ftpd"]);
@@ -123,8 +125,32 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
     enabled: !!dev && row.vulns > 0,
   });
   const vulns = (data ?? []).filter((v) => v.image === row.image);
+  const nav = useNavigate();
+  const { hasPerm } = useAuth();
+  const [busy, setBusy] = useState(false);
+  // replaceImage öffnet den Ablauf „Image in Compose ersetzen“ (legt ihn bei Bedarf aus der
+  // Vorlage an) mit altem Image, Vorschau-Server und betroffenen Geräten vorbelegt.
+  const replaceImage = async () => {
+    setBusy(true);
+    try {
+      const flows = await api.get<Flow[]>("/flows");
+      let f = flows.find((x) => x.graph.nodes.some((n) => n.type === "find_files" && n.config?.mode === "compose_image" && n.config?.image === "{{param.FROM}}") && x.params.some((p) => p.name === "TO"));
+      if (!f && hasPerm("page.scripts")) {
+        const tpl = (await api.get<FlowTemplate[]>("/flows/templates")).find((x) => x.key === "compose_image");
+        if (tpl) f = await api.post<Flow>("/flows", localizeTemplate(tpl, t));
+      }
+      if (!f) { window.alert(t("Kein Ablauf „Image in Compose ersetzen“ vorhanden – bitte unter Abläufe aus der Vorlage anlegen.")); return; }
+      const from = row.image.replace(/@.*$/, "").replace(/:[^/:]*$/, "");
+      const q = new URLSearchParams({ "p.FROM": from, device: row.devices[0] ?? "", devices: row.devices.join(",") });
+      nav(`/flows/${f.id}/run?${q.toString()}`);
+    } finally { setBusy(false); }
+  };
   return (
     <div style={{ padding: "4px 0 8px" }}>
+      {hasPerm("devices.operate") && !row.error && (
+        <button className="btn ghost sm" style={{ float: "right" }} disabled={busy} onClick={replaceImage}
+          title={t("Öffnet den Ablauf „Image in Compose ersetzen“: Vorschau auf einem Server, Testlauf, dann alle betroffenen Geräte.")}>{t("Image ersetzen …")}</button>
+      )}
       <div className="small" style={{ marginBottom: 6 }}>
         <span className="muted">{t("Geräte")}: </span>
         {row.devices.map((id, i) => <span key={id}>{i > 0 && ", "}<Link to={`/devices/${id}?tab=docker`}>{row.hostnames[i] || id}</Link></span>)}
