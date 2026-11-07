@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.5] - 2026-11-07
+
 ### Fixed
 - Container security: image scans and their vulnerabilities are removed on every check-in as soon as no container (running or stopped) uses the image anymore – e.g. the old `jrcs/letsencrypt-nginx-proxy-companion` after switching, which still exists locally until `docker image prune`. Previously they stayed under *Security → Containers* until the image itself was deleted; hosts without any containers/images now drop all scans and database inventories too.
 
@@ -391,7 +393,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.4...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.5...HEAD
+[0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5
 [0.21.4]: https://github.com/boonkerz/roster/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/boonkerz/roster/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/boonkerz/roster/compare/v0.21.1...v0.21.2
