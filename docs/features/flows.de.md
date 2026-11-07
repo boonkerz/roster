@@ -51,7 +51,9 @@ und stellt **automatisch** alle bis dahin geänderten Dateien wieder her.
    aus – die betroffenen Geräte. Die Tabelle zeigt den Stand je Gerät; Geräte ohne Treffer
    erscheinen als *nicht betroffen*.
 
-Unter **Abläufe → Läufe** stehen frühere Läufe mit ihren Ergebnissen.
+Unter **Abläufe → Läufe** stehen frühere Läufe mit ihren Ergebnissen; einzelne Läufe lassen sich
+löschen. **Kopieren** (in der Liste oder im Editor) legt einen Ablauf als Ausgangspunkt für eine
+Variante an – im Editor auch mit noch ungespeicherten Änderungen.
 
 ## Vorlagen
 

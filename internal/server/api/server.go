@@ -328,6 +328,8 @@ func (s *Server) routes() http.Handler {
 						r.Post("/flows", s.handleSaveFlow)
 						r.Put("/flows/{id}", s.handleSaveFlow)
 						r.Delete("/flows/{id}", s.handleDeleteFlow)
+						r.Post("/flows/{id}/copy", s.handleCopyFlow)
+						r.Delete("/flow-runs/{id}", s.handleDeleteFlowRun)
 						r.Post("/scripts", s.handleCreateScript)
 						r.Put("/scripts/{id}", s.handleUpdateScript)
 						r.Delete("/scripts/{id}", s.handleDeleteScript)

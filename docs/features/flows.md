@@ -50,7 +50,9 @@ are `{{param.FROM}}`.
 3. **Roll out** to a company, a site, a tag, all devices or – from the Containers tab – the affected
    devices. The table shows the state per device; devices without matches appear as *not affected*.
 
-**Flows → Runs** lists earlier runs with their results.
+**Flows → Runs** lists earlier runs with their results; single runs can be deleted. **Copy** (in the
+list or in the editor) creates a flow as the starting point for a variant – in the editor including
+unsaved changes.
 
 ## Templates
 

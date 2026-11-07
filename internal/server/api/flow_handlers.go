@@ -333,3 +333,37 @@ func (s *Server) completeFlowRuns(ctx context.Context, results []shared.CommandR
 		}
 	}
 }
+
+// handleCopyFlow legt eine Kopie eines Ablaufs an („Name (Kopie)“).
+func (s *Server) handleCopyFlow(w http.ResponseWriter, r *http.Request) {
+	src, err := s.store.GetFlow(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = src.Name + " (Kopie)"
+	}
+	f := &model.Flow{Name: name, Description: src.Description, Graph: src.Graph, Params: src.Params}
+	if u := userFrom(r.Context()); u != nil {
+		f.CreatedBy = u.Username
+	}
+	if err := s.store.SaveFlow(r.Context(), f); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusCreated, f)
+}
+
+func (s *Server) handleDeleteFlowRun(w http.ResponseWriter, r *http.Request) {
+	if err := s.store.DeleteFlowRun(r.Context(), chi.URLParam(r, "id")); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

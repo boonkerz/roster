@@ -57,7 +57,7 @@ function fromRF(nodes: FNode[], edges: Edge[]): FlowGraph {
 }
 
 // FlowEditor bearbeitet einen Ablauf: Palette, Zeichenfläche, Eigenschaften, Parameter.
-export function FlowEditor({ flow, onSaved, onCancel }: { flow: Partial<Flow>; onSaved: (f: Flow) => void; onCancel: () => void }) {
+export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { flow: Partial<Flow>; onSaved: (f: Flow) => void; onCancel: () => void; onCopied?: (f: Flow) => void; onDeleted?: () => void }) {
   const { t } = useI18n();
   const { theme } = useTheme();
   const qc = useQueryClient();
@@ -119,6 +119,18 @@ export function FlowEditor({ flow, onSaved, onCancel }: { flow: Partial<Flow>; o
     onError: (e) => setErr(e instanceof ApiError ? e.message : t("Speichern fehlgeschlagen")),
   });
 
+  // Kopie: speichert den aktuellen Stand des Editors als neuen Ablauf.
+  const copy = useMutation({
+    mutationFn: () => api.post<Flow>("/flows", { name: `${name || flow.name || ""} (${t("Kopie")})`, description, params: params.filter((p) => p.name.trim()), graph: fromRF(nodes, edges) }),
+    onSuccess: (f) => { setErr(""); qc.invalidateQueries({ queryKey: ["flows"] }); onCopied?.(f); },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t("Speichern fehlgeschlagen")),
+  });
+  const del = useMutation({
+    mutationFn: () => api.del(`/flows/${flow.id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["flows"] }); onDeleted?.(); },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t("Fehler")),
+  });
+
   const fieldInput = (f: FieldDef, cfg: Record<string, string | number | boolean>) => {
     const v = cfg[f.key];
     if (f.kind === "bool") {
@@ -145,6 +157,8 @@ export function FlowEditor({ flow, onSaved, onCancel }: { flow: Partial<Flow>; o
           <input placeholder={t("Beschreibung (optional)")} value={description} onChange={(e) => setDescription(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
           <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>{t("Speichern")}</button>
           <button className="btn ghost" onClick={onCancel}>{t("Abbrechen")}</button>
+          {flow.id && <button className="btn ghost" disabled={copy.isPending} onClick={() => copy.mutate()} title={t("Speichert den aktuellen Stand als neuen Ablauf")}>{t("Kopieren")}</button>}
+          {flow.id && <button className="btn ghost danger" disabled={del.isPending} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: flow.name ?? "" })) && del.mutate()}>{t("Löschen")}</button>}
         </div>
         {err && <p className="error small" style={{ marginBottom: 0 }}>{err}</p>}
         <details style={{ marginTop: 8 }} open={params.length > 0}>

@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Flows: **copy** a flow (list and editor, "Name (copy)"; in the editor the current, unsaved state is copied) and **delete single runs** from the run history. Route `POST /flows/{id}/copy`, `DELETE /flow-runs/{id}`.
+
 ## [0.21.1] - 2026-11-07
 
 ### Fixed

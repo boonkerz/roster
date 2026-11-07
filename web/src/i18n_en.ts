@@ -1705,4 +1705,7 @@ export const EN: Record<string, string> = {
   "— Server wählen —": "— choose server —",
   "— eigener Befehl —": "— own command —",
   "Port und Image umstellen": "Switch port and image",
+  "Kopie": "copy",
+  "Lauf vom {date} löschen?": "Delete run from {date}?",
+  "Speichert den aktuellen Stand als neuen Ablauf": "Saves the current state as a new flow",
 };

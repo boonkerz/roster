@@ -21,6 +21,7 @@ export function Flows() {
   const { data: templates } = useQuery({ queryKey: ["flow-templates"], queryFn: () => api.get<FlowTemplate[]>("/flows/templates") });
   const [open, setOpen] = useState<string | null>(null);
   const del = useMutation({ mutationFn: (id: string) => api.del(`/flows/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["flows"] }) });
+  const copy = useMutation({ mutationFn: (f: Flow) => api.post<Flow>(`/flows/${f.id}/copy`, { name: `${f.name} (${t("Kopie")})` }), onSuccess: () => qc.invalidateQueries({ queryKey: ["flows"] }) });
 
   return (
     <div className="page wide">
@@ -55,6 +56,7 @@ export function Flows() {
                   <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                     {canRun && <button className="btn primary sm" onClick={() => nav(`/flows/${f.id}/run`)}>{t("Ausführen")}</button>}
                     {canEdit && <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => nav(`/flows/${f.id}`)}>{t("Bearbeiten")}</button>}
+                    {canEdit && <button className="btn ghost sm" style={{ marginLeft: 4 }} disabled={copy.isPending} onClick={() => copy.mutate(f)}>{t("Kopieren")}</button>}
                     <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => setOpen(open === f.id ? null : f.id)}>{t("Läufe")}</button>
                     {canEdit && <button className="btn ghost sm danger" style={{ marginLeft: 4 }} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: f.name })) && del.mutate(f.id)}>{t("Löschen")}</button>}
                   </td>
@@ -71,7 +73,10 @@ export function Flows() {
 
 function FlowRuns({ flowId }: { flowId: string }) {
   const { t } = useI18n();
+  const qc = useQueryClient();
+  const { hasPerm } = useAuth();
   const { data } = useQuery({ queryKey: ["flow-runs", flowId], queryFn: () => api.get<FlowRunSummary[]>(`/flows/${flowId}/runs`) });
+  const delRun = useMutation({ mutationFn: (id: string) => api.del(`/flow-runs/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["flow-runs", flowId] }) });
   if (!data) return null;
   if (data.length === 0) return <p className="muted small">{t("Noch keine Läufe.")}</p>;
   return (
@@ -83,7 +88,8 @@ function FlowRuns({ flowId }: { flowId: string }) {
             <td className="small">{new Date(r.created_at).toLocaleString()}</td>
             <td className="small">{r.started_by || "—"}</td>
             <td>{r.devices}</td><td>{r.ok}</td><td>{r.failed > 0 ? <span className="badge badge-offline">{r.failed}</span> : 0}</td><td>{r.pending}</td>
-            <td><Link to={`/flows/${flowId}/run?run=${r.id}`}>{t("Öffnen")} →</Link></td>
+            <td style={{ whiteSpace: "nowrap" }}><Link to={`/flows/${flowId}/run?run=${r.id}`}>{t("Öffnen")} →</Link>
+              {hasPerm("page.scripts") && <button className="btn ghost sm danger" style={{ marginLeft: 8 }} onClick={() => window.confirm(t("Lauf vom {date} löschen?", { date: new Date(r.created_at).toLocaleString() })) && delRun.mutate(r.id)}>{t("Löschen")}</button>}</td>
           </tr>
         ))}
       </tbody>
@@ -111,7 +117,8 @@ export function FlowEditPage() {
           <h1 style={{ margin: 0 }}>{isNew ? t("Neuer Ablauf") : t("Ablauf bearbeiten")}</h1>
         </div>
       </header>
-      {start ? <FlowEditor key={id ?? "new"} flow={start} onSaved={(f) => nav(`/flows/${f.id}`, { replace: true })} onCancel={() => nav("/flows")} /> : <p className="muted">{t("Lädt …")}</p>}
+      {start ? <FlowEditor key={id ?? "new"} flow={start} onSaved={(f) => nav(`/flows/${f.id}`, { replace: true })} onCancel={() => nav("/flows")}
+        onCopied={(f) => nav(`/flows/${f.id}`)} onDeleted={() => nav("/flows")} /> : <p className="muted">{t("Lädt …")}</p>}
     </div>
   );
 }

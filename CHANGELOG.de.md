@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Abläufe: Ablauf **kopieren** (Liste und Editor, „Name (Kopie)“; im Editor wird der aktuelle, auch ungespeicherte Stand kopiert) und **einzelne Läufe löschen** im Lauf-Verlauf. Route `POST /flows/{id}/copy`, `DELETE /flow-runs/{id}`.
+
 ## [0.21.1] - 2026-11-07
 
 ### Behoben

@@ -196,3 +196,18 @@ func (s *Store) ListFlowRuns(ctx context.Context, flowID string, limit int) ([]m
 	}
 	return out, rows.Err()
 }
+
+// DeleteFlowRun löscht einen Lauf samt Geräte-Ergebnissen.
+func (s *Store) DeleteFlowRun(ctx context.Context, id string) error {
+	if _, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM flow_run_devices WHERE run_id=?`), id); err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM flow_runs WHERE id=?`), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
