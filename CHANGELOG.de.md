@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-11-07
+
 ### Geändert
 - Abläufe: *Dateien finden* trifft nie die eigenen Backups (`*.roster-bak-*`, `*.roster-tmp`) – bisher erfasste ein Muster wie `verzeichnis/*` sie beim zweiten Lauf. *Text ersetzen* ohne Treffer **beendet den Ablauf jetzt ohne Fehler** (Status „nicht betroffen“: Gerät schon umgestellt), pull/up/Neustart entfallen; die Option „Weitermachen, auch wenn nichts ersetzt wurde“ behält das alte Verhalten.
 
@@ -381,7 +383,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.3...HEAD
+[0.21.3]: https://github.com/boonkerz/roster/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/boonkerz/roster/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0

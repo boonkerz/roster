@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-11-07
+
 ### Changed
 - Flows: *Find files* never matches the flow's own backups (`*.roster-bak-*`, `*.roster-tmp`) – previously a pattern like `dir/*` picked them up on a second run. *Replace text* without any match now **ends the flow without error** (status "not affected": device already switched), so pull/up/restart are skipped; option "Continue even if nothing was replaced" keeps the old behaviour.
 
@@ -381,7 +383,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.3...HEAD
+[0.21.3]: https://github.com/boonkerz/roster/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/boonkerz/roster/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
