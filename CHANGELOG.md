@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-11-07
+
 ### Fixed
 - Flows: the *Docker Compose* block now also works after *Find files* in path mode – compose files among the matches (docker-compose*.yml, compose*.yaml) become the project (name from the labels of running containers in that directory, otherwise the directory name). Previously the preview failed with "no Compose project known".
 
@@ -371,7 +373,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.1...HEAD
+[0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
 [0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2
 [0.20.1]: https://github.com/boonkerz/roster/compare/v0.20.0...v0.20.1

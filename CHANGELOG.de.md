@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-11-07
+
 ### Behoben
 - Abläufe: Der Baustein *Docker Compose* funktioniert jetzt auch nach *Dateien finden* im Pfad-Modus – Compose-Dateien unter den Treffern (docker-compose*.yml, compose*.yaml) werden zum Projekt (Name aus den Labels laufender Container im Verzeichnis, sonst der Ordnername). Bisher brach die Vorschau mit „kein Compose-Projekt bekannt“ ab.
 
@@ -371,7 +373,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.1...HEAD
+[0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
 [0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2
 [0.20.1]: https://github.com/boonkerz/roster/compare/v0.20.0...v0.20.1
