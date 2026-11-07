@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Flows: the *Docker Compose* block now also works after *Find files* in path mode – compose files among the matches (docker-compose*.yml, compose*.yaml) become the project (name from the labels of running containers in that directory, otherwise the directory name). Previously the preview failed with "no Compose project known".
+
 ## [0.21.0] - 2026-11-07
 
 ### Added

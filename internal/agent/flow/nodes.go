@@ -20,9 +20,10 @@ import (
 
 // --- Docker Compose ---
 
-// composeTargets ermittelt die Projekte: explizites Verzeichnis (dir, optional files) oder die
-// Projekte des letzten Schritts mit Compose-Infos.
-func (r *runner) composeTargets(c config) []composeProject {
+// composeTargets ermittelt die Projekte: explizites Verzeichnis (dir, optional files), die
+// Projekte des letzten Schritts mit Compose-Infos oder – wenn „Dateien finden“ per Pfad lief –
+// die Compose-Dateien unter dessen Treffern.
+func (r *runner) composeTargets(ctx context.Context, c config) []composeProject {
 	if dir := strings.TrimSpace(c.str("dir")); dir != "" {
 		p := composeProject{Dir: dir}
 		for _, f := range lines(c.str("compose_files")) {
@@ -34,9 +35,67 @@ func (r *runner) composeTargets(c config) []composeProject {
 		return []composeProject{p}
 	}
 	if r.last != nil {
-		return r.last.Projects
+		if len(r.last.Projects) > 0 {
+			return r.last.Projects
+		}
+		return projectsFromFiles(r.last.Files, composeLabels(ctx))
 	}
 	return nil
+}
+
+// isComposeFile erkennt Compose-Dateien am Namen (docker-compose*.yml, compose*.yaml …).
+func isComposeFile(path string) bool {
+	b := strings.ToLower(filepath.Base(path))
+	if !(strings.HasSuffix(b, ".yml") || strings.HasSuffix(b, ".yaml")) {
+		return false
+	}
+	return strings.HasPrefix(b, "docker-compose") || strings.HasPrefix(b, "compose")
+}
+
+// composeLabels liest die Compose-Labels aller Container (Fehler = keine Infos).
+func composeLabels(ctx context.Context) []containerInfo {
+	ids, err := dockerOut(ctx, "ps", "-a", "-q", "--no-trunc")
+	if err != nil || strings.TrimSpace(ids) == "" {
+		return nil
+	}
+	args := append([]string{"inspect", "-f", `{{.Config.Image}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{index .Config.Labels "com.docker.compose.project.config_files"}}|{{index .Config.Labels "com.docker.compose.service"}}`}, strings.Fields(ids)...)
+	out, err := dockerOut(ctx, args...)
+	if err != nil {
+		return nil
+	}
+	return parseInspect(out)
+}
+
+// projectsFromFiles bildet Projekte aus Compose-Dateien: je Verzeichnis ein Projekt; Name aus
+// den Labels laufender Container dieses Verzeichnisses (sonst Compose-Standard = Ordnername).
+// Dienste bleiben leer, d. h. pull/up betrifft das ganze Projekt (rein, getestet).
+func projectsFromFiles(files []string, labels []containerInfo) []composeProject {
+	byDir := map[string]*composeProject{}
+	var order []string
+	for _, f := range files {
+		if !isComposeFile(f) {
+			continue
+		}
+		dir := filepath.Dir(f)
+		p := byDir[dir]
+		if p == nil {
+			p = &composeProject{Dir: dir}
+			for _, ci := range labels {
+				if filepath.Clean(ci.Dir) == filepath.Clean(dir) && ci.Project != "" {
+					p.Project = ci.Project
+					break
+				}
+			}
+			byDir[dir] = p
+			order = append(order, dir)
+		}
+		p.Files = append(p.Files, f)
+	}
+	var out []composeProject
+	for _, d := range order {
+		out = append(out, *byDir[d])
+	}
+	return out
 }
 
 func (r *runner) compose(ctx context.Context, c config) (shared.NodeResult, *step) {
@@ -47,9 +106,9 @@ func (r *runner) compose(ctx context.Context, c config) (shared.NodeResult, *ste
 	default:
 		return shared.NodeResult{Status: "fail", Output: "Aktion muss pull, up, restart oder down sein"}, st
 	}
-	projects := r.composeTargets(c)
+	projects := r.composeTargets(ctx, c)
 	if len(projects) == 0 {
-		return shared.NodeResult{Status: "fail", Output: "kein Compose-Projekt bekannt (Verzeichnis angeben oder „Dateien finden“ im Modus Compose-Image davor)"}, st
+		return shared.NodeResult{Status: "fail", Output: "kein Compose-Projekt bekannt – im Baustein ein Verzeichnis angeben oder davor „Dateien finden“ im Modus Compose-Image bzw. mit einer docker-compose.yml/compose.yaml als Treffer"}, st
 	}
 	if r.last != nil {
 		st.Files, st.Projects = r.last.Files, projects
@@ -402,7 +461,7 @@ func (r *runner) rollbackNode(ctx context.Context, c config) (shared.NodeResult,
 		out += ":\n" + strings.Join(restored, "\n")
 	}
 	if c.bool("compose_up") {
-		for _, p := range r.composeTargets(config{}) {
+		for _, p := range r.composeTargets(ctx, config{}) {
 			args := composeArgs(p, "up", nil, false)
 			code, o := runCompose(ctx, p.Dir, args)
 			out += "\n$ docker compose " + strings.Join(args, " ") + "\n" + strings.TrimSpace(o)

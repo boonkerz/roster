@@ -191,3 +191,34 @@ func TestChecksAndHelpers(t *testing.T) {
 		t.Fatalf("diff: %s", d)
 	}
 }
+
+func TestProjectsFromFiles(t *testing.T) {
+	labels := []containerInfo{{Image: "jrcs/letsencrypt-nginx-proxy-companion", Project: "letsencrypt", Dir: "/data/composer/letsencrypt", Service: "letsencrypt"}}
+	ps := projectsFromFiles([]string{"/data/composer/letsencrypt/docker-compose.yml", "/data/composer/letsencrypt/.env", "/srv/app/compose.yaml", "/srv/app/app.conf"}, labels)
+	if len(ps) != 2 || ps[0].Project != "letsencrypt" || ps[0].Dir != "/data/composer/letsencrypt" || len(ps[0].Files) != 1 || ps[1].Project != "" || ps[1].Dir != "/srv/app" {
+		t.Fatalf("%+v", ps)
+	}
+	args := strings.Join(composeArgs(ps[0], "pull", nil, false), " ")
+	if args != "-p letsencrypt -f /data/composer/letsencrypt/docker-compose.yml --project-directory /data/composer/letsencrypt pull" {
+		t.Fatal(args)
+	}
+	if !isComposeFile("/x/docker-compose.prod.yml") || isComposeFile("/x/app.yml") {
+		t.Fatal("isComposeFile")
+	}
+}
+
+// Pfad-Modus: replace auf einer Compose-Datei, danach compose (Vorschau) ohne Verzeichnis.
+func TestComposeAfterPathFind(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(f, []byte("services:\n  le:\n    image: jrcs/letsencrypt-nginx-proxy-companion\n"), 0o644)
+	g := shared.FlowGraph{Nodes: []shared.FlowNode{
+		node("find", "find_files", map[string]any{"mode": "paths", "paths": dir + "/*"}),
+		node("repl", "replace", map[string]any{"search": "jrcs/letsencrypt-nginx-proxy-companion", "replace": "nginxproxy/acme-companion", "line_filter": "image:"}),
+		node("pull", "compose", map[string]any{"action": "pull"}),
+	}, Edges: []shared.FlowEdge{{From: "find", Port: "ok", To: "repl"}, {From: "repl", Port: "ok", To: "pull"}}}
+	res := Run(context.Background(), g, Options{RunID: "p", DryRun: true})
+	if res.Status != "dry" || !strings.Contains(res.Nodes[2].Output, "--project-directory "+dir+" pull") {
+		t.Fatalf("%+v", res)
+	}
+}

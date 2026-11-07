@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Abläufe: Der Baustein *Docker Compose* funktioniert jetzt auch nach *Dateien finden* im Pfad-Modus – Compose-Dateien unter den Treffern (docker-compose*.yml, compose*.yaml) werden zum Projekt (Name aus den Labels laufender Container im Verzeichnis, sonst der Ordnername). Bisher brach die Vorschau mit „kein Compose-Projekt bekannt“ ab.
+
 ## [0.21.0] - 2026-11-07
 
 ### Neu
