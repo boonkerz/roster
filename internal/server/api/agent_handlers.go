@@ -79,10 +79,6 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.ReplaceDockerImages(r.Context(), device.ID, req.Inventory.Images); err != nil {
 		s.log.Error("docker-images speichern", "err", err)
-	} else if len(req.Inventory.Images) > 0 {
-		if err := s.store.PruneImageScans(r.Context(), device.ID); err != nil {
-			s.log.Error("image-scans bereinigen", "err", err)
-		}
 	}
 	if len(req.ImageScans) > 0 {
 		if err := s.store.UpsertImageScans(r.Context(), device.ID, req.ImageScans); err != nil {
@@ -91,8 +87,14 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 			s.kickImageVulns()
 		}
 	}
-	// Datenbank-Bestand nur von Agents, die ihn liefern (nil = alter Agent / kein Docker).
-	if req.Inventory.Databases != nil || len(req.Inventory.Containers) > 0 {
+	// Nach dem Ersetzen von Containern/Images: Scans von Images, die kein Container mehr nutzt
+	// oder die nicht mehr vorhanden sind, entfernen (auch wenn Docker ganz weg ist).
+	if err := s.store.PruneImageScans(r.Context(), device.ID); err != nil {
+		s.log.Error("image-scans bereinigen", "err", err)
+	}
+	// Datenbank-Bestand je Checkin ersetzen; ohne Container bleibt nichts stehen (der Vergleich
+	// bewertet nur Container, die in beiden Ständen vorkommen – kein Fehlalarm).
+	{
 		old, err := s.store.ReplaceDockerDBs(r.Context(), device.ID, req.Inventory.Databases)
 		if err != nil {
 			s.log.Error("docker-datenbanken speichern", "err", err)

@@ -40,13 +40,19 @@ func (s *Store) UpsertImageScans(ctx context.Context, deviceID string, scans []s
 	return nil
 }
 
-// PruneImageScans entfernt Scans und Treffer von Images, die das Gerät nicht mehr hat.
+// PruneImageScans entfernt Scans und Treffer von Images, die das Gerät nicht mehr hat oder die
+// kein Container (laufend oder gestoppt) mehr nutzt – z. B. das alte Image nach einer Umstellung,
+// das lokal noch liegt. Ohne Container/Images (Docker entfernt) fällt alles weg.
 func (s *Store) PruneImageScans(ctx context.Context, deviceID string) error {
 	for _, q := range []string{
-		`DELETE FROM container_vulnerabilities WHERE device_id=? AND image_id NOT IN (SELECT image_id FROM docker_images WHERE device_id=?)`,
-		`DELETE FROM docker_image_scans WHERE device_id=? AND image_id NOT IN (SELECT image_id FROM docker_images WHERE device_id=?)`,
+		`DELETE FROM container_vulnerabilities WHERE device_id=? AND (
+			image_id NOT IN (SELECT image_id FROM docker_images WHERE device_id=?)
+			OR image NOT IN (SELECT image FROM docker_containers WHERE device_id=?))`,
+		`DELETE FROM docker_image_scans WHERE device_id=? AND (
+			image_id NOT IN (SELECT image_id FROM docker_images WHERE device_id=?)
+			OR image NOT IN (SELECT image FROM docker_containers WHERE device_id=?))`,
 	} {
-		if _, err := s.db.ExecContext(ctx, s.rebind(q), deviceID, deviceID); err != nil {
+		if _, err := s.db.ExecContext(ctx, s.rebind(q), deviceID, deviceID, deviceID); err != nil {
 			return err
 		}
 	}

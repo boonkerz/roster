@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Container security: image scans and their vulnerabilities are removed on every check-in as soon as no container (running or stopped) uses the image anymore – e.g. the old `jrcs/letsencrypt-nginx-proxy-companion` after switching, which still exists locally until `docker image prune`. Previously they stayed under *Security → Containers* until the image itself was deleted; hosts without any containers/images now drop all scans and database inventories too.
+
 ## [0.21.4] - 2026-11-07
 
 ### Fixed
