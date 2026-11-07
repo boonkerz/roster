@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-07
+
 ### Added
 - **Flows (flow designer).** New page *Flows*: blocks (find files, replace text, Docker Compose, command/script, query API, check, roll back, wait) connected on a canvas (React Flow) via ok/error outputs, with parameters and placeholders (`{{param.X}}`, `{{steps.ID.value|out|json.path}}`, device fields). The agent runs the graph natively (command `run_flow`) – dry-run preview with unified diffs on one server, test run on that server, then rollout to company/site/tag/all or the affected devices. Per-file backups, automatic rollback when an error output is not connected, run history. Templates: *Replace image in Compose* (also from *Security → Containers*: "Replace image …"), *Replace value in file and restart services*, *Query API and write value*. Migration 0078.
 
@@ -366,7 +368,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.20.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
 [0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2
 [0.20.1]: https://github.com/boonkerz/roster/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/boonkerz/roster/compare/v0.19.1...v0.20.0
