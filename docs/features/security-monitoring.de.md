@@ -217,7 +217,9 @@ Geräte und Treffer) sowie der Datenbank-Bestand aller DB-Container.
   Paketzahl, Trefferzahlen), im Tab **Schwachstellen** und in der Flottenansicht *Schwachstellen*
   unter *Container-Images*. Pakete wie `openssh-server`, `vsftpd` oder `telnetd` werden als
   **Dienst** am Image markiert. Images ohne Shell (distroless/scratch) sind nicht prüfbar und
-  werden so angezeigt. *Images neu scannen* liest sofort neu.
+  werden so angezeigt. *Images neu scannen* liest sofort neu. Nutzt kein Container (laufend oder
+  gestoppt) ein Image mehr – etwa das alte Image nach einer Umstellung, das lokal noch liegt –,
+  verschwinden sein Scan und seine Treffer beim nächsten Checkin.
 - **Datenbank-Bestand.** In MongoDB-, MySQL/MariaDB- und PostgreSQL-Containern listet der Agent
   bei jedem Checkin die Datenbanken mit ihrer Collection-/Tabellenzahl – per `docker exec` mit
   den Zugangsdaten aus der Container-Umgebung (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD`

@@ -208,7 +208,9 @@ the devices and findings) plus the database inventory of all database containers
   count, match counts), in the **Vulnerabilities** tab and in the fleet view *Vulnerabilities*
   under *Container images*. Packages such as `openssh-server`, `vsftpd` or `telnetd` are flagged as
   a **service** on the image. Images without a shell (distroless/scratch) cannot be checked and are
-  shown as such. *Rescan images* reads them again immediately.
+  shown as such. *Rescan images* reads them again immediately. Once no container (running or
+  stopped) uses an image anymore – e.g. the old image after a switch that still exists locally – its
+  scan and findings disappear with the next check-in.
 - **Database inventory.** In MongoDB, MySQL/MariaDB and PostgreSQL containers the agent lists the
   databases with their collection/table counts on every check-in – via `docker exec` with the
   credentials from the container environment (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD` or
