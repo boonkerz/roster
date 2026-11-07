@@ -19,19 +19,22 @@ export function FleetContainers() {
   const [q, setQ] = useState("");
   const [onlyBad, setOnlyBad] = useState(false);
   const [onlyServices, setOnlyServices] = useState(false);
+  const [onlyFixable, setOnlyFixable] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const images = data?.images ?? [];
   const dbs = data?.databases ?? [];
 
   const filtered = useMemo(() => images.filter((im) => {
     if (onlyBad && im.critical + im.high === 0) return false;
+    if (onlyFixable && im.fixable === 0) return false;
     if (onlyServices && !(im.services ?? []).some((s) => RISKY_SERVICES.has(s))) return false;
     const s = q.trim().toLowerCase();
     if (s && !(im.image.toLowerCase().includes(s) || (im.os_name ?? "").toLowerCase().includes(s) || im.hostnames.some((h) => h.toLowerCase().includes(s)))) return false;
     return true;
-  }), [images, q, onlyBad, onlyServices]);
+  }), [images, q, onlyBad, onlyServices, onlyFixable]);
 
   const withBad = images.filter((im) => im.critical + im.high > 0).length;
+  const withFixable = images.filter((im) => im.fixable_ch > 0).length;
   const pending = images.filter((im) => im.pending).length;
   const notCheckable = images.filter((im) => im.error).length;
   const withSSH = images.filter((im) => (im.services ?? []).some((s) => RISKY_SERVICES.has(s))).length;
@@ -43,6 +46,7 @@ export function FleetContainers() {
       <div className="inline-form" style={{ margin: "10px 0", gap: 8, flexWrap: "wrap" }}>
         <span className="badge badge-unknown">{images.length} {t("Images")}</span>
         <span className={`badge ${withBad > 0 ? "badge-offline" : "badge-online"}`}>{withBad} {t("mit kritischen/hohen Treffern")}</span>
+        {withFixable > 0 && <span className="badge badge-offline" title={t("Kritische/hohe Treffer, für die es im Release des Images schon eine Korrektur gibt – ein neues Image behebt sie.")}>{withFixable} {t("mit behebbaren kritisch/hoch")}</span>}
         {withSSH > 0 && <span className="badge badge-warn">{withSSH} {t("mit SSH/FTP/Telnet")}</span>}
         {pending > 0 && <span className="muted small">{t("{n} Abgleich ausstehend", { n: pending })}</span>}
         {notCheckable > 0 && <span className="muted small">{t("{n} nicht prüfbar", { n: notCheckable })}</span>}
@@ -57,6 +61,7 @@ export function FleetContainers() {
           <div className="inline-form" style={{ gap: 8 }}>
             <input placeholder={t("Image, Basis-OS oder Gerät …")} value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 220 }} />
             <label className="chip"><input type="checkbox" checked={onlyBad} onChange={(e) => setOnlyBad(e.target.checked)} /> {t("nur kritisch/hoch")}</label>
+            <label className="chip" title={t("Nur Images mit Treffern, die ein neues Image behebt (Korrektur im Release vorhanden)")}><input type="checkbox" checked={onlyFixable} onChange={(e) => setOnlyFixable(e.target.checked)} /> {t("nur behebbare")}</label>
             <label className="chip"><input type="checkbox" checked={onlyServices} onChange={(e) => setOnlyServices(e.target.checked)} /> {t("nur mit SSH/FTP/Telnet")}</label>
           </div>
         </div>
@@ -79,6 +84,7 @@ export function FleetContainers() {
                       {im.critical > 0 && <span className="badge badge-offline" title={t("kritisch")}>{im.critical} {t("krit.")}</span>}
                       {im.high > 0 && <span className="badge badge-offline" style={{ marginLeft: 3 }} title={t("hoch")}>{im.high} {t("hoch")}</span>}
                       <span className="muted small" style={{ marginLeft: 4 }}>{t("{n} gesamt", { n: im.vulns })}</span>
+                      <span className={im.fixable > 0 ? "small" : "muted small"} style={{ marginLeft: 6 }} title={t("Mit neuem Image behebbar; der Rest ist im Release noch ohne Korrektur.")}>· {t("{n} behebbar", { n: im.fixable })}</span>
                     </>}</td>
                     <td className="small">{(im.services ?? []).map((sv) => <span key={sv} className={`badge ${RISKY_SERVICES.has(sv) ? "badge-warn" : "badge-unknown"}`} style={{ marginRight: 3 }}>{sv}</span>)}</td>
                   </tr>,
@@ -124,7 +130,7 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
     queryFn: () => api.get<ContainerVulnerability[]>(`/devices/${dev}/container-vulnerabilities`),
     enabled: !!dev && row.vulns > 0,
   });
-  const vulns = (data ?? []).filter((v) => v.image === row.image);
+  const vulns = (data ?? []).filter((v) => v.image === row.image).sort((a, b) => Number(!!b.fixed) - Number(!!a.fixed));
   const nav = useNavigate();
   const { hasPerm } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -167,7 +173,7 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
                 <td><a href={v.url} target="_blank" rel="noreferrer" className="mono">{v.vuln_id}</a></td>
                 <td className="mono">{v.package}</td>
                 <td className="mono muted">{v.version || "—"}</td>
-                <td className="mono muted">{v.fixed || "—"}</td>
+                <td className="mono muted">{v.fixed || <span className="muted small" title={t("Für das Release des Images gibt es noch keine Korrektur – ein neues Image hilft nicht.")}>{t("noch kein Fix")}</span>}</td>
                 <td className="muted small">{v.summary || "—"}</td>
               </tr>
             ))}

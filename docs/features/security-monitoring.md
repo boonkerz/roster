@@ -211,6 +211,11 @@ the devices and findings) plus the database inventory of all database containers
   shown as such. *Rescan images* reads them again immediately. Once no container (running or
   stopped) uses an image anymore – e.g. the old image after a switch that still exists locally – its
   scan and findings disappear with the next check-in.
+  **Fixable or not:** "Fixed in" only comes from the image's release (e.g. Debian 13). Many findings
+  have no fix there yet – they show as *no fix yet*, and a new image does not help. Each image shows
+  the number of fixable findings; the filter *fixable only* and the sort order put first where a
+  rebuild pays off. If the distribution assigns its own urgency (Debian *unimportant/low/medium/
+  high*), it is used instead of the generic CVSS level.
 - **Database inventory.** In MongoDB, MySQL/MariaDB and PostgreSQL containers the agent lists the
   databases with their collection/table counts on every check-in – via `docker exec` with the
   credentials from the container environment (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD` or

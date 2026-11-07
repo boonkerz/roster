@@ -65,7 +65,8 @@ func (s *Store) ImageScansFor(ctx context.Context, deviceID string) ([]model.Doc
 		SELECT s.image_id, s.image, s.os, s.os_version, s.os_name, s.pkg, s.package_count, s.services, s.error, s.scanned_at, s.vuln_scanned_at,
 		       (SELECT COUNT(*) FROM container_vulnerabilities v WHERE v.device_id=s.device_id AND v.image_id=s.image_id),
 		       (SELECT COUNT(*) FROM container_vulnerabilities v WHERE v.device_id=s.device_id AND v.image_id=s.image_id AND v.severity='CRITICAL'),
-		       (SELECT COUNT(*) FROM container_vulnerabilities v WHERE v.device_id=s.device_id AND v.image_id=s.image_id AND v.severity='HIGH')
+		       (SELECT COUNT(*) FROM container_vulnerabilities v WHERE v.device_id=s.device_id AND v.image_id=s.image_id AND v.severity='HIGH'),
+		       (SELECT COUNT(*) FROM container_vulnerabilities v WHERE v.device_id=s.device_id AND v.image_id=s.image_id AND v.fixed<>'')
 		FROM docker_image_scans s WHERE s.device_id=? ORDER BY s.image`), deviceID)
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (s *Store) ImageScansFor(ctx context.Context, deviceID string) ([]model.Doc
 		var sc model.DockerImageScan
 		var services string
 		if err := rows.Scan(&sc.ImageID, &sc.Image, &sc.OS, &sc.OSVersion, &sc.OSName, &sc.Pkg, &sc.PackageCount, &services, &sc.Error, &sc.ScannedAt, &sc.VulnScannedAt,
-			&sc.Vulns, &sc.Critical, &sc.High); err != nil {
+			&sc.Vulns, &sc.Critical, &sc.High, &sc.Fixable); err != nil {
 			return nil, err
 		}
 		if services != "" {
@@ -255,6 +256,8 @@ type FleetImageRow struct {
 	Vulns     int      `json:"vulns"`
 	Critical  int      `json:"critical"`
 	High      int      `json:"high"`
+	Fixable   int      `json:"fixable"`    // Treffer mit Korrektur im eigenen Release
+	FixableCH int      `json:"fixable_ch"` // davon kritisch/hoch
 	Services  []string `json:"services,omitempty"`
 	Error     string   `json:"error,omitempty"`
 	Pending   bool     `json:"pending"` // OSV-Abgleich steht noch aus
@@ -265,12 +268,14 @@ type FleetImageRow struct {
 func (s *Store) FleetImages(ctx context.Context) ([]FleetImageRow, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
 		SELECT s.device_id, d.hostname, s.image, s.os, s.os_version, s.os_name, s.package_count, s.services, s.error, s.vuln_scanned_at IS NULL,
-		       COALESCE(v.n, 0), COALESCE(v.crit, 0), COALESCE(v.high, 0)
+		       COALESCE(v.n, 0), COALESCE(v.crit, 0), COALESCE(v.high, 0), COALESCE(v.fix, 0), COALESCE(v.fixch, 0)
 		FROM docker_image_scans s
 		JOIN devices d ON d.id=s.device_id
 		LEFT JOIN (SELECT device_id, image_id, COUNT(*) n,
 		                  SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) crit,
-		                  SUM(CASE WHEN severity='HIGH' THEN 1 ELSE 0 END) high
+		                  SUM(CASE WHEN severity='HIGH' THEN 1 ELSE 0 END) high,
+		                  SUM(CASE WHEN fixed<>'' THEN 1 ELSE 0 END) fix,
+		                  SUM(CASE WHEN fixed<>'' AND severity IN ('CRITICAL','HIGH') THEN 1 ELSE 0 END) fixch
 		           FROM container_vulnerabilities GROUP BY device_id, image_id) v
 		       ON v.device_id=s.device_id AND v.image_id=s.image_id
 		WHERE d.revoked=0`))
@@ -282,9 +287,9 @@ func (s *Store) FleetImages(ctx context.Context) ([]FleetImageRow, error) {
 	var order []string
 	for rows.Next() {
 		var devID, host, image, os, osv, osName, services, errStr string
-		var pkgs, n, crit, high int
+		var pkgs, n, crit, high, fix, fixch int
 		var pending bool
-		if err := rows.Scan(&devID, &host, &image, &os, &osv, &osName, &pkgs, &services, &errStr, &pending, &n, &crit, &high); err != nil {
+		if err := rows.Scan(&devID, &host, &image, &os, &osv, &osName, &pkgs, &services, &errStr, &pending, &n, &crit, &high, &fix, &fixch); err != nil {
 			return nil, err
 		}
 		key := image + "\x00" + os + "\x00" + osv
@@ -312,7 +317,7 @@ func (s *Store) FleetImages(ctx context.Context) ([]FleetImageRow, error) {
 			r.Pending = true
 		}
 		if n > r.Vulns {
-			r.Vulns, r.Critical, r.High = n, crit, high
+			r.Vulns, r.Critical, r.High, r.Fixable, r.FixableCH = n, crit, high, fix, fixch
 		}
 	}
 	out := make([]FleetImageRow, 0, len(order))

@@ -207,7 +207,10 @@ func (sc *Scanner) Scan(ctx context.Context, client *http.Client, sw []SW, ecosy
 	for id := range details {
 		ids = append(ids, id)
 	}
-	details, known := sc.resolve(ctx, client, ids)
+	// Versionierte Ökosysteme (Container-Images: Debian:13, Alpine:v3.20 …): Details immer von
+	// OSV, nicht aus dem persistenten Cache der Host-Scans – dessen „Behoben in“ kann aus einem
+	// anderen Release stammen.
+	details, known := sc.resolve(ctx, client, ids, !strings.Contains(ecosystem, ":"))
 
 	// Einträge ohne eigene Stufe (z. B. USN-Notizen) erben die höchste Stufe ihrer
 	// verknüpften CVE-Einträge.
@@ -222,7 +225,7 @@ func (sc *Scanner) Scan(ctx context.Context, client *http.Client, sw []SW, ecosy
 		relIDs = append(relIDs, relFor[id]...)
 	}
 	if len(relIDs) > 0 {
-		relDetails, relKnown := sc.resolve(ctx, client, relIDs)
+		relDetails, relKnown := sc.resolve(ctx, client, relIDs, true)
 		for id, rels := range relFor {
 			var levels []string
 			for _, r := range rels {
@@ -244,6 +247,9 @@ func (sc *Scanner) Scan(ctx context.Context, client *http.Client, sw []SW, ecosy
 			v.Severity = maxLevel(d.severity(), inherited[h.id])
 			v.Summary = d.summaryText()
 			v.Fixed = d.fixedFor(p.Name, ecosystem)
+			if u := d.urgencyFor(p.Name, ecosystem); u != "" {
+				v.Severity = u // Einschätzung der Distribution vor der allgemeinen CVSS-Bewertung
+			}
 		} else if k, ok := known[h.id]; ok {
 			v.Severity, v.Summary, v.Fixed = k.Severity, k.Summary, k.Fixed
 		}
@@ -277,7 +283,11 @@ type osvDetail struct {
 		} `json:"ranges"`
 		DatabaseSpecific struct {
 			Severity string `json:"severity"`
+			Urgency  string `json:"urgency"`
 		} `json:"database_specific"`
+		EcosystemSpecific struct {
+			Urgency string `json:"urgency"`
+		} `json:"ecosystem_specific"`
 	} `json:"affected"`
 }
 
@@ -309,21 +319,27 @@ func (d *osvDetail) severity() string {
 	return Level(best)
 }
 
-// fixedFor liefert die behobene Version für das Paket – bevorzugt aus dem Eintrag des
-// abgefragten Ökosystems (Ubuntu/Debian-Datensätze führen je Release eigene Einträge; sonst
-// stünde die Version eines fremden Releases da).
+// fixedFor liefert die behobene Version für das Paket. Bei versioniertem Ökosystem
+// (Debian:13, Alpine:v3.20 …) nur aus dem Eintrag genau dieses Releases – fehlt dort eine
+// Korrektur, ist die Lücke im Release noch offen (""), auch wenn ein anderes Release sie hat.
+// Ohne Eintrag für das Release (oder bei unversioniertem Ökosystem) gilt der erste Treffer.
 func (d *osvDetail) fixedFor(pkg, ecosystem string) string {
-	first := ""
+	first, sawEco := "", false
+	versioned := strings.Contains(ecosystem, ":")
 	for _, a := range d.Affected {
 		if a.Package.Name != "" && !strings.EqualFold(a.Package.Name, pkg) {
 			continue
+		}
+		match := ecosystem != "" && strings.EqualFold(a.Package.Ecosystem, ecosystem)
+		if match {
+			sawEco = true
 		}
 		for _, r := range a.Ranges {
 			for _, e := range r.Events {
 				if e.Fixed == "" {
 					continue
 				}
-				if ecosystem != "" && strings.EqualFold(a.Package.Ecosystem, ecosystem) {
+				if match {
 					return e.Fixed
 				}
 				if first == "" {
@@ -332,7 +348,46 @@ func (d *osvDetail) fixedFor(pkg, ecosystem string) string {
 			}
 		}
 	}
+	if versioned && sawEco {
+		return "" // im eigenen Release (noch) ohne Korrektur
+	}
 	return first
+}
+
+// urgencyFor liefert die Einschätzung der Distribution (Debian „urgency“) für das Release als
+// Stufe; "" bei fehlender oder nicht vergebener Einschätzung.
+func (d *osvDetail) urgencyFor(pkg, ecosystem string) string {
+	if ecosystem == "" {
+		return ""
+	}
+	for _, a := range d.Affected {
+		if a.Package.Name != "" && !strings.EqualFold(a.Package.Name, pkg) {
+			continue
+		}
+		if !strings.EqualFold(a.Package.Ecosystem, ecosystem) {
+			continue
+		}
+		u := a.EcosystemSpecific.Urgency
+		if u == "" {
+			u = a.DatabaseSpecific.Urgency
+		}
+		return urgencyLevel(u)
+	}
+	return ""
+}
+
+// urgencyLevel ordnet Debian-Dringlichkeiten Stufen zu ("low*", "unimportant" …).
+func urgencyLevel(u string) string {
+	u = strings.ToLower(strings.TrimRight(strings.TrimSpace(u), "*"))
+	switch u {
+	case "unimportant", "low", "negligible":
+		return "LOW"
+	case "medium":
+		return "MEDIUM"
+	case "high":
+		return "HIGH"
+	}
+	return "" // "not yet assigned", "end-of-life", leer
 }
 
 func fetchDetail(ctx context.Context, client *http.Client, id string) *osvDetail {
@@ -402,7 +457,7 @@ func maxLevel(levels ...string) string {
 // resolve beschafft Detail-Datensätze zu IDs: 1) Prozess-Cache, 2) persistent bekannte
 // Details (Known), 3) Rest parallel von OSV (begrenzt je Aufruf; Fehlendes holt der
 // nächste Lauf nach). Nicht geladene IDs fehlen in beiden Ergebnissen.
-func (sc *Scanner) resolve(ctx context.Context, client *http.Client, ids []string) (map[string]*osvDetail, map[string]Known) {
+func (sc *Scanner) resolve(ctx context.Context, client *http.Client, ids []string, useKnown bool) (map[string]*osvDetail, map[string]Known) {
 	details := map[string]*osvDetail{}
 	known := map[string]Known{}
 	var missing []string
@@ -417,7 +472,7 @@ func (sc *Scanner) resolve(ctx context.Context, client *http.Client, ids []strin
 		details[id] = nil
 		missing = append(missing, id)
 	}
-	if sc.Known != nil && len(missing) > 0 {
+	if useKnown && sc.Known != nil && len(missing) > 0 {
 		known = sc.Known(ctx, missing)
 		if known == nil {
 			known = map[string]Known{}

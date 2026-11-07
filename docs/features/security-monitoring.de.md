@@ -220,6 +220,11 @@ Geräte und Treffer) sowie der Datenbank-Bestand aller DB-Container.
   werden so angezeigt. *Images neu scannen* liest sofort neu. Nutzt kein Container (laufend oder
   gestoppt) ein Image mehr – etwa das alte Image nach einer Umstellung, das lokal noch liegt –,
   verschwinden sein Scan und seine Treffer beim nächsten Checkin.
+  **Behebbar oder nicht:** „Behoben in“ stammt nur aus dem Release des Images (z. B. Debian 13).
+  Viele Treffer sind dort noch ohne Korrektur – sie erscheinen als *noch kein Fix*, ein neues Image
+  hilft dann nicht. Je Image steht die Zahl der behebbaren Treffer; der Filter *nur behebbare* und
+  die Sortierung zeigen zuerst, wo ein Neubau etwas bringt. Vergibt die Distribution eine eigene
+  Dringlichkeit (Debian *unimportant/low/medium/high*), gilt sie statt der allgemeinen CVSS-Stufe.
 - **Datenbank-Bestand.** In MongoDB-, MySQL/MariaDB- und PostgreSQL-Containern listet der Agent
   bei jedem Checkin die Datenbanken mit ihrer Collection-/Tabellenzahl – per `docker exec` mit
   den Zugangsdaten aus der Container-Umgebung (`MONGO_INITDB_ROOT_*`, `MARIADB_ROOT_PASSWORD`

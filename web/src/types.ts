@@ -86,6 +86,7 @@ export interface DockerImageScan {
   vulns: number;
   critical: number;
   high: number;
+  fixable: number;
 }
 
 // DockerDatabase ist eine Datenbank in einem DB-Container (Bestand des letzten Checkins).
@@ -112,6 +113,8 @@ export interface FleetImageRow {
   vulns: number;
   critical: number;
   high: number;
+  fixable: number;
+  fixable_ch: number;
   services?: string[];
   error?: string;
   pending: boolean;

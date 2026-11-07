@@ -274,6 +274,7 @@ type DockerImageScan struct {
 	Vulns         int        `json:"vulns"`
 	Critical      int        `json:"critical"`
 	High          int        `json:"high"`
+	Fixable       int        `json:"fixable"` // Treffer mit Korrektur im eigenen Release (neues Image hilft)
 }
 
 // ContainerVulnerability ist ein OSV-Treffer in einem Container-Image.

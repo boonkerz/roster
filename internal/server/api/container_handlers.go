@@ -272,6 +272,9 @@ func (s *Server) handleFleetContainers(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.SliceStable(images, func(i, j int) bool {
 		a, b := images[i], images[j]
+		if a.FixableCH != b.FixableCH { // erst, was ein neues Image wirklich behebt
+			return a.FixableCH > b.FixableCH
+		}
 		if a.Critical != b.Critical {
 			return a.Critical > b.Critical
 		}

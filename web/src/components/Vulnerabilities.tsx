@@ -80,7 +80,7 @@ export function Vulnerabilities({ deviceId }: { deviceId: string }) {
                 <td><a href={v.url} target="_blank" rel="noreferrer" className="mono">{v.vuln_id}</a></td>
                 <td className="mono">{v.package}</td>
                 <td className="mono muted">{v.version || "—"}</td>
-                <td className="mono muted">{v.fixed || "—"}</td>
+                <td className="mono muted">{v.fixed || <span className="muted small">{t("noch kein Fix")}</span>}</td>
                 <td className="muted small">{v.summary || "—"}</td>
               </tr>
             ))}

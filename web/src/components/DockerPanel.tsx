@@ -138,6 +138,7 @@ export function DockerPanel({ device, canOperate }: { device: Device; canOperate
                         {sc.critical > 0 && <span className="badge badge-offline" title={t("kritisch")}>{sc.critical}</span>}
                         {sc.high > 0 && <span className="badge badge-offline" style={{ marginLeft: 3 }} title={t("hoch")}>{sc.high}</span>}
                         {sc.vulns - sc.critical - sc.high > 0 && <span className="badge badge-warn" style={{ marginLeft: 3 }}>{sc.vulns - sc.critical - sc.high}</span>}
+                        <span className="muted small" style={{ marginLeft: 4 }} title={t("Mit neuem Image behebbar; der Rest ist im Release noch ohne Korrektur.")}>{t("{n} behebbar", { n: sc.fixable })}</span>
                       </>) : <span className="muted small">{t("Abgleich ausstehend")}</span>) : sc?.error ? <span className="muted small">—</span> : <span className="muted small" title={t("Image läuft in keinem Container oder noch nicht gescannt")}>—</span>}</td>
                       <td className="small">{(sc?.services ?? []).map((sv) => <span key={sv} className={`badge ${sv === "sshd" || sv === "telnetd/ftpd (busybox-extras)" ? "badge-warn" : "badge-unknown"}`} style={{ marginRight: 3 }} title={t("Netzdienst im Image erkannt")}>{sv}</span>)}</td>
                       <td className="muted small">{im.size || "—"}</td>

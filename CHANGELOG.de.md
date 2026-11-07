@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Container-Sicherheit: Zahl der **behebbaren** Treffer je Image (Docker-Tab und *Sicherheit → Container*), Filter „nur behebbare“, Kopf-Badge „mit behebbaren kritisch/hoch“, Sortierung behebbare kritisch/hoch zuerst. Wo Debian eine eigene Dringlichkeit vergibt (unimportant/low/medium/high), ersetzt sie die allgemeine CVSS-Stufe.
+
+### Behoben
+- Container-Sicherheit: „Behoben in“ kommt nur noch aus dem Release des Images (z. B. Debian 13). Bisher stand dort teils eine Version aus einem anderen Release (Debian 14 `8.21.0~rc2-1` bei curl in trixie) – als ließe sich das mit einem neuen Image beheben. Offene Treffer zeigen jetzt „noch kein Fix“. Container-Scans übernehmen keine Fix-Angaben mehr aus Host-Scans. Migration 0079 gleicht alle Images einmal neu ab.
+
 ## [0.21.5] - 2026-11-07
 
 ### Behoben

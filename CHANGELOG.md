@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Container security: number of **fixable** findings per image (Docker tab and *Security → Containers*), filter "fixable only", header badge "with fixable critical/high", sort order fixable critical/high first. Debian's own urgency (unimportant/low/medium/high) replaces the generic CVSS level where set.
+
+### Fixed
+- Container security: "Fixed in" is taken only from the image's own release (e.g. Debian 13). Previously it could show a version from another release (Debian 14 `8.21.0~rc2-1` for curl in trixie), suggesting a new image would fix it. Unfixed findings now show "no fix yet". Container scans no longer reuse fix data from host scans. Migration 0079 re-matches all images once.
+
 ## [0.21.5] - 2026-11-07
 
 ### Fixed

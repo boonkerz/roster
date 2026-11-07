@@ -1711,4 +1711,13 @@ export const EN: Record<string, string> = {
   "Weitermachen, auch wenn nichts ersetzt wurde": "Continue even if nothing was replaced",
   "Ersetzt Text in den Dateien des vorigen Bausteins (oder in angegebenen Dateien). Vor dem Schreiben wird je Datei ein Backup angelegt; die Vorschau zeigt den Diff. Ohne Treffer endet der Ablauf hier ohne Fehler (Gerät schon umgestellt).": "Replaces text in the files of the previous block (or in given files). A backup is created per file before writing; the preview shows the diff. Without matches the flow ends here without error (device already switched).",
   "Findet Dateien per Pfadmuster oder die Compose-Dateien der Container mit einem Image. Eigene Backups (.roster-bak-…) werden nie gefunden. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler.": "Finds files by path pattern or the Compose files of containers with an image. Its own backups (.roster-bak-…) are never matched. No matches = device not affected, the flow ends without error.",
+  // --- Container: behebbar (0.21.6) ---
+  "Kritische/hohe Treffer, für die es im Release des Images schon eine Korrektur gibt – ein neues Image behebt sie.": "Critical/high findings with a fix already available in the image's release – a new image fixes them.",
+  "mit behebbaren kritisch/hoch": "with fixable critical/high",
+  "Nur Images mit Treffern, die ein neues Image behebt (Korrektur im Release vorhanden)": "Only images with findings a new image fixes (fix available in the release)",
+  "nur behebbare": "fixable only",
+  "Mit neuem Image behebbar; der Rest ist im Release noch ohne Korrektur.": "Fixable with a new image; the rest has no fix in the release yet.",
+  "{n} behebbar": "{n} fixable",
+  "Für das Release des Images gibt es noch keine Korrektur – ein neues Image hilft nicht.": "There is no fix for the image's release yet – a new image does not help.",
+  "noch kein Fix": "no fix yet",
 };
