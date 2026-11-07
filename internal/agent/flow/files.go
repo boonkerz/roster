@@ -58,6 +58,9 @@ func (r *runner) findFiles(ctx context.Context, c config) (shared.NodeResult, *s
 				return shared.NodeResult{Status: "fail", Output: "ungültiges Muster: " + pat}, st
 			}
 			for _, f := range matches {
+				if isRosterArtifact(f) {
+					continue // eigene Backups/Zwischendateien nie als Treffer
+				}
 				fi, err := os.Stat(f)
 				if err != nil || !fi.Mode().IsRegular() || seen[f] {
 					continue
@@ -87,6 +90,13 @@ func (r *runner) findFiles(ctx context.Context, c config) (shared.NodeResult, *s
 		return shared.NodeResult{Status: "empty", Output: "keine passenden Dateien – Gerät nicht betroffen"}, st
 	}
 	return shared.NodeResult{Status: "ok", Output: out, Files: files}, st
+}
+
+// isRosterArtifact erkennt die Backups (<datei>.roster-bak-<lauf>) und Zwischendateien
+// (<datei>.roster-tmp), die Abläufe selbst anlegen.
+func isRosterArtifact(path string) bool {
+	b := filepath.Base(path)
+	return strings.Contains(b, ".roster-bak-") || strings.HasSuffix(b, ".roster-tmp")
 }
 
 // imageRepo schneidet Tag und Digest ab ("nginx:1.27@sha256:…" -> "nginx").
@@ -225,6 +235,9 @@ func (r *runner) replace(c config) (shared.NodeResult, *step) {
 	var diffs, changed, notes []string
 	total := 0
 	for _, f := range files {
+		if isRosterArtifact(f) {
+			continue
+		}
 		data, err := os.ReadFile(f)
 		if err != nil {
 			return shared.NodeResult{Status: "fail", Output: f + ": " + err.Error()}, st
@@ -260,8 +273,16 @@ func (r *runner) replace(c config) (shared.NodeResult, *step) {
 	if len(notes) > 0 {
 		out += "\n" + strings.Join(notes, "\n")
 	}
-	if total == 0 && c.bool("fail_if_unchanged") {
-		return shared.NodeResult{Status: "fail", Output: "keine Treffer"}, st
+	if total == 0 {
+		switch {
+		case c.bool("fail_if_unchanged"):
+			return shared.NodeResult{Status: "fail", Output: "keine Treffer\n" + strings.Join(notes, "\n")}, st
+		case !c.bool("continue_if_unchanged"):
+			// Nichts zu ersetzen = Gerät schon umgestellt: Ablauf ohne Fehler beenden,
+			// Folgebausteine (pull/up/Neustart) sind unnötig.
+			st.Files = files
+			return shared.NodeResult{Status: "empty", Output: "keine Treffer – nichts zu tun, Ablauf endet hier\n" + strings.Join(notes, "\n")}, st
+		}
 	}
 	if len(changed) == 0 { // nichts zu tun: Folgebausteine sollen die Projekte trotzdem kennen
 		st.Files = files

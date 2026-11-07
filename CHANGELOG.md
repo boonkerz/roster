@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Flows: *Find files* never matches the flow's own backups (`*.roster-bak-*`, `*.roster-tmp`) – previously a pattern like `dir/*` picked them up on a second run. *Replace text* without any match now **ends the flow without error** (status "not affected": device already switched), so pull/up/restart are skipped; option "Continue even if nothing was replaced" keeps the old behaviour.
+
 ## [0.21.2] - 2026-11-07
 
 ### Added

@@ -1708,4 +1708,7 @@ export const EN: Record<string, string> = {
   "Kopie": "copy",
   "Lauf vom {date} löschen?": "Delete run from {date}?",
   "Speichert den aktuellen Stand als neuen Ablauf": "Saves the current state as a new flow",
+  "Weitermachen, auch wenn nichts ersetzt wurde": "Continue even if nothing was replaced",
+  "Ersetzt Text in den Dateien des vorigen Bausteins (oder in angegebenen Dateien). Vor dem Schreiben wird je Datei ein Backup angelegt; die Vorschau zeigt den Diff. Ohne Treffer endet der Ablauf hier ohne Fehler (Gerät schon umgestellt).": "Replaces text in the files of the previous block (or in given files). A backup is created per file before writing; the preview shows the diff. Without matches the flow ends here without error (device already switched).",
+  "Findet Dateien per Pfadmuster oder die Compose-Dateien der Container mit einem Image. Eigene Backups (.roster-bak-…) werden nie gefunden. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler.": "Finds files by path pattern or the Compose files of containers with an image. Its own backups (.roster-bak-…) are never matched. No matches = device not affected, the flow ends without error.",
 };

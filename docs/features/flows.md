@@ -27,8 +27,8 @@ are `{{param.FROM}}`.
 
 | Block | What it does | In the preview |
 |---|---|---|
-| **Find files** | Paths/globs (one per line, optional "contains …") **or** the Compose files of all containers with an image (via the Compose labels; no tag = all tags; plus the `.env` if the image is there). No matches = device not affected, the flow ends without error. | runs |
-| **Replace text** | Literal or regular expression (`$1` …), optionally only in lines containing a text (e.g. `image:`). A backup `<file>.roster-bak-<run>` is written per file first. | shows the diff, changes nothing |
+| **Find files** | Paths/globs (one per line, optional "contains …") **or** the Compose files of all containers with an image (via the Compose labels; no tag = all tags; plus the `.env` if the image is there). Its own backups (`*.roster-bak-*`) are never matched. No matches = device not affected, the flow ends without error. | runs |
+| **Replace text** | Literal or regular expression (`$1` …), optionally only in lines containing a text (e.g. `image:`). A backup `<file>.roster-bak-<run>` is written per file first. Without matches the flow ends here without error (device already switched), unless "Continue even if nothing was replaced" is set. | shows the diff, changes nothing |
 | **Docker Compose** | `pull`, `up -d`, `restart`, `down` – for the projects found (affected services only) or a directory; `docker compose` with fallback to `docker-compose`. | shows the commands |
 | **Command / script** | Own command or a library script; exit ≠ 0 = failure. | not executed |
 | **Query API** | HTTP request with headers/body; a JSON path yields a value (`{{steps.api.value}}`). | GET/HEAD only |

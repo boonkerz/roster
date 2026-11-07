@@ -222,3 +222,36 @@ func TestComposeAfterPathFind(t *testing.T) {
 		t.Fatalf("%+v", res)
 	}
 }
+
+func TestBackupsIgnoredAndUnchangedStops(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(f, []byte("image: old/img\n"), 0o644)
+	g := shared.FlowGraph{Nodes: []shared.FlowNode{
+		node("find", "find_files", map[string]any{"mode": "paths", "paths": dir + "/*"}),
+		node("repl", "replace", map[string]any{"search": "old/img", "replace": "new/img"}),
+		node("cmd", "command", map[string]any{"script": "echo nachher"}),
+	}, Edges: []shared.FlowEdge{{From: "find", Port: "ok", To: "repl"}, {From: "repl", Port: "ok", To: "cmd"}}}
+	ran := 0
+	run := func(ctx context.Context, shell, script string) (int, string) { ran++; return 0, "ok" }
+	if res := Run(context.Background(), g, Options{RunID: "a1", RunScript: run}); res.Status != "ok" || ran != 1 {
+		t.Fatalf("erster Lauf: %+v", res)
+	}
+	// Zweiter Lauf: Backup liegt daneben und enthält noch old/img – darf nicht gefunden werden;
+	// die eigentliche Datei hat nichts mehr zu ersetzen -> Ablauf endet, Befehl läuft nicht.
+	res := Run(context.Background(), g, Options{RunID: "a2", RunScript: run})
+	if res.Status != "nothing" || ran != 1 || len(res.Nodes) != 2 {
+		t.Fatalf("zweiter Lauf: %+v", res)
+	}
+	if len(res.Nodes[0].Files) != 1 || res.Nodes[0].Files[0] != f {
+		t.Fatalf("backup als Treffer: %v", res.Nodes[0].Files)
+	}
+	if _, err := os.Stat(f + ".roster-bak-a2"); err == nil {
+		t.Fatal("Backup vom Backup angelegt")
+	}
+	// Mit continue_if_unchanged läuft der Rest trotzdem.
+	g.Nodes[1].Config["continue_if_unchanged"] = true
+	if res := Run(context.Background(), g, Options{RunID: "a3", RunScript: run}); res.Status != "ok" || ran != 2 {
+		t.Fatalf("weiter trotz unverändert: %+v", res)
+	}
+}

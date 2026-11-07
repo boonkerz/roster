@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Abläufe: *Dateien finden* trifft nie die eigenen Backups (`*.roster-bak-*`, `*.roster-tmp`) – bisher erfasste ein Muster wie `verzeichnis/*` sie beim zweiten Lauf. *Text ersetzen* ohne Treffer **beendet den Ablauf jetzt ohne Fehler** (Status „nicht betroffen“: Gerät schon umgestellt), pull/up/Neustart entfallen; die Option „Weitermachen, auch wenn nichts ersetzt wurde“ behält das alte Verhalten.
+
 ## [0.21.2] - 2026-11-07
 
 ### Neu

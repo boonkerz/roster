@@ -27,8 +27,8 @@ und stellt **automatisch** alle bis dahin geänderten Dateien wieder her.
 
 | Baustein | Was er tut | In der Vorschau |
 |---|---|---|
-| **Dateien finden** | Pfade/Globs (eine je Zeile, optional „enthält …“) **oder** die Compose-Dateien aller Container mit einem Image (über die Compose-Labels; ohne Tag = alle Tags; dazu die `.env`, falls das Image dort steht). Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler. | läuft |
-| **Text ersetzen** | Literal oder regulärer Ausdruck (`$1` …), optional nur in Zeilen mit einem Text (z. B. `image:`). Je Datei wird vorher ein Backup `<datei>.roster-bak-<lauf>` angelegt. | zeigt den Diff, ändert nichts |
+| **Dateien finden** | Pfade/Globs (eine je Zeile, optional „enthält …“) **oder** die Compose-Dateien aller Container mit einem Image (über die Compose-Labels; ohne Tag = alle Tags; dazu die `.env`, falls das Image dort steht). Eigene Backups (`*.roster-bak-*`) werden nie gefunden. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler. | läuft |
+| **Text ersetzen** | Literal oder regulärer Ausdruck (`$1` …), optional nur in Zeilen mit einem Text (z. B. `image:`). Je Datei wird vorher ein Backup `<datei>.roster-bak-<lauf>` angelegt. Ohne Treffer endet der Ablauf hier ohne Fehler (Gerät schon umgestellt), außer mit „Weitermachen, auch wenn nichts ersetzt wurde“. | zeigt den Diff, ändert nichts |
 | **Docker Compose** | `pull`, `up -d`, `restart`, `down` – für die gefundenen Projekte (nur betroffene Dienste) oder ein Verzeichnis; `docker compose` mit Rückfall auf `docker-compose`. | zeigt die Befehle |
 | **Befehl / Skript** | Eigener Befehl oder ein Skript aus der Bibliothek; Exit ≠ 0 = Fehler. | wird nicht ausgeführt |
 | **API abfragen** | HTTP-Anfrage mit Headern/Body; JSON-Pfad liefert einen Wert (`{{steps.api.value}}`). | nur GET/HEAD |

@@ -26,7 +26,7 @@ const isCompose = (c: Record<string, unknown>) => c.mode === "compose_image";
 export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "find_files", label: "Dateien finden", icon: "🔎", prefix: "find",
-    help: "Findet Dateien per Pfadmuster oder die Compose-Dateien der Container mit einem Image. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler.",
+    help: "Findet Dateien per Pfadmuster oder die Compose-Dateien der Container mit einem Image. Eigene Backups (.roster-bak-…) werden nie gefunden. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler.",
     defaults: { mode: "compose_image", image: "" },
     fields: [
       { key: "mode", label: "Modus", kind: "select", options: [["compose_image", "Compose-Dateien der Container mit Image"], ["paths", "Pfade / Muster"]] },
@@ -37,7 +37,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   },
   {
     type: "replace", label: "Text ersetzen", icon: "✏️", prefix: "repl",
-    help: "Ersetzt Text in den Dateien des vorigen Bausteins (oder in angegebenen Dateien). Vor dem Schreiben wird je Datei ein Backup angelegt; die Vorschau zeigt den Diff.",
+    help: "Ersetzt Text in den Dateien des vorigen Bausteins (oder in angegebenen Dateien). Vor dem Schreiben wird je Datei ein Backup angelegt; die Vorschau zeigt den Diff. Ohne Treffer endet der Ablauf hier ohne Fehler (Gerät schon umgestellt).",
     defaults: { search: "", replace: "" },
     fields: [
       { key: "search", label: "Suchen", kind: "text", placeholder: "8000" },
@@ -46,6 +46,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
       { key: "line_filter", label: "Nur in Zeilen, die enthalten", kind: "text", placeholder: "image:" },
       { key: "files", label: "Dateien (leer = vom vorigen Baustein)", kind: "textarea" },
       { key: "fail_if_unchanged", label: "Fehler, wenn nichts ersetzt wurde", kind: "bool" },
+      { key: "continue_if_unchanged", label: "Weitermachen, auch wenn nichts ersetzt wurde", kind: "bool", help: "Standard: Ohne Treffer endet der Ablauf hier (Gerät schon umgestellt)." },
     ],
   },
   {
