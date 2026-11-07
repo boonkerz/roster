@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-07
+
 ### Neu
 - Abläufe: Ablauf **kopieren** (Liste und Editor, „Name (Kopie)“; im Editor wird der aktuelle, auch ungespeicherte Stand kopiert) und **einzelne Läufe löschen** im Lauf-Verlauf. Route `POST /flows/{id}/copy`, `DELETE /flow-runs/{id}`.
 
@@ -376,7 +378,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.2...HEAD
+[0.21.2]: https://github.com/boonkerz/roster/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
 [0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2

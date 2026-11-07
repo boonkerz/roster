@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-07
+
 ### Added
 - Flows: **copy** a flow (list and editor, "Name (copy)"; in the editor the current, unsaved state is copied) and **delete single runs** from the run history. Route `POST /flows/{id}/copy`, `DELETE /flow-runs/{id}`.
 
@@ -376,7 +378,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.2...HEAD
+[0.21.2]: https://github.com/boonkerz/roster/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/boonkerz/roster/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/boonkerz/roster/compare/v0.20.2...v0.21.0
 [0.20.2]: https://github.com/boonkerz/roster/compare/v0.20.1...v0.20.2
