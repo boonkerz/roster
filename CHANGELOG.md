@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.6] - 2026-11-07
+
 ### Added
 - Container security: number of **fixable** findings per image (Docker tab and *Security → Containers*), filter "fixable only", header badge "with fixable critical/high", sort order fixable critical/high first. Debian's own urgency (unimportant/low/medium/high) replaces the generic CVSS level where set.
 
@@ -399,7 +401,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.5...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.6...HEAD
+[0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
 [0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5
 [0.21.4]: https://github.com/boonkerz/roster/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/boonkerz/roster/compare/v0.21.2...v0.21.3

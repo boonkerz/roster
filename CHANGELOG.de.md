@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.21.6] - 2026-11-07
+
 ### Neu
 - Container-Sicherheit: Zahl der **behebbaren** Treffer je Image (Docker-Tab und *Sicherheit → Container*), Filter „nur behebbare“, Kopf-Badge „mit behebbaren kritisch/hoch“, Sortierung behebbare kritisch/hoch zuerst. Wo Debian eine eigene Dringlichkeit vergibt (unimportant/low/medium/high), ersetzt sie die allgemeine CVSS-Stufe.
 
@@ -399,7 +401,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.5...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.6...HEAD
+[0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
 [0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5
 [0.21.4]: https://github.com/boonkerz/roster/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/boonkerz/roster/compare/v0.21.2...v0.21.3
