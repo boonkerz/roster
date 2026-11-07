@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
@@ -36,7 +36,15 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
     queryFn: () => api.get<FlowRun>(`/flow-runs/${runId}`),
     refetchInterval: (q) => ((q.state.data?.devices ?? []).some((d) => d.status === "queued") ? 2000 : false),
   });
-  const host = (id: string) => devices?.find((d) => d.id === id)?.hostname ?? id;
+  // Gespeicherten Lauf öffnen: Parameter und Server dieses Laufs anzeigen (nicht die Standardwerte).
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    if (!run || synced) return;
+    setSynced(true);
+    setParams((cur) => ({ ...cur, ...(run.params ?? {}) }));
+    if (run.test_device_id) setDeviceId(run.test_device_id);
+  }, [run, synced]);
+  const host = (id: string) => devices?.find((d) => d.id === id)?.hostname ?? run?.devices.find((d) => d.device_id === id)?.hostname ?? id;
   const preview = run?.devices.find((d) => d.stage === "preview");
   const test = run?.devices.find((d) => d.stage === "test");
   const rollout = (run?.devices ?? []).filter((d) => d.stage === "rollout");

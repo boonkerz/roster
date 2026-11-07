@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Abläufe: Beim Öffnen eines gespeicherten Laufs aus dem Verlauf zeigt der Assistent jetzt die Parameter und den Vorschau-Server dieses Laufs statt der Standardwerte des Ablaufs.
+
 ## [0.21.3] - 2026-11-07
 
 ### Geändert

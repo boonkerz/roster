@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Flows: opening a stored run from the run history now shows that run's parameters and preview server instead of the flow's defaults.
+
 ## [0.21.3] - 2026-11-07
 
 ### Changed
