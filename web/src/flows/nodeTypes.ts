@@ -30,7 +30,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaults: { mode: "compose_image", image: "" },
     fields: [
       { key: "mode", label: "Modus", kind: "select", options: [["compose_image", "Compose-Dateien der Container mit Image"], ["paths", "Pfade / Muster"]] },
-      { key: "image", label: "Image (ohne Tag = alle Tags)", kind: "text", placeholder: "jrcs/letsencrypt-nginx-proxy-companion", show: isCompose },
+      { key: "image", label: "Image (Name genügt, * als Platzhalter, ohne Tag = alle Tags)", kind: "text", placeholder: "php-fpm-prod", show: isCompose },
       { key: "paths", label: "Pfade, eine je Zeile (Glob)", kind: "textarea", placeholder: "/opt/*/docker-compose.yml", show: (c) => !isCompose(c) },
       { key: "contains", label: "Nur Dateien, die enthalten (optional)", kind: "text" },
     ],

@@ -1776,4 +1776,8 @@ export const EN: Record<string, string> = {
   "im Lauf endet der Ablauf hier (nichts zu tun)": "in a run the flow ends here (nothing to do)",
   "Keine Änderung.": "No change.",
   "Ausprobieren …": "Try it out …",
+  // --- Abläufe: Image-Suche/Anhängsel (0.23.3) ---
+  "Image (Name genügt, * als Platzhalter, ohne Tag = alle Tags)": "Image (name is enough, * as wildcard, no tag = all tags)",
+  "Image des Prüf-Dienstes zum Finden – Name genügt (z. B. php-fpm-prod), * als Platzhalter": "Image of the checked service, to find the file – the name is enough (e.g. php-fpm-prod), * as wildcard",
+  "Liest die Image-Version eines Dienstes aus der Compose-Datei. Ist sie älter als die Zielversion, setzt der Ablauf die Images der genannten Dienste auf die Zielversion (Repository und Anhängsel wie _tp bleiben), trägt ein Mount und ein benanntes Volume ein, zieht die Images und startet neu. Sonst endet er ohne Änderung.": "Reads the image version of a service from the Compose file. If it is older than the target version, the flow sets the images of the listed services to the target version (repository and suffixes like _tp stay), adds a mount and a named volume, pulls the images and restarts. Otherwise it ends without changes.",
 };

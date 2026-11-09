@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Abläufe, *Dateien finden* (Compose-Image): Der **Image-Name genügt** (`php-fpm-prod` findet `registry…/docker/php-fpm-prod`), `*` wirkt als Platzhalter. Bisher passte nur das vollständige Repository. Der Versionsvergleich ignoriert **Anhängsel** wie `_tp` (`2.4.0_tp` gilt als 2.4.0 – bisher nicht vergleichbar, solche Server wurden als „nicht betroffen“ übersprungen). Neuer Platzhalter `{{value.suffix}}`; die Vorlage *Compose: Version anheben, wenn älter* behält das Anhängsel (`2.4.0_tp` → `2.5.0_tp`).
+
 ## [0.23.2] - 2026-11-09
 
 ### Geändert

@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Flows, *Find files* (Compose image): the image **name is enough** (`php-fpm-prod` finds `registry…/docker/php-fpm-prod`), `*` works as a wildcard. Previously only the full repository matched. Version comparison ignores **variant suffixes** like `_tp` (`2.4.0_tp` counts as 2.4.0 – previously not comparable, so such hosts were skipped as "not affected"). New placeholder `{{value.suffix}}`; the template *Compose: raise version if older* keeps the suffix (`2.4.0_tp` → `2.5.0_tp`).
+
 ## [0.23.2] - 2026-11-09
 
 ### Changed

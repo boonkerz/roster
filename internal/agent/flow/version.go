@@ -46,6 +46,7 @@ func splitVersion(v string) ([]int, string, bool) {
 	if v == "" {
 		return nil, "", false
 	}
+	v, _, _ = strings.Cut(v, "_") // Varianten-Anhängsel wie "2.4.0_tp" zählt nicht zur Version
 	main, pre, _ := strings.Cut(v, "-")
 	main, _, _ = strings.Cut(main, "+")
 	var parts []int

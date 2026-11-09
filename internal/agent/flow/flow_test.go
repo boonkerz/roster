@@ -148,6 +148,13 @@ func TestImageMatchingAndInspect(t *testing.T) {
 		{"nginx", "nginx:latest", true},
 		{"registry:5000/app:1", "registry:5000/app", true},
 		{"nginxproxy/nginx-proxy", "nginx", false},
+		{"registry.thomas-peterson.de/printshopcreator/docker/php-fpm-prod:2.4.0_tp", "php-fpm-prod", true},
+		{"registry.thomas-peterson.de/printshopcreator/docker/php-fpm-prod:2.4.0", "printshopcreator/docker/php-fpm-prod", false},
+		{"registry.thomas-peterson.de/printshopcreator/docker/php-fpm-prod:2.4.0", "*/php-fpm-prod", true},
+		{"registry.thomas-peterson.de/printshopcreator/docker/php-fpm-prod:2.4.0", "php-fpm-*", true},
+		{"registry.thomas-peterson.de/printshopcreator/docker/php-cron-prod:2.4.0", "php-fpm-prod", false},
+		{"registry.x/a/php-fpm-prod:2.4.0", "php-fpm-prod:2.4.0", true},
+		{"registry.x/a/php-fpm-prod:2.4.0_tp", "php-fpm-prod:2.4.0", false},
 	}
 	for _, c := range cases {
 		if got := imageMatches(c.ref, c.pat); got != c.want {

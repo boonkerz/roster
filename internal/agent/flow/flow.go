@@ -42,6 +42,7 @@ type composeProject struct {
 	Dir      string   `json:"dir"`
 	Files    []string `json:"files"`
 	Services []string `json:"services"`
+	Images   []string `json:"images,omitempty"` // passende Image-Referenzen (für die Inhaltsprüfung)
 }
 
 // step sind die Variablen eines ausgeführten Knotens.

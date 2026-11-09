@@ -194,7 +194,7 @@ func ApplyOp(text, op string, segs []string, value string) (string, string, erro
 		if node != nil && node.Kind == yaml.ScalarNode {
 			cur = node.Value
 		}
-		value = strings.NewReplacer("{{value.repo}}", ImageRepo(cur), "{{value.tag}}", ImageTag(cur), "{{value}}", cur).Replace(value)
+		value = strings.NewReplacer("{{value.repo}}", ImageRepo(cur), "{{value.tag}}", ImageTag(cur), "{{value.suffix}}", TagSuffix(cur), "{{value}}", cur).Replace(value)
 	}
 	switch op {
 	case "set":
@@ -616,4 +616,13 @@ func blockLines(value string, indent, step int) ([]string, bool) {
 		out = append(out, pad+l)
 	}
 	return out, true
+}
+
+// TagSuffix liefert das Varianten-Anhängsel eines Image-Tags ab dem ersten "_" ("2.4.0_tp" -> "_tp").
+func TagSuffix(ref string) string {
+	t := ImageTag(ref)
+	if i := strings.Index(t, "_"); i >= 0 {
+		return t[i:]
+	}
+	return ""
 }

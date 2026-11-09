@@ -32,14 +32,13 @@ func (r *runner) findFiles(ctx context.Context, c config) (shared.NodeResult, *s
 		if err != nil {
 			return shared.NodeResult{Status: "fail", Output: err.Error()}, st
 		}
-		repo := imageRepo(img)
 		seen := map[string]bool{}
 		for _, p := range projects {
 			cands := append([]string{}, p.Files...)
 			cands = append(cands, filepath.Join(p.Dir, ".env"))
 			for _, f := range cands {
 				data, err := os.ReadFile(f)
-				if err != nil || !bytes.Contains(data, []byte(repo)) || seen[f] {
+				if err != nil || seen[f] || !containsAnyRepo(data, p.Images) {
 					continue
 				}
 				if contains != "" && !bytes.Contains(data, []byte(contains)) {
@@ -107,10 +106,41 @@ func imageMatches(ref, pattern string) bool {
 		return strings.TrimPrefix(s, "library/")
 	}
 	ref, pattern = norm(ref), norm(pattern)
-	if imageRepo(pattern) == pattern { // Muster ohne Tag: jedes Tag passt
-		return imageRepo(ref) == pattern
+	pr, rr := imageRepo(pattern), imageRepo(ref)
+	if pr != pattern { // Muster mit Tag: Tag muss passen
+		if imageTag(pattern) != imageTag(ref) {
+			return false
+		}
 	}
-	return ref == pattern || (imageRepo(ref) == ref && pattern == ref+":latest")
+	return repoMatches(rr, pr)
+}
+
+// repoMatches vergleicht ein Repository mit einem Muster: ganz, nur über den Namen (Muster ohne
+// "/", z. B. php-fpm-prod für registry/…/php-fpm-prod) oder mit * und ? als Platzhalter.
+func repoMatches(repo, pattern string) bool {
+	last := repo
+	if i := strings.LastIndex(repo, "/"); i >= 0 {
+		last = repo[i+1:]
+	}
+	if strings.ContainsAny(pattern, "*?") {
+		re := "^" + strings.NewReplacer(`\*`, ".*", `\?`, ".").Replace(regexp.QuoteMeta(pattern)) + "$"
+		m, err := regexp.MatchString(re, repo)
+		if err == nil && !m {
+			m, _ = regexp.MatchString(re, last)
+		}
+		return m
+	}
+	return repo == pattern || (!strings.Contains(pattern, "/") && last == pattern)
+}
+
+// containsAnyRepo prüft, ob die Datei eines der (Repositories der) Images nennt.
+func containsAnyRepo(data []byte, images []string) bool {
+	for _, im := range images {
+		if r := imageRepo(im); r != "" && bytes.Contains(data, []byte(r)) {
+			return true
+		}
+	}
+	return false
 }
 
 type containerInfo struct {
@@ -175,6 +205,9 @@ func groupProjects(list []containerInfo, pattern string) []composeProject {
 		}
 		if ci.Service != "" && !contains(p.Services, ci.Service) {
 			p.Services = append(p.Services, ci.Service)
+		}
+		if !contains(p.Images, ci.Image) {
+			p.Images = append(p.Images, ci.Image)
 		}
 	}
 	var out []composeProject

@@ -27,14 +27,14 @@ are `{{param.FROM}}`.
 
 | Block | What it does | In the preview |
 |---|---|---|
-| **Find files** | Paths/globs (one per line, optional "contains …") **or** the Compose files of all containers with an image (via the Compose labels; no tag = all tags; plus the `.env` if the image is there). Its own backups (`*.roster-bak-*`) are never matched. No matches = device not affected, the flow ends without error. | runs |
+| **Find files** | Paths/globs (one per line, optional "contains …") **or** the Compose files of all containers with an image (via the Compose labels; the name is enough, e.g. `php-fpm-prod` for `registry…/docker/php-fpm-prod`, `*` as wildcard; no tag = all tags; plus the `.env` if the image is there). Its own backups (`*.roster-bak-*`) are never matched. No matches = device not affected, the flow ends without error. | runs |
 | **Replace text** | Literal or regular expression (`$1` …), optionally only in lines containing a text (e.g. `image:`). A backup `<file>.roster-bak-<run>` is written per file first. Without matches the flow ends here without error (device already switched), unless "Continue even if nothing was replaced" is set. | shows the diff, changes nothing |
 | **Read value** | Reads a value from YAML/JSON (path like `services.php-fpm.image`, `"a.b"` for dots in names, number = list index) or a key from a `.env`. *Part* extracts the tag (`…:2.4.0` → `2.4.0`, no tag `latest`) or the repository from an image reference. Result: `{{steps.ID.value}}`. | runs |
-| **Edit YAML** | Edits YAML precisely, comments, quotes and indentation stay: `set path = value`, `append path = item` (only if new), `ensure path = value` (only if missing), `delete path [= list item]`. Missing parts are created. `{a,b,c}` in the path applies to several entries, `{{value.repo}}`/`{{value.tag}}`/`{{value}}` in the value are the current value. Backup and diff as with *Replace text*; without changes the flow ends. | shows the diff |
+| **Edit YAML** | Edits YAML precisely, comments, quotes and indentation stay: `set path = value`, `append path = item` (only if new), `ensure path = value` (only if missing), `delete path [= list item]`. Missing parts are created. `{a,b,c}` in the path applies to several entries, `{{value.repo}}`/`{{value.tag}}`/`{{value.suffix}}`/`{{value}}` in the value stand for the current value (`suffix` = a variant like `_tp` from `2.4.0_tp`). Backup and diff as with *Replace text*; without changes the flow ends. | shows the diff |
 | **Docker Compose** | `pull`, `up -d`, `restart`, `down` – for the projects found (affected services only) or a directory; `docker compose` with fallback to `docker-compose`. | shows the commands |
 | **Command / script** | Own command or a library script; exit ≠ 0 = failure. | not executed |
 | **Query API** | HTTP request with headers/body; a JSON path yields a value (`{{steps.api.value}}`). | GET/HEAD only |
-| **Check** | Container running (without a name: the affected Compose services), HTTP status, TCP port, file contains text, compare value – also as a version (`2.10.0 > 2.9.1`, `v` prefix ignored, `-rc` lower than the final release) – with retries. *Not met: end the flow without error* turns it into a condition ("otherwise do nothing"). | comparisons and "file contains" run, the rest is skipped |
+| **Check** | Container running (without a name: the affected Compose services), HTTP status, TCP port, file contains text, compare value – also as a version (`2.10.0 > 2.9.1`, `v` prefix ignored, `-rc` lower than the final release, suffixes like `_tp` are ignored) – with retries. *Not met: end the flow without error* turns it into a condition ("otherwise do nothing"). | comparisons and "file contains" run, the rest is skipped |
 | **Roll back** | Restores every file changed in this run, optionally followed by `up -d`. | skipped |
 | **Wait** | Waits up to 10 minutes. | skipped |
 
@@ -104,10 +104,12 @@ name stays unchanged and the import is called "Name (Import)".
 - **Compose: raise version if older** – reads the image tag of a service (e.g. `php-fpm`), checks "older than 2.5.0", sets the images of `web`, `php-fpm`, `cron` to 2.5.0 (repository stays), adds a mount and a named volume, `pull`, `up -d`, checks; otherwise *not affected*. The core is this *Edit YAML* block:
 
     ```
-    set    services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0
+    set    services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0{{value.suffix}}
     append services.{php-fpm,cron}.volumes = shop_media:/var/www/media
     ensure volumes.shop_media = {}
     ```
+
+    `{{value.suffix}}` keeps variants like `_tp`: `2.4.0_tp` becomes `2.5.0_tp`.
 
     A short-form value (`{…}` or `[…]`) is written as a block when created – so a volume with driver
     options fits on one line:

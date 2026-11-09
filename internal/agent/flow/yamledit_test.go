@@ -36,7 +36,7 @@ func TestVersionCompare(t *testing.T) {
 		ok   bool
 	}{
 		{"2.4.0", "2.5.0", -1, true}, {"2.10.0", "2.9.1", 1, true}, {"v2.5.0", "2.5.0", 0, true},
-		{"2.5.0-rc1", "2.5.0", -1, true}, {"2.5", "2.5.0", 0, true}, {"latest", "2.5.0", 0, false}, {"2.4.0_tp", "2.5.0", 0, false},
+		{"2.5.0-rc1", "2.5.0", -1, true}, {"2.5", "2.5.0", 0, true}, {"latest", "2.5.0", 0, false}, {"2.4.0_tp", "2.5.0", -1, true}, {"2.5.0_tp", "2.5.0", 0, true}, {"2.2_tp", "2.5.0", -1, true},
 	}
 	for _, c := range cases {
 		got, ok := compareVersions(c.a, c.b)
@@ -170,5 +170,14 @@ func TestUpgradeFlow(t *testing.T) {
 	res = Run(context.Background(), g, Options{RunID: "u2", Params: params, RunScript: run})
 	if res.Status != "nothing" || ran != 1 || len(res.Nodes) != 3 {
 		t.Fatalf("zweiter lauf: %+v", res)
+	}
+}
+
+func TestSuffixKeptOnUpgrade(t *testing.T) {
+	in := "services:\n  web:\n    image: reg/x/web-prod:2.4.0_tp\n  cron:\n    image: reg/x/php-cron-prod:2.4.0\n"
+	out := apply(t, in, "set", "services.web.image", "{{value.repo}}:2.5.0{{value.suffix}}")
+	out = apply(t, out, "set", "services.cron.image", "{{value.repo}}:2.5.0{{value.suffix}}")
+	if !strings.Contains(out, "reg/x/web-prod:2.5.0_tp") || !strings.Contains(out, "reg/x/php-cron-prod:2.5.0\n") {
+		t.Fatal(out)
 	}
 }
