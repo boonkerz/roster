@@ -316,3 +316,6 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// DBEngine erkennt die Datenbank-Engine am Image-Namen (mongo | mysql | postgres | "").
+func DBEngine(image string) string { return dbEngine(image) }

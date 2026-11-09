@@ -62,7 +62,16 @@ type runner struct {
 	opt     Options
 	steps   map[string]*step
 	backups []backup
-	last    *step // letzter Schritt mit Dateien/Projekten (Standardquelle)
+	undo    []undoEntry               // Rückbau weiterer Änderungen (Dateisystem), rückwärts
+	planned map[string]bool           // Vorschau: Pfade, die ein früherer Schritt anlegen würde
+	notes   []shared.FlowNotification // Meldungen des Bausteins „Benachrichtigen“
+	last    *step                     // letzter Schritt mit Dateien/Projekten (Standardquelle)
+}
+
+// undoEntry macht eine Änderung rückgängig; desc erscheint in „wiederhergestellt“.
+type undoEntry struct {
+	desc string
+	fn   func() error
 }
 
 // Run führt den Graphen aus und liefert das Ergebnis.
@@ -104,7 +113,7 @@ func Run(ctx context.Context, g shared.FlowGraph, opt Options) shared.FlowResult
 		case "empty":
 			res.Status = "nothing"
 			res.RolledBack = nil
-			return finish(res)
+			return r.finish(res)
 		case "fail":
 			hadFail = true
 			nxt := shared.FlowEdgeTo(g, n.ID, "fail")
@@ -116,7 +125,7 @@ func Run(ctx context.Context, g shared.FlowGraph, opt Options) shared.FlowResult
 				} else {
 					res.Status = "fail"
 				}
-				return finish(res)
+				return r.finish(res)
 			}
 			cur = nxt
 		default:
@@ -126,7 +135,7 @@ func Run(ctx context.Context, g shared.FlowGraph, opt Options) shared.FlowResult
 			res.Error = "Zeitlimit des Ablaufs überschritten"
 			res.RolledBack = r.rollback()
 			res.Status = "fail"
-			return finish(res)
+			return r.finish(res)
 		}
 	}
 	switch {
@@ -139,10 +148,17 @@ func Run(ctx context.Context, g shared.FlowGraph, opt Options) shared.FlowResult
 	default:
 		res.Status = "ok"
 	}
+	return r.finish(res)
+}
+
+// finish hängt die Meldungen an und kürzt das Ergebnis auf eine übertragbare Größe.
+func (r *runner) finish(res shared.FlowResult) shared.FlowResult {
+	if !r.opt.DryRun {
+		res.Notifications = r.notes
+	}
 	return finish(res)
 }
 
-// finish kürzt das Ergebnis auf eine übertragbare Größe.
 func finish(res shared.FlowResult) shared.FlowResult {
 	for {
 		b, _ := json.Marshal(res)
@@ -174,6 +190,11 @@ func labelOf(n shared.FlowNode) string {
 
 func (r *runner) exec(ctx context.Context, n shared.FlowNode) (shared.NodeResult, *step) {
 	cfg := r.config(n)
+	if cond, ok := n.Config["only_if"]; ok {
+		if run, why := onlyIf(r.expand(fmt.Sprint(cond))); !run {
+			return shared.NodeResult{Status: "skipped", Output: "übersprungen (" + why + ")"}, &step{}
+		}
+	}
 	switch n.Type {
 	case "find_files":
 		return r.findFiles(ctx, cfg)
@@ -195,6 +216,16 @@ func (r *runner) exec(ctx context.Context, n shared.FlowNode) (shared.NodeResult
 		return r.readValue(cfg)
 	case "yaml":
 		return r.yamlEdit(cfg)
+	case "fs":
+		return r.fsNode(cfg)
+	case "container_exec":
+		return r.containerExec(ctx, cfg)
+	case "db_backup":
+		return r.dbBackup(ctx, cfg)
+	case "docker_prune":
+		return r.dockerPrune(ctx, cfg)
+	case "notify":
+		return r.notify(cfg)
 	}
 	return shared.NodeResult{Status: "fail", Output: "unbekannter Baustein"}, &step{}
 }
@@ -214,6 +245,15 @@ func (r *runner) rollback() []string {
 		return nil
 	}
 	var restored []string
+	for i := len(r.undo) - 1; i >= 0; i-- {
+		u := r.undo[i]
+		if err := u.fn(); err != nil {
+			restored = append(restored, u.desc+" (nicht möglich: "+err.Error()+")")
+		} else {
+			restored = append(restored, u.desc)
+		}
+	}
+	r.undo = nil
 	for i := len(r.backups) - 1; i >= 0; i-- {
 		b := r.backups[i]
 		data, err := os.ReadFile(b.Backup)
@@ -369,4 +409,20 @@ func lines(s string) []string {
 		}
 	}
 	return out
+}
+
+// onlyIf wertet die Bedingung „Nur ausführen, wenn …“ aus: nicht leer (und nicht false/0/no),
+// mit vorangestelltem ! umgekehrt (nur wenn leer).
+func onlyIf(v string) (bool, string) {
+	neg := false
+	v = strings.TrimSpace(v)
+	if strings.HasPrefix(v, "!") {
+		neg, v = true, strings.TrimSpace(v[1:])
+	}
+	l := strings.ToLower(v)
+	set := v != "" && l != "false" && l != "0" && l != "no" && l != "nein"
+	if neg {
+		return !set, "Bedingung: Wert ist gesetzt"
+	}
+	return set, "Bedingung: Wert ist leer"
 }

@@ -28,6 +28,7 @@ function FlowNodeCard({ id, data, selected }: NodeProps<FNode>) {
       <div className="flow-node-head"><span>{def?.icon}</span> <strong>{data.label || t(def?.label ?? data.type)}</strong></div>
       <div className="flow-node-sub mono">{id} · {t(def?.label ?? data.type)}</div>
       <div className="flow-node-sum">{nodeSummary(data.type, data.config)}</div>
+      {data.config.only_if ? <div className="flow-node-sum" title={String(data.config.only_if)}>⤷ {t("nur wenn")} {String(data.config.only_if)}</div> : null}
       <Handle type="source" position={Position.Bottom} id="ok" className="h-ok" style={{ left: "30%" }} />
       <Handle type="source" position={Position.Bottom} id="fail" className="h-fail" style={{ left: "70%" }} />
       <div className="flow-node-ports"><span className="p-ok">ok</span><span className="p-fail">{t("Fehler")}</span></div>
@@ -219,6 +220,8 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
                 <label className="flow-field"><span className="muted small">{t("Beschriftung")}</span>
                   <input value={selNode.data.label} placeholder={t(def.label)} onChange={(e) => updateSel({ label: e.target.value })} /></label>
                 {def.fields.filter((f) => !f.show || f.show(selNode.data.config)).map((f) => fieldInput(f, selNode.data.config))}
+                <label className="flow-field" title={t("Leer = immer ausführen. Beispiel: {{param.DB_SERVICE}} – der Baustein läuft nur, wenn der Parameter gesetzt ist; mit ! davor nur, wenn er leer ist. Übersprungene Bausteine gehen über „ok“ weiter.")}><span className="muted small">{t("Nur ausführen, wenn (optional)")}</span>
+                  <input className="mono" placeholder="{{param.X}}" value={String(selNode.data.config.only_if ?? "")} onChange={(e) => updateSel({}, { only_if: e.target.value })} /></label>
                 {selNode.data.type === "yaml" && <button className="btn primary sm" style={{ marginBottom: 10 }} onClick={() => setPlayground(true)}>{t("Ausprobieren …")}</button>}
                 <p className="muted small">{t("Platzhalter")}: <span className="mono">{"{{param.NAME}}"}</span>, <span className="mono">{"{{steps.ID.value}}"}</span>, <span className="mono">{"{{steps.ID.out}}"}</span>, <span className="mono">{"{{steps.ID.json.pfad}}"}</span>, <span className="mono">{"{{agent.feld}}"}</span></p>
                 <button className="btn ghost sm danger" onClick={removeSel}>{t("Baustein löschen")}</button>

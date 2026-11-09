@@ -92,14 +92,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     help: "Prüft einen Zustand und verzweigt über ok/fail. Ohne Container-Namen werden die betroffenen Compose-Dienste geprüft.",
     defaults: { kind: "container", retries: 3, interval_s: 10 },
     fields: [
-      { key: "kind", label: "Art", kind: "select", options: [["container", "Container läuft"], ["http", "HTTP-Status"], ["tcp", "TCP-Port erreichbar"], ["file_contains", "Datei enthält Text"], ["expr", "Wert vergleichen"]] },
+      { key: "kind", label: "Art", kind: "select", options: [["container", "Container läuft"], ["http", "HTTP-Status"], ["tcp", "TCP-Port erreichbar"], ["file_contains", "Datei enthält Text"], ["exists", "Pfad existiert"], ["expr", "Wert vergleichen"]] },
       { key: "container", label: "Container-Name enthält (leer = betroffene Dienste)", kind: "text", show: (c) => c.kind === "container" },
       { key: "healthy", label: "Muss healthy sein", kind: "bool", show: (c) => c.kind === "container" },
       { key: "url", label: "URL", kind: "text", show: (c) => c.kind === "http" },
       { key: "expect_status", label: "Erwarteter Status (leer = 2xx)", kind: "text", show: (c) => c.kind === "http" },
       { key: "host", label: "Host", kind: "text", placeholder: "127.0.0.1", show: (c) => c.kind === "tcp" },
       { key: "port", label: "Port", kind: "text", placeholder: "80", show: (c) => c.kind === "tcp" },
-      { key: "path", label: "Datei", kind: "text", show: (c) => c.kind === "file_contains" },
+      { key: "path", label: "Pfad", kind: "text", show: (c) => c.kind === "file_contains" || c.kind === "exists" },
+      { key: "path_type", label: "Typ", kind: "select", options: [["any", "egal"], ["dir", "Verzeichnis"], ["file", "Datei"]], show: (c) => c.kind === "exists" },
       { key: "text", label: "Text", kind: "text", show: (c) => c.kind === "file_contains" },
       { key: "value", label: "Wert", kind: "text", placeholder: "{{steps.api.value}}", show: (c) => c.kind === "expr" },
       { key: "op", label: "Vergleich", kind: "select", options: [["eq", "gleich"], ["ne", "ungleich"], ["contains", "enthält"], ["gt", "größer"], ["lt", "kleiner"], ["version_lt", "Version kleiner als"], ["version_le", "Version kleiner/gleich"], ["version_gt", "Version größer als"], ["version_ge", "Version größer/gleich"], ["version_eq", "Version gleich"], ["notempty", "nicht leer"], ["empty", "leer"]], show: (c) => c.kind === "expr" },
@@ -132,6 +133,62 @@ export const NODE_TYPES: NodeTypeDef[] = [
     ],
   },
   {
+    type: "fs", label: "Dateisystem", icon: "📁", prefix: "fs",
+    help: "Verzeichnisse und Dateien anlegen, Rechte und Besitzer setzen – nur wenn nötig. Eine Operation je Zeile: mkdir pfad [mode=0775] [owner=33:33] · chmod pfad 0775 · chown pfad benutzer:gruppe · file pfad = \"inhalt\" (nur wenn fehlt). Beim Zurückrollen werden neu angelegte (leere) Verzeichnisse und Dateien entfernt und Rechte/Besitzer wiederhergestellt.",
+    defaults: { ops: "mkdir /data/volumes/{{param.VOLUME}} mode=0775" },
+    fields: [
+      { key: "ops", label: "Operationen (eine je Zeile)", kind: "textarea" },
+      { key: "stop_if_unchanged", label: "Ablauf beenden, wenn nichts zu tun ist", kind: "bool" },
+    ],
+  },
+  {
+    type: "container_exec", label: "Befehl im Container", icon: "📦", prefix: "exec",
+    help: "Führt einen Befehl in einem laufenden Container aus (docker exec), z. B. bin/console cache:clear nach dem Update. Der Dienst wird im Compose-Projekt des vorigen „Dateien finden“ gesucht. Exit ≠ 0 = Fehler; Ausgabe als {{steps.<id>.out}}. In der Vorschau wird nichts ausgeführt.",
+    defaults: { service: "php-fpm", command: "" },
+    fields: [
+      { key: "service", label: "Compose-Dienst", kind: "text", placeholder: "php-fpm" },
+      { key: "container", label: "oder Container-Name enthält", kind: "text" },
+      { key: "command", label: "Befehl", kind: "textarea", placeholder: "bin/console cache:clear" },
+      { key: "user", label: "Benutzer im Container (optional)", kind: "text", placeholder: "www-data" },
+      { key: "workdir", label: "Arbeitsverzeichnis (optional)", kind: "text" },
+      { key: "all", label: "In allen passenden Containern", kind: "bool" },
+      { key: "timeout_s", label: "Zeitlimit (Sekunden)", kind: "number", placeholder: "600" },
+    ],
+  },
+  {
+    type: "db_backup", label: "Datenbank sichern", icon: "💾", prefix: "bak",
+    help: "Zieht einen Dump aus einem Datenbank-Container (MySQL/MariaDB, MongoDB, PostgreSQL – Zugangsdaten aus der Container-Umgebung) und legt ihn komprimiert auf dem Host ab. Pfad als {{steps.<id>.value}}. Ältere Sicherungen über „Anzahl behalten“ hinaus werden gelöscht; beim Zurückrollen bleibt die Sicherung erhalten.",
+    defaults: { service: "", engine: "auto", keep: 5 },
+    fields: [
+      { key: "service", label: "Compose-Dienst der Datenbank", kind: "text", placeholder: "mysql" },
+      { key: "container", label: "oder Container-Name enthält", kind: "text" },
+      { key: "engine", label: "Datenbank", kind: "select", options: [["auto", "automatisch"], ["mysql", "MySQL/MariaDB"], ["mongo", "MongoDB"], ["postgres", "PostgreSQL"]] },
+      { key: "databases", label: "Datenbanken (leer = alle)", kind: "text" },
+      { key: "dir", label: "Zielverzeichnis", kind: "text", placeholder: "/var/backups/roster" },
+      { key: "keep", label: "Anzahl behalten", kind: "number" },
+      { key: "timeout_s", label: "Zeitlimit (Sekunden)", kind: "number", placeholder: "3600" },
+    ],
+  },
+  {
+    type: "docker_prune", label: "Docker aufräumen", icon: "🧹", prefix: "prune",
+    help: "Entfernt ungenutzte Images: „namenlose“ (dangling) oder alle, die kein Container nutzt. Die Vorschau listet, was entfernt würde. Nicht rückgängig zu machen – ans Ende nach erfolgreicher Prüfung setzen.",
+    defaults: { mode: "dangling", older_than_days: 7 },
+    fields: [
+      { key: "mode", label: "Was", kind: "select", options: [["dangling", "namenlose Images"], ["unused", "alle ungenutzten Images"]] },
+      { key: "older_than_days", label: "Nur älter als (Tage)", kind: "number" },
+    ],
+  },
+  {
+    type: "notify", label: "Benachrichtigen", icon: "🔔", prefix: "msg",
+    help: "Schickt eine Meldung über die Alarm-Kanäle (E-Mail, Pushover, Telegram …) – auch im Wartungsfenster. Platzhalter wie {{steps.bak.value}} erlaubt. In der Vorschau wird nichts verschickt.",
+    defaults: { subject: "", message: "", severity: "info" },
+    fields: [
+      { key: "subject", label: "Betreff", kind: "text" },
+      { key: "message", label: "Nachricht", kind: "textarea" },
+      { key: "severity", label: "Stufe", kind: "select", options: [["info", "Info"], ["warning", "Warnung"], ["critical", "Kritisch"]] },
+    ],
+  },
+  {
     type: "rollback", label: "Zurückrollen", icon: "↩", prefix: "rb",
     help: "Stellt alle in diesem Lauf geänderten Dateien aus den Backups wieder her. Unbehandelte Fehler rollen automatisch zurück.",
     defaults: { compose_up: true },
@@ -158,6 +215,11 @@ export function nodeSummary(type: string, c: Record<string, unknown>): string {
     case "http": return `${s("method") || "GET"} ${s("url")}`;
     case "check": return c.kind === "expr" ? `${s("value")} ${s("op")} ${s("expect")}${c.false_ends ? " · sonst Ende" : ""}` : s("kind");
     case "wait": return `${s("seconds")} s`;
+    case "fs": return s("ops").split("\n")[0];
+    case "container_exec": return `${s("service") || s("container")}: ${s("command").split("\n")[0]}`;
+    case "db_backup": return `${s("service") || s("container")} → ${s("dir") || "/var/backups/roster"}`;
+    case "docker_prune": return `${s("mode") || "dangling"} > ${s("older_than_days") || 7} Tage`;
+    case "notify": return s("subject") || s("message").split("\n")[0];
     case "read_value": return `${s("path")}${c.extract && c.extract !== "none" ? ` → ${s("extract")}` : ""}`;
     case "yaml": return s("ops").split("\n")[0];
     case "rollback": return c.compose_up ? "Dateien + up -d" : "Dateien";

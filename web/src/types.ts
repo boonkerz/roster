@@ -1083,7 +1083,7 @@ export interface DashWidget {
 export type DashWidth = 1 | 2 | 3 | 4;
 
 // --- Abläufe (Flow-Designer) ---
-export type FlowNodeType = "find_files" | "replace" | "compose" | "command" | "http" | "check" | "rollback" | "wait" | "read_value" | "yaml";
+export type FlowNodeType = "find_files" | "replace" | "compose" | "command" | "http" | "check" | "rollback" | "wait" | "read_value" | "yaml" | "fs" | "container_exec" | "db_backup" | "docker_prune" | "notify";
 export interface FlowNodeDef {
   id: string;
   type: FlowNodeType;
@@ -1120,6 +1120,7 @@ export interface FlowResult {
   nodes: FlowNodeResult[];
   rolled_back?: string[];
   error?: string;
+  notifications?: { subject: string; message: string; severity: string }[];
 }
 export interface FlowRunDevice {
   device_id: string;

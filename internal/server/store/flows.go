@@ -211,3 +211,10 @@ func (s *Store) DeleteFlowRun(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// FlowCommandInfo liefert Gerät, Ablaufname und Stufe zu einem run_flow-Befehl.
+func (s *Store) FlowCommandInfo(ctx context.Context, commandID string) (deviceID, flowName, stage string, err error) {
+	err = s.db.QueryRowContext(ctx, s.rebind(`SELECT x.device_id, r.flow_name, x.stage FROM flow_run_devices x
+		JOIN flow_runs r ON r.id = x.run_id WHERE x.command_id=?`), commandID).Scan(&deviceID, &flowName, &stage)
+	return
+}

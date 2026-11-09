@@ -56,10 +56,18 @@ type NodeResult struct {
 
 // FlowResult ist das Gesamtergebnis eines Laufs auf einem Gerät.
 type FlowResult struct {
-	Status     string       `json:"status"` // ok | fail | rolled_back | dry | nothing
-	Nodes      []NodeResult `json:"nodes"`
-	RolledBack []string     `json:"rolled_back,omitempty"` // wiederhergestellte Dateien
-	Error      string       `json:"error,omitempty"`
+	Status        string             `json:"status"` // ok | fail | rolled_back | dry | nothing
+	Nodes         []NodeResult       `json:"nodes"`
+	RolledBack    []string           `json:"rolled_back,omitempty"` // wiederhergestellte Dateien
+	Error         string             `json:"error,omitempty"`
+	Notifications []FlowNotification `json:"notifications,omitempty"` // vom Server zu verschicken
+}
+
+// FlowNotification ist eine Meldung des Bausteins „Benachrichtigen“.
+type FlowNotification struct {
+	Subject  string `json:"subject"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"` // info | warning | critical
 }
 
 // FlowNodeTypes sind die bekannten Bausteine.
@@ -67,6 +75,7 @@ var FlowNodeTypes = map[string]bool{
 	"find_files": true, "replace": true, "compose": true, "command": true,
 	"http": true, "check": true, "rollback": true, "wait": true,
 	"read_value": true, "yaml": true,
+	"fs": true, "container_exec": true, "db_backup": true, "docker_prune": true, "notify": true,
 }
 
 // MaxFlowNodes begrenzt die Größe eines Ablaufs.

@@ -35,7 +35,12 @@ und stellt **automatisch** alle bis dahin geänderten Dateien wieder her.
 | **Befehl / Skript** | Eigener Befehl oder ein Skript aus der Bibliothek; Exit ≠ 0 = Fehler. | wird nicht ausgeführt |
 | **API abfragen** | HTTP-Anfrage mit Headern/Body; JSON-Pfad liefert einen Wert (`{{steps.api.value}}`). | nur GET/HEAD |
 | **Prüfen** | Container läuft (ohne Namen: die betroffenen Compose-Dienste), HTTP-Status, TCP-Port, Datei enthält Text, Wert vergleichen – auch als Version (`2.10.0 > 2.9.1`, `v`-Präfix egal, `-rc` kleiner als die Endversion, Anhängsel wie `_tp` zählen nicht) – mit Wiederholungen. *Nicht erfüllt: Ablauf ohne Fehler beenden* macht daraus eine Bedingung („sonst nichts tun“). | Vergleiche und „Datei enthält“ laufen, Rest übersprungen |
-| **Zurückrollen** | Stellt alle in diesem Lauf geänderten Dateien wieder her, optional danach `up -d`. | wird übersprungen |
+| **Dateisystem** | `mkdir pfad [mode=0775] [owner=33:33]`, `chmod pfad 0775`, `chown pfad benutzer:gruppe`, `file pfad = "inhalt"` – jeweils nur, wenn nötig. Zurückrollen entfernt neu angelegte (leere) Verzeichnisse und Dateien und stellt Rechte/Besitzer wieder her. | zeigt die geplanten Schritte |
+| **Befehl im Container** | `docker exec` in einem Compose-Dienst (im Projekt des vorigen *Dateien finden*) oder Container, optional Benutzer/Arbeitsverzeichnis – z. B. `bin/console cache:clear`. | zeigt Befehl und Container |
+| **Datenbank sichern** | Dump aus MySQL/MariaDB, MongoDB oder PostgreSQL (Zugangsdaten aus der Container-Umgebung), gzip-komprimiert nach `/var/backups/roster`, die neuesten *N* bleiben. Pfad als `{{steps.ID.value}}`. Bleibt beim Zurückrollen erhalten. | prüft, ob das Dump-Programm vorhanden ist |
+| **Docker aufräumen** | entfernt namenlose oder alle ungenutzten Images (älter als *N* Tage). Nicht rückgängig zu machen. | listet, was entfernt würde |
+| **Benachrichtigen** | Meldung über die Alarm-Kanäle (auch im Wartungsfenster), Platzhalter erlaubt. | verschickt nichts |
+| **Zurückrollen** | Nimmt alle Änderungen dieses Laufs zurück (Dateien, Verzeichnisse, Rechte), optional danach `up -d` für das ganze Compose-Projekt. | wird übersprungen |
 | **Warten** | Wartet bis zu 10 Minuten. | wird übersprungen |
 
 **Ausprobieren:** Beim Baustein *YAML ändern* öffnet *Ausprobieren …* ein Fenster mit drei Spalten:
@@ -43,6 +48,8 @@ links eine eingefügte YAML-Datei (z. B. eure Compose-Datei) und Werte für die 
 Mitte die Operationen (Änderungen gehen direkt in den Baustein), rechts die Vorschau als Diff oder
 vollständiges Ergebnis – samt Meldung je Operation. Gerechnet wird mit demselben Code wie im Agent;
 nichts wird gespeichert oder ausgeführt.
+
+**Nur ausführen, wenn …:** Jeder Baustein hat dieses optionale Feld. Steht dort z. B. `{{param.DB_SERVICE}}` und der Parameter ist leer, wird der Baustein übersprungen und der Ablauf geht über *ok* weiter; mit `!` davor läuft er nur, wenn der Wert leer ist. So lassen sich Schritte über Parameter an- und abschalten.
 
 **Platzhalter:** `{{param.NAME}}`, `{{steps.ID.value}}`, `{{steps.ID.out}}` (Befehlsausgabe),
 `{{steps.ID.json.pfad.0.feld}}`, `{{steps.ID.files}}` und die Gerätefelder `{{agent.feld}}`,
@@ -104,7 +111,7 @@ der Import heißt dann „Name (Import)“.
 
 ## Vorlagen
 
-- **Compose: Version anheben, wenn älter** – liest das Image-Tag eines Dienstes (z. B. `php-fpm`), prüft „älter als 2.5.0“, setzt die Images von `web`, `php-fpm`, `cron` auf 2.5.0 (Repository bleibt), trägt ein Mount und ein benanntes Volume ein, `pull`, `up -d`, prüft; sonst *nicht betroffen*. Kern ist dieser Baustein *YAML ändern*:
+- **Compose: Version anheben, wenn älter** – liest das Image-Tag eines Dienstes (z. B. `php-fpm`), prüft „älter als 2.5.0“ und dann: Datenbank sichern (Parameter `DB_SERVICE`, leer = nein), Volume-Verzeichnis anlegen (`VOLUME_DIR`, leer = einfaches Docker-Volume), Images von `web`, `php-fpm`, `cron` auf 2.5.0 (Repository und `_tp` bleiben), Mount und Volume eintragen, `pull`, `up -d`, prüfen, Befehl im Container (`POST_CMD`, z. B. `bin/console cache:clear`), namenlose Images aufräumen, Erfolg melden. Bei Fehler: alles zurücknehmen, ganzes Projekt neu hochfahren, Fehler melden – die Datenbank-Sicherung bleibt. Sonst *nicht betroffen*. Kern ist dieser Baustein *YAML ändern*:
 
     ```
     set    services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0{{value.suffix}}

@@ -120,7 +120,12 @@
             "rollback",
             "wait",
             "read_value",
-            "yaml"
+            "yaml",
+            "fs",
+            "container_exec",
+            "db_backup",
+            "docker_prune",
+            "notify"
           ]
         },
         "label": {
@@ -168,6 +173,10 @@
                   "contains": {
                     "type": "string",
                     "description": "Nur Dateien, die diesen Text enthalten"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -215,6 +224,10 @@
                   "continue_if_unchanged": {
                     "type": "boolean",
                     "description": "Weitermachen, auch wenn nichts ersetzt wurde (Standard: Ablauf endet)"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -258,6 +271,10 @@
                   "all_services": {
                     "type": "boolean",
                     "description": "Alle Dienste des Projekts"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -294,6 +311,10 @@
                       "string"
                     ],
                     "description": "Zeitlimit in Sekunden (Standard 600)"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -356,6 +377,10 @@
                       "string"
                     ],
                     "description": "Zeitlimit in Sekunden"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -382,7 +407,8 @@
                       "http",
                       "tcp",
                       "file_contains",
-                      "expr"
+                      "expr",
+                      "exists"
                     ]
                   },
                   "container": {
@@ -465,6 +491,18 @@
                   "false_ends": {
                     "type": "boolean",
                     "description": "Nicht erfüllt: Ablauf ohne Fehler beenden (nicht betroffen)"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  },
+                  "path_type": {
+                    "enum": [
+                      "any",
+                      "file",
+                      "dir"
+                    ],
+                    "description": "bei exists: Datei oder Verzeichnis"
                   }
                 },
                 "additionalProperties": false
@@ -488,6 +526,10 @@
                   "compose_up": {
                     "type": "boolean",
                     "description": "Danach betroffene Dienste neu starten (up -d)"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -514,6 +556,10 @@
                       "string"
                     ],
                     "description": "Sekunden (max. 600)"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 },
                 "additionalProperties": false
@@ -554,6 +600,10 @@
                   "optional": {
                     "type": "boolean",
                     "description": "Fehlt der Pfad: leerer Wert statt Fehler"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 }
               }
@@ -589,6 +639,230 @@
                   "continue_if_unchanged": {
                     "type": "boolean",
                     "description": "Weitermachen, auch wenn nichts geändert wurde"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "fs"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ops": {
+                    "type": "string",
+                    "description": "Operationen, eine je Zeile: mkdir pfad [mode=0775] [owner=u:g] | chmod pfad modus | chown pfad u[:g] | file pfad = inhalt"
+                  },
+                  "stop_if_unchanged": {
+                    "type": "boolean",
+                    "description": "Ablauf beenden, wenn nichts zu tun ist"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "container_exec"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "service": {
+                    "type": "string",
+                    "description": "Compose-Dienst (im Projekt des vorigen „Dateien finden“)"
+                  },
+                  "container": {
+                    "type": "string",
+                    "description": "oder Namensteil des Containers"
+                  },
+                  "command": {
+                    "type": "string",
+                    "description": "Befehl (sh -c)"
+                  },
+                  "user": {
+                    "type": "string",
+                    "description": "Benutzer im Container"
+                  },
+                  "workdir": {
+                    "type": "string",
+                    "description": "Arbeitsverzeichnis"
+                  },
+                  "all": {
+                    "type": "boolean",
+                    "description": "in allen passenden Containern"
+                  },
+                  "timeout_s": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Zeitlimit in Sekunden"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "db_backup"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "service": {
+                    "type": "string",
+                    "description": "Compose-Dienst der Datenbank"
+                  },
+                  "container": {
+                    "type": "string",
+                    "description": "oder Namensteil des Containers"
+                  },
+                  "engine": {
+                    "enum": [
+                      "auto",
+                      "mysql",
+                      "mongo",
+                      "postgres"
+                    ]
+                  },
+                  "databases": {
+                    "type": "string",
+                    "description": "Datenbanken (leer = alle)"
+                  },
+                  "dir": {
+                    "type": "string",
+                    "description": "Zielverzeichnis (Standard /var/backups/roster)"
+                  },
+                  "keep": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Anzahl Sicherungen je Container"
+                  },
+                  "timeout_s": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Zeitlimit in Sekunden"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "docker_prune"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "dangling",
+                      "unused"
+                    ]
+                  },
+                  "older_than_days": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "nur Images älter als N Tage"
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "notify"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "subject": {
+                    "type": "string",
+                    "description": "Betreff"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Nachricht (Platzhalter erlaubt)"
+                  },
+                  "severity": {
+                    "enum": [
+                      "info",
+                      "warning",
+                      "critical"
+                    ]
+                  },
+                  "only_if": {
+                    "type": "string",
+                    "description": "Nur ausführen, wenn dieser Wert nicht leer ist (z. B. {{param.X}}); mit ! davor nur, wenn leer"
                   }
                 }
               }

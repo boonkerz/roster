@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- Abläufe: Der Baustein *Zurückrollen* mit „Dienste neu starten“ fährt jetzt das **ganze Compose-Projekt** hoch – bisher gingen nur die von *Dateien finden* gefundenen Dienste (z. B. php-fpm) zurück, web/cron liefen mit dem neuen Image weiter.
+
+### Neu
+- Abläufe: fünf neue Bausteine – **Dateisystem** (`mkdir`/`chmod`/`chown`/`file`, idempotent, Zurückrollen entfernt neu angelegte Verzeichnisse/Dateien und stellt Rechte/Besitzer wieder her), **Befehl im Container** (`docker exec` in einem Compose-Dienst, z. B. Cache leeren/Migrationen), **Datenbank sichern** (Dump aus MySQL/MariaDB, MongoDB, PostgreSQL mit Zugangsdaten aus der Container-Umgebung, gzip, behält die neuesten N, bleibt beim Zurückrollen erhalten), **Docker aufräumen** (namenlose oder ungenutzte Images, Vorschau listet sie) und **Benachrichtigen** (vom Server über die Alarm-Kanäle verschickt, auch im Wartungsfenster). Jeder Baustein bekommt die optionale Bedingung **„Nur ausführen, wenn …“** (leerer Wert = überspringen, `!` = nur wenn leer). *Prüfen* kann testen, ob ein **Pfad existiert**. Die Vorschau merkt sich, was frühere Zeilen anlegen würden. Vorlage *Compose: Version anheben, wenn älter* erweitert: optionale DB-Sicherung, Volume-Verzeichnis mit Bind-Volume, Befehl nach dem Update, Aufräumen, Erfolgs-/Fehlermeldung.
+
 ## [0.23.3] - 2026-11-09
 
 ### Behoben

@@ -36,6 +36,9 @@ export function FlowResultView({ result, hideStatus }: { result: FlowResult; hid
         {!hideStatus && <FlowStatusBadge status={result.status} />}
         {result.error && <span className="error small">{result.error}</span>}
       </div>
+      {(result.notifications ?? []).map((n, i) => (
+        <p key={i} className="small">🔔 <strong>{n.subject || t("Meldung")}</strong> <span className="muted">({n.severity})</span> – {n.message}</p>
+      ))}
       {(result.rolled_back ?? []).length > 0 && (
         <p className="small"><strong>{t("Wiederhergestellt")}:</strong> <span className="mono">{result.rolled_back!.join(", ")}</span></p>
       )}

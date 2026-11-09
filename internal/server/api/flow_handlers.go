@@ -10,9 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/boonkerz/roster/internal/server/alert"
 	"github.com/boonkerz/roster/internal/server/model"
 	"github.com/boonkerz/roster/internal/server/store"
 	"github.com/boonkerz/roster/internal/shared"
+	"github.com/boonkerz/roster/internal/shared/fsops"
 )
 
 // Abläufe (Flow-Designer): Definitionen verwalten (page.scripts) und ausführen
@@ -88,9 +90,46 @@ func validateFlowRequest(req flowRequest) error {
 			if _, err := shared.ParseYAMLOps(str("ops")); err != nil {
 				return fmt.Errorf("%s: %v", name, err)
 			}
+		case "fs":
+			_, skip := n.Config["only_if"]
+			if ops := str("ops"); ops == "" && !skip {
+				return fmt.Errorf("%s: Operationen fehlen", name)
+			} else if ops != "" && !strings.Contains(ops, "{{") {
+				if _, err := fsops.ParseOps(ops); err != nil {
+					return fmt.Errorf("%s: %v", name, err)
+				}
+			}
+		case "container_exec":
+			_, skip := n.Config["only_if"]
+			if str("command") == "" && !skip {
+				return fmt.Errorf("%s: Befehl fehlt", name)
+			}
+			if str("service") == "" && str("container") == "" {
+				return fmt.Errorf("%s: Dienst oder Container angeben", name)
+			}
+		case "db_backup":
+			_, skip := n.Config["only_if"]
+			if str("service") == "" && str("container") == "" && !skip {
+				return fmt.Errorf("%s: Dienst oder Container angeben", name)
+			}
+			switch str("engine") {
+			case "", "auto", "mysql", "mongo", "postgres":
+			default:
+				return fmt.Errorf("%s: Datenbank-Art auto, mysql, mongo oder postgres", name)
+			}
+		case "docker_prune":
+			switch str("mode") {
+			case "", "dangling", "unused":
+			default:
+				return fmt.Errorf("%s: Modus dangling oder unused", name)
+			}
+		case "notify":
+			if str("subject") == "" && str("message") == "" {
+				return fmt.Errorf("%s: Betreff oder Nachricht angeben", name)
+			}
 		case "check":
 			switch str("kind") {
-			case "http", "tcp", "container", "file_contains", "expr":
+			case "http", "tcp", "container", "file_contains", "expr", "exists":
 			default:
 				return fmt.Errorf("%s: Art der Prüfung wählen", name)
 			}
@@ -336,8 +375,12 @@ func (s *Server) completeFlowRuns(ctx context.Context, results []shared.CommandR
 			fr = shared.FlowResult{Status: "fail", Error: strings.TrimSpace(res.Output)}
 		}
 		b, _ := json.Marshal(fr)
-		if _, err := s.store.CompleteFlowCommand(ctx, res.CommandID, status, string(b)); err != nil {
+		found, err := s.store.CompleteFlowCommand(ctx, res.CommandID, status, string(b))
+		if err != nil {
 			s.log.Error("ablauf-ergebnis speichern", "err", err)
+		}
+		if found && len(fr.Notifications) > 0 && status != "dry" {
+			s.sendFlowNotifications(ctx, res.CommandID, fr.Notifications)
 		}
 	}
 }
@@ -374,4 +417,40 @@ func (s *Server) handleDeleteFlowRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// sendFlowNotifications verschickt die Meldungen des Bausteins „Benachrichtigen“ über die
+// Alarm-Kanäle des Geräts – bewusst auch im Wartungsfenster (Rollouts laufen oft genau dort).
+func (s *Server) sendFlowNotifications(ctx context.Context, commandID string, notes []shared.FlowNotification) {
+	devID, flowName, _, err := s.store.FlowCommandInfo(ctx, commandID)
+	if err != nil {
+		return
+	}
+	d, err := s.store.GetDevice(ctx, devID)
+	if err != nil {
+		return
+	}
+	if cfg, err := s.store.GetAlertConfig(ctx); err != nil || !cfg.Enabled {
+		return
+	}
+	channels, err := s.store.ChannelsForDevice(ctx, d.ID)
+	if err != nil {
+		return
+	}
+	for _, n := range notes {
+		sev := n.Severity
+		if sev == "" {
+			sev = "info"
+		}
+		subject := fmt.Sprintf("[Roster] Ablauf %s auf %s", flowName, d.Hostname)
+		if n.Subject != "" {
+			subject += ": " + n.Subject
+		}
+		for _, ch := range channels {
+			if severityRank(sev) < severityRank(ch.MinSeverity) {
+				continue
+			}
+			alert.Dispatch(s.log, ch, alert.Notification{Subject: subject, Body: n.Message})
+		}
+	}
 }

@@ -309,7 +309,7 @@ func statusOK(code int, expect string) bool {
 func (r *runner) check(ctx context.Context, c config) (shared.NodeResult, *step) {
 	st := &step{}
 	kind := c.str("kind")
-	if r.opt.DryRun && kind != "expr" && kind != "file_contains" {
+	if r.opt.DryRun && kind != "expr" && kind != "file_contains" && kind != "exists" {
 		return shared.NodeResult{Status: "dry", Output: "Prüfung „" + kind + "“ läuft erst bei der Ausführung"}, st
 	}
 	retries := int(c.num("retries", 0))
@@ -386,6 +386,23 @@ func (r *runner) checkOnce(ctx context.Context, kind string, c config) (bool, st
 			return false, err.Error()
 		}
 		return containerState(out, name, c.bool("healthy"))
+	case "exists":
+		p := c.str("path")
+		fi, err := os.Stat(p)
+		if err != nil {
+			return false, p + " fehlt"
+		}
+		switch c.str("path_type") {
+		case "dir":
+			if !fi.IsDir() {
+				return false, p + " ist kein Verzeichnis"
+			}
+		case "file":
+			if !fi.Mode().IsRegular() {
+				return false, p + " ist keine Datei"
+			}
+		}
+		return true, p + " vorhanden"
 	case "file_contains":
 		data, err := os.ReadFile(c.str("path"))
 		if err != nil {
@@ -476,13 +493,15 @@ func (r *runner) rollbackNode(ctx context.Context, c config) (shared.NodeResult,
 		return shared.NodeResult{Status: "dry", Output: "würde alle in diesem Lauf geänderten Dateien wiederherstellen"}, st
 	}
 	restored := r.rollback()
-	out := fmt.Sprintf("%d Datei(en) wiederhergestellt", len(restored))
+	out := fmt.Sprintf("%d Änderung(en) zurückgenommen", len(restored))
 	if len(restored) > 0 {
 		out += ":\n" + strings.Join(restored, "\n")
 	}
 	if c.bool("compose_up") {
+		// Ganzes Projekt hochfahren: auch Dienste, deren Image der Ablauf geändert hat, die aber
+		// nicht zu den gefundenen gehörten (z. B. web/cron neben php-fpm), müssen zurück.
 		for _, p := range r.composeTargets(ctx, config{}) {
-			args := composeArgs(p, "up", nil, false)
+			args := composeArgs(p, "up", nil, true)
 			code, o := runCompose(ctx, p.Dir, args)
 			out += "\n$ docker compose " + strings.Join(args, " ") + "\n" + strings.TrimSpace(o)
 			if code != 0 {

@@ -35,13 +35,20 @@ are `{{param.FROM}}`.
 | **Command / script** | Own command or a library script; exit ≠ 0 = failure. | not executed |
 | **Query API** | HTTP request with headers/body; a JSON path yields a value (`{{steps.api.value}}`). | GET/HEAD only |
 | **Check** | Container running (without a name: the affected Compose services), HTTP status, TCP port, file contains text, compare value – also as a version (`2.10.0 > 2.9.1`, `v` prefix ignored, `-rc` lower than the final release, suffixes like `_tp` are ignored) – with retries. *Not met: end the flow without error* turns it into a condition ("otherwise do nothing"). | comparisons and "file contains" run, the rest is skipped |
-| **Roll back** | Restores every file changed in this run, optionally followed by `up -d`. | skipped |
+| **Filesystem** | `mkdir path [mode=0775] [owner=33:33]`, `chmod path 0775`, `chown path user:group`, `file path = "content"` – each only when needed. Rollback removes newly created (empty) directories and files and restores permissions/owner. | shows the planned steps |
+| **Command in container** | `docker exec` in a Compose service (in the project of the previous *Find files*) or container, optional user/working directory – e.g. `bin/console cache:clear`. | shows command and container |
+| **Back up database** | dump from MySQL/MariaDB, MongoDB or PostgreSQL (credentials from the container environment), gzip-compressed to `/var/backups/roster`, the newest *N* are kept. Path as `{{steps.ID.value}}`. Kept on rollback. | checks that the dump tool exists |
+| **Clean up Docker** | removes dangling or all unused images (older than *N* days). Cannot be undone. | lists what would be removed |
+| **Notify** | message via the alert channels (also during maintenance windows), placeholders allowed. | sends nothing |
+| **Roll back** | Undoes all changes of this run (files, directories, permissions), optionally followed by `up -d` for the whole Compose project. | skipped |
 | **Wait** | Waits up to 10 minutes. | skipped |
 
 **Try it out:** For the *Edit YAML* block, *Try it out …* opens a three-column window: on the left a
 pasted YAML file (e.g. your Compose file) and values for the parameters, in the middle the
 operations (changes go straight into the block), on the right the preview as diff or full result –
 with a message per operation. It uses the same code as the agent; nothing is saved or executed.
+
+**Only run if …:** Every block has this optional field. If it contains e.g. `{{param.DB_SERVICE}}` and the parameter is empty, the block is skipped and the flow continues via *ok*; with `!` in front it only runs when the value is empty. This lets parameters switch steps on and off.
 
 **Placeholders:** `{{param.NAME}}`, `{{steps.ID.value}}`, `{{steps.ID.out}}` (command output),
 `{{steps.ID.json.path.0.field}}`, `{{steps.ID.files}}` and the device fields `{{agent.field}}`,
@@ -101,7 +108,7 @@ name stays unchanged and the import is called "Name (Import)".
 
 ## Templates
 
-- **Compose: raise version if older** – reads the image tag of a service (e.g. `php-fpm`), checks "older than 2.5.0", sets the images of `web`, `php-fpm`, `cron` to 2.5.0 (repository stays), adds a mount and a named volume, `pull`, `up -d`, checks; otherwise *not affected*. The core is this *Edit YAML* block:
+- **Compose: raise version if older** – reads the image tag of a service (e.g. `php-fpm`), checks "older than 2.5.0" and then: back up the database (parameter `DB_SERVICE`, empty = no), create the volume directory (`VOLUME_DIR`, empty = plain Docker volume), raise the images of `web`, `php-fpm`, `cron` to 2.5.0 (repository and `_tp` stay), add mount and volume, `pull`, `up -d`, check, run a command in the container (`POST_CMD`, e.g. `bin/console cache:clear`), clean up dangling images, report success. On failure: undo everything, restart the whole project, report the failure – the database backup stays. Otherwise *not affected*. The core is this *Edit YAML* block:
 
     ```
     set    services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0{{value.suffix}}

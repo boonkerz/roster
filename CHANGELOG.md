@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Flows: the *Roll back* block with "restart services" now brings up the **whole Compose project** – previously only the services found by *Find files* (e.g. php-fpm) went back, while web/cron kept running on the new image.
+
+### Added
+- Flows: five new blocks – **Filesystem** (`mkdir`/`chmod`/`chown`/`file`, idempotent, rollback removes newly created directories/files and restores permissions/owner), **Command in container** (`docker exec` in a Compose service, e.g. cache clear/migrations), **Back up database** (MySQL/MariaDB, MongoDB, PostgreSQL dump with credentials from the container environment, gzip, keeps the newest N, kept on rollback), **Clean up Docker** (dangling or unused images, preview lists them) and **Notify** (sent by the server via the alert channels, also during maintenance windows). Every block gets an optional **"Only run if …"** condition (empty value = skip, `!` = only if empty). *Check* can test whether a **path exists**. The preview remembers paths a previous line would create. Template *Compose: raise version if older* extended: optional DB backup, volume directory with bind volume, post-update command, cleanup, success/failure messages.
+
 ## [0.23.3] - 2026-11-09
 
 ### Fixed
