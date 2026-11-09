@@ -122,7 +122,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   },
   {
     type: "yaml", label: "YAML ändern", icon: "🧩", prefix: "yaml",
-    help: "Ändert YAML-Dateien gezielt (Formatierung und Kommentare bleiben): set pfad = wert, append pfad = listeneintrag (nur wenn neu), ensure pfad = wert (nur wenn fehlt), delete pfad. {a,b} im Pfad gilt für mehrere Dienste, {{value.repo}} ist das Repository des aktuellen Werts. Backup, Diff und Vorschau wie bei „Text ersetzen“.",
+    help: "Ändert YAML-Dateien gezielt (Formatierung und Kommentare bleiben): set pfad = wert, append pfad = listeneintrag (nur wenn neu), ensure pfad = wert (nur wenn fehlt), delete pfad. {a,b} im Pfad gilt für mehrere Dienste, {{value.repo}} ist das Repository des aktuellen Werts, {…}/[…] wird als Block geschrieben. Backup, Diff und Vorschau wie bei „Text ersetzen“.",
     defaults: { ops: "set services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0\nappend services.php-fpm.volumes = shop_media:/var/www/media\nensure volumes.shop_media = {}" },
     fields: [
       { key: "ops", label: "Operationen (eine je Zeile)", kind: "textarea" },

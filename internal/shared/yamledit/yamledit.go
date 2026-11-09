@@ -397,10 +397,17 @@ func createPath(ls []string, root *yaml.Node, segs []string, value string, asLis
 		pad := strings.Repeat(" ", ind+j*step)
 		k := yamlKey(s)
 		if j == len(rest)-1 {
-			if asList {
+			switch {
+			case asList:
 				add = append(add, pad+k+":", pad+strings.Repeat(" ", step)+"- "+value)
-			} else {
-				add = append(add, pad+k+": "+value)
+			default:
+				if block, ok := blockLines(value, ind+j*step+step, step); ok {
+					// {a: b, c: {d: e}} bzw. [x, y] als Block schreiben, wie man es von Hand täte.
+					add = append(add, pad+k+":")
+					add = append(add, block...)
+				} else {
+					add = append(add, pad+k+": "+value)
+				}
 			}
 		} else {
 			add = append(add, pad+k+":")
@@ -571,4 +578,42 @@ func ParseOps(text string) ([]Op, error) {
 		return nil, fmt.Errorf("keine Operationen")
 	}
 	return ops, nil
+}
+
+// blockLines schreibt einen nicht leeren Kurzform-Wert ({a: b} oder [x, y]) als eingerückten
+// Block; ok=false für Skalare und leere Werte ({} / []), die bleiben, wie sie sind.
+func blockLines(value string, indent, step int) ([]string, bool) {
+	v := strings.TrimSpace(value)
+	if !(strings.HasPrefix(v, "{") || strings.HasPrefix(v, "[")) {
+		return nil, false
+	}
+	var doc yaml.Node
+	if yaml.Unmarshal([]byte(v), &doc) != nil {
+		return nil, false
+	}
+	n := docRoot(&doc)
+	if n == nil || (n.Kind != yaml.MappingNode && n.Kind != yaml.SequenceNode) || len(n.Content) == 0 {
+		return nil, false
+	}
+	var clear func(*yaml.Node)
+	clear = func(x *yaml.Node) {
+		x.Style &^= yaml.FlowStyle
+		for _, c := range x.Content {
+			clear(c)
+		}
+	}
+	clear(n)
+	var b strings.Builder
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(step)
+	if enc.Encode(n) != nil {
+		return nil, false
+	}
+	_ = enc.Close()
+	pad := strings.Repeat(" ", indent)
+	var out []string
+	for _, l := range strings.Split(strings.TrimRight(b.String(), "\n"), "\n") {
+		out = append(out, pad+l)
+	}
+	return out, true
 }

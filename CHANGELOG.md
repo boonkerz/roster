@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Flows, *Edit YAML*: a short-form value (`{driver: local, driver_opts: {…}}`, `[a, b]`) is written as an indented block when the key is created – a named volume with driver options now fits on one `ensure` line. `{}`/`[]` stay as they are.
+
 ## [0.23.1] - 2026-11-09
 
 ### Added

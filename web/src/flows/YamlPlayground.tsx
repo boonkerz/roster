@@ -87,7 +87,9 @@ ensure pfad = wert          # nur wenn der Schlüssel fehlt
 delete pfad [= eintrag]     # Schlüssel bzw. Listeneintrag
 services.{web,cron}.image   # mehrere Einträge
 {{value.repo}} {{value.tag}} {{value}}   # aktueller Wert
-"a.b"                       # Punkt im Schlüsselnamen`}</pre>
+"a.b"                       # Punkt im Schlüsselnamen
+ensure volumes.media = {driver: local, driver_opts: {type: none, o: bind}}
+                            # {…}/[…] wird als Block geschrieben`}</pre>
             </details>
           </div>
         </section>

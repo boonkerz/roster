@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Abläufe, *YAML ändern*: Ein Wert in Kurzform (`{driver: local, driver_opts: {…}}`, `[a, b]`) wird beim Anlegen als eingerückter Block geschrieben – ein benanntes Volume mit Treiber-Optionen passt jetzt in eine `ensure`-Zeile. `{}`/`[]` bleiben, wie sie sind.
+
 ## [0.23.1] - 2026-11-09
 
 ### Neu

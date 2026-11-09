@@ -112,6 +112,25 @@ der Import heißt dann „Name (Import)“.
     ensure volumes.shop_media = {}
     ```
 
+    Ein Wert in Kurzform (`{…}` oder `[…]`) wird beim Anlegen als Block geschrieben – so entsteht ein
+    Volume mit Treiber-Optionen in einer Zeile:
+
+    ```
+    ensure volumes.shop_media = {driver: local, driver_opts: {type: none, o: bind, device: /data/volumes/shop_media}}
+    ```
+
+    ergibt
+
+    ```yaml
+    volumes:
+      shop_media:
+        driver: local
+        driver_opts:
+          type: none
+          o: bind
+          device: /data/volumes/shop_media
+    ```
+
 - **Image in Compose ersetzen** – Compose-Dateien mit altem Image finden, in der `image:`-Zeile
   ersetzen, `pull`, `up -d`, kurz warten, prüfen; bei Fehler zurückrollen und alten Stand
   hochfahren. Unter **Sicherheit → Container** öffnet *Image ersetzen …* diese Vorlage mit dem

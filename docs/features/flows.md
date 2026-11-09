@@ -109,6 +109,25 @@ name stays unchanged and the import is called "Name (Import)".
     ensure volumes.shop_media = {}
     ```
 
+    A short-form value (`{…}` or `[…]`) is written as a block when created – so a volume with driver
+    options fits on one line:
+
+    ```
+    ensure volumes.shop_media = {driver: local, driver_opts: {type: none, o: bind, device: /data/volumes/shop_media}}
+    ```
+
+    becomes
+
+    ```yaml
+    volumes:
+      shop_media:
+        driver: local
+        driver_opts:
+          type: none
+          o: bind
+          device: /data/volumes/shop_media
+    ```
+
 - **Replace image in Compose** – find Compose files with the old image, replace it in the `image:`
   line, `pull`, `up -d`, wait briefly, check; on failure roll back and bring the previous state up.
   Under **Security → Containers**, *Replace image …* opens this template with the image and the
