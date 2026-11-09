@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-11-09
+
 ### Behoben
 - Abläufe: Läufe/Abläufe löschen sowie Testlauf und Rollout starten nutzen nicht mehr die Rückfrage des Browsers – nach „Weitere Dialoge verhindern“ beantworten Browser sie stumm mit „Abbrechen“, der Löschen-Knopf schien wirkungslos (außer mit offener Konsole). Der Knopf fragt jetzt selbst („Sicher? Nochmal klicken“).
 
@@ -440,7 +442,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2

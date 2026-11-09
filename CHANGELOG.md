@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-11-09
+
 ### Fixed
 - Flows: deleting runs/flows and starting test runs/rollouts no longer rely on the browser's confirm dialog – browsers silently answer "Cancel" once "prevent additional dialogs" was ticked, so the delete button seemed to do nothing (unless DevTools were open). The button now asks itself ("Sure? Click again").
 
@@ -440,7 +442,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
