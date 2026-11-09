@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-09
+
 ### Added
 - Flows: **try out YAML edits** – *Try it out …* on the *Edit YAML* block opens a three-column window (input YAML + parameter values | operations, applied to the block | live preview as diff or result, with a message per operation). The server computes it with the same code as the agent (`POST /flows/yaml-preview`); nothing is saved or executed. YAML logic and diff moved to shared packages (`internal/shared/yamledit`, `textdiff`).
 
@@ -414,7 +416,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.1...HEAD
+[0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0
 [0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
