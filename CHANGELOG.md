@@ -6,14 +6,18 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.24.0] - 2026-11-09
-
 ### Fixed
 - Flows: deleting runs/flows and starting test runs/rollouts no longer rely on the browser's confirm dialog – browsers silently answer "Cancel" once "prevent additional dialogs" was ticked, so the delete button seemed to do nothing (unless DevTools were open). The button now asks itself ("Sure? Click again").
-- Flows: the *Roll back* block with "restart services" now brings up the **whole Compose project** – previously only the services found by *Find files* (e.g. php-fpm) went back, while web/cron kept running on the new image.
 
 ### Added
 - Flow editor: save feedback – "✓ Saved at …" after saving and "● Unsaved changes" while editing.
+
+## [0.24.0] - 2026-11-09
+
+### Fixed
+- Flows: the *Roll back* block with "restart services" now brings up the **whole Compose project** – previously only the services found by *Find files* (e.g. php-fpm) went back, while web/cron kept running on the new image.
+
+### Added
 - Flows: five new blocks – **Filesystem** (`mkdir`/`chmod`/`chown`/`file`, idempotent, rollback removes newly created directories/files and restores permissions/owner), **Command in container** (`docker exec` in a Compose service, e.g. cache clear/migrations), **Back up database** (MySQL/MariaDB, MongoDB, PostgreSQL dump with credentials from the container environment, gzip, keeps the newest N, kept on rollback), **Clean up Docker** (dangling or unused images, preview lists them) and **Notify** (sent by the server via the alert channels, also during maintenance windows). Every block gets an optional **"Only run if …"** condition (empty value = skip, `!` = only if empty). *Check* can test whether a **path exists**. The preview remembers paths a previous line would create. Template *Compose: raise version if older* extended: optional DB backup, volume directory with bind volume, post-update command, cleanup, success/failure messages.
 
 ## [0.23.3] - 2026-11-09
