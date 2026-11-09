@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
@@ -10,6 +10,7 @@ import { FlowRunWizard } from "../flows/FlowRunWizard";
 import { localizeTemplate } from "../flows/nodeTypes";
 import { FlowImport, downloadFlow } from "../flows/FlowImport";
 import { Modal } from "../components/Modal";
+import { ConfirmButton } from "../components/ConfirmButton";
 
 // Flows listet die Abläufe (Flow-Designer) mit Vorlagen und letzten Läufen.
 export function Flows() {
@@ -66,7 +67,7 @@ export function Flows() {
                     {canEdit && <button className="btn ghost sm" style={{ marginLeft: 4 }} disabled={copy.isPending} onClick={() => copy.mutate(f)}>{t("Kopieren")}</button>}
                     <button className="btn ghost sm" style={{ marginLeft: 4 }} title={t("Als roster-flow-Datei (JSON) herunterladen")} onClick={() => { setExportErr(""); downloadFlow(f).catch((e) => setExportErr(e.message)); }}>{t("Exportieren")}</button>
                     <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => setOpen(open === f.id ? null : f.id)}>{t("Läufe")}</button>
-                    {canEdit && <button className="btn ghost sm danger" style={{ marginLeft: 4 }} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: f.name })) && del.mutate(f.id)}>{t("Löschen")}</button>}
+                    {canEdit && <ConfirmButton style={{ marginLeft: 4 }} disabled={del.isPending} confirmLabel={t("Wirklich löschen?")} onConfirm={() => del.mutate(f.id)}>{t("Löschen")}</ConfirmButton>}
                   </td>
                 </tr>,
                 open === f.id && <tr key={f.id + "-runs"}><td colSpan={5}><FlowRuns flowId={f.id} /></td></tr>,
@@ -97,7 +98,7 @@ function FlowRuns({ flowId }: { flowId: string }) {
             <td className="small">{r.started_by || "—"}</td>
             <td>{r.devices}</td><td>{r.ok}</td><td>{r.failed > 0 ? <span className="badge badge-offline">{r.failed}</span> : 0}</td><td>{r.pending}</td>
             <td style={{ whiteSpace: "nowrap" }}><Link to={`/flows/${flowId}/run?run=${r.id}`}>{t("Öffnen")} →</Link>
-              {hasPerm("page.scripts") && <button className="btn ghost sm danger" style={{ marginLeft: 8 }} onClick={() => window.confirm(t("Lauf vom {date} löschen?", { date: new Date(r.created_at).toLocaleString() })) && delRun.mutate(r.id)}>{t("Löschen")}</button>}</td>
+              {hasPerm("page.scripts") && <ConfirmButton style={{ marginLeft: 8 }} disabled={delRun.isPending} confirmLabel={t("Wirklich löschen?")} onConfirm={() => delRun.mutate(r.id)}>{t("Löschen")}</ConfirmButton>}</td>
           </tr>
         ))}
       </tbody>
@@ -110,6 +111,7 @@ export function FlowEditPage() {
   const { t } = useI18n();
   const { id } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
   const isNew = !id || id === "new";
   const { data: flow } = useQuery({ queryKey: ["flow", id], enabled: !isNew, queryFn: () => api.get<Flow>(`/flows/${id}`) });
@@ -125,7 +127,8 @@ export function FlowEditPage() {
           <h1 style={{ margin: 0 }}>{isNew ? t("Neuer Ablauf") : t("Ablauf bearbeiten")}</h1>
         </div>
       </header>
-      {start ? <FlowEditor key={id ?? "new"} flow={start} onSaved={(f) => nav(`/flows/${f.id}`, { replace: true })} onCancel={() => nav("/flows")}
+      {start ? <FlowEditor key={id ?? "new"} flow={start} justSaved={!!(location.state as { saved?: boolean } | null)?.saved}
+        onSaved={(f) => { if (f.id !== id) nav(`/flows/${f.id}`, { replace: true, state: { saved: true } }); }} onCancel={() => nav("/flows")}
         onCopied={(f) => nav(`/flows/${f.id}`)} onDeleted={() => nav("/flows")} /> : <p className="muted">{t("Lädt …")}</p>}
     </div>
   );

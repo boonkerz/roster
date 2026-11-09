@@ -9,9 +9,11 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 ## [0.24.0] - 2026-11-09
 
 ### Behoben
+- Abläufe: Läufe/Abläufe löschen sowie Testlauf und Rollout starten nutzen nicht mehr die Rückfrage des Browsers – nach „Weitere Dialoge verhindern“ beantworten Browser sie stumm mit „Abbrechen“, der Löschen-Knopf schien wirkungslos (außer mit offener Konsole). Der Knopf fragt jetzt selbst („Sicher? Nochmal klicken“).
 - Abläufe: Der Baustein *Zurückrollen* mit „Dienste neu starten“ fährt jetzt das **ganze Compose-Projekt** hoch – bisher gingen nur die von *Dateien finden* gefundenen Dienste (z. B. php-fpm) zurück, web/cron liefen mit dem neuen Image weiter.
 
 ### Neu
+- Ablauf-Editor: Rückmeldung beim Speichern – „✓ Gespeichert um …“ nach dem Speichern und „● Ungespeicherte Änderungen“ beim Bearbeiten.
 - Abläufe: fünf neue Bausteine – **Dateisystem** (`mkdir`/`chmod`/`chown`/`file`, idempotent, Zurückrollen entfernt neu angelegte Verzeichnisse/Dateien und stellt Rechte/Besitzer wieder her), **Befehl im Container** (`docker exec` in einem Compose-Dienst, z. B. Cache leeren/Migrationen), **Datenbank sichern** (Dump aus MySQL/MariaDB, MongoDB, PostgreSQL mit Zugangsdaten aus der Container-Umgebung, gzip, behält die neuesten N, bleibt beim Zurückrollen erhalten), **Docker aufräumen** (namenlose oder ungenutzte Images, Vorschau listet sie) und **Benachrichtigen** (vom Server über die Alarm-Kanäle verschickt, auch im Wartungsfenster). Jeder Baustein bekommt die optionale Bedingung **„Nur ausführen, wenn …“** (leerer Wert = überspringen, `!` = nur wenn leer). *Prüfen* kann testen, ob ein **Pfad existiert**. Die Vorschau merkt sich, was frühere Zeilen anlegen würden. Vorlage *Compose: Version anheben, wenn älter* erweitert: optionale DB-Sicherung, Volume-Verzeichnis mit Bind-Volume, Befehl nach dem Update, Aufräumen, Erfolgs-/Fehlermeldung.
 
 ## [0.23.3] - 2026-11-09

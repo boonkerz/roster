@@ -134,6 +134,7 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
   const nav = useNavigate();
   const { hasPerm } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [noFlow, setNoFlow] = useState(false);
   // replaceImage öffnet den Ablauf „Image in Compose ersetzen“ (legt ihn bei Bedarf aus der
   // Vorlage an) mit altem Image, Vorschau-Server und betroffenen Geräten vorbelegt.
   const replaceImage = async () => {
@@ -145,7 +146,7 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
         const tpl = (await api.get<FlowTemplate[]>("/flows/templates")).find((x) => x.key === "compose_image");
         if (tpl) f = await api.post<Flow>("/flows", localizeTemplate(tpl, t));
       }
-      if (!f) { window.alert(t("Kein Ablauf „Image in Compose ersetzen“ vorhanden – bitte unter Abläufe aus der Vorlage anlegen.")); return; }
+      if (!f) { setNoFlow(true); return; }
       const from = row.image.replace(/@.*$/, "").replace(/:[^/:]*$/, "");
       const q = new URLSearchParams({ "p.FROM": from, device: row.devices[0] ?? "", devices: row.devices.join(",") });
       nav(`/flows/${f.id}/run?${q.toString()}`);
@@ -157,6 +158,7 @@ function ImageDetail({ row }: { row: FleetImageRow }) {
         <button className="btn ghost sm" style={{ float: "right" }} disabled={busy} onClick={replaceImage}
           title={t("Öffnet den Ablauf „Image in Compose ersetzen“: Vorschau auf einem Server, Testlauf, dann alle betroffenen Geräte.")}>{t("Image ersetzen …")}</button>
       )}
+      {noFlow && <p className="error small">{t("Kein Ablauf „Image in Compose ersetzen“ vorhanden – bitte unter Abläufe aus der Vorlage anlegen.")}</p>}
       <div className="small" style={{ marginBottom: 6 }}>
         <span className="muted">{t("Geräte")}: </span>
         {row.devices.map((id, i) => <span key={id}>{i > 0 && ", "}<Link to={`/devices/${id}?tab=docker`}>{row.hostnames[i] || id}</Link></span>)}

@@ -1825,4 +1825,12 @@ export const EN: Record<string, string> = {
   "Alte Images aufräumen": "Clean up old images",
   "Erfolg melden": "Report success",
   "Fehler melden": "Report failure",
+  // --- Abläufe: Bestätigung im Knopf, Speichern (0.24.1) ---
+  "Sicher? Nochmal klicken": "Sure? Click again",
+  "Wirklich löschen?": "Really delete?",
+  "Speichert …": "Saving …",
+  "Ungespeicherte Änderungen": "Unsaved changes",
+  "Gespeichert um {time}": "Saved at {time}",
+  "Echt auf {host} ausführen? Nochmal klicken": "Run for real on {host}? Click again",
+  "Auf allen Geräten des Ziels ausführen? Nochmal klicken": "Run on all devices of the target? Click again",
 };

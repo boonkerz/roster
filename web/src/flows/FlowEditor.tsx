@@ -14,6 +14,7 @@ import { NODE_TYPE, NODE_TYPES, nodeSummary, type FieldDef } from "./nodeTypes";
 import { downloadFlow } from "./FlowImport";
 import { YamlPlayground } from "./YamlPlayground";
 import { Modal } from "../components/Modal";
+import { ConfirmButton } from "../components/ConfirmButton";
 
 type NodeData = { type: FlowNodeType; label: string; config: Record<string, string | number | boolean> };
 type FNode = Node<NodeData, "flow">;
@@ -61,7 +62,7 @@ function fromRF(nodes: FNode[], edges: Edge[]): FlowGraph {
 }
 
 // FlowEditor bearbeitet einen Ablauf: Palette, Zeichenfläche, Eigenschaften, Parameter.
-export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { flow: Partial<Flow>; onSaved: (f: Flow) => void; onCancel: () => void; onCopied?: (f: Flow) => void; onDeleted?: () => void }) {
+export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted, justSaved }: { flow: Partial<Flow>; onSaved: (f: Flow) => void; onCancel: () => void; onCopied?: (f: Flow) => void; onDeleted?: () => void; justSaved?: boolean }) {
   const { t } = useI18n();
   const { theme } = useTheme();
   const qc = useQueryClient();
@@ -75,12 +76,21 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
   const [selected, setSelected] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [playground, setPlayground] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(justSaved ? new Date() : null);
+  const [dirty, setDirty] = useState(false);
   const { data: scripts } = useQuery({ queryKey: ["scripts"], queryFn: () => api.get<Script[]>("/scripts") });
 
-  const onNodesChange = useCallback((ch: NodeChange<FNode>[]) => setNodes((ns) => applyNodeChanges(ch, ns)), []);
-  const onEdgesChange = useCallback((ch: EdgeChange[]) => setEdges((es) => applyEdgeChanges(ch, es)), []);
+  const onNodesChange = useCallback((ch: NodeChange<FNode>[]) => {
+    if (ch.some((c) => c.type !== "select" && c.type !== "dimensions")) setDirty(true);
+    setNodes((ns) => applyNodeChanges(ch, ns));
+  }, []);
+  const onEdgesChange = useCallback((ch: EdgeChange[]) => {
+    if (ch.some((c) => c.type !== "select")) setDirty(true);
+    setEdges((es) => applyEdgeChanges(ch, es));
+  }, []);
   const onConnect = useCallback((c: Connection) => {
     if (!c.source || !c.target || c.source === c.target) return;
+    setDirty(true);
     const port = c.sourceHandle === "fail" ? "fail" : "ok";
     setEdges((es) => [
       ...es.filter((e) => !(e.source === c.source && (e.sourceHandle ?? "ok") === port)),
@@ -96,6 +106,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
     const maxY = nodes.reduce((m, n) => Math.max(m, n.position.y), -130);
     const sel = nodes.find((n) => n.id === selected);
     const pos = sel ? { x: sel.position.x, y: sel.position.y + 140 } : { x: 0, y: maxY + 140 };
+    setDirty(true);
     setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { id, type: "flow", position: pos, selected: true, data: { type, label: "", config: { ...def.defaults } } }]);
     // Automatisch an den ausgewählten Baustein anhängen (ok-Ausgang), wenn der frei ist.
     if (sel && !edges.some((e) => e.source === sel.id && (e.sourceHandle ?? "ok") === "ok")) {
@@ -106,6 +117,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
 
   const selNode = nodes.find((n) => n.id === selected);
   const updateSel = (patch: Partial<NodeData>, cfgPatch?: Record<string, string | number | boolean>) => {
+    setDirty(true);
     setNodes((ns) => ns.map((n) => n.id === selected ? { ...n, data: { ...n.data, ...patch, config: { ...n.data.config, ...(cfgPatch ?? {}) } } } : n));
   };
   const removeSel = () => {
@@ -120,7 +132,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
       const body = { name, description, params: params.filter((p) => p.name.trim()), graph: fromRF(nodes, edges) };
       return flow.id ? api.put<Flow>(`/flows/${flow.id}`, body) : api.post<Flow>("/flows", body);
     },
-    onSuccess: (f) => { setErr(""); qc.invalidateQueries({ queryKey: ["flows"] }); onSaved(f); },
+    onSuccess: (f) => { setErr(""); setSavedAt(new Date()); setDirty(false); qc.invalidateQueries({ queryKey: ["flows"] }); qc.invalidateQueries({ queryKey: ["flow", f.id] }); onSaved(f); },
     onError: (e) => setErr(e instanceof ApiError ? e.message : t("Speichern fehlgeschlagen")),
   });
 
@@ -163,27 +175,30 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
       )}
       <div className="flow-meta card">
         <div className="inline-form" style={{ gap: 8, flexWrap: "wrap" }}>
-          <input placeholder={t("Name des Ablaufs")} value={name} onChange={(e) => setName(e.target.value)} style={{ minWidth: 260, fontWeight: 600 }} />
-          <input placeholder={t("Beschreibung (optional)")} value={description} onChange={(e) => setDescription(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
+          <input placeholder={t("Name des Ablaufs")} value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} style={{ minWidth: 260, fontWeight: 600 }} />
+          <input placeholder={t("Beschreibung (optional)")} value={description} onChange={(e) => { setDescription(e.target.value); setDirty(true); }} style={{ flex: 1, minWidth: 260 }} />
           <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>{t("Speichern")}</button>
           <button className="btn ghost" onClick={onCancel}>{t("Abbrechen")}</button>
           {flow.id && <button className="btn ghost" title={t("Gespeicherten Stand als roster-flow-Datei (JSON) herunterladen")} onClick={() => downloadFlow({ id: flow.id!, name: flow.name ?? "" }).catch((e) => setErr(e.message))}>{t("Exportieren")}</button>}
           {flow.id && <button className="btn ghost" disabled={copy.isPending} onClick={() => copy.mutate()} title={t("Speichert den aktuellen Stand als neuen Ablauf")}>{t("Kopieren")}</button>}
-          {flow.id && <button className="btn ghost danger" disabled={del.isPending} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: flow.name ?? "" })) && del.mutate()}>{t("Löschen")}</button>}
+          {flow.id && <ConfirmButton className="btn ghost danger" disabled={del.isPending} confirmLabel={t("Wirklich löschen?")} onConfirm={() => del.mutate()}>{t("Löschen")}</ConfirmButton>}
+          {save.isPending ? <span className="muted small">{t("Speichert …")}</span>
+            : dirty ? <span className="small" style={{ color: "var(--amber)" }}>● {t("Ungespeicherte Änderungen")}</span>
+            : savedAt ? <span className="form-ok small">✓ {t("Gespeichert um {time}", { time: savedAt.toLocaleTimeString() })}</span> : null}
         </div>
         {err && <p className="error small" style={{ marginBottom: 0 }}>{err}</p>}
         <details style={{ marginTop: 8 }} open={params.length > 0}>
           <summary className="small"><strong>{t("Parameter")}</strong> <span className="muted">({params.length}) – {t("fragt der Assistent vor dem Start ab, Verwendung als {{param.NAME}}")}</span></summary>
           {params.map((p, i) => (
             <div className="inline-form" key={i} style={{ gap: 6, marginTop: 6 }}>
-              <input className="mono" placeholder="NAME" value={p.name} onChange={(e) => setParams(params.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} style={{ width: 140 }} />
-              <input placeholder={t("Beschriftung")} value={p.label ?? ""} onChange={(e) => setParams(params.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} style={{ flex: 1 }} />
-              <input placeholder={t("Standardwert")} value={p.default ?? ""} onChange={(e) => setParams(params.map((x, j) => j === i ? { ...x, default: e.target.value } : x))} style={{ width: 200 }} />
-              <label className="chip"><input type="checkbox" checked={!!p.required} onChange={(e) => setParams(params.map((x, j) => j === i ? { ...x, required: e.target.checked } : x))} /> {t("Pflicht")}</label>
-              <button className="btn ghost sm" onClick={() => setParams(params.filter((_, j) => j !== i))}>✕</button>
+              <input className="mono" placeholder="NAME" value={p.name} onChange={(e) => { setDirty(true); setParams(params.map((x, j) => j === i ? { ...x, name: e.target.value } : x)); }} style={{ width: 140 }} />
+              <input placeholder={t("Beschriftung")} value={p.label ?? ""} onChange={(e) => { setDirty(true); setParams(params.map((x, j) => j === i ? { ...x, label: e.target.value } : x)); }} style={{ flex: 1 }} />
+              <input placeholder={t("Standardwert")} value={p.default ?? ""} onChange={(e) => { setDirty(true); setParams(params.map((x, j) => j === i ? { ...x, default: e.target.value } : x)); }} style={{ width: 200 }} />
+              <label className="chip"><input type="checkbox" checked={!!p.required} onChange={(e) => { setDirty(true); setParams(params.map((x, j) => j === i ? { ...x, required: e.target.checked } : x)); }} /> {t("Pflicht")}</label>
+              <button className="btn ghost sm" onClick={() => { setDirty(true); setParams(params.filter((_, j) => j !== i)); }}>✕</button>
             </div>
           ))}
-          <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setParams([...params, { name: "", label: "" }])}>+ {t("Parameter")}</button>
+          <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => { setDirty(true); setParams([...params, { name: "", label: "" }]); }}>+ {t("Parameter")}</button>
         </details>
       </div>
 

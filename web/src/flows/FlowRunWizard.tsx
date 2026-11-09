@@ -5,6 +5,7 @@ import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import type { ClientTree, Device, Flow, FlowRun, FlowRunDevice, Group } from "../types";
 import { FlowResultView, FlowStatusBadge } from "./FlowResultView";
+import { ConfirmButton } from "../components/ConfirmButton";
 
 type Target = "devices" | "client" | "site" | "group" | "all";
 
@@ -109,7 +110,7 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
           {!test && (
             <>
               <p className="muted small">{t("Führt den Ablauf echt auf diesem Server aus: Dateien werden geändert (mit Backup), Befehle laufen.")}</p>
-              <button className="btn primary" disabled={runTest.isPending} onClick={() => { if (window.confirm(t("Ablauf jetzt echt auf {host} ausführen?", { host: host(testDevice) }))) runTest.mutate(); }}>{t("Auf Testserver ausführen")}</button>
+              <ConfirmButton className="btn primary" disabled={runTest.isPending} confirmLabel={t("Echt auf {host} ausführen? Nochmal klicken", { host: host(testDevice) })} onConfirm={() => runTest.mutate()}>{t("Auf Testserver ausführen")}</ConfirmButton>
             </>
           )}
           {test?.status === "queued" && <p className="muted">{t("Läuft … (pull/up kann einige Minuten dauern)")}</p>}
@@ -137,8 +138,8 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
               </select>
             )}
             {tType === "devices" && <span className="muted small">{targetIds.filter((id) => id !== testDevice).map(host).join(", ")}</span>}
-            <button className="btn primary" disabled={runRollout.isPending || (tType !== "all" && tType !== "devices" && !target)}
-              onClick={() => { if (window.confirm(t("Ablauf auf allen Geräten des Ziels ausführen? Geräte ohne Treffer bleiben unverändert."))) runRollout.mutate(); }}>{t("Ausrollen")}</button>
+            <ConfirmButton className="btn primary" disabled={runRollout.isPending || (tType !== "all" && tType !== "devices" && !target)}
+              confirmLabel={t("Auf allen Geräten des Ziels ausführen? Nochmal klicken")} onConfirm={() => runRollout.mutate()}>{t("Ausrollen")}</ConfirmButton>
             {tType === "devices" && <button className="btn ghost sm" onClick={() => setTargetIds([])}>{t("Liste leeren")}</button>}
           </div>
           {runRollout.data && <p className="form-ok small">{t("Auf {n} Gerät(en) eingereiht.", { n: runRollout.data.queued })}</p>}

@@ -613,3 +613,5 @@ label input, label select { color: var(--text); }
 .yaml-play-out { flex: 1; overflow: auto; min-height: 0; }
 .yaml-play-out .flow-diff, .yaml-play-out .flow-output { max-height: none; margin: 0; }
 @media (max-width: 1000px) { .yaml-play-cols { grid-template-columns: 1fr; } }
+
+.btn.armed { background: var(--red); border-color: var(--red); color: #fff; }
