@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-09
+
 ### Added
 - Flows: new blocks **Read value** (YAML/JSON path or `.env` key, extract image tag/repository → `{{steps.ID.value}}`) and **Edit YAML** (`set`/`append`/`ensure`/`delete` with brace expansion `{web,php-fpm,cron}` and `{{value.repo}}`; edits are applied at the exact position, so comments, quotes and indentation stay; result re-parsed before writing, backup/diff/preview, idempotent). *Check* compares **versions** (`version_lt` … `version_eq`) and can **end the flow without error** when not met ("otherwise do nothing"). Template **Compose: raise version if older** (read php-fpm tag, < 2.5.0 → raise web/php-fpm/cron, add mount + volume, pull, up, check, roll back on failure). JSON Schema extended (format version stays 1).
 
@@ -409,7 +411,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0
 [0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
 [0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5

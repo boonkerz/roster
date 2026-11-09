@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-09
+
 ### Neu
 - Abläufe: neue Bausteine **Wert lesen** (YAML/JSON-Pfad oder `.env`-Schlüssel, Image-Tag/-Repository herauslösen → `{{steps.ID.value}}`) und **YAML ändern** (`set`/`append`/`ensure`/`delete` mit Klammer-Erweiterung `{web,php-fpm,cron}` und `{{value.repo}}`; Änderungen positionsgenau, Kommentare, Anführungszeichen und Einrückung bleiben; Ergebnis wird vor dem Schreiben geprüft, Backup/Diff/Vorschau, idempotent). *Prüfen* vergleicht **Versionen** (`version_lt` … `version_eq`) und kann bei Nichterfüllung den **Ablauf ohne Fehler beenden** („sonst nichts tun“). Vorlage **Compose: Version anheben, wenn älter** (php-fpm-Tag lesen, < 2.5.0 → web/php-fpm/cron anheben, Mount + Volume eintragen, pull, up, prüfen, bei Fehler zurück). JSON-Schema erweitert (Formatversion bleibt 1).
 
@@ -409,7 +411,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0
 [0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
 [0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5
