@@ -190,6 +190,10 @@ func (r *runner) exec(ctx context.Context, n shared.FlowNode) (shared.NodeResult
 		return r.rollbackNode(ctx, cfg)
 	case "wait":
 		return r.wait(ctx, cfg)
+	case "read_value":
+		return r.readValue(cfg)
+	case "yaml":
+		return r.yamlEdit(cfg)
 	}
 	return shared.NodeResult{Status: "fail", Output: "unbekannter Baustein"}, &step{}
 }

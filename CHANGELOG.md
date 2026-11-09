@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Flows: new blocks **Read value** (YAML/JSON path or `.env` key, extract image tag/repository → `{{steps.ID.value}}`) and **Edit YAML** (`set`/`append`/`ensure`/`delete` with brace expansion `{web,php-fpm,cron}` and `{{value.repo}}`; edits are applied at the exact position, so comments, quotes and indentation stay; result re-parsed before writing, backup/diff/preview, idempotent). *Check* compares **versions** (`version_lt` … `version_eq`) and can **end the flow without error** when not met ("otherwise do nothing"). Template **Compose: raise version if older** (read php-fpm tag, < 2.5.0 → raise web/php-fpm/cron, add mount + volume, pull, up, check, roll back on failure). JSON Schema extended (format version stays 1).
+
 ## [0.22.0] - 2026-11-09
 
 ### Added

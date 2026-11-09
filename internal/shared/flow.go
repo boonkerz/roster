@@ -64,6 +64,7 @@ type FlowResult struct {
 var FlowNodeTypes = map[string]bool{
 	"find_files": true, "replace": true, "compose": true, "command": true,
 	"http": true, "check": true, "rollback": true, "wait": true,
+	"read_value": true, "yaml": true,
 }
 
 // MaxFlowNodes begrenzt die Größe eines Ablaufs.
@@ -169,3 +170,44 @@ func FlowEdgeTo(g FlowGraph, from, port string) string {
 
 // ValidParamName prüft Parameternamen ({{param.Name}}).
 func ValidParamName(s string) bool { return flowIDRe.MatchString(strings.TrimSpace(s)) }
+
+// YAMLOp ist eine Operation des Bausteins „YAML ändern“.
+type YAMLOp struct {
+	Op    string // set | append | ensure | delete
+	Path  string
+	Value string // roh (YAML), bei delete optional (Listeneintrag mit diesem Wert)
+	Line  int
+}
+
+// ParseYAMLOps liest die Operationen (eine je Zeile: "set pfad = wert"); leere Zeilen und
+// Zeilen mit # am Anfang werden übersprungen.
+func ParseYAMLOps(text string) ([]YAMLOp, error) {
+	var ops []YAMLOp
+	for i, l := range strings.Split(text, "\n") {
+		l = strings.TrimSpace(l)
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		op, rest, _ := strings.Cut(l, " ")
+		op = strings.ToLower(strings.TrimSpace(op))
+		path, val, hasVal := strings.Cut(rest, "=")
+		path, val = strings.TrimSpace(path), strings.TrimSpace(val)
+		switch op {
+		case "set", "append", "ensure":
+			if !hasVal {
+				return nil, fmt.Errorf("Zeile %d: „%s pfad = wert“ erwartet", i+1, op)
+			}
+		case "delete":
+		default:
+			return nil, fmt.Errorf("Zeile %d: unbekannte Operation %q (set, append, ensure, delete)", i+1, op)
+		}
+		if path == "" {
+			return nil, fmt.Errorf("Zeile %d: Pfad fehlt", i+1)
+		}
+		ops = append(ops, YAMLOp{Op: op, Path: path, Value: val, Line: i + 1})
+	}
+	if len(ops) == 0 {
+		return nil, fmt.Errorf("keine Operationen")
+	}
+	return ops, nil
+}

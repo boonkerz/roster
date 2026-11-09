@@ -80,6 +80,14 @@ func validateFlowRequest(req flowRequest) error {
 			if str("url") == "" {
 				return fmt.Errorf("%s: URL fehlt", name)
 			}
+		case "read_value":
+			if str("path") == "" {
+				return fmt.Errorf("%s: Pfad fehlt", name)
+			}
+		case "yaml":
+			if _, err := shared.ParseYAMLOps(str("ops")); err != nil {
+				return fmt.Errorf("%s: %v", name, err)
+			}
 		case "check":
 			switch str("kind") {
 			case "http", "tcp", "container", "file_contains", "expr":

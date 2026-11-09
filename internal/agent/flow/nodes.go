@@ -309,7 +309,7 @@ func statusOK(code int, expect string) bool {
 func (r *runner) check(ctx context.Context, c config) (shared.NodeResult, *step) {
 	st := &step{}
 	kind := c.str("kind")
-	if r.opt.DryRun && kind != "expr" {
+	if r.opt.DryRun && kind != "expr" && kind != "file_contains" {
 		return shared.NodeResult{Status: "dry", Output: "Prüfung „" + kind + "“ läuft erst bei der Ausführung"}, st
 	}
 	retries := int(c.num("retries", 0))
@@ -327,6 +327,10 @@ func (r *runner) check(ctx context.Context, c config) (shared.NodeResult, *step)
 		}
 	}
 	st.Value = strconv.FormatBool(ok)
+	if !ok && c.bool("false_ends") {
+		// „Nein → nichts tun“: Ablauf ohne Fehler beenden (Gerät nicht betroffen).
+		return shared.NodeResult{Status: "empty", Output: msg + "\nBedingung nicht erfüllt – Ablauf endet hier ohne Änderung"}, st
+	}
 	if !ok {
 		return shared.NodeResult{Status: "fail", Output: msg}, st
 	}
@@ -434,6 +438,22 @@ func compare(value, op, expect string) (bool, string) {
 		return strings.TrimSpace(value) == "", msg
 	case "notempty":
 		return strings.TrimSpace(value) != "", msg
+	case "version_lt", "version_le", "version_gt", "version_ge", "version_eq":
+		c, ok := compareVersions(value, expect)
+		if !ok {
+			return false, msg + " (keine vergleichbare Version)"
+		}
+		switch op {
+		case "version_lt":
+			return c < 0, msg
+		case "version_le":
+			return c <= 0, msg
+		case "version_gt":
+			return c > 0, msg
+		case "version_ge":
+			return c >= 0, msg
+		}
+		return c == 0, msg
 	case "gt", "lt":
 		a, err1 := strconv.ParseFloat(strings.TrimSpace(value), 64)
 		b, err2 := strconv.ParseFloat(strings.TrimSpace(expect), 64)

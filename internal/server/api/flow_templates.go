@@ -67,6 +67,37 @@ var flowTemplates = []flowTemplate{
 		},
 	},
 	{
+		Key: "compose_upgrade", Name: "Compose: Version anheben, wenn älter",
+		Description: "Liest die Image-Version eines Dienstes aus der Compose-Datei. Ist sie älter als die Zielversion, setzt der Ablauf die Images der genannten Dienste auf die Zielversion (Repository bleibt), trägt ein Mount und ein benanntes Volume ein, zieht die Images und startet neu. Sonst endet er ohne Änderung.",
+		Params: []shared.FlowParam{
+			{Name: "IMAGE", Label: "Image des Prüf-Dienstes zum Finden (ohne Tag)", Required: true},
+			{Name: "CHECK_SERVICE", Label: "Dienst, dessen Version geprüft wird", Default: "php-fpm", Required: true},
+			{Name: "VERSION", Label: "Zielversion", Default: "2.5.0", Required: true},
+			{Name: "SERVICES", Label: "Dienste, deren Image angehoben wird (kommagetrennt)", Default: "web,php-fpm,cron", Required: true},
+			{Name: "MOUNT", Label: "Neues Mount (z. B. shop_media:/var/www/media)", Required: true},
+			{Name: "MOUNT_SERVICES", Label: "Dienste, die das Mount bekommen (kommagetrennt)", Default: "php-fpm", Required: true},
+			{Name: "VOLUME", Label: "Name des neuen Volumes (z. B. shop_media)", Required: true},
+		},
+		Graph: shared.FlowGraph{
+			Nodes: []shared.FlowNode{
+				fn("find", "find_files", "Compose-Datei finden", 0, 0, map[string]any{"mode": "compose_image", "image": "{{param.IMAGE}}"}),
+				fn("ver", "read_value", "Version lesen", 0, 120, map[string]any{"path": "services.{{param.CHECK_SERVICE}}.image", "extract": "image_tag"}),
+				fn("cmp", "check", "Älter als Zielversion?", 0, 240, map[string]any{"kind": "expr", "value": "{{steps.ver.value}}", "op": "version_lt", "expect": "{{param.VERSION}}", "false_ends": true}),
+				fn("edit", "yaml", "Compose-Datei anpassen", 0, 360, map[string]any{"ops": "set services.{{{param.SERVICES}}}.image = {{value.repo}}:{{param.VERSION}}\nappend services.{{{param.MOUNT_SERVICES}}}.volumes = {{param.MOUNT}}\nensure volumes.{{param.VOLUME}} = {}"}),
+				fn("pull", "compose", "Images ziehen", 0, 480, map[string]any{"action": "pull", "all_services": true}),
+				fn("up", "compose", "Neu starten", 0, 600, map[string]any{"action": "up", "all_services": true}),
+				fn("wait", "wait", "Kurz warten", 0, 720, map[string]any{"seconds": 20.0}),
+				fn("chk", "check", "Dienste laufen", 0, 840, map[string]any{"kind": "container", "retries": 3.0, "interval_s": 10.0}),
+				fn("rb", "rollback", "Zurückrollen", 340, 660, map[string]any{"compose_up": true}),
+			},
+			Edges: []shared.FlowEdge{
+				{From: "find", Port: "ok", To: "ver"}, {From: "ver", Port: "ok", To: "cmp"}, {From: "cmp", Port: "ok", To: "edit"},
+				{From: "edit", Port: "ok", To: "pull"}, {From: "pull", Port: "ok", To: "up"}, {From: "up", Port: "ok", To: "wait"},
+				{From: "wait", Port: "ok", To: "chk"}, {From: "pull", Port: "fail", To: "rb"}, {From: "up", Port: "fail", To: "rb"}, {From: "chk", Port: "fail", To: "rb"},
+			},
+		},
+	},
+	{
 		Key: "api_value", Name: "API abfragen und Wert eintragen",
 		Description: "Fragt eine API ab, liest einen Wert per JSON-Pfad und trägt ihn per regulärem Ausdruck in eine Datei ein (z. B. die neueste Version in eine .env).",
 		Params: []shared.FlowParam{

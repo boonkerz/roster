@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Abläufe: neue Bausteine **Wert lesen** (YAML/JSON-Pfad oder `.env`-Schlüssel, Image-Tag/-Repository herauslösen → `{{steps.ID.value}}`) und **YAML ändern** (`set`/`append`/`ensure`/`delete` mit Klammer-Erweiterung `{web,php-fpm,cron}` und `{{value.repo}}`; Änderungen positionsgenau, Kommentare, Anführungszeichen und Einrückung bleiben; Ergebnis wird vor dem Schreiben geprüft, Backup/Diff/Vorschau, idempotent). *Prüfen* vergleicht **Versionen** (`version_lt` … `version_eq`) und kann bei Nichterfüllung den **Ablauf ohne Fehler beenden** („sonst nichts tun“). Vorlage **Compose: Version anheben, wenn älter** (php-fpm-Tag lesen, < 2.5.0 → web/php-fpm/cron anheben, Mount + Volume eintragen, pull, up, prüfen, bei Fehler zurück). JSON-Schema erweitert (Formatversion bleibt 1).
+
 ## [0.22.0] - 2026-11-09
 
 ### Neu

@@ -118,7 +118,9 @@
             "http",
             "check",
             "rollback",
-            "wait"
+            "wait",
+            "read_value",
+            "yaml"
           ]
         },
         "label": {
@@ -434,7 +436,12 @@
                       "gt",
                       "lt",
                       "empty",
-                      "notempty"
+                      "notempty",
+                      "version_lt",
+                      "version_le",
+                      "version_gt",
+                      "version_ge",
+                      "version_eq"
                     ]
                   },
                   "expect": {
@@ -454,6 +461,10 @@
                       "string"
                     ],
                     "description": "Abstand in Sekunden"
+                  },
+                  "false_ends": {
+                    "type": "boolean",
+                    "description": "Nicht erfüllt: Ablauf ohne Fehler beenden (nicht betroffen)"
                   }
                 },
                 "additionalProperties": false
@@ -506,6 +517,80 @@
                   }
                 },
                 "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "read_value"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Pfad in YAML/JSON (services.php-fpm.image, \"a.b\" für Punkte im Namen, Zahl = Listenindex) bzw. Schlüssel in .env"
+                  },
+                  "extract": {
+                    "enum": [
+                      "none",
+                      "image_tag",
+                      "image_repo"
+                    ],
+                    "description": "Teil eines Image-Werts"
+                  },
+                  "files": {
+                    "type": "string",
+                    "description": "Dateien, eine je Zeile; leer = vom vorigen Baustein"
+                  },
+                  "optional": {
+                    "type": "boolean",
+                    "description": "Fehlt der Pfad: leerer Wert statt Fehler"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "yaml"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ops": {
+                    "type": "string",
+                    "description": "Operationen, eine je Zeile: set|append|ensure pfad = wert, delete pfad [= listenwert]; {a,b} im Pfad erweitert, {{value}}/{{value.repo}}/{{value.tag}} = aktueller Wert"
+                  },
+                  "files": {
+                    "type": "string",
+                    "description": "YAML-Dateien, eine je Zeile; leer = vom vorigen Baustein"
+                  },
+                  "fail_if_unchanged": {
+                    "type": "boolean",
+                    "description": "Fehler, wenn nichts geändert wurde"
+                  },
+                  "continue_if_unchanged": {
+                    "type": "boolean",
+                    "description": "Weitermachen, auch wenn nichts geändert wurde"
+                  }
+                }
               }
             }
           }

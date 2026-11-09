@@ -29,10 +29,12 @@ und stellt **automatisch** alle bis dahin geänderten Dateien wieder her.
 |---|---|---|
 | **Dateien finden** | Pfade/Globs (eine je Zeile, optional „enthält …“) **oder** die Compose-Dateien aller Container mit einem Image (über die Compose-Labels; ohne Tag = alle Tags; dazu die `.env`, falls das Image dort steht). Eigene Backups (`*.roster-bak-*`) werden nie gefunden. Keine Treffer = Gerät nicht betroffen, der Ablauf endet ohne Fehler. | läuft |
 | **Text ersetzen** | Literal oder regulärer Ausdruck (`$1` …), optional nur in Zeilen mit einem Text (z. B. `image:`). Je Datei wird vorher ein Backup `<datei>.roster-bak-<lauf>` angelegt. Ohne Treffer endet der Ablauf hier ohne Fehler (Gerät schon umgestellt), außer mit „Weitermachen, auch wenn nichts ersetzt wurde“. | zeigt den Diff, ändert nichts |
+| **Wert lesen** | Liest einen Wert aus YAML/JSON (Pfad wie `services.php-fpm.image`, `"a.b"` für Punkte im Namen, Zahl = Listenindex) oder einen Schlüssel aus einer `.env`. *Teil* schneidet aus einer Image-Angabe das Tag (`…:2.4.0` → `2.4.0`, ohne Tag `latest`) oder das Repository. Ergebnis: `{{steps.ID.value}}`. | läuft |
+| **YAML ändern** | Ändert YAML gezielt, Kommentare, Anführungszeichen und Einrückung bleiben: `set pfad = wert`, `append pfad = eintrag` (nur wenn neu), `ensure pfad = wert` (nur wenn fehlt), `delete pfad [= listeneintrag]`. Fehlende Teile werden angelegt. `{a,b,c}` im Pfad gilt für mehrere Einträge, `{{value.repo}}`/`{{value.tag}}`/`{{value}}` im Wert sind der aktuelle Wert. Backup und Diff wie bei *Text ersetzen*; ohne Änderung endet der Ablauf. | zeigt den Diff |
 | **Docker Compose** | `pull`, `up -d`, `restart`, `down` – für die gefundenen Projekte (nur betroffene Dienste) oder ein Verzeichnis; `docker compose` mit Rückfall auf `docker-compose`. | zeigt die Befehle |
 | **Befehl / Skript** | Eigener Befehl oder ein Skript aus der Bibliothek; Exit ≠ 0 = Fehler. | wird nicht ausgeführt |
 | **API abfragen** | HTTP-Anfrage mit Headern/Body; JSON-Pfad liefert einen Wert (`{{steps.api.value}}`). | nur GET/HEAD |
-| **Prüfen** | Container läuft (ohne Namen: die betroffenen Compose-Dienste), HTTP-Status, TCP-Port, Datei enthält Text, Wert vergleichen – mit Wiederholungen. | wird übersprungen |
+| **Prüfen** | Container läuft (ohne Namen: die betroffenen Compose-Dienste), HTTP-Status, TCP-Port, Datei enthält Text, Wert vergleichen – auch als Version (`2.10.0 > 2.9.1`, `v`-Präfix egal, `-rc` kleiner als die Endversion) – mit Wiederholungen. *Nicht erfüllt: Ablauf ohne Fehler beenden* macht daraus eine Bedingung („sonst nichts tun“). | Vergleiche und „Datei enthält“ laufen, Rest übersprungen |
 | **Zurückrollen** | Stellt alle in diesem Lauf geänderten Dateien wieder her, optional danach `up -d`. | wird übersprungen |
 | **Warten** | Wartet bis zu 10 Minuten. | wird übersprungen |
 
@@ -95,6 +97,14 @@ der Import heißt dann „Name (Import)“.
 ```
 
 ## Vorlagen
+
+- **Compose: Version anheben, wenn älter** – liest das Image-Tag eines Dienstes (z. B. `php-fpm`), prüft „älter als 2.5.0“, setzt die Images von `web`, `php-fpm`, `cron` auf 2.5.0 (Repository bleibt), trägt ein Mount und ein benanntes Volume ein, `pull`, `up -d`, prüft; sonst *nicht betroffen*. Kern ist dieser Baustein *YAML ändern*:
+
+    ```
+    set    services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0
+    append services.{php-fpm,cron}.volumes = shop_media:/var/www/media
+    ensure volumes.shop_media = {}
+    ```
 
 - **Image in Compose ersetzen** – Compose-Dateien mit altem Image finden, in der `image:`-Zeile
   ersetzen, `pull`, `up -d`, kurz warten, prüfen; bei Fehler zurückrollen und alten Stand

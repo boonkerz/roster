@@ -102,10 +102,33 @@ export const NODE_TYPES: NodeTypeDef[] = [
       { key: "path", label: "Datei", kind: "text", show: (c) => c.kind === "file_contains" },
       { key: "text", label: "Text", kind: "text", show: (c) => c.kind === "file_contains" },
       { key: "value", label: "Wert", kind: "text", placeholder: "{{steps.api.value}}", show: (c) => c.kind === "expr" },
-      { key: "op", label: "Vergleich", kind: "select", options: [["eq", "gleich"], ["ne", "ungleich"], ["contains", "enthält"], ["gt", "größer"], ["lt", "kleiner"], ["notempty", "nicht leer"], ["empty", "leer"]], show: (c) => c.kind === "expr" },
+      { key: "op", label: "Vergleich", kind: "select", options: [["eq", "gleich"], ["ne", "ungleich"], ["contains", "enthält"], ["gt", "größer"], ["lt", "kleiner"], ["version_lt", "Version kleiner als"], ["version_le", "Version kleiner/gleich"], ["version_gt", "Version größer als"], ["version_ge", "Version größer/gleich"], ["version_eq", "Version gleich"], ["notempty", "nicht leer"], ["empty", "leer"]], show: (c) => c.kind === "expr" },
       { key: "expect", label: "Vergleichswert", kind: "text", show: (c) => c.kind === "expr" },
+      { key: "false_ends", label: "Nicht erfüllt: Ablauf ohne Fehler beenden (nicht betroffen)", kind: "bool" },
       { key: "retries", label: "Wiederholungen", kind: "number" },
       { key: "interval_s", label: "Abstand (Sekunden)", kind: "number" },
+    ],
+  },
+  {
+    type: "read_value", label: "Wert lesen", icon: "🔍", prefix: "val",
+    help: "Liest einen Wert aus YAML/JSON (Pfad wie services.php-fpm.image) oder aus einer .env (Schlüssel). Ergebnis als {{steps.<id>.value}}; image_tag/image_repo schneidet Tag oder Repository aus einer Image-Angabe.",
+    defaults: { path: "", extract: "none" },
+    fields: [
+      { key: "path", label: "Pfad bzw. Schlüssel", kind: "text", placeholder: "services.php-fpm.image" },
+      { key: "extract", label: "Teil", kind: "select", options: [["none", "ganzer Wert"], ["image_tag", "Image-Tag (Version)"], ["image_repo", "Image-Repository"]] },
+      { key: "files", label: "Dateien (leer = vom vorigen Baustein)", kind: "textarea" },
+      { key: "optional", label: "Fehlt der Pfad: leerer Wert statt Fehler", kind: "bool" },
+    ],
+  },
+  {
+    type: "yaml", label: "YAML ändern", icon: "🧩", prefix: "yaml",
+    help: "Ändert YAML-Dateien gezielt (Formatierung und Kommentare bleiben): set pfad = wert, append pfad = listeneintrag (nur wenn neu), ensure pfad = wert (nur wenn fehlt), delete pfad. {a,b} im Pfad gilt für mehrere Dienste, {{value.repo}} ist das Repository des aktuellen Werts. Backup, Diff und Vorschau wie bei „Text ersetzen“.",
+    defaults: { ops: "set services.{web,php-fpm,cron}.image = {{value.repo}}:2.5.0\nappend services.php-fpm.volumes = shop_media:/var/www/media\nensure volumes.shop_media = {}" },
+    fields: [
+      { key: "ops", label: "Operationen (eine je Zeile)", kind: "textarea" },
+      { key: "files", label: "Dateien (leer = vom vorigen Baustein)", kind: "textarea" },
+      { key: "fail_if_unchanged", label: "Fehler, wenn nichts ersetzt wurde", kind: "bool" },
+      { key: "continue_if_unchanged", label: "Weitermachen, auch wenn nichts ersetzt wurde", kind: "bool" },
     ],
   },
   {
@@ -133,8 +156,10 @@ export function nodeSummary(type: string, c: Record<string, unknown>): string {
     case "compose": return `${s("action") === "up" ? "up -d" : s("action")}${c.dir ? ` · ${s("dir")}` : ""}`;
     case "command": return c.script_id ? "Bibliotheks-Skript" : s("script").split("\n")[0];
     case "http": return `${s("method") || "GET"} ${s("url")}`;
-    case "check": return s("kind");
+    case "check": return c.kind === "expr" ? `${s("value")} ${s("op")} ${s("expect")}${c.false_ends ? " · sonst Ende" : ""}` : s("kind");
     case "wait": return `${s("seconds")} s`;
+    case "read_value": return `${s("path")}${c.extract && c.extract !== "none" ? ` → ${s("extract")}` : ""}`;
+    case "yaml": return s("ops").split("\n")[0];
     case "rollback": return c.compose_up ? "Dateien + up -d" : "Dateien";
   }
   return "";

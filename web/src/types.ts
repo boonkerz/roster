@@ -1083,7 +1083,7 @@ export interface DashWidget {
 export type DashWidth = 1 | 2 | 3 | 4;
 
 // --- Abläufe (Flow-Designer) ---
-export type FlowNodeType = "find_files" | "replace" | "compose" | "command" | "http" | "check" | "rollback" | "wait";
+export type FlowNodeType = "find_files" | "replace" | "compose" | "command" | "http" | "check" | "rollback" | "wait" | "read_value" | "yaml";
 export interface FlowNodeDef {
   id: string;
   type: FlowNodeType;
