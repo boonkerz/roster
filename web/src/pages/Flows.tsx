@@ -8,6 +8,8 @@ import type { Flow, FlowRunSummary, FlowTemplate } from "../types";
 import { FlowEditor } from "../flows/FlowEditor";
 import { FlowRunWizard } from "../flows/FlowRunWizard";
 import { localizeTemplate } from "../flows/nodeTypes";
+import { FlowImport, downloadFlow } from "../flows/FlowImport";
+import { Modal } from "../components/Modal";
 
 // Flows listet die Abläufe (Flow-Designer) mit Vorlagen und letzten Läufen.
 export function Flows() {
@@ -20,6 +22,8 @@ export function Flows() {
   const { data: flows } = useQuery({ queryKey: ["flows"], queryFn: () => api.get<Flow[]>("/flows") });
   const { data: templates } = useQuery({ queryKey: ["flow-templates"], queryFn: () => api.get<FlowTemplate[]>("/flows/templates") });
   const [open, setOpen] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [exportErr, setExportErr] = useState("");
   const del = useMutation({ mutationFn: (id: string) => api.del(`/flows/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["flows"] }) });
   const copy = useMutation({ mutationFn: (f: Flow) => api.post<Flow>(`/flows/${f.id}/copy`, { name: `${f.name} (${t("Kopie")})` }), onSuccess: () => qc.invalidateQueries({ queryKey: ["flows"] }) });
 
@@ -36,10 +40,13 @@ export function Flows() {
               <option value="">{t("Aus Vorlage …")}</option>
               {(templates ?? []).map((tp) => <option key={tp.key} value={tp.key}>{t(tp.name)}</option>)}
             </select>
+            <button className="btn ghost" onClick={() => setImporting(true)}>{t("Importieren")}</button>
             <button className="btn primary" onClick={() => nav("/flows/new")}>{t("Neuer Ablauf")}</button>
           </div>
         )}
       </header>
+      {importing && <Modal onClose={() => setImporting(false)}><FlowImport onDone={(f) => { setImporting(false); nav(`/flows/${f.id}`); }} /></Modal>}
+      {exportErr && <p className="error">{exportErr}</p>}
       <section className="card">
         {(flows ?? []).length === 0 ? (
           <p className="muted">{t("Noch keine Abläufe. Am schnellsten über „Aus Vorlage …“, z. B. „Image in Compose ersetzen“.")}</p>
@@ -57,6 +64,7 @@ export function Flows() {
                     {canRun && <button className="btn primary sm" onClick={() => nav(`/flows/${f.id}/run`)}>{t("Ausführen")}</button>}
                     {canEdit && <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => nav(`/flows/${f.id}`)}>{t("Bearbeiten")}</button>}
                     {canEdit && <button className="btn ghost sm" style={{ marginLeft: 4 }} disabled={copy.isPending} onClick={() => copy.mutate(f)}>{t("Kopieren")}</button>}
+                    <button className="btn ghost sm" style={{ marginLeft: 4 }} title={t("Als roster-flow-Datei (JSON) herunterladen")} onClick={() => { setExportErr(""); downloadFlow(f).catch((e) => setExportErr(e.message)); }}>{t("Exportieren")}</button>
                     <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => setOpen(open === f.id ? null : f.id)}>{t("Läufe")}</button>
                     {canEdit && <button className="btn ghost sm danger" style={{ marginLeft: 4 }} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: f.name })) && del.mutate(f.id)}>{t("Löschen")}</button>}
                   </td>

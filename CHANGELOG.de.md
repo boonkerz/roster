@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Abläufe: **Austauschformat `roster-flow` (Version 1)** – Ablauf als `<name>.roster-flow.json` exportieren (Liste und Editor) und auf einem anderen Server importieren (Upload oder Einfügen, *Prüfen* validiert ohne Änderung; gleichnamige Abläufe bleiben unberührt, der Import heißt „Name (Import)“). Bibliotheks-Skripte werden beim Export eingebettet. Veröffentlichtes **JSON-Schema** `https://roster-rmm.dev/schemas/roster-flow-1.schema.json` für Prüfung/Vervollständigung im Editor. API `GET /flows/{id}/export`, `POST /flows/import` (`?dry_run=1`).
+
 ## [0.21.6] - 2026-11-07
 
 ### Neu

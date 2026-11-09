@@ -55,6 +55,45 @@ Unter **Abläufe → Läufe** stehen frühere Läufe mit ihren Ergebnissen; einz
 löschen. **Kopieren** (in der Liste oder im Editor) legt einen Ablauf als Ausgangspunkt für eine
 Variante an – im Editor auch mit noch ungespeicherten Änderungen.
 
+## Abläufe austauschen (JSON)
+
+Abläufe lassen sich als Datei im Austauschformat **roster-flow** (Version 1) weitergeben:
+**Exportieren** in der Liste oder im Editor lädt `<name>.roster-flow.json` herunter,
+**Importieren** in der Liste nimmt eine solche Datei (Upload oder Einfügen) entgegen, prüft sie
+(*Prüfen* ändert nichts) und legt einen neuen Ablauf an – ein gleichnamiger bleibt unverändert,
+der Import heißt dann „Name (Import)“.
+
+- **Bibliotheks-Skripte** werden beim Export eingebettet (`script` + `shell`), denn ihre IDs gibt
+  es auf anderen Servern nicht; ein Dokument mit `script_id` wird beim Import abgelehnt.
+- **Positionen** (`x`, `y`) sind optional; ohne sie stapelt der Editor die Bausteine untereinander.
+- Das **JSON-Schema** liegt unter
+  [roster-rmm.dev/schemas/roster-flow-1.schema.json](https://roster-rmm.dev/schemas/roster-flow-1.schema.json).
+  Mit `"$schema"` in der Datei prüfen und vervollständigen Editoren wie VS Code Bausteine und
+  Einstellungen direkt beim Schreiben.
+- Per API: `GET /api/v1/flows/{id}/export`, `POST /api/v1/flows/import` (mit `?dry_run=1` nur
+  prüfen).
+
+```json
+{
+  "$schema": "https://roster-rmm.dev/schemas/roster-flow-1.schema.json",
+  "format": "roster-flow",
+  "version": 1,
+  "name": "Port 8000 auf 80 umstellen",
+  "params": [{ "name": "DIR", "label": "Compose-Verzeichnis", "required": true }],
+  "nodes": [
+    { "id": "find", "type": "find_files", "config": { "mode": "paths", "paths": "{{param.DIR}}/docker-compose.yml" } },
+    { "id": "repl", "type": "replace", "config": { "search": "\"8000:8000\"", "replace": "\"80:8000\"" } },
+    { "id": "up", "type": "compose", "config": { "action": "up", "all_services": true } },
+    { "id": "rb", "type": "rollback", "config": { "compose_up": true } }
+  ],
+  "edges": [
+    { "from": "find", "port": "ok", "to": "repl" },
+    { "from": "repl", "port": "ok", "to": "up" },
+    { "from": "up", "port": "fail", "to": "rb" }
+  ]
+}
+```
+
 ## Vorlagen
 
 - **Image in Compose ersetzen** – Compose-Dateien mit altem Image finden, in der `image:`-Zeile

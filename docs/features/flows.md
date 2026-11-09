@@ -54,6 +54,44 @@ are `{{param.FROM}}`.
 list or in the editor) creates a flow as the starting point for a variant – in the editor including
 unsaved changes.
 
+## Sharing flows (JSON)
+
+Flows can be shared as a file in the **roster-flow** exchange format (version 1): **Export** in the
+list or in the editor downloads `<name>.roster-flow.json`, **Import** in the list accepts such a file
+(upload or paste), validates it (*Check* changes nothing) and creates a new flow – one with the same
+name stays unchanged and the import is called "Name (Import)".
+
+- **Library scripts** are embedded on export (`script` + `shell`) because their IDs do not exist on
+  other servers; a document with `script_id` is rejected on import.
+- **Positions** (`x`, `y`) are optional; without them the editor stacks the blocks vertically.
+- The **JSON Schema** is at
+  [roster-rmm.dev/schemas/roster-flow-1.schema.json](https://roster-rmm.dev/schemas/roster-flow-1.schema.json).
+  With `"$schema"` in the file, editors like VS Code validate and complete blocks and settings while
+  you type.
+- Via API: `GET /api/v1/flows/{id}/export`, `POST /api/v1/flows/import` (with `?dry_run=1` to only
+  validate).
+
+```json
+{
+  "$schema": "https://roster-rmm.dev/schemas/roster-flow-1.schema.json",
+  "format": "roster-flow",
+  "version": 1,
+  "name": "Switch port 8000 to 80",
+  "params": [{ "name": "DIR", "label": "Compose directory", "required": true }],
+  "nodes": [
+    { "id": "find", "type": "find_files", "config": { "mode": "paths", "paths": "{{param.DIR}}/docker-compose.yml" } },
+    { "id": "repl", "type": "replace", "config": { "search": "\"8000:8000\"", "replace": "\"80:8000\"" } },
+    { "id": "up", "type": "compose", "config": { "action": "up", "all_services": true } },
+    { "id": "rb", "type": "rollback", "config": { "compose_up": true } }
+  ],
+  "edges": [
+    { "from": "find", "port": "ok", "to": "repl" },
+    { "from": "repl", "port": "ok", "to": "up" },
+    { "from": "up", "port": "fail", "to": "rb" }
+  ]
+}
+```
+
 ## Templates
 
 - **Replace image in Compose** – find Compose files with the old image, replace it in the `image:`

@@ -312,6 +312,7 @@ func (s *Server) routes() http.Handler {
 						r.Get("/flows/templates", s.handleFlowTemplates)
 						r.Get("/flows/{id}", s.handleGetFlow)
 						r.Get("/flows/{id}/runs", s.handleListFlowRuns)
+						r.Get("/flows/{id}/export", s.handleExportFlow)
 						r.Get("/flow-runs/{id}", s.handleGetFlowRun)
 					})
 					// --- Abläufe ausführen (devices.operate) ---
@@ -329,6 +330,7 @@ func (s *Server) routes() http.Handler {
 						r.Put("/flows/{id}", s.handleSaveFlow)
 						r.Delete("/flows/{id}", s.handleDeleteFlow)
 						r.Post("/flows/{id}/copy", s.handleCopyFlow)
+						r.Post("/flows/import", s.handleImportFlow)
 						r.Delete("/flow-runs/{id}", s.handleDeleteFlowRun)
 						r.Post("/scripts", s.handleCreateScript)
 						r.Put("/scripts/{id}", s.handleUpdateScript)

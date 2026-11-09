@@ -1,0 +1,516 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roster-rmm.dev/schemas/roster-flow-1.schema.json",
+  "title": "Roster flow (roster-flow, Version 1)",
+  "description": "Austauschformat für Abläufe aus dem Flow-Designer von Roster. Bausteine (nodes) werden über ihre Ausgänge ok/fail (edges) verbunden; genau ein Baustein ohne eingehende Verbindung ist der Start. Platzhalter: {{param.NAME}}, {{steps.ID.value|out|status|files}}, {{steps.ID.json.pfad}}, {{agent|client|site.feld}}.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "name",
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "roster-flow"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "exported_by": {
+      "type": "string"
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "port",
+          "to"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "port": {
+            "enum": [
+              "ok",
+              "fail"
+            ]
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+        },
+        "type": {
+          "enum": [
+            "find_files",
+            "replace",
+            "compose",
+            "command",
+            "http",
+            "check",
+            "rollback",
+            "wait"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "config": {
+          "type": "object"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "find_files"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "compose_image",
+                      "paths"
+                    ],
+                    "description": "compose_image: Compose-Dateien der Container mit Image; paths: Glob-Pfade"
+                  },
+                  "image": {
+                    "type": "string",
+                    "description": "Image (ohne Tag = alle Tags), Modus compose_image"
+                  },
+                  "paths": {
+                    "type": "string",
+                    "description": "Glob-Pfade, eine je Zeile, Modus paths"
+                  },
+                  "contains": {
+                    "type": "string",
+                    "description": "Nur Dateien, die diesen Text enthalten"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "replace"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "search": {
+                    "type": "string",
+                    "description": "Suchtext oder regulärer Ausdruck"
+                  },
+                  "replace": {
+                    "type": "string",
+                    "description": "Ersetzung ($1 … bei regex)"
+                  },
+                  "regex": {
+                    "type": "boolean",
+                    "description": "search ist ein regulärer Ausdruck (RE2)"
+                  },
+                  "line_filter": {
+                    "type": "string",
+                    "description": "Nur in Zeilen, die diesen Text enthalten"
+                  },
+                  "files": {
+                    "type": "string",
+                    "description": "Dateien, eine je Zeile; leer = vom vorigen Baustein"
+                  },
+                  "fail_if_unchanged": {
+                    "type": "boolean",
+                    "description": "Fehler, wenn nichts ersetzt wurde"
+                  },
+                  "continue_if_unchanged": {
+                    "type": "boolean",
+                    "description": "Weitermachen, auch wenn nichts ersetzt wurde (Standard: Ablauf endet)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "compose"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "pull",
+                      "up",
+                      "restart",
+                      "down"
+                    ]
+                  },
+                  "dir": {
+                    "type": "string",
+                    "description": "Projektverzeichnis; leer = vom vorigen Baustein"
+                  },
+                  "compose_files": {
+                    "type": "string",
+                    "description": "Compose-Dateien, eine je Zeile"
+                  },
+                  "services": {
+                    "type": "string",
+                    "description": "Dienste, kommagetrennt"
+                  },
+                  "all_services": {
+                    "type": "boolean",
+                    "description": "Alle Dienste des Projekts"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "command"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "shell": {
+                    "enum": [
+                      "shell",
+                      "powershell"
+                    ]
+                  },
+                  "script": {
+                    "type": "string",
+                    "description": "Befehl bzw. Skript (eingebettet)"
+                  },
+                  "timeout_s": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Zeitlimit in Sekunden (Standard 600)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "http"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "enum": [
+                      "GET",
+                      "POST",
+                      "PUT",
+                      "PATCH",
+                      "DELETE",
+                      "HEAD"
+                    ]
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "headers": {
+                    "type": "string",
+                    "description": "Header, einer je Zeile: Name: Wert"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "json_path": {
+                    "type": "string",
+                    "description": "Pfad für {{steps.ID.value}}, z. B. data.0.version"
+                  },
+                  "require_value": {
+                    "type": "boolean",
+                    "description": "Fehler, wenn kein Wert"
+                  },
+                  "expect_status": {
+                    "type": "string",
+                    "description": "z. B. 200,201 oder 2xx (leer = 2xx)"
+                  },
+                  "insecure": {
+                    "type": "boolean",
+                    "description": "Zertifikat nicht prüfen"
+                  },
+                  "timeout_s": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Zeitlimit in Sekunden"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "check"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "container",
+                      "http",
+                      "tcp",
+                      "file_contains",
+                      "expr"
+                    ]
+                  },
+                  "container": {
+                    "type": "string",
+                    "description": "Container-Name enthält (leer = betroffene Compose-Dienste)"
+                  },
+                  "healthy": {
+                    "type": "boolean",
+                    "description": "muss healthy sein"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "expect_status": {
+                    "type": "string"
+                  },
+                  "headers": {
+                    "type": "string"
+                  },
+                  "insecure": {
+                    "type": "boolean",
+                    "description": "Zertifikat nicht prüfen"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Port"
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Datei"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Text"
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Wert, z. B. {{steps.api.value}}"
+                  },
+                  "op": {
+                    "enum": [
+                      "eq",
+                      "ne",
+                      "contains",
+                      "gt",
+                      "lt",
+                      "empty",
+                      "notempty"
+                    ]
+                  },
+                  "expect": {
+                    "type": "string",
+                    "description": "Vergleichswert"
+                  },
+                  "retries": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Wiederholungen"
+                  },
+                  "interval_s": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Abstand in Sekunden"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "rollback"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "compose_up": {
+                    "type": "boolean",
+                    "description": "Danach betroffene Dienste neu starten (up -d)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "wait"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "seconds": {
+                    "type": [
+                      "number",
+                      "string"
+                    ],
+                    "description": "Sekunden (max. 600)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

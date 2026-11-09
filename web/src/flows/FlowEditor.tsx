@@ -11,6 +11,7 @@ import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import type { Flow, FlowGraph, FlowNodeType, FlowParam, Script } from "../types";
 import { NODE_TYPE, NODE_TYPES, nodeSummary, type FieldDef } from "./nodeTypes";
+import { downloadFlow } from "./FlowImport";
 
 type NodeData = { type: FlowNodeType; label: string; config: Record<string, string | number | boolean> };
 type FNode = Node<NodeData, "flow">;
@@ -157,6 +158,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
           <input placeholder={t("Beschreibung (optional)")} value={description} onChange={(e) => setDescription(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
           <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>{t("Speichern")}</button>
           <button className="btn ghost" onClick={onCancel}>{t("Abbrechen")}</button>
+          {flow.id && <button className="btn ghost" title={t("Gespeicherten Stand als roster-flow-Datei (JSON) herunterladen")} onClick={() => downloadFlow({ id: flow.id!, name: flow.name ?? "" }).catch((e) => setErr(e.message))}>{t("Exportieren")}</button>}
           {flow.id && <button className="btn ghost" disabled={copy.isPending} onClick={() => copy.mutate()} title={t("Speichert den aktuellen Stand als neuen Ablauf")}>{t("Kopieren")}</button>}
           {flow.id && <button className="btn ghost danger" disabled={del.isPending} onClick={() => window.confirm(t("Ablauf „{name}“ löschen?", { name: flow.name ?? "" })) && del.mutate()}>{t("Löschen")}</button>}
         </div>

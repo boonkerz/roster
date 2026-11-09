@@ -1720,4 +1720,14 @@ export const EN: Record<string, string> = {
   "{n} behebbar": "{n} fixable",
   "Für das Release des Images gibt es noch keine Korrektur – ein neues Image hilft nicht.": "There is no fix for the image's release yet – a new image does not help.",
   "noch kein Fix": "no fix yet",
+  // --- Abläufe: Austauschformat (0.22.0) ---
+  "Kein gültiges JSON: {err}": "Not valid JSON: {err}",
+  "Gültig: „{name}“ mit {n} Bausteinen und {p} Parametern.": "Valid: \"{name}\" with {n} blocks and {p} parameters.",
+  "Ablauf importieren": "Import flow",
+  "Datei im Austauschformat roster-flow (*.roster-flow.json) wählen oder den Inhalt einfügen. Der Ablauf wird geprüft und als neuer Ablauf angelegt; ein gleichnamiger bleibt unverändert.": "Choose a file in the roster-flow exchange format (*.roster-flow.json) or paste its content. The flow is validated and created as a new flow; one with the same name stays unchanged.",
+  "Importieren": "Import",
+  "JSON-Schema": "JSON Schema",
+  "Als roster-flow-Datei (JSON) herunterladen": "Download as roster-flow file (JSON)",
+  "Exportieren": "Export",
+  "Gespeicherten Stand als roster-flow-Datei (JSON) herunterladen": "Download the saved state as roster-flow file (JSON)",
 };
