@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-11-09
+
 ### Geändert
 - Abläufe, *YAML ändern*: Ein Wert in Kurzform (`{driver: local, driver_opts: {…}}`, `[a, b]`) wird beim Anlegen als eingerückter Block geschrieben – ein benanntes Volume mit Treiber-Optionen passt jetzt in eine `ensure`-Zeile. `{}`/`[]` bleiben, wie sie sind.
 
@@ -419,7 +421,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.2...HEAD
+[0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0

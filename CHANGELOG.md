@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-11-09
+
 ### Changed
 - Flows, *Edit YAML*: a short-form value (`{driver: local, driver_opts: {…}}`, `[a, b]`) is written as an indented block when the key is created – a named volume with driver options now fits on one `ensure` line. `{}`/`[]` stay as they are.
 
@@ -419,7 +421,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.2...HEAD
+[0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0
