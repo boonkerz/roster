@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.23.3] - 2026-11-09
+
 ### Behoben
 - Abläufe, *Dateien finden* (Compose-Image): Der **Image-Name genügt** (`php-fpm-prod` findet `registry…/docker/php-fpm-prod`), `*` wirkt als Platzhalter. Bisher passte nur das vollständige Repository. Der Versionsvergleich ignoriert **Anhängsel** wie `_tp` (`2.4.0_tp` gilt als 2.4.0 – bisher nicht vergleichbar, solche Server wurden als „nicht betroffen“ übersprungen). Neuer Platzhalter `{{value.suffix}}`; die Vorlage *Compose: Version anheben, wenn älter* behält das Anhängsel (`2.4.0_tp` → `2.5.0_tp`).
 
@@ -424,7 +426,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.3...HEAD
+[0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/boonkerz/roster/compare/v0.22.0...v0.23.0
