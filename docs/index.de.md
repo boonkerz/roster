@@ -187,7 +187,9 @@ gelöschte oder geleerte Datenbanken werden zum Vorfall – das Muster der Daten
 <div class="rs-feature-text" markdown>
 ### Abläufe statt Skript-Gebastel
 Ein Image in fünfzig Compose-Dateien tauschen, einen Port umstellen, eine Version aus einer API
-eintragen: Bausteine ziehen, per Linie verbinden, fertig. Der Assistent zeigt zuerst auf einem
+eintragen oder Dienste nur dann anheben, wenn ihre Version älter ist: Bausteine ziehen, per Linie
+verbinden, fertig. Compose-Dateien werden gezielt geändert, Kommentare und Formatierung bleiben,
+und Abläufe lassen sich als JSON zwischen Servern austauschen. Der Assistent zeigt zuerst auf einem
 Server die Vorschau mit Diff, führt dann dort einen Testlauf aus und rollt danach auf die übrigen
 Geräte aus. Jede geänderte Datei bekommt ein Backup, und ein Fehler rollt automatisch zurück.
 [Abläufe](features/flows.md){ .rs-more }

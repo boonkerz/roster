@@ -184,8 +184,10 @@ emptied databases become an incident – the database ransom pattern.
 </div>
 <div class="rs-feature-text" markdown>
 ### Flows instead of script hacks
-Swap an image in fifty Compose files, change a port, write a version from an API: drag blocks,
-connect them with lines, done. The wizard first shows a preview with diffs on one server, then runs
+Swap an image in fifty Compose files, change a port, write a version from an API or raise
+services only when their version is older: drag blocks, connect them with lines, done. Compose
+files are edited precisely, comments and formatting stay, and flows can be shared between servers
+as JSON. The wizard first shows a preview with diffs on one server, then runs
 a test there and finally rolls out to the other devices. Every changed file gets a backup, and a
 failure rolls back automatically.
 [Flows](features/flows.md){ .rs-more }
