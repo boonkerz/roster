@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-09
+
 ### Behoben
 - Abläufe: Der Baustein *Zurückrollen* mit „Dienste neu starten“ fährt jetzt das **ganze Compose-Projekt** hoch – bisher gingen nur die von *Dateien finden* gefundenen Dienste (z. B. php-fpm) zurück, web/cron liefen mit dem neuen Image weiter.
 
@@ -432,7 +434,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1

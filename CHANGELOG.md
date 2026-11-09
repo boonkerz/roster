@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-09
+
 ### Fixed
 - Flows: the *Roll back* block with "restart services" now brings up the **whole Compose project** – previously only the services found by *Find files* (e.g. php-fpm) went back, while web/cron kept running on the new image.
 
@@ -432,7 +434,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.23.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/boonkerz/roster/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/boonkerz/roster/compare/v0.23.0...v0.23.1
