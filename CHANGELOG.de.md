@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-09
+
 ### Neu
 - Abläufe: **Austauschformat `roster-flow` (Version 1)** – Ablauf als `<name>.roster-flow.json` exportieren (Liste und Editor) und auf einem anderen Server importieren (Upload oder Einfügen, *Prüfen* validiert ohne Änderung; gleichnamige Abläufe bleiben unberührt, der Import heißt „Name (Import)“). Bibliotheks-Skripte werden beim Export eingebettet. Veröffentlichtes **JSON-Schema** `https://roster-rmm.dev/schemas/roster-flow-1.schema.json` für Prüfung/Vervollständigung im Editor. API `GET /flows/{id}/export`, `POST /flows/import` (`?dry_run=1`).
 
@@ -404,7 +406,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.21.6...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/boonkerz/roster/compare/v0.21.6...v0.22.0
 [0.21.6]: https://github.com/boonkerz/roster/compare/v0.21.5...v0.21.6
 [0.21.5]: https://github.com/boonkerz/roster/compare/v0.21.4...v0.21.5
 [0.21.4]: https://github.com/boonkerz/roster/compare/v0.21.3...v0.21.4
