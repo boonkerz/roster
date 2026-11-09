@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Neu
+- Abläufe: **YAML-Änderungen ausprobieren** – *Ausprobieren …* am Baustein *YAML ändern* öffnet ein Fenster mit drei Spalten (Eingabe-YAML + Parameterwerte | Operationen, direkt im Baustein | Live-Vorschau als Diff oder Ergebnis, mit Meldung je Operation). Gerechnet wird serverseitig mit demselben Code wie im Agent (`POST /flows/yaml-preview`); nichts wird gespeichert oder ausgeführt. YAML-Logik und Diff liegen jetzt in gemeinsamen Paketen (`internal/shared/yamledit`, `textdiff`).
+
 ## [0.23.0] - 2026-11-09
 
 ### Neu

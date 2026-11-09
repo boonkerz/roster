@@ -99,18 +99,6 @@ func isRosterArtifact(path string) bool {
 	return strings.Contains(b, ".roster-bak-") || strings.HasSuffix(b, ".roster-tmp")
 }
 
-// imageRepo schneidet Tag und Digest ab ("nginx:1.27@sha256:…" -> "nginx").
-func imageRepo(img string) string {
-	img = strings.TrimSpace(img)
-	if i := strings.Index(img, "@"); i >= 0 {
-		img = img[:i]
-	}
-	if i := strings.LastIndex(img, ":"); i > strings.LastIndex(img, "/") {
-		img = img[:i]
-	}
-	return img
-}
-
 // imageMatches prüft, ob die Image-Referenz eines Containers zum Muster passt: ohne Tag im
 // Muster zählt jedes Tag, mit Tag nur genau dieses; „docker.io/“ und „library/“ werden ignoriert.
 func imageMatches(ref, pattern string) bool {

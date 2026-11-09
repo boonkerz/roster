@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Flows: **try out YAML edits** – *Try it out …* on the *Edit YAML* block opens a three-column window (input YAML + parameter values | operations, applied to the block | live preview as diff or result, with a message per operation). The server computes it with the same code as the agent (`POST /flows/yaml-preview`); nothing is saved or executed. YAML logic and diff moved to shared packages (`internal/shared/yamledit`, `textdiff`).
+
 ## [0.23.0] - 2026-11-09
 
 ### Added

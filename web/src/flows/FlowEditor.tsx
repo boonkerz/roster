@@ -12,6 +12,8 @@ import { useTheme } from "../theme";
 import type { Flow, FlowGraph, FlowNodeType, FlowParam, Script } from "../types";
 import { NODE_TYPE, NODE_TYPES, nodeSummary, type FieldDef } from "./nodeTypes";
 import { downloadFlow } from "./FlowImport";
+import { YamlPlayground } from "./YamlPlayground";
+import { Modal } from "../components/Modal";
 
 type NodeData = { type: FlowNodeType; label: string; config: Record<string, string | number | boolean> };
 type FNode = Node<NodeData, "flow">;
@@ -71,6 +73,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
   const [params, setParams] = useState<FlowParam[]>(flow.params ?? []);
   const [selected, setSelected] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [playground, setPlayground] = useState(false);
   const { data: scripts } = useQuery({ queryKey: ["scripts"], queryFn: () => api.get<Script[]>("/scripts") });
 
   const onNodesChange = useCallback((ch: NodeChange<FNode>[]) => setNodes((ns) => applyNodeChanges(ch, ns)), []);
@@ -152,6 +155,11 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
 
   return (
     <div className="flow-editor">
+      {playground && selNode?.data.type === "yaml" && (
+        <Modal onClose={() => setPlayground(false)}>
+          <YamlPlayground ops={String(selNode.data.config.ops ?? "")} params={params} onOpsChange={(v) => updateSel({}, { ops: v })} />
+        </Modal>
+      )}
       <div className="flow-meta card">
         <div className="inline-form" style={{ gap: 8, flexWrap: "wrap" }}>
           <input placeholder={t("Name des Ablaufs")} value={name} onChange={(e) => setName(e.target.value)} style={{ minWidth: 260, fontWeight: 600 }} />
@@ -211,6 +219,7 @@ export function FlowEditor({ flow, onSaved, onCancel, onCopied, onDeleted }: { f
                 <label className="flow-field"><span className="muted small">{t("Beschriftung")}</span>
                   <input value={selNode.data.label} placeholder={t(def.label)} onChange={(e) => updateSel({ label: e.target.value })} /></label>
                 {def.fields.filter((f) => !f.show || f.show(selNode.data.config)).map((f) => fieldInput(f, selNode.data.config))}
+                {selNode.data.type === "yaml" && <button className="btn primary sm" style={{ marginBottom: 10 }} onClick={() => setPlayground(true)}>{t("Ausprobieren …")}</button>}
                 <p className="muted small">{t("Platzhalter")}: <span className="mono">{"{{param.NAME}}"}</span>, <span className="mono">{"{{steps.ID.value}}"}</span>, <span className="mono">{"{{steps.ID.out}}"}</span>, <span className="mono">{"{{steps.ID.json.pfad}}"}</span>, <span className="mono">{"{{agent.feld}}"}</span></p>
                 <button className="btn ghost sm danger" onClick={removeSel}>{t("Baustein löschen")}</button>
               </>

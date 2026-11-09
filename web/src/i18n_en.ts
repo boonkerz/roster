@@ -1764,4 +1764,16 @@ export const EN: Record<string, string> = {
   "Images ziehen": "Pull images",
   "Neu starten": "Restart",
   "Dienste laufen": "Services running",
+  // --- YAML-Spielwiese (0.23.1) ---
+  "YAML ändern – ausprobieren": "Edit YAML – try it out",
+  "Nichts wird gespeichert oder ausgeführt; die Operationen werden direkt im Baustein übernommen.": "Nothing is saved or executed; the operations are applied to the block directly.",
+  "Eingabe (YAML)": "Input (YAML)",
+  "Beispiel": "Example",
+  "Parameter für die Vorschau": "Parameters for the preview",
+  "Operationen": "Operations",
+  "Syntax": "Syntax",
+  "{n} Änderung(en)": "{n} change(s)",
+  "im Lauf endet der Ablauf hier (nichts zu tun)": "in a run the flow ends here (nothing to do)",
+  "Keine Änderung.": "No change.",
+  "Ausprobieren …": "Try it out …",
 };

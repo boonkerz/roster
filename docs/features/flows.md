@@ -38,6 +38,11 @@ are `{{param.FROM}}`.
 | **Roll back** | Restores every file changed in this run, optionally followed by `up -d`. | skipped |
 | **Wait** | Waits up to 10 minutes. | skipped |
 
+**Try it out:** For the *Edit YAML* block, *Try it out …* opens a three-column window: on the left a
+pasted YAML file (e.g. your Compose file) and values for the parameters, in the middle the
+operations (changes go straight into the block), on the right the preview as diff or full result –
+with a message per operation. It uses the same code as the agent; nothing is saved or executed.
+
 **Placeholders:** `{{param.NAME}}`, `{{steps.ID.value}}`, `{{steps.ID.out}}` (command output),
 `{{steps.ID.json.path.0.field}}`, `{{steps.ID.files}}` and the device fields `{{agent.field}}`,
 `{{client.field}}`, `{{site.field}}`.

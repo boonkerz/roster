@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/boonkerz/roster/internal/shared/yamledit"
 )
 
 // Abläufe (Flow-Designer): ein Graph aus Bausteinen, verbunden über die Ausgänge ok/fail.
@@ -179,35 +181,15 @@ type YAMLOp struct {
 	Line  int
 }
 
-// ParseYAMLOps liest die Operationen (eine je Zeile: "set pfad = wert"); leere Zeilen und
-// Zeilen mit # am Anfang werden übersprungen.
+// ParseYAMLOps liest die Operationen des Bausteins „YAML ändern“ (siehe yamledit.ParseOps).
 func ParseYAMLOps(text string) ([]YAMLOp, error) {
-	var ops []YAMLOp
-	for i, l := range strings.Split(text, "\n") {
-		l = strings.TrimSpace(l)
-		if l == "" || strings.HasPrefix(l, "#") {
-			continue
-		}
-		op, rest, _ := strings.Cut(l, " ")
-		op = strings.ToLower(strings.TrimSpace(op))
-		path, val, hasVal := strings.Cut(rest, "=")
-		path, val = strings.TrimSpace(path), strings.TrimSpace(val)
-		switch op {
-		case "set", "append", "ensure":
-			if !hasVal {
-				return nil, fmt.Errorf("Zeile %d: „%s pfad = wert“ erwartet", i+1, op)
-			}
-		case "delete":
-		default:
-			return nil, fmt.Errorf("Zeile %d: unbekannte Operation %q (set, append, ensure, delete)", i+1, op)
-		}
-		if path == "" {
-			return nil, fmt.Errorf("Zeile %d: Pfad fehlt", i+1)
-		}
-		ops = append(ops, YAMLOp{Op: op, Path: path, Value: val, Line: i + 1})
+	ops, err := yamledit.ParseOps(text)
+	if err != nil {
+		return nil, err
 	}
-	if len(ops) == 0 {
-		return nil, fmt.Errorf("keine Operationen")
+	out := make([]YAMLOp, len(ops))
+	for i, o := range ops {
+		out[i] = YAMLOp{Op: o.Op, Path: o.Path, Value: o.Value, Line: o.Line}
 	}
-	return ops, nil
+	return out, nil
 }

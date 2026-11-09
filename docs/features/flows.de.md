@@ -38,6 +38,12 @@ und stellt **automatisch** alle bis dahin geänderten Dateien wieder her.
 | **Zurückrollen** | Stellt alle in diesem Lauf geänderten Dateien wieder her, optional danach `up -d`. | wird übersprungen |
 | **Warten** | Wartet bis zu 10 Minuten. | wird übersprungen |
 
+**Ausprobieren:** Beim Baustein *YAML ändern* öffnet *Ausprobieren …* ein Fenster mit drei Spalten:
+links eine eingefügte YAML-Datei (z. B. eure Compose-Datei) und Werte für die Parameter, in der
+Mitte die Operationen (Änderungen gehen direkt in den Baustein), rechts die Vorschau als Diff oder
+vollständiges Ergebnis – samt Meldung je Operation. Gerechnet wird mit demselben Code wie im Agent;
+nichts wird gespeichert oder ausgeführt.
+
 **Platzhalter:** `{{param.NAME}}`, `{{steps.ID.value}}`, `{{steps.ID.out}}` (Befehlsausgabe),
 `{{steps.ID.json.pfad.0.feld}}`, `{{steps.ID.files}}` und die Gerätefelder `{{agent.feld}}`,
 `{{client.feld}}`, `{{site.feld}}`.

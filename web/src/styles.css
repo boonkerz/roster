@@ -601,3 +601,15 @@ label input, label select { color: var(--text); }
 .flow-diff { margin: 4px 0; padding: 8px; background: var(--surface-2); border-radius: 6px; font-size: 12px; max-height: 360px; overflow: auto; }
 .flow-diff .d-add { color: var(--green); } .flow-diff .d-del { color: var(--red); } .flow-diff .d-hunk { color: var(--accent); } .flow-diff .d-file { color: var(--muted); font-weight: 600; }
 @media (max-width: 860px) { .flow-body { grid-template-columns: 1fr; } }
+
+/* ---- YAML-Spielwiese ---- */
+.yaml-play { display: flex; flex-direction: column; height: 100%; gap: 10px; }
+.yaml-play-head { display: flex; flex-direction: column; gap: 2px; padding-right: 30px; }
+.yaml-play-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex: 1; min-height: 0; }
+.yaml-play-cols section { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.yaml-play-title { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; gap: 8px; }
+.yaml-play-text { flex: 1; min-height: 220px; width: 100%; resize: none; font-size: 12.5px; line-height: 1.45; white-space: pre; tab-size: 2; }
+.yaml-play-params, .yaml-play-ops { margin-top: 8px; max-height: 35%; overflow: auto; }
+.yaml-play-out { flex: 1; overflow: auto; min-height: 0; }
+.yaml-play-out .flow-diff, .yaml-play-out .flow-output { max-height: none; margin: 0; }
+@media (max-width: 1000px) { .yaml-play-cols { grid-template-columns: 1fr; } }
