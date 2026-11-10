@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-10
+
 ### Added
 - Remote desktop on **Linux**: real screen, mouse and keyboard instead of the colour-gradient test image – Wayland with wlroots (labwc on Raspberry Pi OS, Wayfire, Sway, niri, Hyprland) via `wlr-screencopy` and virtual pointer/keyboard, and X11 via the X server with XTEST. The agent finds the logged-in user's session on its own; nothing to install. GNOME/KDE on Wayland and other systems show a clear notice instead of the test image; without a session the viewer waits for a login.
 
@@ -445,7 +447,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3

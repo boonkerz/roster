@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-10
+
 ### Hinzugefügt
 - Fernsteuerung unter **Linux**: echter Bildschirm, Maus und Tastatur statt des Farbverlauf-Testbilds – Wayland mit wlroots (labwc auf Raspberry Pi OS, Wayfire, Sway, niri, Hyprland) über `wlr-screencopy` und virtuellen Zeiger/virtuelle Tastatur sowie X11 über den X-Server mit XTEST. Der Agent findet die Sitzung des angemeldeten Nutzers selbst, nichts nachzuinstallieren. GNOME/KDE unter Wayland und andere Systeme zeigen einen klaren Hinweis statt des Testbilds; ohne Sitzung wartet der Viewer auf eine Anmeldung.
 
@@ -445,7 +447,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/boonkerz/roster/compare/v0.23.2...v0.23.3
