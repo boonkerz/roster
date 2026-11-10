@@ -159,3 +159,106 @@ func TestLiveX11(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPickMime(t *testing.T) {
+	if m := pickMime([]string{"text/html", "STRING", "text/plain;charset=utf-8"}); m != "text/plain;charset=utf-8" {
+		t.Fatal(m)
+	}
+	if m := pickMime([]string{"image/png"}); m != "" {
+		t.Fatal(m)
+	}
+}
+
+func waitClip(get func() (string, bool), pump func()) (string, bool) {
+	for i := 0; i < 40; i++ {
+		if pump != nil {
+			pump()
+		}
+		if t, ok := get(); ok {
+			return t, true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return "", false
+}
+
+// Zwischenablage X11: zwei Verbindungen tauschen über CLIPBOARD aus (ROSTER_LIVE_X11=1).
+func TestLiveX11Clipboard(t *testing.T) {
+	if _, err := exec.LookPath("Xvfb"); err != nil || os.Getenv("ROSTER_LIVE_X11") == "" {
+		t.Skip("Xvfb/ROSTER_LIVE_X11 fehlt")
+	}
+	x := exec.Command("Xvfb", ":78", "-screen", "0", "640x480x24", "-nolisten", "tcp")
+	if err := x.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer x.Process.Kill()
+	time.Sleep(time.Second)
+	a, err := newX11Source(":78", "", os.Getenv("HOME"))
+	if err != nil || a.clip == nil {
+		t.Fatal(err, a.clip)
+	}
+	defer a.Close()
+	b, err := newX11Source(":78", "", os.Getenv("HOME"))
+	if err != nil || b.clip == nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	a.SetClipboard("Grüße aus Roster")
+	if got, ok := waitClip(b.GetClipboard, nil); !ok || got != "Grüße aus Roster" {
+		t.Fatalf("b las %q (%v)", got, ok)
+	}
+	if _, ok := a.GetClipboard(); ok {
+		t.Fatal("Echo beim Besitzer")
+	}
+	b.SetClipboard("zurück")
+	if got, ok := waitClip(a.GetClipboard, nil); !ok || got != "zurück" {
+		t.Fatalf("a las %q (%v)", got, ok)
+	}
+}
+
+// Zwischenablage Wayland gegen die laufende Sitzung mit wl-copy/wl-paste; stellt den
+// vorherigen Inhalt wieder her (ROSTER_LIVE_WAYLAND=1).
+func TestLiveWaylandClipboard(t *testing.T) {
+	if os.Getenv("ROSTER_LIVE_WAYLAND") == "" {
+		t.Skip("ROSTER_LIVE_WAYLAND nicht gesetzt")
+	}
+	if _, err := exec.LookPath("wl-paste"); err != nil {
+		t.Skip("wl-clipboard fehlt")
+	}
+	orig, _ := exec.Command("wl-paste", "-n").Output()
+	defer exec.Command("wl-copy", "--", string(orig)).Run()
+	sock := filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), os.Getenv("WAYLAND_DISPLAY"))
+	s, err := newWaylandSource(sock, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.clip.active() {
+		t.Fatal("kein data-control")
+	}
+	s.GetClipboard() // Anfangsinhalt verwerfen
+	s.SetClipboard("Roster → Gerät äöü")
+	s.pump()
+	done := make(chan []byte)
+	go func() { out, _ := exec.Command("wl-paste", "-n").Output(); done <- out }()
+	var out []byte
+loop:
+	for i := 0; i < 100; i++ {
+		select {
+		case out = <-done:
+			break loop
+		default:
+			s.pump()
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+	if string(out) != "Roster → Gerät äöü" {
+		t.Fatalf("wl-paste: %q", out)
+	}
+	if err := exec.Command("wl-copy", "--", "vom Desktop 123").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := waitClip(s.GetClipboard, nil); !ok || got != "vom Desktop 123" {
+		t.Fatalf("gelesen %q (%v)", got, ok)
+	}
+}

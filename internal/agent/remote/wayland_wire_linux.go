@@ -30,6 +30,17 @@ type wlConn struct {
 	// Registry-Globals: Name -> (Interface, Version)
 	globals []wlGlobal
 	onEvent func(wlEvent) // Standard-Verteiler
+	fds     []int         // empfangene FDs in Reihenfolge (z. B. data_source.send)
+}
+
+// takeFD holt den nächsten empfangenen FD (für Events mit fd-Argument).
+func (w *wlConn) takeFD() int {
+	if len(w.fds) == 0 {
+		return -1
+	}
+	fd := w.fds[0]
+	w.fds = w.fds[1:]
+	return fd
 }
 
 type wlGlobal struct {
@@ -50,7 +61,13 @@ func wlDial(path string) (*wlConn, error) {
 	return &wlConn{c: c, nextID: 2}, nil
 }
 
-func (w *wlConn) Close() error { return w.c.Close() }
+func (w *wlConn) Close() error {
+	for _, fd := range w.fds {
+		unix.Close(fd)
+	}
+	w.fds = nil
+	return w.c.Close()
+}
 
 func (w *wlConn) newID() uint32 {
 	id := w.nextID
@@ -119,15 +136,17 @@ func (w *wlConn) read(deadline time.Time) (wlEvent, error) {
 		tmp := make([]byte, 64<<10)
 		oob := make([]byte, 256)
 		n, oobn, _, _, err := w.c.ReadMsgUnix(tmp, oob)
-		if oobn > 0 { // empfangene FDs (z. B. Keymap) schließen – brauchen wir nicht
+		if oobn > 0 { // empfangene FDs merken; nur data_source.send braucht welche
 			if msgs, perr := unix.ParseSocketControlMessage(oob[:oobn]); perr == nil {
 				for _, m := range msgs {
 					if fds, ferr := unix.ParseUnixRights(&m); ferr == nil {
-						for _, fd := range fds {
-							unix.Close(fd)
-						}
+						w.fds = append(w.fds, fds...)
 					}
 				}
+			}
+			for len(w.fds) > 16 { // unerwartete FDs nicht anhäufen
+				unix.Close(w.fds[0])
+				w.fds = w.fds[1:]
 			}
 		}
 		if n > 0 {

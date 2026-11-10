@@ -42,6 +42,8 @@ type waylandSource struct {
 	bufFormat             uint32
 	w, h                  int
 	out                   []byte
+
+	clip wlClipboard
 }
 
 func newWaylandSource(sock string, monitor int) (*waylandSource, error) {
@@ -50,6 +52,7 @@ func newWaylandSource(sock string, monitor int) (*waylandSource, error) {
 		return nil, err
 	}
 	s := &waylandSource{c: c, memfd: -1, start: time.Now()}
+	c.onEvent = s.handle
 	reg, err := c.registry()
 	if err != nil {
 		c.Close()
@@ -92,6 +95,7 @@ func newWaylandSource(sock string, monitor int) (*waylandSource, error) {
 					}
 				}
 			}
+			s.clip.setup(c, reg, seat)
 			if vk := c.find("zwp_virtual_keyboard_manager_v1"); len(vk) > 0 {
 				if m, _, err := c.bind(reg, vk[0], 1); err == nil {
 					s.vkbd = c.newID()
@@ -166,6 +170,7 @@ func (s *waylandSource) grab() ([]byte, error) {
 			return nil, err
 		}
 		if ev.obj != frame {
+			s.handle(ev)
 			continue
 		}
 		r := &wlReader{b: ev.data}
@@ -338,6 +343,7 @@ func (s *waylandSource) Close() error {
 		return nil
 	}
 	s.freeBuffer()
+	s.clip.close()
 	if s.vkbd != 0 {
 		_ = s.c.send(s.vkbd, 3, nil)
 	}

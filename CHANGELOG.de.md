@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Fernsteuerung unter Linux: **Zwischenablage-Abgleich** in beide Richtungen – X11 über die CLIPBOARD-Auswahl, Wayland über das Data-Control-Protokoll (labwc/Raspberry Pi OS, Sway, Wayfire, niri, Hyprland).
+
 ## [0.25.0] - 2026-11-10
 
 ### Hinzugefügt

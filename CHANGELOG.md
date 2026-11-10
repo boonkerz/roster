@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Remote desktop on Linux: **clipboard sync** in both directions – X11 via the CLIPBOARD selection, Wayland via the data-control protocol (labwc/Raspberry Pi OS, Sway, Wayfire, niri, Hyprland).
+
 ## [0.25.0] - 2026-11-10
 
 ### Added

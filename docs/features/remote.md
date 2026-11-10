@@ -33,8 +33,14 @@ needs to be installed (no wayvnc, no x11vnc).
 
 If nobody is logged in, the viewer shows "No graphical session" and switches to the desktop on
 its own as soon as someone logs in. Characters the X11 keyboard layout lacks are mapped to a
-spare key on the fly. On multi-monitor systems, **monitor selection** picks the n-th output.
-monitor selection and clipboard sync are not available on Linux yet.
+spare key on the fly. With several screens the first one is shown; monitor selection is not
+available on Linux yet.
+
+**Clipboard:** text is synced in both directions – on X11 via the regular clipboard
+(Ctrl+C/Ctrl+V), on Wayland via the compositor's data-control protocol (offered by labwc, Sway,
+Wayfire, niri, Hyprland). Text pasted from the browser stays on the device's clipboard only while
+the remote session is open – afterwards it disappears like with any closed program.
+As usual with VNC, only Latin-1 characters are transferred (umlauts yes, e.g. "€" or emoji no).
 
 ### Two ways to connect
 

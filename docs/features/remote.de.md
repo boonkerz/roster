@@ -34,8 +34,15 @@ nichts nachinstalliert werden (kein wayvnc, kein x11vnc).
 
 Ist niemand angemeldet, zeigt der Viewer „Keine grafische Sitzung“ und wechselt von selbst auf den
 Desktop, sobald sich jemand anmeldet. Zeichen, die das X11-Tastaturlayout nicht kennt, legt der
-Agent kurzzeitig auf eine freie Taste. Bei Mehrschirm-Systemen wählt **Monitorauswahl** den
-Monitorauswahl und Zwischenablage-Sync gibt es unter Linux noch nicht.
+Agent kurzzeitig auf eine freie Taste. Bei mehreren Bildschirmen wird der erste übertragen;
+eine Monitorauswahl gibt es unter Linux noch nicht.
+
+**Zwischenablage:** Text wird in beide Richtungen abgeglichen – unter X11 über die übliche
+Zwischenablage (Strg+C/Strg+V), unter Wayland über das Data-Control-Protokoll des Compositors
+(labwc, Sway, Wayfire, niri, Hyprland bieten es an). Was du aus dem Browser einfügst, gehört der
+Zwischenablage des Geräts nur, solange die Fernsteuerung offen ist – danach verschwindet
+es wie bei jedem geschlossenen Programm. Wie bei VNC üblich werden nur Zeichen aus
+Latin-1 übertragen (Umlaute ja, z. B. „€“ oder Emojis nicht).
 
 ### Zwei Wege zum Verbinden
 

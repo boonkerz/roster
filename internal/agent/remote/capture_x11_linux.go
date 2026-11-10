@@ -37,10 +37,14 @@ type x11Source struct {
 	prevMask int
 	out      []byte
 	lastGeo  time.Time
+	clip     *x11Clipboard
 }
 
-func newX11Source(display, xauth, home string) (*x11Source, error) {
+// x11Connect verbindet mit dem Display des Nutzers (xgb liest die Anmeldedaten aus der
+// Prozessumgebung, daher kurz umsetzen).
+func x11Connect(display, xauth, home string) (*xgb.Conn, error) {
 	envMu.Lock()
+	defer envMu.Unlock()
 	oldA, hadA := os.LookupEnv("XAUTHORITY")
 	oldH := os.Getenv("HOME")
 	if xauth != "" {
@@ -58,9 +62,16 @@ func newX11Source(display, xauth, home string) (*x11Source, error) {
 		os.Unsetenv("XAUTHORITY")
 	}
 	os.Setenv("HOME", oldH)
-	envMu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("X11 %s: %v", display, err)
+	}
+	return c, nil
+}
+
+func newX11Source(display, xauth, home string) (*x11Source, error) {
+	c, err := x11Connect(display, xauth, home)
+	if err != nil {
+		return nil, err
 	}
 	scr := xproto.Setup(c).DefaultScreen(c)
 	if scr.RootDepth != 24 && scr.RootDepth != 32 {
@@ -81,6 +92,12 @@ func newX11Source(display, xauth, home string) (*x11Source, error) {
 	if _, err := s.Capture(); err != nil {
 		c.Close()
 		return nil, err
+	}
+	// Zwischenablage über eine eigene Verbindung (eigener Event-Loop); optional.
+	if cc, err := x11Connect(display, xauth, home); err == nil {
+		if s.clip, err = newX11Clipboard(cc); err != nil {
+			cc.Close()
+		}
 	}
 	return s, nil
 }
@@ -230,7 +247,24 @@ func (s *x11Source) Key(down bool, keysym uint32) {
 	s.c.Sync()
 }
 
+func (s *x11Source) GetClipboard() (string, bool) {
+	if s.clip == nil {
+		return "", false
+	}
+	return s.clip.get()
+}
+
+func (s *x11Source) SetClipboard(text string) {
+	if s.clip != nil {
+		s.clip.set(text)
+	}
+}
+
 func (s *x11Source) Close() error {
+	if s.clip != nil {
+		s.clip.close()
+		s.clip = nil
+	}
 	if s.c != nil {
 		s.c.Close()
 		s.c = nil
