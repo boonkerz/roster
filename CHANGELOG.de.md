@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-10
+
 ### Hinzugefügt
 - Fernsteuerung unter Linux: **Zwischenablage-Abgleich** in beide Richtungen – X11 über die CLIPBOARD-Auswahl, Wayland über das Data-Control-Protokoll (labwc/Raspberry Pi OS, Sway, Wayfire, niri, Hyprland).
 
@@ -450,7 +452,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0

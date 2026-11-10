@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-10
+
 ### Added
 - Remote desktop on Linux: **clipboard sync** in both directions – X11 via the CLIPBOARD selection, Wayland via the data-control protocol (labwc/Raspberry Pi OS, Sway, Wayfire, niri, Hyprland).
 
@@ -450,7 +452,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/boonkerz/roster/compare/v0.23.3...v0.24.0
