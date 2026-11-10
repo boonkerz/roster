@@ -79,7 +79,8 @@ chart. Failing checks can run a remediation script before anyone is alerted.
 <div class="rs-feature-text" markdown>
 ### Remote desktop, terminal and files
 Take over a screen in the browser or in the native viewer, with live resolution switch
-and a real Ctrl+Alt+Del. Open an interactive shell or browse the file system over the
+and a real Ctrl+Alt+Del – on Windows and Linux (X11 and Wayland/wlroots, e.g. a Raspberry Pi).
+Open an interactive shell or browse the file system over the
 same tunnel. No third-party VNC software, nothing exposed on the device.
 [Remote desktop & terminal](features/remote.md){ .rs-more }
 </div>

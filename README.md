@@ -56,7 +56,8 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
 - **Temperatures & fans** – all hardware sensors with the chips' own limits, a temperature
   history chart, fan speeds (Linux) and **temperature** / **fan** check types.
 - **Remote desktop** – built-in remote control (own RFB/VNC server, no third-party
-  software) through the same tunnel: screen + mouse/keyboard, login screen / UAC, clipboard
+  software) through the same tunnel: screen + mouse/keyboard on Windows and Linux (X11 and
+  Wayland/wlroots, e.g. labwc on Raspberry Pi OS), login screen / UAC, clipboard
   sync, monitor selection, drag-&-drop file transfer, **live resolution switch** (+ VM
   guest-driver install for Proxmox/VirtIO/SPICE). Use it in the **browser**, or a bundled
   **native viewer** (`roster-viewer` – SDL3 via purego, **cgo-free**, cross-builds for
@@ -275,7 +276,8 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
 - **Temperaturen & Lüfter** – alle Hardware-Sensoren mit den Grenzwerten der Chips,
   Temperaturverlauf, Lüfterdrehzahlen (Linux) und Check-Typen **Temperatur** / **Lüfter**.
 - **Fernsteuerung (Remote Desktop)** – **eingebaute** Fernsteuerung (eigener RFB/VNC-
-  Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur,
+  Server, keine Fremdsoftware) über denselben Tunnel: Bildschirm + Maus/Tastatur unter
+  Windows und Linux (X11 und Wayland/wlroots, z.B. labwc auf Raspberry Pi OS),
   Anmeldebildschirm / UAC, Zwischenablage-Sync, Monitor-Auswahl, Datei-Drag&Drop,
   **Live-Auflösungswechsel** (+ VM-Gasttreiber-Installer für Proxmox/VirtIO/SPICE).
   Nutzbar im **Browser** oder per mitgeliefertem **nativem Viewer** (`roster-viewer` –

@@ -80,7 +80,8 @@ jemand alarmiert wird.
 <div class="rs-feature-text" markdown>
 ### Fernsteuerung, Terminal und Dateien
 Bildschirm im Browser oder im nativen Viewer übernehmen, mit Auflösungswechsel im Betrieb
-und echtem Strg+Alt+Entf. Interaktive Shell oder Dateisystem über denselben Tunnel.
+und echtem Strg+Alt+Entf – unter Windows und Linux (X11 und Wayland/wlroots, z.B. Raspberry Pi).
+Interaktive Shell oder Dateisystem über denselben Tunnel.
 Keine VNC-Software von Dritten, nichts am Gerät nach außen offen.
 [Fernsteuerung & Terminal](features/remote.md){ .rs-more }
 </div>
