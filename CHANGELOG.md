@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Remote desktop on **Linux**: real screen, mouse and keyboard instead of the colour-gradient test image – Wayland with wlroots (labwc on Raspberry Pi OS, Wayfire, Sway, niri, Hyprland) via `wlr-screencopy` and virtual pointer/keyboard, and X11 via the X server with XTEST. The agent finds the logged-in user's session on its own; nothing to install. GNOME/KDE on Wayland and other systems show a clear notice instead of the test image; without a session the viewer waits for a login.
+
 ## [0.24.1] - 2026-11-09
 
 ### Fixed

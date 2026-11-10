@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Fernsteuerung unter **Linux**: echter Bildschirm, Maus und Tastatur statt des Farbverlauf-Testbilds – Wayland mit wlroots (labwc auf Raspberry Pi OS, Wayfire, Sway, niri, Hyprland) über `wlr-screencopy` und virtuellen Zeiger/virtuelle Tastatur sowie X11 über den X-Server mit XTEST. Der Agent findet die Sitzung des angemeldeten Nutzers selbst, nichts nachzuinstallieren. GNOME/KDE unter Wayland und andere Systeme zeigen einen klaren Hinweis statt des Testbilds; ohne Sitzung wartet der Viewer auf eine Anmeldung.
+
 ## [0.24.1] - 2026-11-09
 
 ### Behoben

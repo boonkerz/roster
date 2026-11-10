@@ -20,6 +20,23 @@ installieren. Bildschirm, Maus und Tastatur werden durch den Tunnel weitergereic
   plus ein **Gasttreiber-Installer** per Klick für VMs (Proxmox / VirtIO / SPICE), bei denen die
   Auflösung ausgegraut ist.
 
+### Linux (Wayland und X11)
+
+Unter Linux sucht der Agent die grafische Sitzung des angemeldeten Nutzers selbst – er läuft als
+Dienst und kennt dessen Anzeige nicht, liest sie also aus den Prozessen des Nutzers. Es muss
+nichts nachinstalliert werden (kein wayvnc, kein x11vnc).
+
+| Desktop | Bild | Maus / Tastatur |
+|---|---|---|
+| **Wayland mit wlroots** – labwc (Standard auf Raspberry Pi OS), Wayfire, Sway, niri, Hyprland | `wlr-screencopy` (mit Mauszeiger) | virtueller Zeiger/virtuelle Tastatur des Compositors |
+| **X11** – Xorg, z.B. Raspberry Pi OS „X11“, XFCE, MATE, Cinnamon | X-Server direkt (Zeiger über XFixes) | XTEST |
+| GNOME / KDE unter Wayland | noch nicht unterstützt – der Viewer zeigt einen Hinweis | – |
+
+Ist niemand angemeldet, zeigt der Viewer „Keine grafische Sitzung“ und wechselt von selbst auf den
+Desktop, sobald sich jemand anmeldet. Zeichen, die das X11-Tastaturlayout nicht kennt, legt der
+Agent kurzzeitig auf eine freie Taste. Bei Mehrschirm-Systemen wählt **Monitorauswahl** den
+Monitorauswahl und Zwischenablage-Sync gibt es unter Linux noch nicht.
+
 ### Zwei Wege zum Verbinden
 
 === "Browser (noVNC)"

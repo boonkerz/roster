@@ -10,6 +10,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/gosnmp/gosnmp v1.43.2
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jezek/xgb v1.3.1
 	github.com/jupiterrider/purego-sdl3 v0.0.0-20260514083405-8523da70a041
 	github.com/kardianos/service v1.2.4
 	github.com/minio/selfupdate v0.6.0

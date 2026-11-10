@@ -19,6 +19,23 @@ install. Screen, mouse and keyboard are relayed through the tunnel. Features:
   screen, plus a one-click **guest-driver installer** for VMs (Proxmox / VirtIO / SPICE)
   where the resolution is greyed out.
 
+### Linux (Wayland and X11)
+
+On Linux the agent finds the graphical session of the logged-in user itself – it runs as a
+service and doesn't know that user's display, so it reads it from the user's processes. Nothing
+needs to be installed (no wayvnc, no x11vnc).
+
+| Desktop | Picture | Mouse / keyboard |
+|---|---|---|
+| **Wayland with wlroots** – labwc (default on Raspberry Pi OS), Wayfire, Sway, niri, Hyprland | `wlr-screencopy` (incl. pointer) | compositor's virtual pointer/keyboard |
+| **X11** – Xorg, e.g. Raspberry Pi OS "X11", XFCE, MATE, Cinnamon | X server directly (pointer via XFixes) | XTEST |
+| GNOME / KDE on Wayland | not supported yet – the viewer shows a notice | – |
+
+If nobody is logged in, the viewer shows "No graphical session" and switches to the desktop on
+its own as soon as someone logs in. Characters the X11 keyboard layout lacks are mapped to a
+spare key on the fly. On multi-monitor systems, **monitor selection** picks the n-th output.
+monitor selection and clipboard sync are not available on Linux yet.
+
 ### Two ways to connect
 
 === "Browser (noVNC)"
