@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-11
+
 ### Geändert
 - Dateiübertragung (Dateibrowser, Drag & Drop auf den Fernsteuerungs-Bildschirm, Dateimanager des nativen Viewers): **bis 4 GB statt 32 MB**. Dateien werden gestreamt – der Server hält sie als Zwischendatei neben der Datenbank statt im Arbeitsspeicher (prüft vorher den freien Platz) und löscht sie direkt nach der Abholung; der Agent schreibt in eine Zwischendatei und benennt sie erst nach vollständigem Empfang um, ein Abbruch hinterlässt also nie eine halbe Datei; die Übertragung läuft im Hintergrund, der Agent meldet sich weiter. Die Weboberfläche zeigt den Upload in Prozent und den Fortschritt auf dem Gerät; das Warten bricht nicht mehr nach einer Minute ab, solange der Agent Fortschritt meldet. Große Uploads an Agents vor 0.27.0 werden mit klarem Hinweis abgelehnt (die konnten nur 32 MB).
 
@@ -455,7 +457,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1

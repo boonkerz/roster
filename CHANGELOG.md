@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-11
+
 ### Changed
 - File transfer (file browser, drag & drop onto the remote desktop, native viewer's file manager): **up to 4 GB instead of 32 MB**. Files are streamed – the server keeps them as a temporary file next to its database instead of in RAM (checks free disk space first) and deletes them right after pick-up; the agent writes into a temporary file and renames it only when complete, so an aborted transfer never leaves a half file; transfers run in the background so the agent keeps checking in. The web UI shows upload percentage and the device-side progress; waiting no longer gives up after one minute while the agent reports progress. Large uploads to agents older than 0.27.0 are refused with a clear message (they could only take 32 MB).
 
@@ -455,7 +457,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/boonkerz/roster/compare/v0.24.0...v0.24.1
