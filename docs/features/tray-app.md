@@ -105,7 +105,12 @@ server — the same way the remote-control viewer is shipped:
 The download is public (`/api/v1/tray/<os>-<arch>`) — the binary holds no secrets; you sign
 in on first start and the app keeps only its own API token. Which platforms appear depends
 on what was built into the server (`make tray-embed`, `tray-embed-arm64`,
-`tray-embed-windows`, `tray-embed-darwin`); the release workflow builds all of them.
+`tray-embed-windows`, `tray-embed-darwin`); the release workflow builds all of them, and
+`make server` embeds the Linux and Windows builds in the server's own version.
+
+**Which version am I running?** The footer shows the tray's version on the right
+(`roster-tray --version` prints it too). If the server is newer, it turns red: "Tray 0.26.0 –
+Update 0.27.0 available" – download the new package and run `--install` again.
 
 ## Settings
 

@@ -11,7 +11,7 @@ AGENT_EMBED := internal/server/agentdist/bin
 # damit sie auch auf Windows 7/8 und Server 2008 R2–2012 R2 starten (siehe tools/pepatch).
 PEPATCH := go run ./tools/pepatch
 
-.PHONY: help web server agent agents-embed viewer tray install-tray install-tray-autostart uninstall-tray build test vet tidy clean run-server cross
+.PHONY: help web server agent agents-embed clients-embed viewer tray install-tray install-tray-autostart uninstall-tray build test vet tidy clean run-server cross
 
 help: ## Diese Hilfe anzeigen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -29,7 +29,11 @@ agents-embed: ## Agent-Binaries für alle Plattformen ins Server-Embed cross-kom
 	$(PEPATCH) $(AGENT_EMBED)/agent-windows-amd64.exe
 	$(GOFLAGS) GOOS=freebsd GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(AGENT_EMBED)/agent-freebsd-amd64      ./cmd/agent
 
-server: web agents-embed ## Server-Binary bauen (inkl. Frontend + Agent-Downloads)
+# Viewer und Taskleisten-App in derselben Version wie der Server einbetten – sonst liefert
+# „Einstellungen → Downloads“ veraltete Clients aus (macOS nur über den Release-Workflow).
+clients-embed: viewer-embed viewer-embed-arm64 viewer-embed-windows tray-embed tray-embed-arm64 tray-embed-windows ## Viewer + Tray (Linux/Windows) ins Server-Embed
+
+server: web agents-embed clients-embed ## Server-Binary bauen (inkl. Frontend, Agent-, Viewer- und Tray-Downloads)
 	$(GOFLAGS) go build -ldflags "$(LDFLAGS)" -o $(BIN)/server ./cmd/server
 
 agent: ## Agent-Binary für die aktuelle Plattform bauen

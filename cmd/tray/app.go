@@ -40,6 +40,7 @@ type app struct {
 	mu         sync.Mutex
 	devices    []device
 	username   string
+	serverVer  string // für „Update verfügbar“ in der Fußzeile
 	loading    bool
 	lastUpdate time.Time
 	status     string // Meldung in der Fußzeile
@@ -190,6 +191,11 @@ func (a *app) reload() {
 		if known == "" {
 			if me, merr := cli.me(ctx); merr == nil {
 				who = me.Username
+			}
+			if v, verr := cli.serverVersion(ctx); verr == nil {
+				a.mu.Lock()
+				a.serverVer = v
+				a.mu.Unlock()
 			}
 		}
 	}

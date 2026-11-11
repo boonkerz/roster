@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Native viewer and tray app show their version: the viewer in the window title ("· Viewer 0.28.0"), the tray in the footer; both say "Update … available" when the server is newer (the tray in red). `--version` prints it.
+
+### Fixed
+- **Settings → Downloads served outdated viewer and tray packages** (from September/October): a server built with `make server` didn't rebuild them. `make server` now embeds viewer and tray (Linux x86-64/ARM64, Windows) in the server's own version – so file transfers over 32 MB and progress now also reach the native viewer.
+
 ## [0.27.0] - 2026-11-11
 
 ### Changed

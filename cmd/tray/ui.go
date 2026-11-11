@@ -9,6 +9,7 @@ import (
 	"github.com/jupiterrider/purego-sdl3/sdl"
 
 	"github.com/boonkerz/roster/internal/sdlui"
+	"github.com/boonkerz/roster/internal/shared"
 )
 
 const (
@@ -590,7 +591,7 @@ func (a *app) drawFooter(w, h float32) {
 	sdl.RenderLine(a.rn, 0, y, w, y)
 
 	a.mu.Lock()
-	msg, bad, last, who := a.status, a.statusBad, a.lastUpdate, a.username
+	msg, bad, last, who, sv := a.status, a.statusBad, a.lastUpdate, a.username, a.serverVer
 	a.mu.Unlock()
 	col := colMuted
 	if bad {
@@ -602,7 +603,15 @@ func (a *app) drawFooter(w, h float32) {
 			msg += " · angemeldet als " + who
 		}
 	}
-	a.txt.Draw(a.txt.Ellipsize(msg, w-24*s), 12*s, y+(footerH*s-lineH)/2, col[0], col[1], col[2])
+	// Version rechts; ist der Server neuer, als Hinweis hervorgehoben.
+	ver := shared.ClientVersionLabel("Tray", version, sv)
+	vcol := colMuted
+	if shared.VersionNewer(sv, version) {
+		ver, vcol = "Tray "+version+" – Update "+sv+" verfügbar", colErrText
+	}
+	vw := a.txt.Width(ver)
+	a.txt.Draw(ver, w-12*s-vw, y+(footerH*s-lineH)/2, vcol[0], vcol[1], vcol[2])
+	a.txt.Draw(a.txt.Ellipsize(msg, w-36*s-vw), 12*s, y+(footerH*s-lineH)/2, col[0], col[1], col[2])
 }
 
 // drawLogin zeichnet die Anmeldemaske (URL, Benutzer, Passwort, ggf. TOTP).

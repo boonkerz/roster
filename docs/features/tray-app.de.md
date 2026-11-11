@@ -112,7 +112,12 @@ Der Download ist öffentlich (`/api/v1/tray/<os>-<arch>`) – das Binary enthäl
 Geheimnisse; du meldest dich beim ersten Start an, und die App behält nur ihren eigenen
 API-Token. Welche Plattformen erscheinen, hängt davon ab, was in den Server eingebaut wurde
 (`make tray-embed`, `tray-embed-arm64`, `tray-embed-windows`, `tray-embed-darwin`); der
-Release-Workflow baut alle.
+Release-Workflow baut alle, und `make server` bettet die Linux- und Windows-Builds in der
+Version des Servers ein.
+
+**Welche Version läuft?** Die Fußzeile zeigt rechts die Version der Tray-App
+(`roster-tray --version` gibt sie ebenfalls aus). Ist der Server neuer, wird sie rot: „Tray
+0.26.0 – Update 0.27.0 verfügbar“ – dann das neue Paket laden und erneut `--install` ausführen.
 
 ## Einstellungen
 

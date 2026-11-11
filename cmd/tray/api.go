@@ -131,6 +131,7 @@ type remoteStart struct {
 	Session  string `json:"session"`
 	Password string `json:"password"`
 	Token    string `json:"token"`
+	Version  string `json:"version"`
 }
 
 // apiError trägt den HTTP-Status, damit die UI 401 (Token weg) von Netzfehlern trennt.
@@ -235,6 +236,15 @@ func (c *client) me(ctx context.Context) (*meResponse, error) {
 	var out meResponse
 	err := c.do(ctx, http.MethodGet, "/auth/me", nil, &out)
 	return &out, err
+}
+
+// serverVersion liefert die Version des Servers (aus der Download-Übersicht der Tray-App).
+func (c *client) serverVersion(ctx context.Context) (string, error) {
+	var out struct {
+		Version string `json:"version"`
+	}
+	err := c.do(ctx, http.MethodGet, "/tray", nil, &out)
+	return out.Version, err
 }
 
 // startRemote fordert eine Fernsteuerungs-Sitzung an (weckt den Agent) und liefert

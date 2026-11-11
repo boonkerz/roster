@@ -36,6 +36,7 @@ import (
 	"github.com/jupiterrider/purego-sdl3/sdl"
 
 	"github.com/boonkerz/roster/internal/sdlui"
+	"github.com/boonkerz/roster/internal/shared"
 )
 
 type launchConfig struct {
@@ -45,7 +46,12 @@ type launchConfig struct {
 	Token    string `json:"token"`
 	Insecure bool   `json:"insecure,omitempty"`
 	Title    string `json:"title,omitempty"`
+	// ServerVersion (sv) setzt der Startcode – damit zeigt der Viewer „Update verfügbar“.
+	ServerVersion string `json:"sv,omitempty"`
 }
+
+// version wird beim Build gesetzt (-X main.version=…).
+var version = "dev"
 
 func (c *launchConfig) validate() error {
 	if c.URL == "" || c.Device == "" || c.Session == "" || c.Token == "" {
@@ -66,6 +72,9 @@ func main() {
 	prefix, args := extractPrefix(os.Args[1:])
 	for _, a := range args {
 		switch a {
+		case "--version", "-version":
+			fmt.Println("roster-viewer " + version)
+			return
 		case "--register", "-register":
 			if err := registerScheme(selfPath()); err != nil {
 				log.Fatalf("roster-viewer: register: %v", err)
@@ -216,6 +225,11 @@ func runSession(cfg *launchConfig) error {
 	title := cfg.Title
 	if title == "" {
 		title = "Roster Fernsteuerung"
+	}
+	// Version im Titel – so sieht man sofort, ob der Viewer aktuell ist.
+	title += " · " + shared.ClientVersionLabel("Viewer", version, cfg.ServerVersion)
+	if shared.VersionNewer(cfg.ServerVersion, version) {
+		log.Printf("hinweis: viewer %s ist veraltet – server hat %s (Einstellungen → Downloads)", version, cfg.ServerVersion)
 	}
 	window := sdl.CreateWindow(title, int32(winW), int32(winH), sdl.WindowResizable)
 	if window == nil {

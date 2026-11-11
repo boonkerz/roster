@@ -68,6 +68,7 @@ func viewerLaunchCode(cfg *config, d device, s *remoteStart) (string, error) {
 		"session": s.Session,
 		"token":   s.Token,
 		"title":   "Fernsteuerung " + d.Hostname,
+		"sv":      s.Version,
 	}
 	if cfg.Insecure {
 		blob["insecure"] = true

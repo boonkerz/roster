@@ -45,6 +45,7 @@ type remoteStartResponse struct {
 	Session  string `json:"session"`
 	Password string `json:"password"`
 	Token    string `json:"token"` // für den nativen Viewer (roster-viewer)
+	Version  string `json:"version"` // Server-Version – Viewer zeigen damit „Update verfügbar“
 }
 
 // handleRemoteStart erzeugt eine Remote-Desktop-Sitzung und weckt den Agent.
@@ -98,7 +99,7 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 		TS: time.Now().UTC(), Username: uname, Action: "Fernsteuerung gestartet",
 		Method: r.Method, Path: "/devices/" + deviceID, Status: http.StatusOK,
 	})
-	s.writeJSON(w, http.StatusOK, remoteStartResponse{Session: sessID, Password: pass, Token: viewerToken})
+	s.writeJSON(w, http.StatusOK, remoteStartResponse{Session: sessID, Password: pass, Token: viewerToken, Version: s.version})
 }
 
 // resolveRemoteConsent ermittelt, ob der Nutzer am Gerät die Fernsteuerung

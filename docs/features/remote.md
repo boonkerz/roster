@@ -58,7 +58,9 @@ As usual with VNC, only Latin-1 characters are transferred (umlauts yes, e.g. "�
     on-screen message and a quality selector. Launch it with one click via a `roster://`
     link, or paste the launch code into its connect dialog. Packages for every platform the server
     carries are listed under **Settings → Downloads** (Linux x86-64/ARM64, Windows; the
-    macOS build is attached to the GitHub release).
+    macOS build is attached to the GitHub release). The window title shows the viewer's version
+    ("· Viewer 0.28.0"; also `roster-viewer --version`); if the server is newer, the title says
+    "Update … available".
 
 ## Remote terminal
 

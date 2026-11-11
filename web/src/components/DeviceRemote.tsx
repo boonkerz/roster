@@ -118,9 +118,9 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
     setNativeStatus(t("Startcode wird erzeugt…"));
     setNativeCode("");
     try {
-      const s = await api.post<{ session: string; password: string; token: string }>(
+      const s = await api.post<{ session: string; password: string; token: string; version?: string }>(
         `/devices/${id}/remote/start`, { monitor });
-      const blob = { url: location.origin, device: id, session: s.session, token: s.token, title: `Fernsteuerung ${id}` };
+      const blob = { url: location.origin, device: id, session: s.session, token: s.token, title: `Fernsteuerung ${id}`, sv: s.version };
       const code = b64url(JSON.stringify(blob));
       setNativeCode(code);
       setNativeStatus("");

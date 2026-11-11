@@ -15,7 +15,7 @@ import (
 // Rückgabe (nil, nil) = vom Nutzer abgebrochen.
 func connectDialog() (*launchConfig, error) {
 	const w, h = 520, 230
-	window := sdl.CreateWindow("Roster Fernsteuerung", w, h, 0)
+	window := sdl.CreateWindow("Roster Fernsteuerung · Viewer "+version, w, h, 0)
 	if window == nil {
 		return nil, errDialog("fenster")
 	}

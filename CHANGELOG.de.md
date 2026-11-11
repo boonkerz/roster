@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Nativer Viewer und Taskleisten-App zeigen ihre Version: der Viewer im Fenstertitel („· Viewer 0.28.0“), die Tray-App in der Fußzeile; beide melden „Update … verfügbar“, wenn der Server neuer ist (die Tray-App in Rot). `--version` gibt sie aus.
+
+### Behoben
+- **Einstellungen → Downloads lieferte veraltete Viewer- und Tray-Pakete aus** (Stand September/Oktober): ein mit `make server` gebauter Server baute sie nicht neu. `make server` bettet Viewer und Tray (Linux x86-64/ARM64, Windows) jetzt in der Version des Servers ein – damit kommen Dateiübertragungen über 32 MB und die Fortschrittsanzeige auch im nativen Viewer an.
+
 ## [0.27.0] - 2026-11-11
 
 ### Geändert

@@ -60,7 +60,9 @@ Latin-1 übertragen (Umlaute ja, z. B. „€“ oder Emojis nicht).
     Eingabe, Bildschirmnachricht und einer Qualitätsauswahl. Starte ihn mit einem Klick über einen
     `roster://`-Link oder füge den Startcode in seinen Verbindungsdialog ein. Pakete für jede
     Plattform, die der Server mitführt, sind unter **Einstellungen → Downloads** gelistet
-    (Linux x86-64/ARM64, Windows; der macOS-Build hängt am GitHub-Release).
+    (Linux x86-64/ARM64, Windows; der macOS-Build hängt am GitHub-Release). Der Fenstertitel
+    zeigt die Version des Viewers („· Viewer 0.28.0“; auch `roster-viewer --version`); ist der
+    Server neuer, steht dort „Update … verfügbar“.
 
 ## Remote-Terminal
 
