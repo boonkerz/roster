@@ -119,8 +119,17 @@ Freie **Tags** plus **regelbasierte Smart Groups** – dynamische Mitgliedschaft
 ## Dateien, Dienste & Prozesse
 
 Von der Detailseite eines Geräts kannst du sein Dateisystem durchsuchen und Dateien übertragen
-(≤ 32 MB), **Dienste** auflisten und starten/stoppen/neu starten, **Prozesse** beenden und einen
+(bis 4 GB, siehe unten), **Dienste** auflisten und starten/stoppen/neu starten, **Prozesse** beenden und einen
 TreeSize-ähnlichen Live-**Speicher-Explorer** mit Kreisdiagramm ausführen.
+
+!!! note "Große Dateien"
+    Übertragungen laufen gestreamt: Der Server hält die Datei nur als Zwischendatei neben seiner
+    Datenbank (`file-transfers/`, gelöscht direkt nach der Abholung bzw. nach 30 Minuten) und
+    braucht dafür entsprechend freien Plattenplatz plus 1 GB Reserve – keinen Arbeitsspeicher. Der
+    Agent schreibt zuerst in eine Zwischendatei im Zielordner und benennt sie erst nach
+    vollständigem Empfang um, ein Abbruch hinterlässt also nie eine halbe Datei. Agents vor 0.27.0
+    nehmen höchstens 32 MB an. Hinter einem Reverse-Proxy große Anfragen erlauben (nginx:
+    `client_max_body_size 4g;`).
 
 ![Dienste und Prozesse](../screenshots/services.png){ .shadow }
 

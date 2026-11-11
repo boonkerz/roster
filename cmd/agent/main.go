@@ -606,13 +606,10 @@ func (p *program) runPolicy(ctx context.Context) {
 				n = int(f)
 			}
 			output = collect.EventLogJSON(cmdCtx, logName, n)
-		case "read_file":
-			path, _ := cmd.Payload["path"].(string)
-			exit, output = p.readFile(cmdCtx, cmd.ID, path)
-		case "write_file":
-			path, _ := cmd.Payload["path"].(string)
-			xfer, _ := cmd.Payload["xfer"].(string)
-			exit, output = p.writeFile(cmdCtx, xfer, path)
+		case "read_file", "write_file":
+			// Große Dateien brauchen Zeit – im Hintergrund, sonst stünde die Checkin-Schleife.
+			go p.fileTransfer(ctx, cmd)
+			continue
 		case "make_dir":
 			path, _ := cmd.Payload["path"].(string)
 			if err := collect.MakeDir(path); err != nil {
@@ -873,42 +870,83 @@ func (p *program) scanDir(ctx context.Context, cmdID, path string) {
 	p.requestCheckin()
 }
 
-// readFile liest eine Datei und lädt sie (unter dem Befehls-ID als Transfer-Key)
-// zum Server hoch, wo der Browser sie abholt. Rückgabe ist ein kleiner Statustext.
+// fileTransfer führt read_file/write_file im Hintergrund aus, meldet unterwegs den
+// Fortschritt und liefert das Ergebnis über den nächsten Checkin.
+func (p *program) fileTransfer(ctx context.Context, cmd shared.Command) {
+	tctx, cancel := context.WithTimeout(ctx, 6*time.Hour)
+	defer cancel()
+	path, _ := cmd.Payload["path"].(string)
+	var exit int
+	var output string
+	if cmd.Type == "read_file" {
+		exit, output = p.readFile(tctx, cmd.ID, path)
+	} else {
+		xfer, _ := cmd.Payload["xfer"].(string)
+		exit, output = p.writeFile(tctx, cmd.ID, xfer, path)
+	}
+	p.mu.Lock()
+	p.pendingCmdResults = append(p.pendingCmdResults, shared.CommandResult{
+		CommandID: cmd.ID, ExitCode: exit, Output: output, RanAt: time.Now().UTC(),
+	})
+	p.mu.Unlock()
+	p.log.Info("datei-übertragung beendet", "command", cmd.ID, "typ", cmd.Type, "exit", exit, "ergebnis", output)
+	p.requestCheckin()
+}
+
+// transferProgress meldet höchstens alle 2 s den Stand („120 / 1024 MB“).
+func (p *program) transferProgress(ctx context.Context, cmdID, verb string, total int64) func(int64) {
+	var last time.Time
+	return func(n int64) {
+		if p.client == nil || time.Since(last) < 2*time.Second {
+			return
+		}
+		last = time.Now()
+		msg := fmt.Sprintf("%s: %s", verb, collect.FormatTransfer(n, total))
+		_ = p.client.ReportProgress(ctx, p.agentToken, cmdID, msg)
+	}
+}
+
+// readFile lädt eine Datei (unter der Befehls-ID als Transfer-Key) gestreamt zum Server
+// hoch, wo der Browser sie abholt. Rückgabe ist ein kleiner Statustext.
 func (p *program) readFile(ctx context.Context, cmdID, path string) (int, string) {
 	if path == "" {
 		return 1, "kein Pfad angegeben"
 	}
-	data, err := collect.ReadFileCapped(path)
+	f, size, err := collect.OpenForTransfer(path)
 	if err != nil {
 		return 1, "Lesen fehlgeschlagen: " + err.Error()
 	}
+	defer f.Close()
 	if p.client == nil {
 		return 1, "kein Server-Client"
 	}
-	name := filepath.Base(path)
-	if err := p.client.UploadFile(ctx, p.agentToken, cmdID, name, data); err != nil {
+	r := collect.CountingReader(f, p.transferProgress(ctx, cmdID, "Gerät → Server", size))
+	if err := p.client.UploadFile(ctx, p.agentToken, cmdID, filepath.Base(path), r, size); err != nil {
 		return 1, "Upload zum Server fehlgeschlagen: " + err.Error()
 	}
-	return 0, fmt.Sprintf("%d Bytes bereit", len(data))
+	return 0, fmt.Sprintf("%d Bytes bereit", size)
 }
 
-// writeFile holt die vom Browser hochgeladenen Bytes und schreibt sie an path.
-func (p *program) writeFile(ctx context.Context, xfer, path string) (int, string) {
+// writeFile holt die vom Browser hochgeladenen Bytes gestreamt ab und schreibt sie an
+// path (erst in eine Zwischendatei daneben, dann umbenennen – nie halbe Dateien).
+func (p *program) writeFile(ctx context.Context, cmdID, xfer, path string) (int, string) {
 	if path == "" || xfer == "" {
 		return 1, "Pfad oder Transfer fehlt"
 	}
 	if p.client == nil {
 		return 1, "kein Server-Client"
 	}
-	data, err := p.client.DownloadPayload(ctx, p.agentToken, xfer)
+	body, size, err := p.client.DownloadPayload(ctx, p.agentToken, xfer)
 	if err != nil {
 		return 1, "Abholen der Daten fehlgeschlagen: " + err.Error()
 	}
-	if err := collect.WriteFileCapped(path, data); err != nil {
+	defer body.Close()
+	r := collect.CountingReader(body, p.transferProgress(ctx, cmdID, "Server → Gerät", size))
+	n, err := collect.WriteFromReader(path, r, size)
+	if err != nil {
 		return 1, "Schreiben fehlgeschlagen: " + err.Error()
 	}
-	return 0, fmt.Sprintf("%d Bytes geschrieben nach %s", len(data), path)
+	return 0, fmt.Sprintf("%d Bytes geschrieben nach %s", n, path)
 }
 
 // networkScan tastet den CIDR-Bereich ab und meldet die Funde als JSON (Output).

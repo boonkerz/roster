@@ -46,7 +46,7 @@ type Server struct {
 
 // New erstellt den Server und registriert alle Routen.
 func New(st *store.Store, cfg config.Config, log *slog.Logger, webFS fs.FS, version string) *Server {
-	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096), imageVulnKick: make(chan struct{}, 1)}
+	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(spoolDirFor(cfg.DatabaseURL)), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096), imageVulnKick: make(chan struct{}, 1)}
 	s.router = s.routes()
 	go s.responseWorker()
 	return s

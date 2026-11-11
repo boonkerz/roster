@@ -2,6 +2,9 @@ package collect
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,8 +27,9 @@ type FileListing struct {
 	Error   string      `json:"error,omitempty"`
 }
 
-// MaxFileTransfer begrenzt Datei-Downloads/-Uploads (Schutz vor Speicher-/Zeitproblemen).
-const MaxFileTransfer = 32 << 20 // 32 MiB
+// MaxFileTransfer begrenzt Datei-Downloads/-Uploads (wie der Server; gestreamt, also
+// ohne Speicherbedarf).
+const MaxFileTransfer = 4 << 30 // 4 GiB
 
 const maxListEntries = 2000
 
@@ -68,25 +72,91 @@ func BrowseDir(path string) string {
 	return string(b)
 }
 
-// ReadFileCapped liest eine Datei bis MaxFileTransfer. Größere Dateien werden
-// abgelehnt. Liefert den Inhalt oder einen Fehler.
-func ReadFileCapped(path string) ([]byte, error) {
-	fi, err := os.Stat(path)
+// OpenForTransfer öffnet eine Datei zum Hochladen (bis MaxFileTransfer).
+func OpenForTransfer(path string) (*os.File, int64, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, err
 	}
 	if fi.IsDir() {
-		return nil, os.ErrInvalid
+		f.Close()
+		return nil, 0, errors.New("ist ein Verzeichnis")
 	}
 	if fi.Size() > MaxFileTransfer {
-		return nil, errTooLarge
+		f.Close()
+		return nil, 0, errTooLarge
 	}
-	return os.ReadFile(path)
+	return f, fi.Size(), nil
 }
 
-// WriteFileCapped schreibt Daten in eine Datei (überschreibt, 0644).
-func WriteFileCapped(path string, data []byte) error {
-	return os.WriteFile(path, data, 0644)
+// WriteFromReader schreibt einen Datenstrom nach path: zuerst in eine Zwischendatei im
+// selben Verzeichnis, nach vollständigem Empfang umbenennen. Bricht die Übertragung ab,
+// bleibt eine vorhandene Datei unverändert. Rechte einer überschriebenen Datei bleiben.
+func WriteFromReader(path string, r io.Reader, size int64) (int64, error) {
+	mode := os.FileMode(0o644)
+	if fi, err := os.Stat(path); err == nil {
+		if fi.IsDir() {
+			return 0, errors.New("Ziel ist ein Verzeichnis")
+		}
+		mode = fi.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".roster-upload-*")
+	if err != nil {
+		return 0, err
+	}
+	n, err := io.Copy(tmp, io.LimitReader(r, MaxFileTransfer+1))
+	if err == nil && n > MaxFileTransfer {
+		err = errTooLarge
+	}
+	if err == nil && size >= 0 && n != size {
+		err = fmt.Errorf("unvollständig: %d von %d Bytes", n, size)
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp.Name(), mode)
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), path)
+	}
+	if err != nil {
+		os.Remove(tmp.Name())
+		return 0, err
+	}
+	return n, nil
+}
+
+type countingReader struct {
+	r  io.Reader
+	n  int64
+	on func(int64)
+}
+
+func (c *countingReader) Read(b []byte) (int, error) {
+	n, err := c.r.Read(b)
+	c.n += int64(n)
+	if c.on != nil {
+		c.on(c.n)
+	}
+	return n, err
+}
+
+// CountingReader ruft on mit der bisher gelesenen Byte-Zahl auf (für Fortschritt).
+func CountingReader(r io.Reader, on func(int64)) io.Reader { return &countingReader{r: r, on: on} }
+
+// FormatTransfer formatiert einen Übertragungsstand („120 / 1024 MB (12 %)“).
+func FormatTransfer(n, total int64) string {
+	const mb = 1 << 20
+	if total <= 0 {
+		return fmt.Sprintf("%d MB", n/mb)
+	}
+	return fmt.Sprintf("%d / %d MB (%d %%)", n/mb, (total+mb-1)/mb, n*100/total)
 }
 
 // MakeDir legt ein Verzeichnis an (inkl. fehlender Elternverzeichnisse).

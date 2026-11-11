@@ -75,7 +75,7 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   Same cgo-free SDL3 stack as the viewer; the icon turns red when a check or task fails.
   `roster-tray --install [--autostart]` adds it to the application launcher / Start menu;
   `roster-viewer --install` registers the `roster://` handler the same way.
-- **File browser & transfer** – browse the agent's filesystem, download / upload (≤ 32 MB).
+- **File browser & transfer** – browse the agent's filesystem, download / upload (up to 4 GB, streamed with progress).
 - **Services & processes** – list + start/stop/restart services, kill processes.
 - **Storage explorer** – TreeSize-style live directory scan with a pie chart.
 - **Security collectors** – Antivirus/Defender status, BitLocker (with recovery-key
@@ -296,7 +296,7 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   cgo-freie SDL3-Basis wie der Viewer; das Symbol wird rot, sobald ein Check oder Task
   fehlschlägt. `roster-tray --install [--autostart]` trägt sie ins Anwendungsmenü bzw.
   Startmenü ein; `roster-viewer --install` registriert ebenso den `roster://`-Handler.
-- **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (≤ 32 MB).
+- **Dateibrowser & -transfer** – Dateisystem durchsuchen, herunter-/hochladen (bis 4 GB, gestreamt mit Fortschritt).
 - **Dienste & Prozesse** – auflisten + Start/Stop/Neustart, Prozesse beenden.
 - **Speicher-Explorer** – TreeSize-artiger Live-Scan mit Tortendiagramm.
 - **Security-Collectors** – Virenschutz/Defender, BitLocker (mit Recovery-Key-Escrow),

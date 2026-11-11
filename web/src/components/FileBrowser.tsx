@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { pollCmd } from "../pollCmd";
+import { MAX_TRANSFER, pollTransfer, uploadFile } from "../transfer";
 import { useI18n } from "../i18n";
 
 interface FileEntry { name: string; path: string; dir: boolean; size: number; modified: number; }
@@ -16,13 +17,14 @@ function fmtBytes(n: number): string {
 }
 
 
-// FileBrowser: Verzeichnisse durchsuchen, Dateien herunterladen/hochladen (≤ 32 MB).
+// FileBrowser: Verzeichnisse durchsuchen, Dateien herunterladen/hochladen (≤ 4 GB).
 export function FileBrowser({ deviceId }: { deviceId: string }) {
   const { t } = useI18n();
   const [listing, setListing] = useState<FileListing | null>(null);
   const [path, setPath] = useState(""); // "" = Wurzel/Laufwerke
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
+  const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const uploadRef = useRef<HTMLInputElement>(null);
 
@@ -45,28 +47,28 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
     setBusy(f.path); setError("");
     try {
       const { command_id } = await api.post<{ command_id: string }>(`/devices/${deviceId}/read-file`, { path: f.path });
-      const cmd = await pollCmd(command_id);
+      setProgress(t("Gerät bereitet {name} vor…", { name: f.name }));
+      const cmd = await pollTransfer(command_id, setProgress);
       if (cmd.exit_code !== 0) throw new Error(cmd.output || t("Lesen fehlgeschlagen"));
       // Datei liegt jetzt beim Server bereit -> per Browser-Navigation abholen.
       window.location.href = `/api/v1/devices/${deviceId}/file/${command_id}`;
-    } catch (e) { setError((e as Error).message); } finally { setBusy(""); }
+    } catch (e) { setError((e as Error).message); } finally { setBusy(""); setProgress(""); }
   };
 
   const upload = async (file: File) => {
     if (!listing || listing.path === "") { setError(t("Bitte zuerst in ein Verzeichnis wechseln.")); return; }
+    if (file.size > MAX_TRANSFER) { setError(t("Datei zu groß (max 4 GB)")); return; }
     setBusy("upload"); setError("");
     try {
       const sep = listing.path.includes("\\") ? "\\" : "/";
       const target = listing.path.replace(/[/\\]$/, "") + sep + file.name;
-      const res = await fetch(`/api/v1/devices/${deviceId}/write-file?path=${encodeURIComponent(target)}`, {
-        method: "POST", credentials: "include", body: file,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || t("Upload fehlgeschlagen"));
-      const { command_id } = await res.json();
-      const cmd = await pollCmd(command_id);
+      const { command_id } = await uploadFile(`/api/v1/devices/${deviceId}/write-file?path=${encodeURIComponent(target)}`, file,
+        (pct) => setProgress(t("Hochladen zum Server: {pct} %", { pct })));
+      setProgress(t("Gerät übernimmt {name}…", { name: file.name }));
+      const cmd = await pollTransfer(command_id, setProgress);
       if (cmd.exit_code !== 0) throw new Error(cmd.output || t("Schreiben fehlgeschlagen"));
       await browse(listing.path);
-    } catch (e) { setError((e as Error).message); } finally { setBusy(""); if (uploadRef.current) uploadRef.current.value = ""; }
+    } catch (e) { setError((e as Error).message); } finally { setBusy(""); setProgress(""); if (uploadRef.current) uploadRef.current.value = ""; }
   };
 
   return (
@@ -90,6 +92,7 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
         </div>
       </div>
 
+      {progress && <p className="muted small">⏳ {progress}</p>}
       {loading ? <p className="muted">{t("Wird abgefragt… (Agent muss online sein)")}</p>
         : error ? <p className="muted">{t("Fehler")}: {error}</p>
         : (
@@ -106,7 +109,7 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
                     </td>
                     <td className="muted mono small">{f.dir ? "—" : fmtBytes(f.size)}</td>
                     <td className="muted small">{f.modified ? new Date(f.modified * 1000).toLocaleString() : "—"}</td>
-                    <td>{!f.dir && f.size <= 32 * 1024 * 1024 && (
+                    <td>{!f.dir && f.size <= MAX_TRANSFER && (
                       <button className="btn ghost sm" disabled={!!busy} onClick={() => download(f)}>
                         {busy === f.path ? "…" : "⬇ " + t("Download")}
                       </button>
@@ -118,7 +121,7 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
             </table>
           </div>
         )}
-      <p className="muted small" style={{ marginTop: 8 }}>{t("Datei-Transfer bis 32 MB. Läuft mit den Rechten des Agent-Dienstes.")}</p>
+      <p className="muted small" style={{ marginTop: 8 }}>{t("Datei-Transfer bis 4 GB. Läuft mit den Rechten des Agent-Dienstes.")}</p>
     </section>
   );
 }

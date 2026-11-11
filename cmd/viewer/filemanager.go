@@ -373,24 +373,22 @@ func (fm *fileManager) copyTree(src fmEntry, dstDir string, srcRemote, dstRemote
 
 // copyFile überträgt eine einzelne Datei zwischen den Seiten.
 func (fm *fileManager) copyFile(e fmEntry, dstDir string, srcRemote, dstRemote bool, count *int) error {
-	var data []byte
+	target := joinFor(dstDir, e.name, dstRemote)
+	progress := func(s string) { fm.setStatus(e.name + ": " + s) }
 	var err error
 	if srcRemote {
-		data, err = fm.cl.read(e.path)
+		err = fm.cl.readTo(e.path, target, progress)
 	} else {
-		data, err = os.ReadFile(e.path)
-	}
-	if err != nil {
-		return fmt.Errorf("%s: %s", e.name, err)
-	}
-	if int64(len(data)) > maxViewerTransfer {
-		return fmt.Errorf("%s zu groß (max 32 MB)", e.name)
-	}
-	target := joinFor(dstDir, e.name, dstRemote)
-	if dstRemote {
-		err = fm.cl.write(target, data)
-	} else {
-		err = os.WriteFile(target, data, 0644)
+		var f *os.File
+		if f, err = os.Open(e.path); err == nil {
+			var fi os.FileInfo
+			if fi, err = f.Stat(); err == nil && fi.Size() > maxViewerTransfer {
+				err = fmt.Errorf("zu groß (max 4 GB)")
+			} else if err == nil {
+				err = fm.cl.write(target, f, fi.Size(), progress)
+			}
+			f.Close()
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %s", e.name, err)
@@ -591,7 +589,7 @@ func (fm *fileManager) onWheel(dy float32) {
 
 // --- HTTP-Client für die viewer-files-API ---
 
-const maxViewerTransfer = 32 << 20
+const maxViewerTransfer = 4 << 30 // wie Server/Agent; gestreamt
 
 type fmListing struct {
 	path    string
@@ -602,13 +600,15 @@ type fmListing struct {
 
 type fmClient struct {
 	http   *http.Client
-	base   string // https://host
+	xfer   *http.Client // ohne Zeitlimit: große Dateien
+	base   string       // https://host
 	device string
 	token  string
 }
 
 func newFMClient(cfg *launchConfig) *fmClient {
 	c := &fmClient{http: newHTTPClient(cfg.Insecure), base: httpBase(cfg.URL), device: cfg.Device, token: cfg.Token}
+	c.xfer = &http.Client{Transport: c.http.Transport}
 	return c
 }
 
@@ -639,8 +639,12 @@ func (c *fmClient) post(path string, body any) (string, error) {
 }
 
 // poll wartet auf das Ergebnis eines eingereihten Befehls.
-func (c *fmClient) poll(id string) (string, int, error) {
+func (c *fmClient) poll(id string) (string, int, error) { return c.pollProgress(id, nil) }
+
+// pollProgress wartet, solange der Agent Fortschritt meldet; Abbruch erst nach 60 s Stillstand.
+func (c *fmClient) pollProgress(id string, onProgress func(string)) (string, int, error) {
 	deadline := time.Now().Add(60 * time.Second)
+	last := ""
 	for time.Now().Before(deadline) {
 		req, _ := http.NewRequest(http.MethodGet, c.url("/command/"+id), nil)
 		req.Header.Set("Authorization", "Bearer "+c.token)
@@ -657,6 +661,13 @@ func (c *fmClient) poll(id string) (string, int, error) {
 		resp.Body.Close()
 		if cmd.Status == "done" {
 			return cmd.Output, cmd.ExitCode, nil
+		}
+		if cmd.Output != last {
+			last = cmd.Output
+			deadline = time.Now().Add(60 * time.Second)
+			if onProgress != nil && last != "" {
+				onProgress(last)
+			}
 		}
 		time.Sleep(400 * time.Millisecond)
 	}
@@ -696,48 +707,83 @@ func (c *fmClient) browse(path string) fmListing {
 	return l
 }
 
-func (c *fmClient) read(path string) ([]byte, error) {
+// xferClient liefert den Client ohne Zeitlimit (Fallback: normaler Client).
+func (c *fmClient) xferClient() *http.Client {
+	if c.xfer != nil {
+		return c.xfer
+	}
+	return c.http
+}
+
+// readTo lädt eine Datei vom Gerät nach local (erst Zwischendatei, dann umbenennen).
+func (c *fmClient) readTo(path, local string, progress func(string)) error {
 	id, err := c.post("/read", map[string]string{"path": path})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	out, exit, err := c.poll(id)
+	out, exit, err := c.pollProgress(id, progress)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if exit != 0 {
-		return nil, fmt.Errorf("%s", out)
+		return fmt.Errorf("%s", out)
 	}
 	req, _ := http.NewRequest(http.MethodGet, c.url("/blob/"+id), nil)
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := c.http.Do(req)
+	resp, err := c.xferClient().Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("download: %s", resp.Status)
+		return fmt.Errorf("download: %s", resp.Status)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, maxViewerTransfer+1))
+	tmp, err := os.CreateTemp(filepath.Dir(local), ".roster-download-*")
+	if err != nil {
+		return err
+	}
+	pr := &progressReader{r: resp.Body, total: resp.ContentLength, verb: "Herunterladen", on: progress}
+	_, err = io.Copy(tmp, io.LimitReader(pr, maxViewerTransfer+1))
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && resp.ContentLength >= 0 && pr.n != resp.ContentLength {
+		err = fmt.Errorf("unvollständig (%d von %d Bytes)", pr.n, resp.ContentLength)
+	}
+	if err == nil {
+		_ = os.Chmod(tmp.Name(), 0o644)
+		err = os.Rename(tmp.Name(), local)
+	}
+	if err != nil {
+		os.Remove(tmp.Name())
+	}
+	return err
 }
 
-func (c *fmClient) write(path string, data []byte) error {
-	req, _ := http.NewRequest(http.MethodPost, c.url("/write")+"?path="+url.QueryEscape(path), bytes.NewReader(data))
+// write lädt einen Datenstrom auf das Gerät (über den Server) und wartet auf das Schreiben.
+func (c *fmClient) write(path string, body io.Reader, size int64, progress func(string)) error {
+	pr := &progressReader{r: body, total: size, verb: "Hochladen zum Server", on: progress}
+	req, _ := http.NewRequest(http.MethodPost, c.url("/write")+"?path="+url.QueryEscape(path), pr)
+	req.ContentLength = size
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := c.http.Do(req)
+	resp, err := c.xferClient().Do(req)
 	if err != nil {
 		return err
 	}
 	var r struct {
 		CommandID string `json:"command_id"`
+		Error     string `json:"error"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&r)
 	resp.Body.Close()
 	if resp.StatusCode >= 300 || r.CommandID == "" {
+		if r.Error != "" {
+			return fmt.Errorf("%s", r.Error)
+		}
 		return fmt.Errorf("upload: %s", resp.Status)
 	}
-	out, exit, err := c.poll(r.CommandID)
+	out, exit, err := c.pollProgress(r.CommandID, progress)
 	if err != nil {
 		return err
 	}
@@ -745,6 +791,30 @@ func (c *fmClient) write(path string, data []byte) error {
 		return fmt.Errorf("%s", out)
 	}
 	return nil
+}
+
+// progressReader meldet höchstens alle 500 ms den Stand.
+type progressReader struct {
+	r     io.Reader
+	n     int64
+	total int64
+	verb  string
+	on    func(string)
+	last  time.Time
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.n += int64(n)
+	if p.on != nil && time.Since(p.last) > 500*time.Millisecond {
+		p.last = time.Now()
+		if p.total > 0 {
+			p.on(fmt.Sprintf("%s %d / %d MB (%d %%)", p.verb, p.n>>20, p.total>>20, p.n*100/p.total))
+		} else {
+			p.on(fmt.Sprintf("%s %d MB", p.verb, p.n>>20))
+		}
+	}
+	return n, err
 }
 
 func (c *fmClient) mkdir(path string) error {

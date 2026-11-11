@@ -116,9 +116,17 @@ like `OS contains windows AND updates > 0`.
 
 ## Files, services & processes
 
-From a device's detail page you can browse its filesystem and transfer files (≤ 32 MB),
+From a device's detail page you can browse its filesystem and transfer files (up to 4 GB, see below),
 list and start/stop/restart **services**, kill **processes**, and run a TreeSize-style live
 **storage explorer** with a pie chart.
+
+!!! note "Large files"
+    Transfers are streamed: the server keeps the file only as a temporary file next to its
+    database (`file-transfers/`, deleted right after pick-up or after 30 minutes) and needs that
+    much free disk space plus 1 GB reserve – not RAM. The agent writes to a temporary file in the
+    target folder and renames it only once complete, so an aborted transfer never leaves a half
+    file. Agents older than 0.27.0 only accept up to 32 MB. Behind a reverse proxy, allow large
+    request bodies (nginx: `client_max_body_size 4g;`).
 
 ![Services and processes](../screenshots/services.png){ .shadow }
 

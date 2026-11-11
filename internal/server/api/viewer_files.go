@@ -1,8 +1,8 @@
 package api
 
 import (
-	"io"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -146,16 +146,19 @@ func (s *Server) handleViewerWriteFile(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusBadRequest, "path fehlt")
 		return
 	}
-	data, err := io.ReadAll(io.LimitReader(r.Body, maxFileTransfer+1))
-	if err != nil || len(data) > maxFileTransfer {
-		s.writeErr(w, http.StatusRequestEntityTooLarge, "Datei zu groß (max 32 MB)")
+	if !s.agentCanReceive(w, r, devID) {
 		return
 	}
 	xfer := newSessionID()
-	s.files.put(xfer, "", data)
-	id, err := s.queueCommand(r.Context(), devID, "write_file", "Datei schreiben: "+path,
-		map[string]any{"path": path, "xfer": xfer})
+	size, err := s.files.receive(xfer, "", r.Body, r.ContentLength)
 	if err != nil {
+		s.receiveErr(w, err)
+		return
+	}
+	id, err := s.queueCommand(r.Context(), devID, "write_file", "Datei schreiben: "+path,
+		map[string]any{"path": path, "xfer": xfer, "size": size})
+	if err != nil {
+		s.files.drop(xfer)
 		s.mapStoreErr(w, err)
 		return
 	}
@@ -241,6 +244,6 @@ func (s *Server) handleViewerBlob(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusNotFound, "Datei nicht (mehr) verfügbar")
 		return
 	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = w.Write(b.data)
+	defer os.Remove(b.path)
+	serveBlob(w, r, b, "")
 }

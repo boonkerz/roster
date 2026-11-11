@@ -71,17 +71,18 @@ func (c *Client) ReportProgress(ctx context.Context, agentToken, commandID, outp
 		shared.CommandProgress{CommandID: commandID, Output: output}, nil)
 }
 
-// UploadFile lädt Dateibytes (aus einem read_file-Befehl) zum Server hoch, wo der
-// Browser sie abholt. Umgeht das JSON-Body-Limit über einen rohen Body.
-func (c *Client) UploadFile(ctx context.Context, agentToken, xferID, name string, data []byte) error {
+// UploadFile lädt eine Datei (aus einem read_file-Befehl) gestreamt zum Server hoch, wo
+// der Browser sie abholt. Ohne Gesamt-Zeitlimit (große Dateien), abbrechbar über ctx.
+func (c *Client) UploadFile(ctx context.Context, agentToken, xferID, name string, body io.Reader, size int64) error {
 	u := c.baseURL + "/api/v1/agent/file-upload?cmd=" + url.QueryEscape(xferID) + "&name=" + url.QueryEscape(name)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, body)
 	if err != nil {
 		return err
 	}
+	req.ContentLength = size
 	req.Header.Set("Authorization", "Bearer "+agentToken)
 	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := c.http.Do(req)
+	resp, err := c.stream.Do(req)
 	if err != nil {
 		return err
 	}
@@ -93,23 +94,24 @@ func (c *Client) UploadFile(ctx context.Context, agentToken, xferID, name string
 	return nil
 }
 
-// DownloadPayload holt die vom Browser hochgeladenen Bytes für einen write_file-Befehl.
-func (c *Client) DownloadPayload(ctx context.Context, agentToken, xferID string) ([]byte, error) {
+// DownloadPayload öffnet die vom Browser hochgeladenen Bytes eines write_file-Befehls als
+// Datenstrom (Größe -1, wenn unbekannt). Der Aufrufer schließt den Body.
+func (c *Client) DownloadPayload(ctx context.Context, agentToken, xferID string) (io.ReadCloser, int64, error) {
 	u := c.baseURL + "/api/v1/agent/file-download?cmd=" + url.QueryEscape(xferID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Authorization", "Bearer "+agentToken)
-	resp, err := c.http.Do(req)
+	resp, err := c.stream.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download: status %d", resp.StatusCode)
+		resp.Body.Close()
+		return nil, 0, fmt.Errorf("download: status %d", resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, 33<<20))
+	return resp.Body, resp.ContentLength, nil
 }
 
 // DownloadAgent lädt das Agent-Binary für eine Plattform ("<os>-<arch>").

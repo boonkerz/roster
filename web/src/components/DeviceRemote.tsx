@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 
 import { pollCmd } from "../pollCmd";
+import { MAX_TRANSFER, pollTransfer, uploadFile } from "../transfer";
 
 // DeviceRemote öffnet eine Web-Fernsteuerung (Remote Desktop) über noVNC. Der Server
 // startet on-demand einen VNC-Server am Gerät und tunnelt die RFB-Bytes über eine
@@ -83,16 +84,16 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
   const [dropStatus, setDropStatus] = useState("");
   const uploadDropped = async (file: File) => {
     const target = /win/i.test(os) ? `C:\\Users\\Public\\Desktop\\${file.name}` : `/tmp/${file.name}`;
+    if (file.size > MAX_TRANSFER) { setDropStatus(t("Datei zu groß (max 4 GB)")); return; }
     setDropStatus(t("Übertrage {name}…", { name: file.name }));
     try {
-      const res = await fetch(`/api/v1/devices/${id}/write-file?path=${encodeURIComponent(target)}`,
-        { method: "POST", credentials: "include", body: file });
-      if (!res.ok) throw new Error();
-      const { command_id } = await res.json();
-      const cmd = await pollCmd(command_id);
-      if (cmd.exit_code !== 0) throw new Error();
+      const { command_id } = await uploadFile(`/api/v1/devices/${id}/write-file?path=${encodeURIComponent(target)}`, file,
+        (pct) => setDropStatus(t("Hochladen zum Server: {pct} %", { pct }) + ` – ${file.name}`));
+      setDropStatus(t("Gerät übernimmt {name}…", { name: file.name }));
+      const cmd = await pollTransfer(command_id, (p) => setDropStatus(`${p} – ${file.name}`));
+      if (cmd.exit_code !== 0) throw new Error(cmd.output);
       setDropStatus(`✓ ${file.name} → ${target}`);
-    } catch { setDropStatus(t("Übertragung fehlgeschlagen")); }
+    } catch (e) { setDropStatus(t("Übertragung fehlgeschlagen") + ((e as Error).message ? `: ${(e as Error).message}` : "")); }
   };
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
