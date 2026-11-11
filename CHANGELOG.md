@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.30.2] - 2026-11-11
+
 ### Added
 - Settings → Downloads shows the **version of every viewer and tray package** (and flags packages older than the server). The line underneath now says "Server version" – before, it showed only the server's version, which is why outdated packages went unnoticed.
 
@@ -490,7 +492,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.2...HEAD
+[0.30.2]: https://github.com/boonkerz/roster/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/boonkerz/roster/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/boonkerz/roster/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
