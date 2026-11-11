@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Einstellungen → Downloads zeigt die **Version jedes Viewer- und Tray-Pakets** (und markiert Pakete, die älter als der Server sind). Die Zeile darunter heißt jetzt „Server-Version“ – bisher stand dort nur die Version des Servers, deshalb fielen veraltete Pakete nicht auf.
+
 ## [0.30.1] - 2026-11-11
 
 ### Geändert

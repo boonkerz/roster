@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Settings → Downloads shows the **version of every viewer and tray package** (and flags packages older than the server). The line underneath now says "Server version" – before, it showed only the server's version, which is why outdated packages went unnoticed.
+
 ## [0.30.1] - 2026-11-11
 
 ### Changed

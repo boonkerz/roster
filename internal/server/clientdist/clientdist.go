@@ -11,6 +11,7 @@ package clientdist
 import (
 	"io/fs"
 	"sort"
+	"strings"
 )
 
 // Set beschreibt die eingebetteten Pakete eines Client-Programms.
@@ -27,6 +28,9 @@ type Entry struct {
 	Platform string `json:"platform"` // <os>-<arch>
 	Filename string `json:"filename"` // Dateiname beim Herunterladen
 	Size     int64  `json:"size"`     // Bytes
+	// Version des eingebetteten Pakets (Begleitdatei „<datei>.version“ vom Build);
+	// leer, wenn unbekannt (ältere Builds).
+	Version string `json:"version,omitempty"`
 }
 
 // Read liefert das Paket einer Plattform sowie den vorgeschlagenen Dateinamen.
@@ -63,7 +67,11 @@ func (s Set) List() []Entry {
 		if err != nil {
 			continue
 		}
-		out = append(out, Entry{Platform: p, Filename: s.Names[p], Size: info.Size()})
+		e := Entry{Platform: p, Filename: s.Names[p], Size: info.Size()}
+		if v, err := fs.ReadFile(s.FS, s.Files[p]+".version"); err == nil {
+			e.Version = strings.TrimSpace(string(v))
+		}
+		out = append(out, e)
 	}
 	return out
 }

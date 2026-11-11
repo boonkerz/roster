@@ -275,7 +275,7 @@ function fmtMB(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-type DownloadList = { platforms: { platform: string; filename: string; size: number }[]; version: string };
+type DownloadList = { platforms: { platform: string; filename: string; size: number; version?: string }[]; version: string };
 
 // DownloadTable listet die eingebetteten Pakete eines Client-Programms (Endpunkt
 // /api/v1/<endpoint>) mit Download-Knopf; darunter Version und ein optionaler Hinweis.
@@ -293,7 +293,7 @@ function DownloadTable({ endpoint, info, empty, note }: { endpoint: string; info
         <p className="muted small">{t(empty)}</p>
       ) : (
         <table className="table">
-          <thead><tr><th>{t("Plattform")}</th><th>{t("Datei")}</th><th>{t("Größe")}</th><th></th></tr></thead>
+          <thead><tr><th>{t("Plattform")}</th><th>{t("Datei")}</th><th>{t("Version")}</th><th>{t("Größe")}</th><th></th></tr></thead>
           <tbody>
             {platforms.map((p) => (
               <tr key={p.platform}>
@@ -302,6 +302,14 @@ function DownloadTable({ endpoint, info, empty, note }: { endpoint: string; info
                   <div className="muted small">{t(info[p.platform]?.hint ?? "")}</div>
                 </td>
                 <td className="mono small">{p.filename}</td>
+                <td className="small">
+                  {p.version
+                    ? <span className="mono">{p.version}</span>
+                    : <span className="muted">{t("unbekannt")}</span>}
+                  {(!p.version || (data && p.version !== data.version)) && (
+                    <div className="small" style={{ color: "var(--danger, #c0392b)" }}>{t("älter als der Server ({v})", { v: data?.version ?? "?" })}</div>
+                  )}
+                </td>
                 <td className="muted small">{fmtMB(p.size)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   <a className="btn sm" href={`/api/v1/${endpoint}/${p.platform}`} download style={{ whiteSpace: "nowrap" }}>⭳ {t("Herunterladen")}</a>
@@ -312,7 +320,7 @@ function DownloadTable({ endpoint, info, empty, note }: { endpoint: string; info
         </table>
       )}
       <p className="muted small" style={{ marginTop: 8 }}>
-        {t("Version")}: {data?.version ?? "—"}{note ? <> · {note}</> : null}
+        {t("Server-Version")}: {data?.version ?? "—"}{note ? <> · {note}</> : null}
       </p>
     </>
   );

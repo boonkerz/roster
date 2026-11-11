@@ -8,8 +8,9 @@ import (
 func testSet() Set {
 	return Set{
 		FS: fstest.MapFS{
-			"bin/tool-linux-amd64":       {Data: []byte("linux!")},
-			"bin/tool-windows-amd64.zip": {Data: []byte("zip")},
+			"bin/tool-linux-amd64":         {Data: []byte("linux!")},
+			"bin/tool-linux-amd64.version": {Data: []byte("0.30.2\n")},
+			"bin/tool-windows-amd64.zip":   {Data: []byte("zip")},
 		},
 		Files: map[string]string{
 			"linux-amd64":   "bin/tool-linux-amd64",
@@ -59,5 +60,12 @@ func TestReadAndList(t *testing.T) {
 	}
 	if (Set{FS: fstest.MapFS{}}).List() == nil {
 		t.Fatal("List() on an empty set must return an empty slice, not nil")
+	}
+}
+
+func TestListVersion(t *testing.T) {
+	l := testSet().List()
+	if len(l) != 2 || l[0].Platform != "linux-amd64" || l[0].Version != "0.30.2" || l[1].Version != "" {
+		t.Fatalf("%+v", l)
 	}
 }

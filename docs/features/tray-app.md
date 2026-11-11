@@ -108,7 +108,8 @@ on what was built into the server (`make tray-embed`, `tray-embed-arm64`,
 `tray-embed-windows`, `tray-embed-darwin`); the release workflow builds all of them, and
 `make server` embeds the Linux and Windows builds in the server's own version.
 
-**Which version am I running?** The footer shows the tray's version on the right
+**Settings → Downloads** shows the version of every package next to its file (marked if older
+than the server). **Which version am I running?** The footer shows the tray's version on the right
 (`roster-tray --version` prints it too). If the server is newer, it turns red: "Tray 0.26.0 –
 Update 0.27.0 available" – download the new package and run `--install` again.
 

@@ -68,10 +68,12 @@ uninstall-tray: ## Taskleisten-App und Desktop-Eintrag wieder entfernen
 viewer-embed: ## Linux-Viewer ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
 	mkdir -p internal/server/viewerdist/bin
 	$(GOFLAGS) GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/roster-viewer-linux-amd64 ./cmd/viewer
+	echo "$(VERSION)" > internal/server/viewerdist/bin/roster-viewer-linux-amd64.version
 
 viewer-embed-arm64: ## Linux-ARM64-Viewer ins Server-Embed bauen (Raspberry Pi & Co.)
 	mkdir -p internal/server/viewerdist/bin
 	$(GOFLAGS) GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o internal/server/viewerdist/bin/roster-viewer-linux-arm64 ./cmd/viewer
+	echo "$(VERSION)" > internal/server/viewerdist/bin/roster-viewer-linux-arm64.version
 
 # SDL3-Laufzeitbibliotheken zum Bündeln für Windows/macOS (der Viewer selbst ist
 # cgo-frei; SDL3 wird zur Laufzeit geladen). Pfade überschreibbar via `make VAR=…`.
@@ -93,6 +95,7 @@ viewer-embed-windows: ## Windows-Viewer (cgo-frei) + gebündelte SDL3.dll als ZI
 	cp "$(SDL3_WIN_DLL)" $(BIN)/stage-viewer-win/SDL3.dll
 	cd $(BIN)/stage-viewer-win && zip -j roster-viewer-windows-amd64.zip roster-viewer.exe SDL3.dll
 	mv $(BIN)/stage-viewer-win/roster-viewer-windows-amd64.zip internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip
+	echo "$(VERSION)" > internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip.version
 	rm -rf $(BIN)/stage-viewer-win
 
 viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
@@ -101,6 +104,7 @@ viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als 
 	cp "$(SDL3_MAC_DYLIB)" $(BIN)/libSDL3.dylib
 	cd $(BIN) && rm -f roster-viewer-darwin-arm64.zip && zip -j roster-viewer-darwin-arm64.zip roster-viewer libSDL3.dylib
 	mv $(BIN)/roster-viewer-darwin-arm64.zip internal/server/viewerdist/bin/roster-viewer-darwin-arm64.zip
+	echo "$(VERSION)" > internal/server/viewerdist/bin/roster-viewer-darwin-arm64.zip.version
 	rm -f $(BIN)/roster-viewer $(BIN)/libSDL3.dylib
 
 # Taskleisten-App (roster-tray) ins Server-Embed – gleiches Schema wie der Viewer,
@@ -108,10 +112,12 @@ viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als 
 tray-embed: ## Linux-Taskleisten-App ins Server-Embed bauen (cgo-frei; SDL3 aus dem System)
 	mkdir -p internal/server/traydist/bin
 	$(GOFLAGS) GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o internal/server/traydist/bin/roster-tray-linux-amd64 ./cmd/tray
+	echo "$(VERSION)" > internal/server/traydist/bin/roster-tray-linux-amd64.version
 
 tray-embed-arm64: ## Linux-ARM64-Taskleisten-App ins Server-Embed bauen (Raspberry Pi & Co.)
 	mkdir -p internal/server/traydist/bin
 	$(GOFLAGS) GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o internal/server/traydist/bin/roster-tray-linux-arm64 ./cmd/tray
+	echo "$(VERSION)" > internal/server/traydist/bin/roster-tray-linux-arm64.version
 
 
 tray-embed-windows: ## Windows-Taskleisten-App (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
@@ -122,6 +128,7 @@ tray-embed-windows: ## Windows-Taskleisten-App (cgo-frei) + gebündelte SDL3.dll
 	cp "$(SDL3_WIN_DLL)" $(BIN)/stage-tray-win/SDL3.dll
 	cd $(BIN)/stage-tray-win && zip -j roster-tray-windows-amd64.zip roster-tray.exe SDL3.dll
 	mv $(BIN)/stage-tray-win/roster-tray-windows-amd64.zip internal/server/traydist/bin/roster-tray-windows-amd64.zip
+	echo "$(VERSION)" > internal/server/traydist/bin/roster-tray-windows-amd64.zip.version
 	rm -rf $(BIN)/stage-tray-win
 
 tray-embed-darwin: ## macOS-Taskleisten-App (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
@@ -130,6 +137,7 @@ tray-embed-darwin: ## macOS-Taskleisten-App (cgo-frei) + gebündelte libSDL3.dyl
 	cp "$(SDL3_MAC_DYLIB)" $(BIN)/libSDL3.dylib
 	cd $(BIN) && rm -f roster-tray-darwin-arm64.zip && zip -j roster-tray-darwin-arm64.zip roster-tray libSDL3.dylib
 	mv $(BIN)/roster-tray-darwin-arm64.zip internal/server/traydist/bin/roster-tray-darwin-arm64.zip
+	echo "$(VERSION)" > internal/server/traydist/bin/roster-tray-darwin-arm64.zip.version
 	rm -f $(BIN)/roster-tray $(BIN)/libSDL3.dylib
 
 build: server agent ## Server und Agent bauen

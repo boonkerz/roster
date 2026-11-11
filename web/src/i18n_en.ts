@@ -336,6 +336,8 @@ export const EN: Record<string, string> = {
   "Hochladen zum Server: {pct} %": "Uploading to server: {pct} %",
   "Hochladen: {pct} %": "Uploading: {pct} %",
   "Datei nicht gefunden": "File not found",
+  "älter als der Server ({v})": "older than the server ({v})",
+  "Server-Version": "Server version",
   "Datei zu groß (max 4 GB)": "File too large (max 4 GB)",
   "Virenschutz": "Antivirus",
   "BitLocker": "BitLocker",
