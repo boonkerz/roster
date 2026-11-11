@@ -87,12 +87,13 @@ fetch-sdl3: ## SDL3-Windows-DLL (zum Bündeln) herunterladen und entpacken
 
 viewer-embed-windows: ## Windows-Viewer (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
 	mkdir -p internal/server/viewerdist/bin
-	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-viewer.exe ./cmd/viewer
-	$(PEPATCH) $(BIN)/roster-viewer.exe
-	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
-	cd $(BIN) && rm -f roster-viewer-windows-amd64.zip && zip -j roster-viewer-windows-amd64.zip roster-viewer.exe SDL3.dll
-	mv $(BIN)/roster-viewer-windows-amd64.zip internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip
-	rm -f $(BIN)/roster-viewer.exe $(BIN)/SDL3.dll
+	rm -rf $(BIN)/stage-viewer-win && mkdir -p $(BIN)/stage-viewer-win
+	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/stage-viewer-win/roster-viewer.exe ./cmd/viewer
+	$(PEPATCH) $(BIN)/stage-viewer-win/roster-viewer.exe
+	cp "$(SDL3_WIN_DLL)" $(BIN)/stage-viewer-win/SDL3.dll
+	cd $(BIN)/stage-viewer-win && zip -j roster-viewer-windows-amd64.zip roster-viewer.exe SDL3.dll
+	mv $(BIN)/stage-viewer-win/roster-viewer-windows-amd64.zip internal/server/viewerdist/bin/roster-viewer-windows-amd64.zip
+	rm -rf $(BIN)/stage-viewer-win
 
 viewer-embed-darwin: ## macOS-Viewer (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
 	mkdir -p internal/server/viewerdist/bin
@@ -115,12 +116,13 @@ tray-embed-arm64: ## Linux-ARM64-Taskleisten-App ins Server-Embed bauen (Raspber
 
 tray-embed-windows: ## Windows-Taskleisten-App (cgo-frei) + gebündelte SDL3.dll als ZIP ins Embed
 	mkdir -p internal/server/traydist/bin
-	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/roster-tray.exe ./cmd/tray
-	$(PEPATCH) $(BIN)/roster-tray.exe
-	cp "$(SDL3_WIN_DLL)" $(BIN)/SDL3.dll
-	cd $(BIN) && rm -f roster-tray-windows-amd64.zip && zip -j roster-tray-windows-amd64.zip roster-tray.exe SDL3.dll
-	mv $(BIN)/roster-tray-windows-amd64.zip internal/server/traydist/bin/roster-tray-windows-amd64.zip
-	rm -f $(BIN)/roster-tray.exe $(BIN)/SDL3.dll
+	rm -rf $(BIN)/stage-tray-win && mkdir -p $(BIN)/stage-tray-win
+	$(GOFLAGS) GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)/stage-tray-win/roster-tray.exe ./cmd/tray
+	$(PEPATCH) $(BIN)/stage-tray-win/roster-tray.exe
+	cp "$(SDL3_WIN_DLL)" $(BIN)/stage-tray-win/SDL3.dll
+	cd $(BIN)/stage-tray-win && zip -j roster-tray-windows-amd64.zip roster-tray.exe SDL3.dll
+	mv $(BIN)/stage-tray-win/roster-tray-windows-amd64.zip internal/server/traydist/bin/roster-tray-windows-amd64.zip
+	rm -rf $(BIN)/stage-tray-win
 
 tray-embed-darwin: ## macOS-Taskleisten-App (cgo-frei) + gebündelte libSDL3.dylib als ZIP ins Embed
 	mkdir -p internal/server/traydist/bin
