@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Audit log: folder and multi-selection transfers in the viewer's file manager are logged as **one summary entry** (what, where to, number of files, size, folders, resumed files) instead of one entry per file – a large folder no longer pushes everything else out of the audit view. Single files are still logged individually.
+
 ## [0.30.0] - 2026-11-11
 
 ### Changed

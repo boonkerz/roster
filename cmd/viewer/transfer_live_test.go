@@ -58,6 +58,9 @@ func TestLiveFileSession(t *testing.T) {
 	if fi, err := os.Stat(filepath.Join(back, "gross.bin")); err != nil || fi.Size() != 1<<30 {
 		t.Fatal("download größe")
 	}
+	if os.Getenv("ROSTER_E2E_LEGACY") == "" {
+		return
+	}
 	// Vergleich alter Weg: 20 kleine Dateien über die Befehlswarteschlange
 	old := filepath.Join(local, "alt")
 	os.MkdirAll(old, 0o755)

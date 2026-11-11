@@ -68,6 +68,9 @@ func (fm *fileManager) fileSession() (*fsClient, error) {
 		return nil, err
 	}
 	fm.fs = c
+	if fm.batch != nil { // nach Neuverbindung mitten in einer Sammelübertragung
+		_, _ = c.call(*fm.batch, 30*time.Second)
+	}
 	return c, nil
 }
 
@@ -116,6 +119,11 @@ func (fm *fileManager) runTransfer(ctx context.Context, items []fmEntry, dstDir 
 			return err
 		}
 		policy = ans
+	}
+	// Ordner bzw. mehrere Einträge: fürs Audit-Log als EINE Übertragung klammern.
+	if len(items) > 1 || items[0].dir {
+		fm.beginBatch(items, dstDir)
+		defer fm.endBatch()
 	}
 	var total int64
 	files := 0
@@ -171,6 +179,41 @@ func (fm *fileManager) runTransfer(ctx context.Context, items []fmEntry, dstDir 
 		fm.progress(base)
 	}
 	return nil
+}
+
+// beginBatch/endBatch klammern eine Sammelübertragung (Agents vor 0.30.1 antworten mit
+// einem Fehler – das ist egal, dann protokolliert der Server je Datei).
+func (fm *fileManager) beginBatch(items []fmEntry, dstDir string) {
+	var names []string
+	for i, it := range items {
+		if i == 5 {
+			names = append(names, fmt.Sprintf("+%d", len(items)-5))
+			break
+		}
+		n := it.name
+		if it.dir {
+			n += "/"
+		}
+		names = append(names, n)
+	}
+	req := shared.FileReq{Op: "begin", Path: dstDir, Label: strings.Join(names, ", ")}
+	fm.fsMu.Lock()
+	fm.batch = &req
+	c := fm.fs
+	fm.fsMu.Unlock()
+	if c != nil {
+		_, _ = c.call(req, 30*time.Second)
+	}
+}
+
+func (fm *fileManager) endBatch() {
+	fm.fsMu.Lock()
+	fm.batch = nil
+	c := fm.fs
+	fm.fsMu.Unlock()
+	if c != nil {
+		_, _ = c.call(shared.FileReq{Op: "end"}, 30*time.Second)
+	}
 }
 
 // copyOne überträgt eine Datei; bei Verbindungsabbruch bis zu dreimal neu verbinden

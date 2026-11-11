@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- Audit-Log: Ordner- und Mehrfachübertragungen im Dateimanager des Viewers erscheinen als **ein zusammengefasster Eintrag** (was, wohin, Anzahl Dateien, Datenmenge, Ordner, fortgesetzte Dateien) statt einem je Datei – ein großer Ordner verdrängt nicht mehr alles andere aus der Audit-Ansicht. Einzelne Dateien werden weiter einzeln protokolliert.
+
 ## [0.30.0] - 2026-11-11
 
 ### Geändert

@@ -91,7 +91,9 @@ der Warteschlange und brauchte mehrere Sekunden).
   werden automatisch wiederaufgenommen (bis zu dreimal).
 - Agents vor 0.29.0 nutzen weiter den alten, langsamen Weg (ein Befehl je Datei).
 - Jedes Hoch- und Herunterladen, Löschen und Ordner-Anlegen landet mit Nutzer und Pfad im
-  **Audit-Log** – der Server reicht die Daten durch und liest die Anfragen mit.
+  **Audit-Log** – der Server reicht die Daten durch und liest die Anfragen mit. Ordner und
+  Mehrfachauswahlen ergeben **einen zusammengefassten Eintrag** statt einem je Datei, z. B.
+  „Hochgeladen (Viewer): projekt/ → /srv/www – 300 Datei(en), 1.2 GB, 4 Ordner, 1 fortgesetzt“.
 
 ## Remote-Terminal
 

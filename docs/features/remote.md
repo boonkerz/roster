@@ -87,7 +87,9 @@ several seconds).
   they stopped; short connection drops are resumed automatically (up to three times).
 - Agents before 0.29.0 fall back to the old, slow way (one queued command per file).
 - Every upload, download, delete and new folder lands in the **audit log** with user and path –
-  the server passes the data through and reads along the requests.
+  the server passes the data through and reads along the requests. Folders and multi-selections
+  produce **one summary entry** instead of one per file, e.g. "Uploaded (viewer): project/ →
+  /srv/www – 300 file(s), 1.2 GB, 4 folders, 1 resumed".
 
 ## Remote terminal
 

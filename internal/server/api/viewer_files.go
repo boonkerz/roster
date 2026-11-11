@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -315,10 +316,25 @@ func (s *Server) handleViewerFileWS(w http.ResponseWriter, r *http.Request) {
 	case <-ctx.Done():
 		return
 	}
-	// Wie relay, aber Anfragen des Viewers werden mitgelesen und Dateiaktionen protokolliert.
+	// Wie relay, aber beide Richtungen werden mitgelesen und Dateiaktionen protokolliert.
+	fa := &fileAudit{s: s, r: r, user: user}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go pump(ctx, cancel, agent, c)
+	go func() {
+		defer cancel()
+		for {
+			typ, data, err := agent.Read(ctx)
+			if err != nil {
+				return
+			}
+			if typ == websocket.MessageText {
+				fa.response(data)
+			}
+			if err := c.Write(ctx, typ, data); err != nil {
+				return
+			}
+		}
+	}()
 	func() {
 		defer cancel()
 		for {
@@ -327,29 +343,80 @@ func (s *Server) handleViewerFileWS(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if typ == websocket.MessageText {
-				s.auditFileReq(r, user, data)
+				fa.request(data)
 			}
 			if err := agent.Write(ctx, typ, data); err != nil {
 				return
 			}
 		}
 	}()
+	fa.flush() // offene Zusammenfassung (Viewer ohne „end“ beendet)
 	close(sess.done)
 }
 
-// fileReqActions: welche Operationen einer Datei-Sitzung ins Audit-Log gehören.
+// fileAudit protokolliert die Dateiaktionen einer Viewer-Sitzung. Einzelne Aktionen werden
+// einzeln geschrieben; zwischen „begin“ und „end“ (Ordner bzw. mehrere Einträge) entsteht
+// stattdessen EIN Eintrag mit Anzahl und Datenmenge – sonst verdrängt ein großer Ordner
+// alles andere aus dem Audit-Log.
+type fileAudit struct {
+	s    *Server
+	r    *http.Request
+	user string
+
+	mu      sync.Mutex
+	lastOp  string
+	batch   bool
+	label   string
+	target  string
+	puts    int
+	gets    int
+	dels    int
+	dirs    int
+	bytes   int64
+	resumed int
+}
+
 var fileReqActions = map[string]string{
 	"put": "Datei hochgeladen (Viewer)", "get": "Datei heruntergeladen (Viewer)",
 	"delete": "Gelöscht (Viewer)", "mkdir": "Ordner angelegt (Viewer)",
 }
 
-func (s *Server) auditFileReq(r *http.Request, user string, data []byte) {
+func (fa *fileAudit) request(data []byte) {
 	var req shared.FileReq
 	if json.Unmarshal(data, &req) != nil {
 		return
 	}
+	fa.mu.Lock()
+	defer fa.mu.Unlock()
+	fa.lastOp = req.Op
+	switch req.Op {
+	case "begin":
+		fa.flushLocked()
+		fa.batch, fa.label, fa.target = true, req.Label, req.Path
+		return
+	case "end":
+		fa.flushLocked()
+		return
+	}
 	action, ok := fileReqActions[req.Op]
 	if !ok {
+		return
+	}
+	if fa.batch {
+		switch req.Op {
+		case "put":
+			fa.puts++
+			fa.bytes += req.Size - req.Offset
+			if req.Offset > 0 {
+				fa.resumed++
+			}
+		case "get":
+			fa.gets++
+		case "delete":
+			fa.dels++
+		case "mkdir":
+			fa.dirs++
+		}
 		return
 	}
 	text := action + ": " + req.Path
@@ -359,9 +426,77 @@ func (s *Server) auditFileReq(r *http.Request, user string, data []byte) {
 			text += ", fortgesetzt ab " + humanBytes(req.Offset)
 		}
 	}
-	_ = s.store.InsertAudit(context.WithoutCancel(r.Context()), model.AuditEntry{
-		TS: time.Now().UTC(), Username: user, Action: text,
-		Method: "FILE", Path: "/devices/" + chi.URLParam(r, "id"), Status: http.StatusOK, IP: clientIP(r),
+	fa.write(text)
+}
+
+// response zählt bei Downloads die Größe aus der Antwort des Agents mit.
+func (fa *fileAudit) response(data []byte) {
+	fa.mu.Lock()
+	defer fa.mu.Unlock()
+	if !fa.batch || fa.lastOp != "get" {
+		return
+	}
+	var resp shared.FileResp
+	if json.Unmarshal(data, &resp) == nil && resp.OK && !resp.EOF {
+		fa.bytes += resp.Size
+	}
+}
+
+func (fa *fileAudit) flush() {
+	fa.mu.Lock()
+	defer fa.mu.Unlock()
+	fa.flushLocked()
+}
+
+func (fa *fileAudit) flushLocked() {
+	if !fa.batch {
+		return
+	}
+	if text := batchSummary(fa.label, fa.target, fa.puts, fa.gets, fa.dels, fa.dirs, fa.resumed, fa.bytes); text != "" {
+		fa.write(text)
+	}
+	fa.batch, fa.label, fa.target = false, "", ""
+	fa.puts, fa.gets, fa.dels, fa.dirs, fa.resumed, fa.bytes = 0, 0, 0, 0, 0, 0
+}
+
+// batchSummary formuliert die Zusammenfassung einer Sammelübertragung (rein, getestet).
+func batchSummary(label, target string, puts, gets, dels, dirs, resumed int, bytes int64) string {
+	var verb string
+	var files int
+	switch {
+	case puts > 0:
+		verb, files = "Hochgeladen (Viewer)", puts
+	case gets > 0:
+		verb, files = "Heruntergeladen (Viewer)", gets
+	case dels > 0:
+		return fmt.Sprintf("Gelöscht (Viewer): %s – %d Einträge", label, dels)
+	case dirs > 0:
+		verb = "Ordner angelegt (Viewer)"
+	default:
+		return "" // nichts übertragen (z. B. alles übersprungen)
+	}
+	text := verb + ": " + label
+	if target != "" {
+		if puts > 0 {
+			text += " → " + target
+		} else {
+			text += " → lokal " + target
+		}
+	}
+	text += fmt.Sprintf(" – %d Datei(en), %s", files, humanBytes(bytes))
+	if dirs > 0 {
+		text += fmt.Sprintf(", %d Ordner", dirs)
+	}
+	if resumed > 0 {
+		text += fmt.Sprintf(", %d fortgesetzt", resumed)
+	}
+	return text
+}
+
+func (fa *fileAudit) write(text string) {
+	_ = fa.s.store.InsertAudit(context.WithoutCancel(fa.r.Context()), model.AuditEntry{
+		TS: time.Now().UTC(), Username: fa.user, Action: text,
+		Method: "FILE", Path: "/devices/" + chi.URLParam(fa.r, "id"), Status: http.StatusOK, IP: clientIP(fa.r),
 	})
 }
 

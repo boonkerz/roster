@@ -13,6 +13,8 @@ import "encoding/json"
 //	get   path offset         → {ok, size} + Binär ab offset … + {ok, eof}
 //	put   path size offset    → {ok, offset} + Binär (size-offset Bytes) → {ok}
 //	mkdir path / delete path  → {ok}
+//	begin path label / end    → {ok}  (klammern eine Sammelübertragung fürs Audit-Log;
+//	                                  Agents vor 0.30.1 antworten mit {error} – egal)
 //
 // put schreibt in „<path>.roster-part“ und benennt erst nach vollständigem Empfang um –
 // bricht die Verbindung ab, setzt der nächste put mit offset = Größe der Teildatei fort.
@@ -28,6 +30,7 @@ type FileReq struct {
 	Path   string `json:"path,omitempty"`
 	Size   int64  `json:"size,omitempty"`
 	Offset int64  `json:"offset,omitempty"`
+	Label  string `json:"label,omitempty"` // begin: was übertragen wird (fürs Audit-Log)
 }
 
 type FileResp struct {

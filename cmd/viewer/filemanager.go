@@ -90,6 +90,7 @@ type fileManager struct {
 	fsMu          sync.Mutex
 	fs            *fsClient
 	fsUnsupported bool
+	batch         *shared.FileReq // laufende Sammelübertragung (begin), für Neuverbindungen
 
 	xfer   xferState
 	askCh  chan string

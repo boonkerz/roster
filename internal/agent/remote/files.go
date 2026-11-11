@@ -77,7 +77,7 @@ func (f *fileSession) fail(ctx context.Context, err error) error {
 // (Verbindung kaputt); fachliche Fehler gehen als {error} an den Viewer.
 func (f *fileSession) handle(ctx context.Context, req shared.FileReq) error {
 	switch req.Op {
-	case "hello":
+	case "hello", "begin", "end":
 		return f.reply(ctx, shared.FileResp{OK: true})
 	case "list":
 		return f.reply(ctx, shared.FileResp{OK: true, Listing: json.RawMessage(collect.BrowseDir(req.Path))})
