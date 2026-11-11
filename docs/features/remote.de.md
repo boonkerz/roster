@@ -64,6 +64,33 @@ Latin-1 übertragen (Umlaute ja, z. B. „€“ oder Emojis nicht).
     zeigt die Version des Viewers („· Viewer 0.28.0“; auch `roster-viewer --version`); ist der
     Server neuer, steht dort „Update … verfügbar“.
 
+### Dateimanager im nativen Viewer (F9)
+
+**F9** öffnet über dem Bildschirm einen Zwei-Fenster-Dateimanager – links dein Rechner, rechts
+das Gerät. Seit 0.29.0 nutzt er einen **direkten Datei-Kanal durch den Tunnel**: eine
+Verbindung für alle Dateien, gestreamt ohne Zwischenstation auf dem Server (lokal gemessen:
+300 kleine Dateien in 0,1 s, 1 GB in etwa einer Sekunde – vorher war jede Datei ein Befehl in
+der Warteschlange und brauchte mehrere Sekunden).
+
+| Taste / Maus | Aktion |
+|---|---|
+| `Leertaste` / `Einfg` | Eintrag markieren und weiter |
+| `Strg`+Klick / `Umschalt`+Klick | einzeln / Bereich markieren |
+| `Strg`+`A` | alle markieren (nochmal: keine) |
+| `F5` | Markierte (bzw. den aktuellen Eintrag) auf die andere Seite kopieren – Dateien und ganze Ordner |
+| `F7` / `F8` | neuer Ordner / löschen (Markierte) |
+| `Esc` | laufende Übertragung abbrechen, sonst schließen |
+
+- **Fortschritt** in der Fußzeile: Dateien, Datenmenge, Geschwindigkeit und Restzeit, mit Balken.
+- **Vorhandene Dateien:** Gibt es Dateien am Ziel schon, fragt der Viewer einmal für die ganze
+  Übertragung: **überschreiben**, **überspringen, wenn gleich groß** (sonst überschreiben) oder
+  **alle überspringen**.
+- **Fortsetzen:** Dateien in Übertragung heißen `<name>.roster-part` und werden erst nach
+  vollständigem Empfang umbenannt. Nach einem Abbruch oder Verbindungsverlust setzt ein
+  erneutes `F5` Teildateien dort fort, wo sie stehen geblieben sind; kurze Verbindungsabbrüche
+  werden automatisch wiederaufgenommen (bis zu dreimal).
+- Agents vor 0.29.0 nutzen weiter den alten, langsamen Weg (ein Befehl je Datei).
+
 ## Remote-Terminal
 
 Eine interaktive Shell über einen On-demand-WebSocket, mit ausklinkbarem Fenster. Unter Windows

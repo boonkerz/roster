@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/jupiterrider/purego-sdl3/sdl"
 
 	"github.com/boonkerz/roster/internal/sdlui"
@@ -18,6 +20,10 @@ var (
 	fmFile    = [3]uint8{0xd7, 0xde, 0xe6}
 	fmMuted   = [3]uint8{0x8a, 0x96, 0xa4}
 	fmWhite   = [3]uint8{0xff, 0xff, 0xff}
+	fmMark    = [3]uint8{0xff, 0xd3, 0x5c}       // markierte Einträge
+	fmMarkBg  = [4]uint8{0x3a, 0x33, 0x18, 0xff} // Hintergrund markierter Zeilen
+	fmBar     = [4]uint8{0x2f, 0x8f, 0x5a, 0xff} // Fortschrittsbalken
+	fmBarBg   = [4]uint8{0x0d, 0x11, 0x17, 0xff}
 )
 
 func (fm *fileManager) fill(x, y, w, h float32, c [4]uint8) {
@@ -70,6 +76,9 @@ func (fm *fileManager) draw(winW, winH float32) {
 		}
 		fm.fill(x, top, colW, headerH, hc)
 		title := paneTitle(p)
+		if n := p.markCount(); n > 0 {
+			title += fmt.Sprintf("   [%d markiert]", n)
+		}
 		fm.txt.Draw(fm.txt.Clip(title, colW-16*s), x+8*s, top+5*s, fmWhite[0], fmWhite[1], fmWhite[2])
 
 		// Auswahl in den sichtbaren Bereich scrollen.
@@ -98,6 +107,10 @@ func (fm *fileManager) draw(winW, winH float32) {
 			}
 			e := p.entries[idx]
 			ry := listY + float32(r)*rowH
+			marked := p.marked[e.path] && e.name != ".."
+			if marked {
+				fm.fill(x+2*s, ry, colW-4*s, rowH, fmMarkBg)
+			}
 			if idx == p.sel {
 				sc := fmSel
 				if focused {
@@ -112,6 +125,10 @@ func (fm *fileManager) draw(winW, winH float32) {
 				if name != ".." {
 					name = name + "/"
 				}
+			}
+			if marked {
+				col = fmMark
+				name = "✓ " + name
 			}
 			// Größe rechtsbündig (nur Dateien).
 			sizeStr := ""
@@ -133,9 +150,24 @@ func (fm *fileManager) draw(winW, winH float32) {
 	// Fußzeile: Tastenhinweise bzw. Status/Prompt.
 	fy := winH - footerH
 	fm.fill(0, fy, winW, footerH, fmHeader)
-	msg := "Tab=Seite  Enter=öffnen  F5=kopieren  F7=Ordner  F8=löschen  Esc=schließen"
+	msg := "Tab=Seite  Enter=öffnen  Leertaste/Strg+Klick=markieren  Strg+A=alle  F5=kopieren  F7=Ordner  F8=löschen  Esc=schließen"
 	col := fmMuted
-	if fm.prompt.kind != "" {
+	if fm.xfer.active && fm.prompt.kind == "" {
+		// Fortschrittsbalken über die ganze Fußzeile, Text darüber.
+		if fm.xfer.total > 0 {
+			frac := float32(fm.xfer.sent) / float32(fm.xfer.total)
+			if frac > 1 {
+				frac = 1
+			}
+			fm.fill(0, fy, winW, footerH, fmBarBg)
+			fm.fill(0, fy, winW*frac, footerH, fmBar)
+		}
+		msg = fm.xfer.statusLine()
+		if fm.xfer.files == 0 && fm.status != "" {
+			msg = fm.status
+		}
+		col = fmWhite
+	} else if fm.prompt.kind != "" {
 		if fm.prompt.kind == "mkdir" {
 			msg = fm.prompt.label + " " + fm.prompt.text + "▏"
 		} else {
@@ -160,13 +192,24 @@ func (fm *fileManager) drawButtons(winW, y, h, s, lh float32) {
 		{id: "refresh", label: "Aktualisieren"},
 		{id: "close", label: "Schließen Esc"},
 	}
+	switch {
+	case fm.prompt.kind == "conflict":
+		defs = []fmButton{
+			{id: policyOverwrite, label: "Überschreiben (O)"},
+			{id: policySkipSame, label: "Überspringen, wenn gleich groß (G)"},
+			{id: policySkip, label: "Alle überspringen (S)"},
+			{id: "cancel", label: "Abbrechen (Esc)"},
+		}
+	case fm.xfer.active:
+		defs = []fmButton{{id: "abort", label: "Übertragung abbrechen (Esc)"}}
+	}
 	padX := 12 * s
 	bx := 8 * s
 	for i := range defs {
 		w := fm.txt.Width(defs[i].label) + 2*padX
 		defs[i].x = bx
 		defs[i].w = w
-		accent := defs[i].id == "copy"
+		accent := defs[i].id == "copy" || defs[i].id == policySkipSame
 		cr, cg, cb := uint8(0x2b), uint8(0x38), uint8(0x49)
 		if accent {
 			cr, cg, cb = 0x2f, 0x5a, 0x8f // Kopieren hervorheben

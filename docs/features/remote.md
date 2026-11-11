@@ -62,6 +62,31 @@ As usual with VNC, only Latin-1 characters are transferred (umlauts yes, e.g. "�
     ("· Viewer 0.28.0"; also `roster-viewer --version`); if the server is newer, the title says
     "Update … available".
 
+### File manager in the native viewer (F9)
+
+**F9** opens a two-pane file manager over the remote screen – left your computer, right the
+device. Since 0.29.0 it uses a **direct file channel through the tunnel**: one connection for
+all files, streamed without an intermediate stop on the server (locally measured: 300 small
+files in 0.1 s, 1 GB in about a second – before, every file was a queued command taking
+several seconds).
+
+| Key / mouse | Action |
+|---|---|
+| `Space` / `Insert` | mark entry and move down |
+| `Ctrl`+click / `Shift`+click | mark single entry / range |
+| `Ctrl`+`A` | mark all (again: none) |
+| `F5` | copy marked entries (or the current one) to the other side – files and whole folders |
+| `F7` / `F8` | new folder / delete (marked entries) |
+| `Esc` | abort a running transfer, otherwise close |
+
+- **Progress** in the footer: files, bytes, speed and remaining time, with a progress bar.
+- **Existing files:** if some files already exist on the target, the viewer asks once for the
+  whole transfer: **overwrite**, **skip if same size** (otherwise overwrite) or **skip all**.
+- **Resume:** files in transfer are written as `<name>.roster-part` and renamed only when
+  complete. After an abort or a dropped connection, `F5` again continues partial files where
+  they stopped; short connection drops are resumed automatically (up to three times).
+- Agents before 0.29.0 fall back to the old, slow way (one queued command per file).
+
 ## Remote terminal
 
 An interactive shell over an on-demand WebSocket, with a pop-out window. On Windows you can

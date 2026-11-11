@@ -443,7 +443,7 @@ func runSession(cfg *launchConfig) error {
 					break
 				}
 				if fm.active {
-					if down && fm.onKey(ke.Key) {
+					if down && fm.onKey(ke.Key, ke.Mod) {
 						uiDirty = true
 					}
 					break // Tasten nicht ans Gerät weiterreichen

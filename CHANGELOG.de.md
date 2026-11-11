@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Dateimanager im Viewer (F9): **Mehrfachauswahl** (Leertaste/Einfg, Strg+Klick, Umschalt+Klick, Strg+A) – mehrere Dateien und Ordner auf einmal kopieren oder löschen. Gibt es Dateien am Ziel schon, fragt er einmal: **überschreiben**, **überspringen, wenn gleich groß** oder **alle überspringen**. Die Fußzeile zeigt Dateien, Datenmenge, Geschwindigkeit und Restzeit mit Balken; Esc bricht ab.
+- **Fortsetzen:** Dateien werden als `*.roster-part` geschrieben und erst vollständig umbenannt; erneutes F5 setzt abgebrochene Dateien fort, kurze Verbindungsabbrüche werden automatisch wiederaufgenommen.
+
+### Geändert
+- Dateimanager im Viewer ist **deutlich schneller**: ein direkter Datei-Kanal durch den Tunnel (eine Verbindung für alle Dateien, gestreamt, ohne Zwischenstation auf dem Server) ersetzt einen Befehl in der Warteschlange je Datei – lokal 300 kleine Dateien in 0,1 s statt rund 6 s pro Datei, 1 GB in etwa einer Sekunde. Braucht Agent 0.29.0; ältere Agents nutzen weiter den alten Weg.
+
 ## [0.28.0] - 2026-11-11
 
 ### Hinzugefügt

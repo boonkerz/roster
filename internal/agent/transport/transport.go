@@ -170,6 +170,24 @@ func (c *Client) DialTerminal(ctx context.Context, agentToken, session string) (
 	return conn, nil
 }
 
+// DialFiles verbindet eine Datei-Sitzung (gleiche Paarung wie das Terminal, aber ohne
+// Kompression – Dateien sind oft schon komprimiert, deflate kostet nur CPU).
+func (c *Client) DialFiles(ctx context.Context, agentToken, session string) (*websocket.Conn, error) {
+	u := wsURL(c.baseURL) + "/api/v1/agent/terminal?session=" + url.QueryEscape(session)
+	header := http.Header{}
+	header.Set("Authorization", "Bearer "+agentToken)
+	conn, _, err := websocket.Dial(ctx, u, &websocket.DialOptions{
+		HTTPClient:      c.stream,
+		HTTPHeader:      header,
+		CompressionMode: websocket.CompressionDisabled,
+	})
+	if err != nil {
+		return nil, err
+	}
+	conn.SetReadLimit(4 << 20)
+	return conn, nil
+}
+
 // wsURL wandelt eine http(s)-Basis-URL in das passende ws(s)-Schema um.
 func wsURL(base string) string {
 	switch {

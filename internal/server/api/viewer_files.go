@@ -6,7 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+
+	"github.com/boonkerz/roster/internal/shared"
 )
 
 // fileCapTTL ist die (gleitende) Lebensdauer einer Datei-Capability des nativen
@@ -232,6 +235,52 @@ func (s *Server) handleViewerCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, cmd)
+}
+
+// handleViewerFileSession eröffnet eine Datei-Sitzung: der Agent wird geweckt und
+// verbindet sich, der Viewer kommt über handleViewerFileWS dazu (Server relayed nur).
+func (s *Server) handleViewerFileSession(w http.ResponseWriter, r *http.Request) {
+	devID, ok := s.viewerFileAuth(w, r)
+	if !ok {
+		return
+	}
+	tok := bearerToken(r)
+	if tok == "" {
+		tok = r.URL.Query().Get("token")
+	}
+	sessID := newSessionID()
+	sess := &termSession{
+		deviceID:  devID,
+		agentConn: make(chan *websocket.Conn, 1),
+		done:      make(chan struct{}),
+		token:     tok,
+	}
+	s.term.addSession(sessID, sess)
+	go func() {
+		select {
+		case <-sess.done:
+		case <-time.After(remoteSessionTTL):
+			s.term.takeSession(sessID)
+		}
+	}()
+	s.term.requestWake(devID, shared.WaitResponse{Type: "open_files", Session: sessID})
+	s.writeJSON(w, http.StatusCreated, map[string]string{"session": sessID})
+}
+
+// handleViewerFileWS nimmt die WS des Viewers an und reicht sie an den Agent durch.
+func (s *Server) handleViewerFileWS(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.viewerFileAuth(w, r); !ok {
+		return
+	}
+	sessID := r.URL.Query().Get("session")
+	s.term.mu.Lock()
+	sess := s.term.session[sessID]
+	s.term.mu.Unlock()
+	if sess == nil || sess.deviceID != chi.URLParam(r, "id") {
+		s.writeErr(w, http.StatusNotFound, "unbekannte session")
+		return
+	}
+	s.relayRemote(w, r, sessID, sess)
 }
 
 // handleViewerBlob streamt die vom Agent hochgeladene Datei an den Viewer.

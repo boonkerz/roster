@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +20,7 @@ import (
 	"github.com/jupiterrider/purego-sdl3/sdl"
 
 	"github.com/boonkerz/roster/internal/sdlui"
+	"github.com/boonkerz/roster/internal/shared"
 )
 
 // Zweipanel-Dateimanager (Midnight-Commander-Stil) als Overlay über dem Remote-Bild.
@@ -41,19 +44,55 @@ type fmPane struct {
 	top     int
 	err     string
 	loading bool
+	marked  map[string]bool // Mehrfachauswahl (Pfad → markiert)
+}
+
+func (p *fmPane) markCount() int {
+	n := 0
+	for _, on := range p.marked {
+		if on {
+			n++
+		}
+	}
+	return n
+}
+
+func (p *fmPane) toggleMark(i int) {
+	if i < 0 || i >= len(p.entries) || p.entries[i].name == ".." {
+		return
+	}
+	if p.marked == nil {
+		p.marked = map[string]bool{}
+	}
+	k := p.entries[i].path
+	if p.marked[k] {
+		delete(p.marked, k)
+	} else {
+		p.marked[k] = true
+	}
 }
 
 // promptState hält eine modale Eingabe (Ordnername) bzw. eine Bestätigung (Löschen).
 type promptState struct {
-	kind  string // "" | "mkdir" | "delete"
-	text  string // Eingabepuffer (mkdir) bzw. anzuzeigender Pfad (delete)
+	kind  string   // "" | "mkdir" | "delete" | "conflict"
+	text  string   // Eingabepuffer (mkdir)
+	paths []string // zu löschende Pfade (delete)
 	label string
 }
 
 type fileManager struct {
-	txt    *sdlui.Text
-	rn     *sdl.Renderer
-	cl     *fmClient
+	txt *sdlui.Text
+	rn  *sdl.Renderer
+	cl  *fmClient
+	cfg *launchConfig
+
+	// Datei-Sitzung (schneller Kanal); fsUnsupported = Agent zu alt → Befehlswarteschlange.
+	fsMu          sync.Mutex
+	fs            *fsClient
+	fsUnsupported bool
+
+	xfer   xferState
+	askCh  chan string
 	active bool
 	scale  float32 // UI-Skalierung (HiDPI); 1.0 = normal
 
@@ -87,6 +126,7 @@ func newFileManager(txt *sdlui.Text, cfg *launchConfig) *fileManager {
 		txt:   txt,
 		rn:    txt.Renderer(),
 		cl:    newFMClient(cfg),
+		cfg:   cfg,
 		scale: 1,
 	}
 	fm.local.remote = false
@@ -116,6 +156,7 @@ func (fm *fileManager) toggle() {
 	if needRemote {
 		fm.load(&fm.remote, fm.remote.path)
 	}
+	go func() { _, _ = fm.fileSession() }() // schnellen Kanal vorab aufbauen
 }
 
 func (fm *fileManager) curPane() *fmPane {
@@ -142,7 +183,7 @@ func (fm *fileManager) load(p *fmPane, path string) {
 	go func() {
 		var l fmListing
 		if p.remote {
-			l = fm.cl.browse(path)
+			l = fm.remoteBrowse(path)
 		} else {
 			l = localBrowse(path)
 		}
@@ -154,6 +195,7 @@ func (fm *fileManager) load(p *fmPane, path string) {
 			p.path = l.path
 			p.entries = withParent(l)
 			p.sel, p.top = 0, 0
+			p.marked = nil
 		}
 		fm.mu.Unlock()
 	}()
@@ -172,8 +214,31 @@ func withParent(l fmListing) []fmEntry {
 // --- Eingabe ---
 
 // onKey verarbeitet einen Tastendruck. Liefert true, wenn er verbraucht wurde.
-func (fm *fileManager) onKey(sym sdl.Keycode) bool {
+func (fm *fileManager) onKey(sym sdl.Keycode, mod sdl.Keymod) bool {
 	fm.mu.Lock()
+	// Konfliktfrage einer laufenden Übertragung.
+	if fm.prompt.kind == "conflict" {
+		switch sym {
+		case sdl.KeycodeO:
+			fm.answerLocked(policyOverwrite)
+		case sdl.KeycodeG:
+			fm.answerLocked(policySkipSame)
+		case sdl.KeycodeS:
+			fm.answerLocked(policySkip)
+		case sdl.KeycodeEscape:
+			fm.answerLocked("")
+		}
+		fm.mu.Unlock()
+		return true
+	}
+	// Laufende Übertragung: Esc bricht ab (Teildateien bleiben zum Fortsetzen).
+	if fm.xfer.active && sym == sdl.KeycodeEscape {
+		if fm.xfer.cancel != nil {
+			fm.xfer.cancel()
+		}
+		fm.mu.Unlock()
+		return true
+	}
 	// Modale Eingabe zuerst.
 	if fm.prompt.kind != "" {
 		switch sym {
@@ -237,13 +302,31 @@ func (fm *fileManager) onKey(sym sdl.Keycode) bool {
 		fm.mu.Unlock()
 		fm.transfer()
 		return true
+	case sdl.KeycodeSpace, sdl.KeycodeInsert:
+		// Markieren und weiter (wie im Midnight Commander).
+		p.toggleMark(p.sel)
+		if p.sel < n-1 {
+			p.sel++
+		}
+	case sdl.KeycodeA:
+		if mod&sdl.KeymodCtrl == 0 {
+			fm.mu.Unlock()
+			return false
+		}
+		// Strg+A: alle markieren bzw. – wenn schon alle markiert – keine.
+		all := p.markCount() >= len(p.entries)-1
+		p.marked = map[string]bool{}
+		if !all {
+			for _, e := range p.entries {
+				if e.name != ".." {
+					p.marked[e.path] = true
+				}
+			}
+		}
 	case sdl.KeycodeF7:
 		fm.prompt = promptState{kind: "mkdir", label: "Neuer Ordner in " + paneLabel(p) + ":"}
 	case sdl.KeycodeF8, sdl.KeycodeDelete:
-		if n > 0 && p.entries[p.sel].name != ".." {
-			e := p.entries[p.sel]
-			fm.prompt = promptState{kind: "delete", text: e.path, label: "Löschen: " + e.name + "  (Enter=ja, Esc=nein)"}
-		}
+		fm.prompt = deletePrompt(p)
 	default:
 		fm.mu.Unlock()
 		return false
@@ -289,8 +372,8 @@ func (fm *fileManager) goParent(p *fmPane) {
 	}
 }
 
-// transfer kopiert die Auswahl ins andere Panel (F5) – Datei oder rekursiv einen
-// ganzen Ordner. Läuft asynchron; Fortschritt/Ergebnis stehen in der Fußzeile.
+// transfer kopiert die Auswahl (markierte Einträge, sonst den aktuellen) ins andere
+// Panel (F5) – Dateien und ganze Ordner. Läuft asynchron mit Fortschritt in der Fußzeile.
 func (fm *fileManager) transfer() {
 	fm.mu.Lock()
 	if fm.busy {
@@ -299,46 +382,103 @@ func (fm *fileManager) transfer() {
 	}
 	src := fm.curPane()
 	dst := fm.otherPane()
-	if len(src.entries) == 0 {
-		fm.mu.Unlock()
-		return
-	}
-	e := src.entries[src.sel]
+	items := src.selection()
 	dstPath := dst.path
-	dstRemote := dst.remote
 	srcRemote := src.remote
 	fm.mu.Unlock()
-
-	if e.name == ".." {
+	if len(items) == 0 {
 		return
 	}
-	if srcRemote == dstRemote {
-		fm.setStatus("Quelle und Ziel sind dieselbe Seite")
+	if dstPath == "" {
+		fm.setStatus("Bitte im Zielpanel zuerst einen Ordner öffnen")
 		return
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	fm.mu.Lock()
 	fm.busy = true
+	fm.xfer = xferState{active: true, cancel: cancel}
 	fm.mu.Unlock()
 	go func() {
-		defer func() { fm.mu.Lock(); fm.busy = false; fm.mu.Unlock() }()
-		var count int
-		if e.dir {
-			fm.setStatus("Ordner-Transfer: " + e.name + " …")
-		} else {
-			fm.setStatus("Übertrage " + e.name + " …")
+		defer cancel()
+		start := time.Now()
+		err := fm.runTransfer(ctx, items, dstPath, srcRemote)
+		if errors.Is(err, errNoFileSession) {
+			err = fm.legacyTransfer(items, dstPath, srcRemote)
 		}
-		if err := fm.copyTree(e, dstPath, srcRemote, dstRemote, &count); err != nil {
+		fm.mu.Lock()
+		x := fm.xfer
+		fm.xfer = xferState{}
+		fm.busy = false
+		if err == nil {
+			src.marked = nil
+		}
+		fm.mu.Unlock()
+		switch {
+		case errors.Is(err, context.Canceled):
+			fm.setStatus(fmt.Sprintf("Abgebrochen nach %d/%d Dateien – erneut F5 setzt fort", x.done, x.files))
+		case err != nil:
 			fm.setStatus("Fehler: " + err.Error())
-			fm.load(dst, dstPath) // teils Übertragenes sichtbar machen
-			return
-		}
-		if e.dir {
-			fm.setStatus(fmt.Sprintf("✓ %s übertragen (%d Dateien)", e.name, count))
-		} else {
-			fm.setStatus("✓ " + e.name + " übertragen")
+		default:
+			d := time.Since(start)
+			msg := fmt.Sprintf("✓ %d Datei(en) übertragen", x.done-x.skipped)
+			if x.skipped > 0 {
+				msg += fmt.Sprintf(", %d übersprungen", x.skipped)
+			}
+			if x.total > 0 && d > 0 {
+				msg += fmt.Sprintf(" · %s in %s (%s/s)", humanSize(x.total), fmtDur(d), humanSize(int64(float64(x.sent)/d.Seconds())))
+			}
+			fm.setStatus(msg)
 		}
 		fm.load(dst, dstPath) // Zielpanel aktualisieren
 	}()
+}
+
+// legacyTransfer: alter Weg über die Befehlswarteschlange (Agents vor 0.29.0).
+func (fm *fileManager) legacyTransfer(items []fmEntry, dstPath string, srcRemote bool) error {
+	var count int
+	for _, e := range items {
+		fm.setStatus("Übertrage " + e.name + " … (langsamer Modus: Agent aktualisieren)")
+		if err := fm.copyTree(e, dstPath, srcRemote, !srcRemote, &count); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// remoteBrowse listet über die Datei-Sitzung, falls schon verbunden – sonst klassisch.
+func (fm *fileManager) remoteBrowse(path string) fmListing {
+	fm.fsMu.Lock()
+	c := fm.fs
+	fm.fsMu.Unlock()
+	if c == nil {
+		return fm.cl.browse(path)
+	}
+	r, err := c.call(shared.FileReq{Op: "list", Path: path}, time.Minute)
+	if err != nil {
+		if !isRemoteErr(err) {
+			fm.dropSession(c)
+		}
+		return fm.cl.browse(path)
+	}
+	return parseListing(path, string(r.Listing))
+}
+
+// deletePrompt baut die Löschbestätigung für Markierte bzw. den aktuellen Eintrag.
+func deletePrompt(p *fmPane) promptState {
+	items := p.selection()
+	if len(items) == 0 {
+		return promptState{}
+	}
+	pr := promptState{kind: "delete"}
+	for _, e := range items {
+		pr.paths = append(pr.paths, e.path)
+	}
+	if len(items) == 1 {
+		pr.label = "Löschen: " + items[0].name + "  (Enter=ja, Esc=nein)"
+	} else {
+		pr.label = fmt.Sprintf("%d Einträge löschen?  (Enter=ja, Esc=nein)", len(items))
+	}
+	return pr
 }
 
 // copyTree kopiert src (Datei oder Ordner) rekursiv in das Zielverzeichnis dstDir.
@@ -450,17 +590,20 @@ func (fm *fileManager) commitPrompt(pr promptState) {
 		remote := p.remote
 		fm.mu.Unlock()
 		go func() {
-			var err error
-			if remote {
-				err = fm.cl.delete(pr.text)
-			} else {
-				err = os.RemoveAll(pr.text)
+			for _, path := range pr.paths {
+				var err error
+				if remote {
+					err = fm.cl.delete(path)
+				} else {
+					err = os.RemoveAll(path)
+				}
+				if err != nil {
+					fm.setStatus("Fehler: " + err.Error())
+					fm.load(p, base)
+					return
+				}
 			}
-			if err != nil {
-				fm.setStatus("Fehler: " + err.Error())
-				return
-			}
-			fm.setStatus("✓ gelöscht")
+			fm.setStatus(fmt.Sprintf("✓ %d gelöscht", len(pr.paths)))
 			fm.load(p, base)
 		}()
 	}
@@ -486,6 +629,19 @@ func (fm *fileManager) doButton(id string) {
 		fm.refresh()
 	case "close":
 		fm.active = false
+	case policyOverwrite, policySkipSame, policySkip, "cancel":
+		fm.mu.Lock()
+		if id == "cancel" {
+			id = ""
+		}
+		fm.answerLocked(id)
+		fm.mu.Unlock()
+	case "abort":
+		fm.mu.Lock()
+		if fm.xfer.cancel != nil {
+			fm.xfer.cancel()
+		}
+		fm.mu.Unlock()
 	}
 }
 
@@ -501,12 +657,7 @@ func (fm *fileManager) startMkdir() {
 func (fm *fileManager) startDelete() {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	p := fm.curPane()
-	if len(p.entries) == 0 || p.entries[p.sel].name == ".." {
-		return
-	}
-	e := p.entries[p.sel]
-	fm.prompt = promptState{kind: "delete", text: e.path, label: "Löschen: " + e.name + "  (Enter=ja, Esc=nein)"}
+	fm.prompt = deletePrompt(fm.curPane())
 }
 
 // refresh lädt das fokussierte Panel neu.
@@ -557,6 +708,30 @@ func (fm *fileManager) onClick(mx, my float32, double bool) bool {
 	p := fm.curPane()
 	idx := p.top + int((my-fm.listY)/fm.rowH)
 	if idx >= 0 && idx < len(p.entries) {
+		mod := sdl.GetModState()
+		switch {
+		case mod&sdl.KeymodCtrl != 0: // Strg+Klick: einzeln markieren
+			p.toggleMark(idx)
+			p.sel = idx
+			fm.mu.Unlock()
+			return true
+		case mod&sdl.KeymodShift != 0: // Umschalt+Klick: Bereich markieren
+			a, b := p.sel, idx
+			if a > b {
+				a, b = b, a
+			}
+			if p.marked == nil {
+				p.marked = map[string]bool{}
+			}
+			for i := a; i <= b; i++ {
+				if p.entries[i].name != ".." {
+					p.marked[p.entries[i].path] = true
+				}
+			}
+			p.sel = idx
+			fm.mu.Unlock()
+			return true
+		}
 		p.sel = idx
 		fm.mu.Unlock()
 		if double {
@@ -683,6 +858,11 @@ func (c *fmClient) browse(path string) fmListing {
 	if err != nil {
 		return fmListing{err: err.Error()}
 	}
+	return parseListing(path, out)
+}
+
+// parseListing liest eine Verzeichnisliste im browse_dir-Format.
+func parseListing(path, out string) fmListing {
 	var raw struct {
 		Path    string `json:"path"`
 		Parent  string `json:"parent"`

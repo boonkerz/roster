@@ -88,6 +88,9 @@ func (s *Server) routes() http.Handler {
 			r.Post("/devices/{id}/viewer-files/delete", s.handleViewerDelete)
 			r.Get("/devices/{id}/viewer-files/command/{cmd}", s.handleViewerCommand)
 			r.Get("/devices/{id}/viewer-files/blob/{cmd}", s.handleViewerBlob)
+			// Direkter Datei-Kanal (Viewer ↔ Agent durch den Tunnel, ab Agent 0.29.0).
+			r.Post("/devices/{id}/viewer-files/session", s.handleViewerFileSession)
+			r.Get("/devices/{id}/viewer-files/ws", s.handleViewerFileWS)
 		})
 
 		// --- Übrige API mit 30s-Request-Timeout ---
