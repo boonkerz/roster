@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-11
+
 ### Geändert
 - **Web-Dateibrowser und Drag & Drop auf den Fernsteuerungs-Bildschirm** nutzen ebenfalls den direkten Datei-Kanal (Agent ab 0.29.0): Der Server reicht Uploads und Downloads direkt zum Agent durch – ohne Zwischendatei und ohne einen Befehl je Datei; Ordnerlisten erscheinen sofort statt nach einigen Sekunden, Downloads laufen als normale Browser-Downloads. Ältere Agents nutzen automatisch den bisherigen Weg.
 
@@ -480,7 +482,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/boonkerz/roster/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
