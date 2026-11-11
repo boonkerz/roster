@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-11
+
 ### Geändert
 - Audit-Log: Ordner- und Mehrfachübertragungen im Dateimanager des Viewers erscheinen als **ein zusammengefasster Eintrag** (was, wohin, Anzahl Dateien, Datenmenge, Ordner, fortgesetzte Dateien) statt einem je Datei – ein großer Ordner verdrängt nicht mehr alles andere aus der Audit-Ansicht. Einzelne Dateien werden weiter einzeln protokolliert.
 
@@ -485,7 +487,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/boonkerz/roster/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/boonkerz/roster/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0

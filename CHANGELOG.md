@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-11
+
 ### Changed
 - Audit log: folder and multi-selection transfers in the viewer's file manager are logged as **one summary entry** (what, where to, number of files, size, folders, resumed files) instead of one entry per file – a large folder no longer pushes everything else out of the audit view. Single files are still logged individually.
 
@@ -485,7 +487,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/boonkerz/roster/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/boonkerz/roster/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0
