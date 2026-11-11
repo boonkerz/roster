@@ -86,6 +86,8 @@ several seconds).
   complete. After an abort or a dropped connection, `F5` again continues partial files where
   they stopped; short connection drops are resumed automatically (up to three times).
 - Agents before 0.29.0 fall back to the old, slow way (one queued command per file).
+- Every upload, download, delete and new folder lands in the **audit log** with user and path –
+  the server passes the data through and reads along the requests.
 
 ## Remote terminal
 

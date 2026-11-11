@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Geändert
+- **Web-Dateibrowser und Drag & Drop auf den Fernsteuerungs-Bildschirm** nutzen ebenfalls den direkten Datei-Kanal (Agent ab 0.29.0): Der Server reicht Uploads und Downloads direkt zum Agent durch – ohne Zwischendatei und ohne einen Befehl je Datei; Ordnerlisten erscheinen sofort statt nach einigen Sekunden, Downloads laufen als normale Browser-Downloads. Ältere Agents nutzen automatisch den bisherigen Weg.
+
+### Sicherheit
+- Dateiaktionen über den direkten Kanal werden **protokolliert**: jedes Hoch- und Herunterladen, Löschen und Ordner-Anlegen aus dem Dateimanager des nativen Viewers oder dem Web-Dateibrowser steht mit Nutzer, Pfad und Größe im Audit-Log (bisher nur „Fernsteuerung gestartet“).
+
 ## [0.29.0] - 2026-11-11
 
 ### Hinzugefügt

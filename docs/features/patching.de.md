@@ -123,7 +123,13 @@ Von der Detailseite eines Geräts kannst du sein Dateisystem durchsuchen und Dat
 TreeSize-ähnlichen Live-**Speicher-Explorer** mit Kreisdiagramm ausführen.
 
 !!! note "Große Dateien"
-    Übertragungen laufen gestreamt: Der Server hält die Datei nur als Zwischendatei neben seiner
+    Ab Agent 0.29.0 spricht der Dateibrowser **direkt durch den Tunnel** mit dem Agent: Der
+    Server reicht Uploads und Downloads nur durch – ohne Zwischendatei, ohne einen Befehl je
+    Datei, den Fortschritt eines Downloads zeigt der Browser selbst. Jeder Up- und Download
+    landet mit Pfad und Größe im **Audit-Log** (auch die aus dem Dateimanager des nativen
+    Viewers).
+
+    Für ältere Agents gilt der bisherige Weg, gestreamt: Der Server hält die Datei nur als Zwischendatei neben seiner
     Datenbank (`file-transfers/`, gelöscht direkt nach der Abholung bzw. nach 30 Minuten) und
     braucht dafür entsprechend freien Plattenplatz plus 1 GB Reserve – keinen Arbeitsspeicher. Der
     Agent schreibt zuerst in eine Zwischendatei im Zielordner und benennt sie erst nach

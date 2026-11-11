@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Web file browser and drag & drop onto the remote screen** use the direct file channel too (agent 0.29.0+): the server passes uploads and downloads straight to the agent – no temporary file, no queued command per file; folder listings appear immediately instead of after several seconds, downloads run as normal browser downloads. Older agents keep the previous way automatically.
+
+### Security
+- File actions over the direct channel are **audited**: every upload, download, delete and new folder from the native viewer's file manager or the web file browser is logged with user, path and size (before, only "remote control started" appeared).
+
 ## [0.29.0] - 2026-11-11
 
 ### Added

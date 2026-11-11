@@ -582,7 +582,7 @@ export function DevicePanel({ id, focusTab, focusKey }: { id: string; focusTab?:
         )}
 
         {tab === "files" && canOperate && (
-          <FileBrowser deviceId={id} />
+          <FileBrowser deviceId={id} agentVersion={device.agent_version} />
         )}
 
         {tab === "live" && (

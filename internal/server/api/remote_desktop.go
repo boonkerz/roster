@@ -44,7 +44,7 @@ func vncPassword() string {
 type remoteStartResponse struct {
 	Session  string `json:"session"`
 	Password string `json:"password"`
-	Token    string `json:"token"` // für den nativen Viewer (roster-viewer)
+	Token    string `json:"token"`   // für den nativen Viewer (roster-viewer)
 	Version  string `json:"version"` // Server-Version – Viewer zeigen damit „Update verfügbar“
 }
 
@@ -75,7 +75,11 @@ func (s *Server) handleRemoteStart(w http.ResponseWriter, r *http.Request) {
 	// Datei-Capability für den nativen Viewer – von der VNC-Session entkoppelt
 	// (die nach remoteSessionTTL aus der Map fliegt), damit der Dateimanager auch
 	// in langen Sitzungen weiterläuft.
-	s.fileCaps.add(viewerToken, deviceID)
+	var starter string
+	if u := userFrom(r.Context()); u != nil {
+		starter = u.Username
+	}
+	s.fileCaps.addFor(viewerToken, deviceID, starter)
 
 	// Sitzung aufräumen, falls die Browser-WS nie kommt (kein Leak).
 	go func() {

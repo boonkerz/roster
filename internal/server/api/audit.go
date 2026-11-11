@@ -147,6 +147,9 @@ func (s *Server) audit(next http.Handler) http.Handler {
 		if pattern == "/auth/me/theme" || pattern == "/auth/me/prefs/{key}" {
 			return // Theme-Wechsel und UI-Einstellungen sind nicht auditrelevant
 		}
+		if pattern == "/devices/{id}/fs/upload" {
+			return // protokolliert der Handler selbst – mit Pfad und Größe
+		}
 		var uid, uname string
 		if u := userFrom(r.Context()); u != nil {
 			uid, uname = u.ID, u.Username

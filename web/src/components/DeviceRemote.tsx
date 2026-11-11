@@ -5,7 +5,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 
 import { pollCmd } from "../pollCmd";
-import { MAX_TRANSFER, pollTransfer, uploadFile } from "../transfer";
+import { LegacyError, MAX_TRANSFER, pollTransfer, uploadDirect, uploadFile } from "../transfer";
 
 // DeviceRemote öffnet eine Web-Fernsteuerung (Remote Desktop) über noVNC. Der Server
 // startet on-demand einen VNC-Server am Gerät und tunnelt die RFB-Bytes über eine
@@ -87,6 +87,11 @@ export function DeviceRemote({ id, os, fill, autoStart, initialMonitor }: {
     if (file.size > MAX_TRANSFER) { setDropStatus(t("Datei zu groß (max 4 GB)")); return; }
     setDropStatus(t("Übertrage {name}…", { name: file.name }));
     try {
+      try {
+        await uploadDirect(id, target, file, (pct) => setDropStatus(t("Hochladen: {pct} %", { pct }) + ` – ${file.name}`));
+        setDropStatus(`✓ ${file.name} → ${target}`);
+        return;
+      } catch (e) { if (!(e instanceof LegacyError)) throw e; }
       const { command_id } = await uploadFile(`/api/v1/devices/${id}/write-file?path=${encodeURIComponent(target)}`, file,
         (pct) => setDropStatus(t("Hochladen zum Server: {pct} %", { pct }) + ` – ${file.name}`));
       setDropStatus(t("Gerät übernimmt {name}…", { name: file.name }));

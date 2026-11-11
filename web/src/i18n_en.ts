@@ -334,6 +334,8 @@ export const EN: Record<string, string> = {
   "Gerät bereitet {name} vor…": "Device is preparing {name}…",
   "Gerät übernimmt {name}…": "Device is receiving {name}…",
   "Hochladen zum Server: {pct} %": "Uploading to server: {pct} %",
+  "Hochladen: {pct} %": "Uploading: {pct} %",
+  "Datei nicht gefunden": "File not found",
   "Datei zu groß (max 4 GB)": "File too large (max 4 GB)",
   "Virenschutz": "Antivirus",
   "BitLocker": "BitLocker",

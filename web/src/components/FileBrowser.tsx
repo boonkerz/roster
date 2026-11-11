@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { pollCmd } from "../pollCmd";
-import { MAX_TRANSFER, pollTransfer, uploadFile } from "../transfer";
+import { directFiles, LegacyError, MAX_TRANSFER, pollTransfer, uploadDirect, uploadFile } from "../transfer";
 import { useI18n } from "../i18n";
 
 interface FileEntry { name: string; path: string; dir: boolean; size: number; modified: number; }
@@ -18,7 +18,7 @@ function fmtBytes(n: number): string {
 
 
 // FileBrowser: Verzeichnisse durchsuchen, Dateien herunterladen/hochladen (≤ 4 GB).
-export function FileBrowser({ deviceId }: { deviceId: string }) {
+export function FileBrowser({ deviceId, agentVersion }: { deviceId: string; agentVersion?: string }) {
   const { t } = useI18n();
   const [listing, setListing] = useState<FileListing | null>(null);
   const [path, setPath] = useState(""); // "" = Wurzel/Laufwerke
@@ -27,13 +27,23 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const uploadRef = useRef<HTMLInputElement>(null);
+  // Direkter Weg (Agent ≥ 0.29.0): Server reicht Dateien durch, kein Befehl je Datei.
+  const [direct, setDirect] = useState(directFiles(agentVersion));
+  const isLegacy = (e: unknown) => e instanceof LegacyError || (e instanceof ApiError && e.status === 409 && e.message === "legacy");
 
   const browse = async (p: string) => {
     setLoading(true); setError("");
     try {
-      const { command_id } = await api.post<{ command_id: string }>(`/devices/${deviceId}/browse`, { path: p });
-      const cmd = await pollCmd(command_id);
-      const data = JSON.parse(cmd.output || "{}") as FileListing;
+      let data: FileListing | null = null;
+      if (direct) {
+        try { data = await api.get<FileListing>(`/devices/${deviceId}/fs/list?path=${encodeURIComponent(p)}`); }
+        catch (e) { if (!isLegacy(e)) throw e; setDirect(false); }
+      }
+      if (!data) {
+        const { command_id } = await api.post<{ command_id: string }>(`/devices/${deviceId}/browse`, { path: p });
+        const cmd = await pollCmd(command_id);
+        data = JSON.parse(cmd.output || "{}") as FileListing;
+      }
       if (data.error) setError(data.error);
       setListing(data);
       setPath(p);
@@ -46,6 +56,18 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
   const download = async (f: FileEntry) => {
     setBusy(f.path); setError("");
     try {
+      if (direct) {
+        try {
+          // Erst prüfen (Fehler sichtbar machen), dann der Browser-Download direkt vom Gerät.
+          const st = await api.get<{ exists: boolean; dir: boolean }>(`/devices/${deviceId}/fs/stat?path=${encodeURIComponent(f.path)}`);
+          if (!st.exists || st.dir) throw new Error(t("Datei nicht gefunden"));
+          const a = document.createElement("a");
+          a.href = `/api/v1/devices/${deviceId}/fs/download?path=${encodeURIComponent(f.path)}`;
+          a.download = f.name;
+          document.body.appendChild(a); a.click(); a.remove();
+          return;
+        } catch (e) { if (!isLegacy(e)) throw e; setDirect(false); }
+      }
       const { command_id } = await api.post<{ command_id: string }>(`/devices/${deviceId}/read-file`, { path: f.path });
       setProgress(t("Gerät bereitet {name} vor…", { name: f.name }));
       const cmd = await pollTransfer(command_id, setProgress);
@@ -62,6 +84,13 @@ export function FileBrowser({ deviceId }: { deviceId: string }) {
     try {
       const sep = listing.path.includes("\\") ? "\\" : "/";
       const target = listing.path.replace(/[/\\]$/, "") + sep + file.name;
+      if (direct) {
+        try {
+          await uploadDirect(deviceId, target, file, (pct) => setProgress(t("Hochladen: {pct} %", { pct }) + ` – ${file.name}`));
+          await browse(listing.path);
+          return;
+        } catch (e) { if (!isLegacy(e)) throw e; setDirect(false); }
+      }
       const { command_id } = await uploadFile(`/api/v1/devices/${deviceId}/write-file?path=${encodeURIComponent(target)}`, file,
         (pct) => setProgress(t("Hochladen zum Server: {pct} %", { pct })));
       setProgress(t("Gerät übernimmt {name}…", { name: file.name }));

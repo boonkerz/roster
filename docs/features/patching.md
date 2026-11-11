@@ -121,7 +121,13 @@ list and start/stop/restart **services**, kill **processes**, and run a TreeSize
 **storage explorer** with a pie chart.
 
 !!! note "Large files"
-    Transfers are streamed: the server keeps the file only as a temporary file next to its
+    With agent 0.29.0 or newer the file browser talks to the agent **directly through the
+    tunnel**: the server passes uploads and downloads straight through – no temporary file, no
+    queued command per file, the browser's own download shows the progress. Every upload and
+    download is written to the **audit log** with path and size (also those from the native
+    viewer's file manager).
+
+    For older agents transfers take the previous way and are streamed: the server keeps the file only as a temporary file next to its
     database (`file-transfers/`, deleted right after pick-up or after 30 minutes) and needs that
     much free disk space plus 1 GB reserve – not RAM. The agent writes to a temporary file in the
     target folder and renames it only once complete, so an aborted transfer never leaves a half

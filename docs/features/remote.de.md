@@ -90,6 +90,8 @@ der Warteschlange und brauchte mehrere Sekunden).
   erneutes `F5` Teildateien dort fort, wo sie stehen geblieben sind; kurze Verbindungsabbrüche
   werden automatisch wiederaufgenommen (bis zu dreimal).
 - Agents vor 0.29.0 nutzen weiter den alten, langsamen Weg (ein Befehl je Datei).
+- Jedes Hoch- und Herunterladen, Löschen und Ordner-Anlegen landet mit Nutzer und Pfad im
+  **Audit-Log** – der Server reicht die Daten durch und liest die Anfragen mit.
 
 ## Remote-Terminal
 

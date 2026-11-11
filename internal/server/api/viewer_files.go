@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"sync"
@@ -9,6 +11,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/boonkerz/roster/internal/server/model"
 	"github.com/boonkerz/roster/internal/shared"
 )
 
@@ -20,6 +23,7 @@ const fileCapTTL = 30 * time.Minute
 
 type fileCap struct {
 	deviceID string
+	user     string // wer die Fernsteuerung gestartet hat (für das Audit-Log)
 	expiry   time.Time
 }
 
@@ -37,10 +41,19 @@ func newFileCapHub() *fileCapHub {
 	return h
 }
 
-func (h *fileCapHub) add(token, deviceID string) {
+func (h *fileCapHub) add(token, deviceID string) { h.addFor(token, deviceID, "") }
+
+func (h *fileCapHub) addFor(token, deviceID, user string) {
 	h.mu.Lock()
-	h.caps[token] = fileCap{deviceID: deviceID, expiry: time.Now().Add(fileCapTTL)}
+	h.caps[token] = fileCap{deviceID: deviceID, user: user, expiry: time.Now().Add(fileCapTTL)}
 	h.mu.Unlock()
+}
+
+// userOf liefert den Nutzer, für den das Token ausgestellt wurde.
+func (h *fileCapHub) userOf(token string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.caps[token].user
 }
 
 // resolve liefert die Geräte-ID zum Token und verlängert die Frist (sliding TTL).
@@ -280,7 +293,76 @@ func (s *Server) handleViewerFileWS(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusNotFound, "unbekannte session")
 		return
 	}
-	s.relayRemote(w, r, sessID, sess)
+	tok := bearerToken(r)
+	if tok == "" {
+		tok = r.URL.Query().Get("token")
+	}
+	user := s.fileCaps.userOf(tok)
+	defer s.term.takeSession(sessID)
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"*"}})
+	if err != nil {
+		return
+	}
+	c.SetReadLimit(8 << 20)
+	defer c.CloseNow()
+	ctx := r.Context()
+	var agent *websocket.Conn
+	select {
+	case agent = <-sess.agentConn:
+	case <-time.After(agentConnectWindow):
+		c.Close(websocket.StatusTryAgainLater, "agent nicht erreichbar")
+		return
+	case <-ctx.Done():
+		return
+	}
+	// Wie relay, aber Anfragen des Viewers werden mitgelesen und Dateiaktionen protokolliert.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go pump(ctx, cancel, agent, c)
+	func() {
+		defer cancel()
+		for {
+			typ, data, err := c.Read(ctx)
+			if err != nil {
+				return
+			}
+			if typ == websocket.MessageText {
+				s.auditFileReq(r, user, data)
+			}
+			if err := agent.Write(ctx, typ, data); err != nil {
+				return
+			}
+		}
+	}()
+	close(sess.done)
+}
+
+// fileReqActions: welche Operationen einer Datei-Sitzung ins Audit-Log gehören.
+var fileReqActions = map[string]string{
+	"put": "Datei hochgeladen (Viewer)", "get": "Datei heruntergeladen (Viewer)",
+	"delete": "Gelöscht (Viewer)", "mkdir": "Ordner angelegt (Viewer)",
+}
+
+func (s *Server) auditFileReq(r *http.Request, user string, data []byte) {
+	var req shared.FileReq
+	if json.Unmarshal(data, &req) != nil {
+		return
+	}
+	action, ok := fileReqActions[req.Op]
+	if !ok {
+		return
+	}
+	text := action + ": " + req.Path
+	if req.Op == "put" && req.Size > 0 {
+		text += " (" + humanBytes(req.Size) + ")"
+		if req.Offset > 0 {
+			text += ", fortgesetzt ab " + humanBytes(req.Offset)
+		}
+	}
+	_ = s.store.InsertAudit(context.WithoutCancel(r.Context()), model.AuditEntry{
+		TS: time.Now().UTC(), Username: user, Action: text,
+		Method: "FILE", Path: "/devices/" + chi.URLParam(r, "id"), Status: http.StatusOK, IP: clientIP(r),
+	})
 }
 
 // handleViewerBlob streamt die vom Agent hochgeladene Datei an den Viewer.
