@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-11
+
 ### Hinzugefügt
 - Dateimanager im Viewer (F9): **Mehrfachauswahl** (Leertaste/Einfg, Strg+Klick, Umschalt+Klick, Strg+A) – mehrere Dateien und Ordner auf einmal kopieren oder löschen. Gibt es Dateien am Ziel schon, fragt er einmal: **überschreiben**, **überspringen, wenn gleich groß** oder **alle überspringen**. Die Fußzeile zeigt Dateien, Datenmenge, Geschwindigkeit und Restzeit mit Balken; Esc bricht ab.
 - **Fortsetzen:** Dateien werden als `*.roster-part` geschrieben und erst vollständig umbenannt; erneutes F5 setzt abgebrochene Dateien fort, kurze Verbindungsabbrüche werden automatisch wiederaufgenommen.
@@ -472,7 +474,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0

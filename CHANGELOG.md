@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-11
+
 ### Added
 - Viewer file manager (F9): **multi-select** (Space/Insert, Ctrl+click, Shift+click, Ctrl+A) – copy or delete several files and folders at once. If files already exist on the target, it asks once: **overwrite**, **skip if same size** or **skip all**. Footer shows files, bytes, speed and remaining time with a progress bar; Esc aborts.
 - **Resume:** files are written as `*.roster-part` and renamed when complete; F5 again continues aborted files, short connection drops are resumed automatically.
@@ -472,7 +474,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/boonkerz/roster/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
