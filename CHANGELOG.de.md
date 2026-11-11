@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-11
+
 ### Hinzugefügt
 - Nativer Viewer und Taskleisten-App zeigen ihre Version: der Viewer im Fenstertitel („· Viewer 0.28.0“), die Tray-App in der Fußzeile; beide melden „Update … verfügbar“, wenn der Server neuer ist (die Tray-App in Rot). `--version` gibt sie aus.
 
@@ -463,7 +465,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/boonkerz/roster/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/boonkerz/roster/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/boonkerz/roster/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/boonkerz/roster/compare/v0.24.1...v0.25.0
