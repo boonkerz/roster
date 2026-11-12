@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-12
+
 ### Security
 - **Brute-force protection:** 10 failed sign-ins (password or 2FA code) block the source IP and the account for 15 minutes; invalid enrollment tokens are limited the same way. Unknown user names now take as long as wrong passwords (no user enumeration by timing), and at most four argon2 password checks run concurrently – before, a flood of sign-in attempts could drive the server out of memory (64 MB each).
 - **Cross-site protection:** changing requests with a cookie session are rejected when they come from a foreign origin (`Sec-Fetch-Site`/`Origin`); terminal and remote-desktop WebSockets accept only the server's own origin instead of any (`OriginPatterns: *`). Native clients are unaffected (token auth).
@@ -499,7 +501,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.30.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/boonkerz/roster/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/boonkerz/roster/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/boonkerz/roster/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/boonkerz/roster/compare/v0.29.0...v0.30.0
