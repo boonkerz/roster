@@ -6,6 +6,13 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+- **Brute-force protection:** 10 failed sign-ins (password or 2FA code) block the source IP and the account for 15 minutes; invalid enrollment tokens are limited the same way. Unknown user names now take as long as wrong passwords (no user enumeration by timing), and at most four argon2 password checks run concurrently – before, a flood of sign-in attempts could drive the server out of memory (64 MB each).
+- **Cross-site protection:** changing requests with a cookie session are rejected when they come from a foreign origin (`Sec-Fetch-Site`/`Origin`); terminal and remote-desktop WebSockets accept only the server's own origin instead of any (`OriginPatterns: *`). Native clients are unaffected (token auth).
+- **Security headers** on all responses (`X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, HSTS behind TLS) – the web UI can no longer be embedded for clickjacking.
+- **File transfers bound to devices:** an agent may only upload the file of its own pending read command (before, any enrolled agent could store arbitrary data under any key and fill the server's disk); pending uploads can only be fetched by the target device, and served files by the matching device. Uploads without `Content-Length` are refused (`411`) so the free-space check cannot be bypassed.
+- `X-Forwarded-For` is only trusted with `ROSTER_BEHIND_PROXY=true` (audit log, sign-in limits, install-script URL).
+
 ## [0.30.2] - 2026-11-11
 
 ### Added

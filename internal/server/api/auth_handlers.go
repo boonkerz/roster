@@ -10,6 +10,9 @@ import (
 
 const sessionTTL = 12 * time.Hour
 
+// dummyPasswordHash wird für unbekannte Nutzernamen geprüft (gleiche Rechenzeit).
+var dummyPasswordHash = func() string { h, _ := auth.HashPassword("roster-dummy"); return h }()
+
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -22,17 +25,38 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
+	keys := s.loginKeys(r, req.Username)
+	if s.tooMany(w, keys...) {
+		return
+	}
+	if !s.acquirePasswordSlot(w) {
+		return
+	}
 	user, err := s.store.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
+		// Unbekannter Nutzer: trotzdem eine Prüfung rechnen, damit die Antwortzeit
+		// keine Nutzernamen verrät.
+		_, _ = auth.VerifyPassword(req.Password, dummyPasswordHash)
+		s.releasePasswordSlot()
+		for _, k := range keys {
+			s.limiter.fail(k)
+		}
 		s.logAudit(r, "", req.Username, "Anmeldung fehlgeschlagen", http.StatusUnauthorized)
 		s.writeErr(w, http.StatusUnauthorized, "ungültige anmeldedaten")
 		return
 	}
 	ok, err := auth.VerifyPassword(req.Password, user.PasswordHash)
+	s.releasePasswordSlot()
 	if err != nil || !ok {
+		for _, k := range keys {
+			s.limiter.fail(k)
+		}
 		s.logAudit(r, user.ID, req.Username, "Anmeldung fehlgeschlagen", http.StatusUnauthorized)
 		s.writeErr(w, http.StatusUnauthorized, "ungültige anmeldedaten")
 		return
+	}
+	for _, k := range keys {
+		s.limiter.reset(k)
 	}
 
 	// Hat der Benutzer 2FA aktiv, zuerst den zweiten Faktor verlangen (keine Session).

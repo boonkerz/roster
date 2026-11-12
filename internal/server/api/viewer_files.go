@@ -167,7 +167,7 @@ func (s *Server) handleViewerWriteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	xfer := newSessionID()
-	size, err := s.files.receive(xfer, "", r.Body, r.ContentLength)
+	size, err := s.files.receive(xfer, devID, "", r.Body, r.ContentLength)
 	if err != nil {
 		s.receiveErr(w, err)
 		return
@@ -300,7 +300,7 @@ func (s *Server) handleViewerFileWS(w http.ResponseWriter, r *http.Request) {
 	}
 	user := s.fileCaps.userOf(tok)
 	defer s.term.takeSession(sessID)
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"*"}})
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: s.wsOriginPatterns(r)})
 	if err != nil {
 		return
 	}
@@ -496,16 +496,17 @@ func batchSummary(label, target string, puts, gets, dels, dirs, resumed int, byt
 func (fa *fileAudit) write(text string) {
 	_ = fa.s.store.InsertAudit(context.WithoutCancel(fa.r.Context()), model.AuditEntry{
 		TS: time.Now().UTC(), Username: fa.user, Action: text,
-		Method: "FILE", Path: "/devices/" + chi.URLParam(fa.r, "id"), Status: http.StatusOK, IP: clientIP(fa.r),
+		Method: "FILE", Path: "/devices/" + chi.URLParam(fa.r, "id"), Status: http.StatusOK, IP: fa.s.clientIP(fa.r),
 	})
 }
 
 // handleViewerBlob streamt die vom Agent hochgeladene Datei an den Viewer.
 func (s *Server) handleViewerBlob(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.viewerFileAuth(w, r); !ok {
+	devID, ok := s.viewerFileAuth(w, r)
+	if !ok {
 		return
 	}
-	b, ok := s.files.take(chi.URLParam(r, "cmd"))
+	b, ok := s.files.take(chi.URLParam(r, "cmd"), devID)
 	if !ok {
 		s.writeErr(w, http.StatusNotFound, "Datei nicht (mehr) verfügbar")
 		return

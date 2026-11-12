@@ -21,7 +21,7 @@ func TestFileHubSpool(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "fremd.txt")); err != nil {
 		t.Fatal("fremde Datei gelöscht")
 	}
-	n, err := h.receive("a", "x.bin", strings.NewReader("hallo welt"), 10)
+	n, err := h.receive("a", "dev1", "x.bin", strings.NewReader("hallo welt"), 10)
 	if err != nil || n != 10 {
 		t.Fatal(n, err)
 	}
@@ -39,21 +39,27 @@ func TestFileHubSpool(t *testing.T) {
 	if !strings.Contains(rec.Header().Get("Content-Disposition"), "filename*=utf-8''%C3%A4%20b.bin") {
 		t.Fatal(rec.Header().Get("Content-Disposition"))
 	}
-	h.drop("a")
-	if _, err := os.Stat(b.path); !os.IsNotExist(err) {
-		t.Fatal("Datei nach drop noch da")
+	if _, ok := h.take("a", "dev2"); ok {
+		t.Fatal("fremdes Gerät durfte abholen")
+	}
+	if _, ok := h.take("a", "dev1"); !ok {
+		t.Fatal("eigenes Gerät konnte nicht abholen")
+	}
+	os.Remove(b.path)
+	if _, err := h.receive("len", "dev1", "", strings.NewReader("x"), -1); !errors.Is(err, errLengthRequired) {
+		t.Fatal("unbekannte Länge angenommen", err)
 	}
 	// angekündigte Größe über dem Limit -> sofort ablehnen, nichts schreiben
-	if _, err := h.receive("b", "", bytes.NewReader(nil), maxFileTransfer+1); !errors.Is(err, errTransferTooLarge) {
+	if _, err := h.receive("b", "dev1", "", bytes.NewReader(nil), maxFileTransfer+1); !errors.Is(err, errTransferTooLarge) {
 		t.Fatal(err)
 	}
 	// kein Platz: Reserve größer als der freie Platz
 	diskFreeFn = func(string) (uint64, bool) { return 3 << 30, true }
 	defer func() { diskFreeFn = diskFree }()
-	if _, err := h.receive("c", "", bytes.NewReader(nil), 2<<30+1); !errors.Is(err, errSpoolFull) {
+	if _, err := h.receive("c", "dev1", "", bytes.NewReader(nil), 2<<30+1); !errors.Is(err, errSpoolFull) {
 		t.Fatal("Platzprüfung", err)
 	}
-	if _, err := h.receive("d", "", strings.NewReader("klein"), 5); err != nil {
+	if _, err := h.receive("d", "dev1", "", strings.NewReader("klein"), 5); err != nil {
 		t.Fatal(err)
 	}
 	h.drop("d")

@@ -51,12 +51,14 @@ func (s *Server) externalBaseURL(r *http.Request) string {
 	if r.TLS != nil || s.cfg.BehindProxy {
 		scheme = "https"
 	}
-	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
-		scheme = p
-	}
 	host := r.Host
-	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
-		host = h
+	if s.cfg.BehindProxy { // nur dann sind die Forwarded-Header vertrauenswürdig
+		if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
+			scheme = p
+		}
+		if h := r.Header.Get("X-Forwarded-Host"); h != "" {
+			host = h
+		}
 	}
 	return scheme + "://" + host
 }

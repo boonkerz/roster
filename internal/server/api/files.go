@@ -28,15 +28,17 @@ var diskFreeFn = diskFree // in Tests ersetzbar
 var (
 	errTransferTooLarge = errors.New("Datei zu groß (max 4 GB)")
 	errSpoolFull        = errors.New("zu wenig freier Speicher auf dem Server für diese Datei")
+	errLengthRequired   = errors.New("Content-Length fehlt")
 )
 
 // fileBlob ist eine zwischengelagerte Datei-Übertragung (Download vom Agent oder
 // Upload vom Browser) als Datei im Transfer-Verzeichnis, bis zur Abholung/TTL.
 type fileBlob struct {
-	name string
-	path string
-	size int64
-	ts   time.Time
+	deviceID string // Gerät, zu dem die Übertragung gehört – nur dieses darf sie abholen
+	name     string
+	path     string
+	size     int64
+	ts       time.Time
 }
 
 // fileHub hält laufende Datei-Übertragungen (keyed by Transfer-/Command-ID).
@@ -70,9 +72,13 @@ func newFileHub(dir string) *fileHub {
 	return h
 }
 
-// receive schreibt einen Datenstrom als Zwischendatei und registriert ihn unter id.
-// declared ist die angekündigte Größe (Content-Length, -1 = unbekannt).
-func (h *fileHub) receive(id, name string, r io.Reader, declared int64) (int64, error) {
+// receive schreibt einen Datenstrom als Zwischendatei und registriert ihn unter id für
+// das Gerät deviceID. declared ist die angekündigte Größe (Content-Length); ohne Angabe
+// wird abgelehnt – sonst ließe sich die Platzprüfung umgehen.
+func (h *fileHub) receive(id, deviceID, name string, r io.Reader, declared int64) (int64, error) {
+	if declared < 0 {
+		return 0, errLengthRequired
+	}
 	if declared > maxFileTransfer {
 		return 0, errTransferTooLarge
 	}
@@ -99,25 +105,31 @@ func (h *fileHub) receive(id, name string, r io.Reader, declared int64) (int64, 
 	if old, ok := h.blobs[id]; ok {
 		os.Remove(old.path)
 	}
-	h.blobs[id] = fileBlob{name: name, path: f.Name(), size: n, ts: time.Now()}
+	h.blobs[id] = fileBlob{deviceID: deviceID, name: name, path: f.Name(), size: n, ts: time.Now()}
 	h.mu.Unlock()
 	return n, nil
 }
 
-// take entnimmt eine Übertragung; der Aufrufer liefert sie aus und ruft danach done().
-func (h *fileHub) take(id string) (fileBlob, bool) {
+// take entnimmt eine Übertragung des Geräts deviceID; der Aufrufer liefert sie aus.
+// Für ein anderes Gerät bleibt sie liegen (nicht gefunden).
+func (h *fileHub) take(id, deviceID string) (fileBlob, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	b, ok := h.blobs[id]
-	if ok {
-		delete(h.blobs, id)
+	if !ok || b.deviceID != deviceID {
+		return fileBlob{}, false
 	}
-	return b, ok
+	delete(h.blobs, id)
+	return b, true
 }
 
 // drop entfernt eine Übertragung samt Datei.
 func (h *fileHub) drop(id string) {
-	if b, ok := h.take(id); ok {
+	h.mu.Lock()
+	b, ok := h.blobs[id]
+	delete(h.blobs, id)
+	h.mu.Unlock()
+	if ok {
 		os.Remove(b.path)
 	}
 }
@@ -181,6 +193,8 @@ func (s *Server) receiveErr(w http.ResponseWriter, err error) {
 		s.writeErr(w, http.StatusRequestEntityTooLarge, err.Error())
 	case errors.Is(err, errSpoolFull):
 		s.writeErr(w, http.StatusInsufficientStorage, err.Error())
+	case errors.Is(err, errLengthRequired):
+		s.writeErr(w, http.StatusLengthRequired, err.Error())
 	default:
 		s.log.Warn("datei-übertragung", "err", err)
 		s.writeErr(w, http.StatusBadRequest, "Übertragung abgebrochen: "+err.Error())
@@ -191,12 +205,20 @@ func (s *Server) receiveErr(w http.ResponseWriter, err error) {
 
 // handleAgentFileUpload nimmt die vom Agent gelesene Datei entgegen (Download-Richtung).
 func (s *Server) handleAgentFileUpload(w http.ResponseWriter, r *http.Request) {
-	cmd := r.URL.Query().Get("cmd")
-	if cmd == "" {
+	device := deviceFrom(r.Context())
+	cmdID := r.URL.Query().Get("cmd")
+	if cmdID == "" || device == nil {
 		s.writeErr(w, http.StatusBadRequest, "cmd fehlt")
 		return
 	}
-	if _, err := s.files.receive(cmd, r.URL.Query().Get("name"), r.Body, r.ContentLength); err != nil {
+	// Nur für einen eigenen, offenen read_file-Befehl – sonst könnte ein Agent beliebige
+	// Daten ablegen (Spool füllen, fremde Übertragungen überschreiben).
+	cmd, err := s.store.CommandByID(r.Context(), cmdID)
+	if err != nil || cmd.DeviceID != device.ID || cmd.Type != "read_file" || cmd.Status == "done" {
+		s.writeErr(w, http.StatusForbidden, "kein offener Lesebefehl für dieses Gerät")
+		return
+	}
+	if _, err := s.files.receive(cmdID, device.ID, r.URL.Query().Get("name"), r.Body, r.ContentLength); err != nil {
 		s.receiveErr(w, err)
 		return
 	}
@@ -206,8 +228,13 @@ func (s *Server) handleAgentFileUpload(w http.ResponseWriter, r *http.Request) {
 // handleAgentFileDownload liefert dem Agent die vom Browser hochgeladenen Bytes (Upload-Richtung).
 func (s *Server) handleAgentFileDownload(w http.ResponseWriter, r *http.Request) {
 	// Entnehmen statt nur ansehen: nach der Auslieferung wird die Zwischendatei sofort
-	// gelöscht (das offene Handle hält sie bis dahin lesbar).
-	b, ok := s.files.take(r.URL.Query().Get("cmd"))
+	// gelöscht (das offene Handle hält sie bis dahin lesbar). Nur das Zielgerät darf sie holen.
+	device := deviceFrom(r.Context())
+	if device == nil {
+		s.writeErr(w, http.StatusUnauthorized, "kein gerät")
+		return
+	}
+	b, ok := s.files.take(r.URL.Query().Get("cmd"), device.ID)
 	if !ok {
 		s.writeErr(w, http.StatusNotFound, "kein Transfer")
 		return
@@ -258,7 +285,7 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 
 // handleServeFile streamt die vom Agent hochgeladene Datei an den Browser.
 func (s *Server) handleServeFile(w http.ResponseWriter, r *http.Request) {
-	b, ok := s.files.take(chi.URLParam(r, "cmd"))
+	b, ok := s.files.take(chi.URLParam(r, "cmd"), chi.URLParam(r, "id"))
 	if !ok {
 		s.writeErr(w, http.StatusNotFound, "Datei nicht (mehr) verfügbar")
 		return
@@ -283,7 +310,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	xfer := newSessionID()
-	size, err := s.files.receive(xfer, "", r.Body, r.ContentLength)
+	size, err := s.files.receive(xfer, chi.URLParam(r, "id"), "", r.Body, r.ContentLength)
 	if err != nil {
 		s.receiveErr(w, err)
 		return

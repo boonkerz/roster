@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Sicherheit
+- **Schutz gegen Passwort-Raten:** 10 Fehlversuche (Passwort oder 2FA-Code) sperren Quell-IP und Konto für 15 Minuten; ungültige Enrollment-Tokens werden genauso begrenzt. Unbekannte Nutzernamen dauern jetzt so lange wie falsche Passwörter (keine Nutzer-Erkennung über die Antwortzeit), und höchstens vier argon2-Passwortprüfungen laufen gleichzeitig – vorher konnte eine Flut von Anmeldeversuchen den Server in den Speichermangel treiben (je 64 MB).
+- **Schutz vor fremden Seiten:** Ändernde Anfragen mit Cookie-Sitzung werden abgewiesen, wenn sie von fremder Herkunft kommen (`Sec-Fetch-Site`/`Origin`); die WebSockets für Terminal und Fernsteuerung akzeptieren nur noch die eigene Herkunft statt jeder (`OriginPatterns: *`). Native Clients sind nicht betroffen (Token-Anmeldung).
+- **Sicherheits-Header** auf allen Antworten (`X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, HSTS hinter TLS) – die Weboberfläche lässt sich nicht mehr für Clickjacking einbetten.
+- **Dateiübertragungen an Geräte gebunden:** Ein Agent darf nur die Datei seines eigenen offenen Lesebefehls hochladen (bisher konnte jeder angemeldete Agent beliebige Daten unter beliebigem Schlüssel ablegen und die Platte des Servers füllen); wartende Uploads holt nur das Zielgerät ab, bereitgestellte Dateien nur das passende Gerät. Uploads ohne `Content-Length` werden abgelehnt (`411`), damit die Platzprüfung nicht umgangen werden kann.
+- `X-Forwarded-For` zählt nur noch mit `ROSTER_BEHIND_PROXY=true` (Audit-Log, Anmeldesperren, Install-Skript-URL).
+
 ## [0.30.2] - 2026-11-11
 
 ### Hinzugefügt

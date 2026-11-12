@@ -20,7 +20,23 @@ Roster ist dafür gebaut, sicher im Internet erreichbar zu sein.
 
 - **Zwei-Faktor-Authentifizierung** (TOTP, standardmäßig verpflichtend) mit Backup-Codes und
   Admin-Reset.
-- Passwörter werden mit **argon2id** gehasht; Session-Cookies sind HttpOnly.
+- Passwörter werden mit **argon2id** gehasht; Session-Cookies sind HttpOnly, `SameSite=Lax`
+  und in Produktion `Secure`.
+- **Schutz gegen Passwort-Raten:** Nach 10 Fehlversuchen (Passwort oder 2FA-Code) sind
+  Quell-IP und Konto 15 Minuten gesperrt (`429`); dasselbe gilt für ungültige
+  Enrollment-Tokens. Unbekannte Nutzernamen dauern genauso lange wie falsche Passwörter, und
+  höchstens vier Passwortprüfungen laufen gleichzeitig – eine Flut von Anmeldeversuchen kann
+  den Speicher des Servers nicht erschöpfen. `X-Forwarded-For` zählt nur mit
+  `ROSTER_BEHIND_PROXY=true`.
+
+## Browser-Härtung
+
+- **CSRF:** Ändernde Anfragen mit Cookie-Sitzung müssen von der eigenen Herkunft des Servers
+  kommen (Prüfung von `Sec-Fetch-Site`/`Origin` zusätzlich zu `SameSite=Lax`). WebSockets für
+  Terminal und Fernsteuerung akzeptieren nur die eigene Herkunft (und `ROSTER_EXTERNAL_URL`);
+  native Clients weisen sich stattdessen mit Sitzungs-Tokens aus.
+- Sicherheits-Header auf jeder Antwort: `X-Frame-Options: DENY` / `frame-ancestors 'none'`
+  (kein Clickjacking), `nosniff`, `Referrer-Policy`, HSTS hinter TLS.
 
 ## Autorisierung
 
@@ -37,6 +53,9 @@ Roster ist dafür gebaut, sicher im Internet erreichbar zu sein.
 - Fernsitzungen werden auditiert und können eine **Zustimmung am Gerät** erfordern.
 
 ## Fernsitzungen
+
+- Dateiübertragungen sind an ihr Gerät gebunden: Ein Agent kann nur die Datei seines eigenen
+  offenen Lesebefehls hochladen, und nur das Zielgerät kann einen wartenden Upload abholen.
 
 - Der eingebaute VNC-Server bindet nur an `127.0.0.1` und läuft **nur für die Dauer einer
   Sitzung** – nie im LAN erreichbar.

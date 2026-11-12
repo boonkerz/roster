@@ -27,10 +27,15 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusBadRequest, "enrollment_token fehlt")
 		return
 	}
+	enrollKey := "enroll:" + s.clientIP(r)
+	if s.tooMany(w, enrollKey) {
+		return
+	}
 
 	siteID, err := s.store.ConsumeEnrollmentToken(r.Context(), auth.HashToken(req.EnrollmentToken))
 	switch {
 	case errors.Is(err, store.ErrNotFound), errors.Is(err, store.ErrTokenExhausted):
+		s.limiter.fail(enrollKey)
 		s.writeErr(w, http.StatusUnauthorized, "enrollment-token ungültig, abgelaufen oder aufgebraucht")
 		return
 	case err != nil:

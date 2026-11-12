@@ -21,6 +21,10 @@ func (s *Server) handleLoginTOTP(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
+	ipKey := "ip:" + s.clientIP(r)
+	if s.tooMany(w, ipKey) {
+		return
+	}
 	userID, err := s.store.ConsumeLoginChallenge(r.Context(), auth.HashToken(req.Pending))
 	if err != nil {
 		s.writeErr(w, http.StatusUnauthorized, "anmeldung abgelaufen – bitte erneut anmelden")
@@ -32,6 +36,9 @@ func (s *Server) handleLoginTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.verifySecondFactor(r, user, req.Code) {
+		s.limiter.fail(ipKey)
+		s.limiter.fail("user:" + strings.ToLower(user.Username))
+		s.logAudit(r, user.ID, user.Username, "Anmeldung fehlgeschlagen (2FA-Code)", http.StatusUnauthorized)
 		s.writeErr(w, http.StatusUnauthorized, "code ungültig")
 		return
 	}

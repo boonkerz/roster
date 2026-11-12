@@ -33,6 +33,10 @@ func (s *Server) requireUser(next http.Handler) http.Handler {
 				s.writeErr(w, http.StatusUnauthorized, "session ungültig oder abgelaufen")
 				return
 			}
+			if !s.sameSiteRequest(r) {
+				s.writeErr(w, http.StatusForbidden, "anfrage von fremder herkunft abgewiesen")
+				return
+			}
 		} else if tok := bearerToken(r); tok != "" {
 			user, err = s.store.UserByAPIToken(r.Context(), auth.HashToken(tok))
 			if err != nil {

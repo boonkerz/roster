@@ -194,7 +194,7 @@ func (s *Server) relayRemote(w http.ResponseWriter, r *http.Request, sessID stri
 	defer s.term.takeSession(sessID)
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns:  []string{"*"},
+		OriginPatterns:  s.wsOriginPatterns(r),
 		CompressionMode: websocket.CompressionContextTakeover, // permessage-deflate: komprimiert die RFB-Pixel
 	})
 	if err != nil {

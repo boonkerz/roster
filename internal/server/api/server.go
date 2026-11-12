@@ -24,12 +24,14 @@ type Server struct {
 	store    *store.Store
 	cfg      config.Config
 	log      *slog.Logger
-	webFS    fs.FS       // gebautes React-Frontend (kann nil sein)
-	version  string      // Version der eingebetteten Agent-Binaries (für Auto-Update)
-	term     *termHub    // flüchtiger Zustand für Remote-Terminal-Sessions
-	files    *fileHub    // flüchtige Datei-Übertragungen
-	filePool *filePool   // direkte Datei-Sitzungen zu Agents (Web-Dateibrowser)
-	fileCaps *fileCapHub // Datei-Capabilities des nativen Viewers (Token→Gerät)
+	webFS    fs.FS           // gebautes React-Frontend (kann nil sein)
+	version  string          // Version der eingebetteten Agent-Binaries (für Auto-Update)
+	term     *termHub        // flüchtiger Zustand für Remote-Terminal-Sessions
+	files    *fileHub        // flüchtige Datei-Übertragungen
+	filePool *filePool       // direkte Datei-Sitzungen zu Agents (Web-Dateibrowser)
+	limiter  *attemptLimiter // Fehlversuche bei Anmeldung/Enrollment
+	pwSem    chan struct{}   // gleichzeitige argon2-Prüfungen
+	fileCaps *fileCapHub     // Datei-Capabilities des nativen Viewers (Token→Gerät)
 	router   http.Handler
 
 	secSumMu    sync.Mutex // schützt secSumCache (siehe securitySummary)
@@ -47,7 +49,7 @@ type Server struct {
 
 // New erstellt den Server und registriert alle Routen.
 func New(st *store.Store, cfg config.Config, log *slog.Logger, webFS fs.FS, version string) *Server {
-	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(spoolDirFor(cfg.DatabaseURL)), filePool: newFilePool(), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096), imageVulnKick: make(chan struct{}, 1)}
+	s := &Server{store: st, cfg: cfg, log: log, webFS: webFS, version: version, term: newTermHub(), files: newFileHub(spoolDirFor(cfg.DatabaseURL)), filePool: newFilePool(), limiter: newAttemptLimiter(10, 15*time.Minute, 15*time.Minute), pwSem: make(chan struct{}, 4), fileCaps: newFileCapHub(), responses: make(chan responseJob, 4096), imageVulnKick: make(chan struct{}, 1)}
 	s.router = s.routes()
 	go s.responseWorker()
 	return s
@@ -59,6 +61,7 @@ func (s *Server) routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	r.Use(s.securityHeaders)
 	r.Use(s.logSlowRequests)
 
 	r.Route("/api/v1", func(r chi.Router) {

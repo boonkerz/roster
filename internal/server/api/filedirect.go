@@ -321,7 +321,7 @@ func (s *Server) auditFile(r *http.Request, action, p string, size int64) {
 	}
 	_ = s.store.InsertAudit(context.WithoutCancel(r.Context()), model.AuditEntry{
 		TS: time.Now().UTC(), UserID: uid, Username: uname, Action: text,
-		Method: "FILE", Path: "/devices/" + chi.URLParam(r, "id"), Status: http.StatusOK, IP: clientIP(r),
+		Method: "FILE", Path: "/devices/" + chi.URLParam(r, "id"), Status: http.StatusOK, IP: s.clientIP(r),
 	})
 }
 

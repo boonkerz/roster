@@ -157,7 +157,7 @@ func (s *Server) handleDeviceTerminal(w http.ResponseWriter, r *http.Request) {
 		runas = "system"
 	}
 
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"*"}})
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: s.wsOriginPatterns(r)})
 	if err != nil {
 		return // Accept hat bereits geantwortet
 	}
@@ -210,7 +210,7 @@ func (s *Server) handleAgentTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns:  []string{"*"},
+		OriginPatterns:  s.wsOriginPatterns(r),
 		CompressionMode: websocket.CompressionContextTakeover, // komprimiert u.a. die RFB-Pixel
 	})
 	if err != nil {

@@ -102,9 +102,13 @@ func auditAction(method, pattern string) string {
 }
 
 // clientIP ermittelt die Client-IP (hinter Reverse-Proxy via X-Forwarded-For).
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
+// X-Forwarded-For zählt nur hinter einem Reverse-Proxy (BehindProxy) – sonst könnte
+// jeder Client eine beliebige IP vorgeben und damit Audit-Log und Sperren täuschen.
+func (s *Server) clientIP(r *http.Request) string {
+	if s.cfg.BehindProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			return strings.TrimSpace(strings.Split(xff, ",")[0])
+		}
 	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host
@@ -126,7 +130,7 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) logAudit(r *http.Request, userID, username, action string, status int) {
 	_ = s.store.InsertAudit(context.Background(), model.AuditEntry{
 		TS: time.Now().UTC(), UserID: userID, Username: username,
-		Action: action, Method: r.Method, Path: r.URL.Path, Status: status, IP: clientIP(r),
+		Action: action, Method: r.Method, Path: r.URL.Path, Status: status, IP: s.clientIP(r),
 	})
 }
 
@@ -158,7 +162,7 @@ func (s *Server) audit(next http.Handler) http.Handler {
 		_ = s.store.InsertAudit(context.Background(), model.AuditEntry{
 			TS: time.Now().UTC(), UserID: uid, Username: uname,
 			Action: auditAction(r.Method, pattern), Method: r.Method,
-			Path: r.URL.Path, Status: rec.status, IP: clientIP(r),
+			Path: r.URL.Path, Status: rec.status, IP: s.clientIP(r),
 		})
 	})
 }

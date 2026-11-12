@@ -19,7 +19,22 @@ Roster is built to be exposed to the internet safely.
 
 - **Two-factor authentication** (mandatory TOTP by default), with backup codes and an
   admin reset.
-- Passwords hashed with **argon2id**; session cookies are HttpOnly.
+- Passwords hashed with **argon2id**; session cookies are HttpOnly, `SameSite=Lax` and
+  `Secure` in production.
+- **Brute-force protection:** after 10 failed sign-ins (password or 2FA code) the source IP
+  and the account are blocked for 15 minutes (`429`); the same applies to invalid enrollment
+  tokens. Unknown user names take as long as wrong passwords, and at most four password
+  checks run at a time – a flood of sign-in attempts cannot exhaust the server's memory.
+  `X-Forwarded-For` is trusted only with `ROSTER_BEHIND_PROXY=true`.
+
+## Browser hardening
+
+- **CSRF:** changing requests with a cookie session must come from the server's own origin
+  (`Sec-Fetch-Site`/`Origin` check in addition to `SameSite=Lax`). WebSockets for terminal
+  and remote desktop accept only the server's own origin (and `ROSTER_EXTERNAL_URL`);
+  native clients authenticate with per-session tokens instead.
+- Security headers on every response: `X-Frame-Options: DENY` / `frame-ancestors 'none'`
+  (no clickjacking), `nosniff`, `Referrer-Policy`, HSTS behind TLS.
 
 ## Authorization
 
@@ -34,6 +49,9 @@ Roster is built to be exposed to the internet safely.
 - Remote sessions are audited and can require **consent at the device**.
 
 ## Remote sessions
+
+- File transfers are bound to their device: an agent can only upload the file of its own
+  pending read command, and only the target device can fetch a pending upload.
 
 - The built-in VNC server binds to `127.0.0.1` only and runs **only for the duration of a
   session** — never exposed on the LAN.
