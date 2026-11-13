@@ -63,7 +63,9 @@ More screenshots of every feature are in the [documentation](https://roster-rmm.
   **native viewer** (`roster-viewer` – SDL3 via purego, **cgo-free**, cross-builds for
   Linux/Windows/macOS with no toolchain) with a floating AnyDesk-style toolbar (real
   **Ctrl+Alt+Del** via SendSAS, block local input, on-screen message, quality) and full
-  keyboard capture on Wayland – one-click launch via `roster://` link.
+  keyboard capture on Wayland – one-click launch via `roster://` link. **F9** opens a
+  two-pane file manager in the viewer: multi-select, whole folders, resume after aborts,
+  progress with speed – streamed directly through the tunnel.
 - **Remote terminal** – interactive shell over an on-demand WebSocket (+ pop-out window).
 - **Proxmox VE** – agent on a PVE host lists all VMs/containers cluster-wide (via `pvesh`,
   no API token), start / shut down / reboot / stop them, and shows each guest's backup
@@ -234,7 +236,8 @@ roster-server disable-2fa <user>
 2. **Enrollment**: an admin issues a short-lived token; the agent exchanges it for a
    unique, per-device agent token. Tokens are stored hashed.
 3. **Pull model**: agents open only outbound connections — no inbound port on clients.
-4. **2FA** (mandatory TOTP), **RBAC**, **audit log**, hashed passwords.
+4. **2FA** (mandatory TOTP), **RBAC**, **audit log**, hashed passwords (argon2id), sign-in
+   lockout after failed attempts, origin checks (CSRF) and security headers.
 
 ## License
 
@@ -284,7 +287,9 @@ Einstieg, alle Funktionen, Konfiguration und Sicherheit (auch auf
   SDL3 via purego, **cgo-frei**, cross-baut für Linux/Windows/macOS ohne Toolchain) mit
   schwebender AnyDesk-artiger Bedienleiste (echtes **Strg+Alt+Entf** via SendSAS, Eingaben
   sperren, Meldung, Qualität) und vollständiger Tastatur-Erfassung auf Wayland –
-  Ein-Klick-Start via `roster://`-Link.
+  Ein-Klick-Start via `roster://`-Link. **F9** öffnet im Viewer einen Zwei-Fenster-
+  Dateimanager: Mehrfachauswahl, ganze Ordner, Fortsetzen nach Abbruch, Fortschritt mit
+  Tempo – direkt durch den Tunnel gestreamt.
 - **Remote-Terminal** – interaktive Shell über On-demand-WebSocket (+ Popout-Fenster).
 - **Proxmox VE** – Agent auf einem PVE-Host listet alle VMs/Container clusterweit (über
   `pvesh`, ohne API-Token), starten / herunterfahren / neu starten / stoppen, Backup-Status
@@ -416,7 +421,8 @@ für Windows / Linux / macOS.
 2. **Enrollment**: ein Admin erzeugt ein kurzlebiges Token; der Agent tauscht es gegen
    ein eindeutiges Agent-Token pro Gerät. Tokens werden gehasht gespeichert.
 3. **Pull-Modell**: Agents öffnen nur ausgehende Verbindungen — kein offener Port am Client.
-4. **2FA** (TOTP-Pflicht), **RBAC**, **Audit-Log**, gehashte Passwörter.
+4. **2FA** (TOTP-Pflicht), **RBAC**, **Audit-Log**, gehashte Passwörter (argon2id),
+   Anmeldesperre nach Fehlversuchen, Herkunftsprüfung (CSRF) und Sicherheits-Header.
 
 ## Lizenz
 
