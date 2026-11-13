@@ -25,6 +25,7 @@ const (
 	SettingSecResponseCooldown = "sec_response_cooldown_min"
 	SettingSecInvalidUserMax   = "sec_invalid_user_max"   // Fehlversuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
 	SettingSecScanThreshold    = "sec_scan_threshold"     // verdächtige Anfragen je IP im Fenster (Standard 20)
+	SettingSecScanDistinct     = "sec_scan_distinct"      // davon verschiedene Pfade mindestens (Standard 5)
 	SettingSecAutoBlock        = "sec_auto_block"         // "1" = Brute-Force/Scan automatisch sperren (ohne Richtlinien-Regel)
 	SettingSecAutoBlockMinutes = "sec_auto_block_minutes" // Dauer der automatischen Sperre (0 = dauerhaft)
 	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
@@ -92,6 +93,30 @@ func (s *Store) InvalidUserSince(ctx context.Context, deviceID string, since tim
 // ProbesSince liefert je Quell-IP die Zeitpunkte verdächtiger Anfragen (Web-Scanner …).
 func (s *Store) ProbesSince(ctx context.Context, deviceID string, since time.Time) (map[string][]time.Time, error) {
 	return s.eventTimesSince(ctx, deviceID, since, "('probe')")
+}
+
+// ProbePathsSince liefert je Quell-IP die verschiedenen Pfade (detail) der verdächtigen
+// Anfragen seit since – für die Pfad-Vielfalt der Scan-Erkennung.
+func (s *Store) ProbePathsSince(ctx context.Context, deviceID string, since time.Time) (map[string]map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT DISTINCT source_ip, detail FROM auth_events WHERE device_id=? AND ts >= ? AND kind='probe' AND source_ip <> '' AND detail <> ''`),
+		deviceID, since.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]map[string]bool{}
+	for rows.Next() {
+		var ip, detail string
+		if err := rows.Scan(&ip, &detail); err != nil {
+			return nil, err
+		}
+		if out[ip] == nil {
+			out[ip] = map[string]bool{}
+		}
+		out[ip][detail] = true
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) eventTimesSince(ctx context.Context, deviceID string, since time.Time, kinds string) (map[string][]time.Time, error) {

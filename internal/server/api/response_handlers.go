@@ -498,6 +498,9 @@ type manualBlockRequest struct {
 	Minutes int    `json:"minutes"`
 	Reason  string `json:"reason"`
 	Fleet   bool   `json:"fleet"` // zusätzlich auf allen überwachten Geräten sperren
+	// AllDevices (nur Freigeben): auf allen überwachten Geräten entsperren, auch ohne Eintrag –
+	// etwa wenn die Sperre älter ist als die Buchführung oder von Hand gesetzt wurde.
+	AllDevices bool `json:"all_devices"`
 }
 
 // parseBlockTarget akzeptiert eine IP oder ein Netz in CIDR-Schreibweise (max. /16 bzw. /48).
@@ -653,8 +656,20 @@ func (s *Server) handleUnblockIPFleet(w http.ResponseWriter, r *http.Request) {
 	}
 	done := map[string]bool{}
 	n := 0
+	netsSeen := map[string]bool{}
+	var nets []string // aktive Netzsperren, die die IP enthalten – lassen sich nur als Ganzes freigeben
+	tIP := net.ParseIP(target)
 	for _, b := range rows {
-		if b.IP != target || done[b.DeviceID] {
+		if b.IP != target {
+			if tIP != nil && !netsSeen[b.IP] {
+				if _, cidr, err := net.ParseCIDR(b.IP); err == nil && cidr.Contains(tIP) {
+					netsSeen[b.IP] = true
+					nets = append(nets, b.IP)
+				}
+			}
+			continue
+		}
+		if done[b.DeviceID] {
 			continue
 		}
 		done[b.DeviceID] = true
@@ -664,10 +679,30 @@ func (s *Server) handleUnblockIPFleet(w http.ResponseWriter, r *http.Request) {
 		_ = s.store.SetIPBlockStatus(r.Context(), b.ID, "released", "aufgehoben (alle Geräte)")
 		n++
 	}
+	if req.AllDevices {
+		// Auch Geräte ohne Eintrag: dort kann die Sperre noch aus der Zeit vor der Buchführung
+		// stammen oder direkt gesetzt worden sein – ein überflüssiges unblock_ip ist harmlos.
+		devs, _ := s.store.MonitoredDeviceIDs(r.Context())
+		allowed := s.scopeFilter(r) // Standort-Scope des Nutzers (nil = alle)
+		for _, d := range devs {
+			if done[d.ID] {
+				continue
+			}
+			if allowed != nil {
+				if siteID, exists, _ := s.store.DeviceSiteID(r.Context(), d.ID); !exists || !allowed[siteID] {
+					continue
+				}
+			}
+			done[d.ID] = true
+			if _, err := s.queueCommand(r.Context(), d.ID, "unblock_ip", fmt.Sprintf("IP %s entsperren", target), map[string]any{"ip": target}); err == nil {
+				n++
+			}
+		}
+	}
 	if u := userFrom(r.Context()); u != nil {
 		_ = s.store.InsertAudit(r.Context(), model.AuditEntry{Username: u.Username, Method: "POST", Action: fmt.Sprintf("IP %s auf %d Geräten freigegeben", target, n)})
 	}
-	s.writeJSON(w, http.StatusOK, map[string]int{"devices": n})
+	s.writeJSON(w, http.StatusOK, map[string]any{"devices": n, "nets": nets})
 }
 
 func (s *Server) handleDeviceIPBlocks(w http.ResponseWriter, r *http.Request) {

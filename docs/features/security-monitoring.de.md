@@ -87,8 +87,12 @@ Daraus leitet der Server **Vorfälle** ab:
   **oder** N Versuche mit nicht existierenden Benutzernamen innerhalb von 24 Stunden (Standard 5,
   0 = aus). Die zweite Regel fängt verteilte, langsame Angriffe, die den Schwellwert je Fenster von
   einer IP aus nie erreichen.
-- **Angriffsmuster** – N verdächtige Anfragen von einer Quell-IP im Zeitfenster (Standard 20),
-  z. B. ein Web-Scanner, der WordPress- und phpMyAdmin-Pfade auf nginx durchprobiert.
+- **Angriffsmuster** – N verdächtige Anfragen von einer Quell-IP im Zeitfenster (Standard 20)
+  auf mindestens M **verschiedene** Pfade (Standard 5), z. B. ein Web-Scanner, der WordPress-
+  und phpMyAdmin-Pfade auf nginx durchprobiert. Die Pfad-Vielfalt verhindert Fehlalarme durch
+  harmlose Wiederholungen – etwa Mail-Clients, die beim Einrichten dutzendfach
+  `/autodiscover/autodiscover.xml` abfragen; solche Client-Sonden (Autodiscover/Autoconfig,
+  `/.well-known/…`, `sitemap.xml`, `wpad.dat`) zählen ohnehin nicht als verdächtig.
 - **Anmeldung nach Brute-Force** – erfolgreiche Anmeldung von einer IP, die gerade Brute-Force
   gefahren hat (kritisch).
 - **Neue Quell-IP** – erste erfolgreiche Anmeldung eines Benutzers von unbekannter Adresse, nach
@@ -319,7 +323,12 @@ Eine Richtlinie kann automatisch auf Vorfälle reagieren:
     und die Sperre würde den eigenen Dienst treffen. Lesen Sie bei einem Proxy-Aufbau das Protokoll
     des **Proxys** (z. B. Container `nginx-proxy`), nicht das des Backends. Der Tab **Sperren** hat
     eine Suche nach IP, Gerät, Grund und Ersteller, einen Status-Filter und je Sperre den Knopf
-    *überall*, der eine IP auf allen Geräten freigibt.
+    *überall*, der eine IP auf allen Geräten freigibt. Das Feld **IP überall freigeben** schickt
+    die Freigabe an alle überwachten Geräte, auch ohne Eintrag in der Liste; steckt die IP in
+    einer Netzsperre (`…/24`), wird das angezeigt – das Netz lässt sich nur als Ganzes freigeben.
+    Die Suche findet eine IP auch in Netzsperren, die sie enthalten. Damit eine Kunden-IP nach
+    einem Fehlalarm nicht erneut gesperrt wird, gehört sie in die **Nie-sperren-Liste**
+    (Einstellungen → Sicherheitsüberwachung).
 
 ### Automatische Sperre ohne Richtlinien-Regel
 

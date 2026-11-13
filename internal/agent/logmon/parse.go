@@ -65,16 +65,52 @@ var (
 		"' or 1=1", "\" or 1=1", "' or '1'='1", "' or \"", "or 1=1--", "or 1=1#", "' and 1=1", "' and sleep", "'--", "')--", "' --", "\"--",
 		"load_file(", "into outfile", "into dumpfile", "xp_cmdshell", "@@version", "version()", "/*!", "extractvalue(", "updatexml(",
 		"group_concat(", "concat_ws(", "convert(int,", "having 1=1", "order by 1--", "' order by", "admin'--", "admin' #",
-		"/owa/", "/autodiscover/", "/ecp/", "/telescope", "/_profiler", "/debug/default", "/server-status", "/.vscode", "/.idea",
-		"/etc/passwd", "../", "..%2f", "%2e%2e", "union select", "union+select", "union%20select", "<script", "%3cscript", "base64_decode",
-		"/config.php", "/configuration.php", "/backup", "/dump.sql", "/db.sql", "/.bak", "/web.config", "/phpinfo", "/info.php", "/test.php",
-		"/wp-content/", "/wp-includes/", "/joomla", "/administrator/", "/magento", "/downloader/", "/login.action", "/struts", "/jenkins",
+		// Weitere Scanner-Ziele (CMS, Backups, Debug-Endpunkte)
+		"/debug/default", "../", "union+select", "union%20select", "/config.php", "/configuration.php", "/backup", "/dump.sql",
+		"/db.sql", "/.bak", "/web.config", "/info.php", "/test.php", "/wp-content/", "/wp-includes/", "/joomla",
+		"/administrator/", "/magento", "/downloader/", "/login.action", "/struts", "/jenkins",
 	}
 	probeExt = []string{".php", ".asp", ".aspx", ".jsp", ".cgi", ".sh", ".bak", ".sql", ".zip", ".tar", ".gz", ".rar", ".7z", ".old", ".orig", ".swp", ".env", ".ini", ".log", ".yml", ".yaml", ".xml",
 		".toml", ".hcl", ".tfvars", ".tfstate", ".prisma", ".properties", ".key", ".pem", ".p12", ".pfx", ".sqlite", ".db", ".conf", ".cfg", ".py", ".rb", ".pl", ".lock"}
 	// nur bei 503 (Reverse-Proxy ohne Backend) – bei 404 auf echten Seiten zu häufig legitim
 	probeExt503 = []string{".json", ".js", ".txt", ".md"}
+
+	// Pfade, die normale Programme von sich aus abfragen – Mail-Clients beim Einrichten
+	// (Autodiscover/Autoconfig), Browser und Betriebssysteme (wpad, Sitemap, Browserconfig,
+	// Universal Links) sowie alles unter /.well-known/ (ACME, CalDAV/CardDAV, webfinger …).
+	// Ein 404 darauf ist kein Scan: eine Büro-Etage, die Outlook einrichtet, erzeugte sonst
+	// den Vorfall „Angriffsmuster“ und eine Flottensperre der Kunden-IP.
+	benignPaths = []string{
+		"/autodiscover/autodiscover.xml", "/autodiscover/autodiscover.json", "/autodiscover/autodiscover.svc",
+		"/.well-known/autoconfig/mail/config-v1.1.xml", "/mail/config-v1.1.xml", "/autoconfig/mail/config-v1.1.xml",
+		"/wpad.dat", "/sitemap.xml", "/sitemap_index.xml", "/browserconfig.xml", "/crossdomain.xml",
+		"/apple-app-site-association", "/favicon.ico", "/robots.txt", "/humans.txt",
+	}
+	benignPrefixes = []string{"/.well-known/", "/apple-touch-icon"}
 )
+
+// isBenignPath meldet, ob ein (kleingeschriebener) Pfad ohne Query eine harmlose
+// Client-Sonde ist, die nie als verdächtig zählt.
+func isBenignPath(p string) bool {
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	p = strings.TrimRight(p, "/")
+	if p == "" || strings.Contains(p, "..") || strings.Contains(p, "%") {
+		return false // Pfad-Spielereien (../, Kodierung) bleiben verdächtig
+	}
+	for _, b := range benignPaths {
+		if p == b {
+			return true
+		}
+	}
+	for _, pre := range benignPrefixes {
+		if strings.HasPrefix(p, pre) {
+			return true
+		}
+	}
+	return false
+}
 
 // Line ist eine zu analysierende Protokollzeile mit bekannter Zeit (Zero = unbekannt).
 type Line struct {
@@ -153,6 +189,9 @@ func Parse(src shared.LogSource, l Line, now time.Time) (shared.AuthEvent, bool)
 // suspiciousPath meldet, ob Pfad+Query nach Scanner aussieht.
 func suspiciousPath(path string, status int) bool {
 	p := strings.ToLower(path)
+	if isBenignPath(p) {
+		return false
+	}
 	for _, m := range probeMarks {
 		if strings.Contains(p, m) {
 			return true
@@ -269,7 +308,7 @@ func classifyHTTP(ev shared.AuthEvent, host, req string, status int) (shared.Aut
 	case suspiciousPath(path, status):
 		ev.Kind = "probe"
 		return ev, true
-	case status >= 400 && host != "" && hostIsLiteral(host) && path != "/" && path != "/robots.txt" && path != "/favicon.ico":
+	case status >= 400 && host != "" && hostIsLiteral(host) && path != "/" && !isBenignPath(strings.ToLower(path)):
 		// Fehlgeschlagene Anfrage an die nackte Server-IP / den Default-Host: Scanner.
 		ev.Kind = "probe"
 		return ev, true

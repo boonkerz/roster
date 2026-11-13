@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/boonkerz/roster/internal/server/geoip"
 	"github.com/boonkerz/roster/internal/server/threat"
+	"net"
 	"strings"
 	"time"
 
@@ -283,9 +284,15 @@ func (s *Store) IPBlocksFiltered(ctx context.Context, f IPBlockFilter) ([]model.
 		q += ` AND b.device_id = ?`
 		args = append(args, f.DeviceID)
 	}
-	if qs := strings.TrimSpace(f.Query); qs != "" {
+	qs := strings.TrimSpace(f.Query)
+	var qIP net.IP // Suche nach einer IP: auch Netzsperren finden, die sie enthalten
+	if qs != "" {
 		like := "%" + qs + "%"
-		q += ` AND (b.ip LIKE ? OR d.hostname LIKE ? OR b.reason LIKE ? OR b.created_by LIKE ?)`
+		if qIP = net.ParseIP(qs); qIP != nil {
+			q += ` AND (b.ip LIKE ? OR d.hostname LIKE ? OR b.reason LIKE ? OR b.created_by LIKE ? OR b.ip LIKE '%/%')`
+		} else {
+			q += ` AND (b.ip LIKE ? OR d.hostname LIKE ? OR b.reason LIKE ? OR b.created_by LIKE ?)`
+		}
 		args = append(args, like, like, like, like)
 	}
 	now := time.Now().UTC()
@@ -318,9 +325,26 @@ func (s *Store) IPBlocksFiltered(ctx context.Context, f IPBlockFilter) ([]model.
 		if err != nil {
 			return nil, err
 		}
+		if qIP != nil && !blockMatchesIP(b, qs, qIP) {
+			continue
+		}
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// blockMatchesIP: Texttreffer wie in SQL oder eine Netzsperre, die die gesuchte IP enthält.
+func blockMatchesIP(b model.IPBlock, qs string, ip net.IP) bool {
+	l := strings.ToLower(qs)
+	for _, f := range []string{b.IP, b.Hostname, b.Reason, b.CreatedBy} {
+		if strings.Contains(strings.ToLower(f), l) {
+			return true
+		}
+	}
+	if _, n, err := net.ParseCIDR(b.IP); err == nil && n.Contains(ip) {
+		return true
+	}
+	return false
 }
 
 // GetIPBlock liest eine Sperre.

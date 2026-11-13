@@ -29,6 +29,10 @@ type Config struct {
 	// ScanThreshold: verdächtige Anfragen (Kind probe, z. B. Web-Scanner) je IP im Fenster
 	// bis zum Vorfall „scan“ (Standard 20).
 	ScanThreshold int
+	// ScanDistinctPaths: so viele verschiedene Pfade müssen unter den verdächtigen Anfragen
+	// sein, bevor „scan“ entsteht (Standard 5). Ein Scanner probiert viele Pfade; ein
+	// Mail-Client, der Autodiscover vermisst, immer dieselben – der zählt dann nicht.
+	ScanDistinctPaths int
 	// ThreatAlert: Quell-IPs aus Blocklisten (Input.ThreatLookup) beim ersten Fehlversuch/Probe
 	// als Vorfall „threat_listed“ melden – ohne Schwellwert.
 	ThreatAlert bool
@@ -42,7 +46,7 @@ const InvalidUserWindow = 24 * time.Hour
 
 // DefaultConfig sind die Voreinstellungen.
 func DefaultConfig() Config {
-	return Config{BFThreshold: 10, BFWindow: 10 * time.Minute, NewIPAlert: true, LearnDays: 7, InvalidUserMax: 5, ScanThreshold: 20,
+	return Config{BFThreshold: 10, BFWindow: 10 * time.Minute, NewIPAlert: true, LearnDays: 7, InvalidUserMax: 5, ScanThreshold: 20, ScanDistinctPaths: 5,
 		AdminGroups: []string{"sudo", "wheel", "admin", "root", "administrators", "administratoren", "domain admins", "domänen-admins", "remote desktop users"}}
 }
 
@@ -56,6 +60,9 @@ type Input struct {
 	PriorInvalid map[string][]time.Time
 	// PriorProbes: verdächtige Anfragen je Quell-IP innerhalb des Fensters (ohne die neuen).
 	PriorProbes map[string][]time.Time
+	// PriorProbePaths: Pfade der verdächtigen Anfragen je Quell-IP im Fenster (für die
+	// Pfad-Vielfalt; darf fehlen).
+	PriorProbePaths map[string]map[string]bool
 	// RecentBF: Quell-IPs, für die in den letzten 60 min bereits ein Brute-Force-Vorfall existiert.
 	RecentBF map[string]time.Time
 	// RecentScan: Quell-IPs, für die in den letzten 60 min bereits ein Scan-Vorfall existiert.
@@ -110,6 +117,9 @@ func Detect(in Input, cfg Config) []Incident {
 	if cfg.PortscanPorts <= 0 {
 		cfg.PortscanPorts = 10
 	}
+	if cfg.ScanDistinctPaths <= 0 {
+		cfg.ScanDistinctPaths = 5
+	}
 	drops := map[string][]PortHit{}
 	for ip, h := range in.PriorDrops {
 		drops[ip] = append(drops[ip], h...)
@@ -124,6 +134,13 @@ func Detect(in Input, cfg Config) []Incident {
 	probes := map[string][]time.Time{}
 	users := map[string]map[string]bool{}
 	paths := map[string]map[string]bool{}
+	noPath := map[string]int{} // verdächtige Anfragen ohne Pfad (Fehlerprotokoll, eigene Muster)
+	for ip, ps := range in.PriorProbePaths {
+		paths[ip] = map[string]bool{}
+		for k := range ps {
+			paths[ip][k] = true
+		}
+	}
 	for ip, ts := range in.PriorFails {
 		fails[ip] = append(fails[ip], ts...)
 	}
@@ -195,9 +212,12 @@ func Detect(in Input, cfg Config) []Incident {
 			}
 			if e.Detail != "" {
 				paths[ip][e.Detail] = true
+			} else {
+				noPath[ip]++
 			}
 			n := countWithin(probes[ip], e.Time, cfg.BFWindow)
-			if n >= cfg.ScanThreshold {
+			// Pfad-Vielfalt: Anfragen ohne Pfad zählen wie je ein eigener Pfad.
+			if n >= cfg.ScanThreshold && len(paths[ip])+noPath[ip] >= cfg.ScanDistinctPaths {
 				if last, ok := scanAt[ip]; ok && e.Time.Sub(last) < time.Hour {
 					continue
 				}

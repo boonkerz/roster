@@ -84,8 +84,12 @@ The server derives **incidents** from these events:
 - **Brute force** – N failed logins from one source IP within the window (default 10 in 10 min),
   **or** N attempts with non-existent user names within 24 hours (default 5, 0 = off). The second
   rule catches distributed, slow attacks that never reach the per-window threshold from one IP.
-- **Attack pattern** – N suspicious requests from one source IP within the window (default 20),
-  e.g. a web scanner walking through WordPress and phpMyAdmin paths on nginx.
+- **Attack pattern** – N suspicious requests from one source IP within the window (default 20)
+  on at least M **distinct** paths (default 5), e.g. a web scanner trying WordPress and
+  phpMyAdmin paths on nginx. The path diversity prevents false alarms from harmless repetition –
+  mail clients, for instance, request `/autodiscover/autodiscover.xml` dozens of times when a
+  mailbox is set up; such client probes (Autodiscover/Autoconfig, `/.well-known/…`,
+  `sitemap.xml`, `wpad.dat`) don't count as suspicious at all.
 - **Login after brute force** – a successful login from an IP that just brute-forced (critical).
 - **New source IP** – a user's first successful login from an unknown address, after a learning
   phase (default 7 days of monitoring); private addresses can be ignored.
@@ -305,6 +309,11 @@ A policy can react to incidents automatically:
     block would hit your own service. With a proxy setup read the **proxy's** log (e.g. the
     `nginx-proxy` container), not the backend's. The **Blocks** tab has a search by IP, device,
     reason and creator, a status filter and an *everywhere* button per block that releases an IP
+    The **Release IP everywhere** field sends the release to all monitored devices, even without
+    an entry in the list; if the IP sits inside a network block (`…/24`) this is shown – the
+    network can only be released as a whole. The search also finds an IP inside network blocks
+    containing it. To keep a customer IP from being blocked again after a false alarm, put it on
+    the **never-block list** (Settings → Security monitoring).
     on all devices.
 
 ### Automatic blocking without policy rules

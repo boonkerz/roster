@@ -173,3 +173,34 @@ func TestMail(t *testing.T) {
 		t.Fatal("connect is noise")
 	}
 }
+
+// TestBenignClientPaths: Autodiscover/Autoconfig, .well-known und ähnliche Client-Sonden sind
+// auch bei 404 keine verdächtigen Anfragen – andere Pfade unter /autodiscover/ bleiben es.
+func TestBenignClientPaths(t *testing.T) {
+	src := shared.LogSource{Name: "web", Format: "nginx_access"}
+	now := time.Now()
+	benign := []string{
+		`203.0.113.5 - - [01/Nov/2026:09:12:33 +0000] "POST /autodiscover/autodiscover.xml HTTP/1.1" 404 153 "-" "Microsoft Office/16.0"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:34 +0000] "GET /Autodiscover/Autodiscover.xml?Email=max%40example.de HTTP/1.1" 404 153 "-" "Mac OS X Mail"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:35 +0000] "GET /.well-known/autoconfig/mail/config-v1.1.xml?emailaddress=x HTTP/1.1" 404 0 "-" "Thunderbird"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:36 +0000] "GET /mail/config-v1.1.xml HTTP/1.1" 404 0 "-" "Thunderbird"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:37 +0000] "GET /.well-known/acme-challenge/abc.xml HTTP/1.1" 404 0 "-" "-"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:38 +0000] "GET /sitemap.xml HTTP/1.1" 404 0 "-" "Googlebot"`,
+		`203.0.113.5 - - [01/Nov/2026:09:12:39 +0000] "GET /wpad.dat HTTP/1.1" 404 0 "-" "WinHttp-Autoproxy-Service"`,
+		`198.51.100.9 203.0.113.5 - - [01/Nov/2026:09:12:40 +0000] "GET /autodiscover/autodiscover.xml HTTP/1.1" 404 0 "-" "Outlook"`, // nackte Server-IP als Host
+	}
+	for _, line := range benign {
+		if ev, ok := Parse(src, Line{Text: line}, now); ok {
+			t.Errorf("harmlose Anfrage als %s gewertet: %s", ev.Kind, line)
+		}
+	}
+	for _, line := range []string{
+		`203.0.113.6 - - [01/Nov/2026:09:12:41 +0000] "GET /autodiscover/x.php HTTP/1.1" 404 0 "-" "-"`,
+		`203.0.113.6 - - [01/Nov/2026:09:12:42 +0000] "GET /autodiscover/autodiscover.xml/../../.env HTTP/1.1" 404 0 "-" "-"`,
+		`203.0.113.6 - - [01/Nov/2026:09:12:43 +0000] "GET /owa/auth/logon.aspx HTTP/1.1" 404 0 "-" "-"`,
+	} {
+		if ev, ok := Parse(src, Line{Text: line}, now); !ok || ev.Kind != "probe" {
+			t.Errorf("Scanner-Pfad nicht erkannt: %s", line)
+		}
+	}
+}

@@ -30,6 +30,7 @@ type securitySettings struct {
 	ResponseCooldown int      `json:"response_cooldown_min"`
 	InvalidUserMax   int      `json:"invalid_user_max"`   // Versuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
 	ScanThreshold    int      `json:"scan_threshold"`     // verdächtige Anfragen je IP im Fenster
+	ScanDistinct     int      `json:"scan_distinct"`      // davon verschiedene Pfade mindestens (1 = egal)
 	AutoBlock        bool     `json:"auto_block"`         // Brute-Force/Scan ohne Richtlinien-Regel sperren
 	AutoBlockMinutes int      `json:"auto_block_minutes"` // 0 = dauerhaft
 	FleetBlock       bool     `json:"fleet_block"`        // Sperren auf allen überwachten Geräten
@@ -47,7 +48,7 @@ type securitySettings struct {
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	cfg := securitySettings{BFThreshold: 10, BFWindowMin: 10, NewIPAlert: true, LearnDays: 7, NeverBlock: []string{}, ResponseCooldown: 30,
-		InvalidUserMax: 5, ScanThreshold: 20, AutoBlockMinutes: 7 * 24 * 60, PortscanPorts: 10}
+		InvalidUserMax: 5, ScanThreshold: 20, ScanDistinct: 5, AutoBlockMinutes: 7 * 24 * 60, PortscanPorts: 10}
 	geti := func(key string, dst *int) {
 		if v, _ := s.store.GetSetting(ctx, key); v != "" {
 			if n, err := strconv.Atoi(v); err == nil {
@@ -61,6 +62,7 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecResponseCooldown, &cfg.ResponseCooldown)
 	geti(store.SettingSecInvalidUserMax, &cfg.InvalidUserMax)
 	geti(store.SettingSecScanThreshold, &cfg.ScanThreshold)
+	geti(store.SettingSecScanDistinct, &cfg.ScanDistinct)
 	geti(store.SettingSecPortscanPorts, &cfg.PortscanPorts)
 	geti(store.SettingSecAutoBlockMinutes, &cfg.AutoBlockMinutes)
 	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
@@ -119,7 +121,7 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if req.BFThreshold < 2 || req.BFThreshold > 1000 || req.BFWindowMin < 1 || req.BFWindowMin > 1440 || req.LearnDays < 0 || req.LearnDays > 365 || req.ResponseCooldown < 0 || req.ResponseCooldown > 10080 ||
-		req.InvalidUserMax < 0 || req.InvalidUserMax > 1000 || req.ScanThreshold < 2 || req.ScanThreshold > 10000 || req.PortscanPorts < 2 || req.PortscanPorts > 1000 || req.AutoBlockMinutes < 0 || req.AutoBlockMinutes > 43200 || req.SubnetIPs < 0 || req.SubnetIPs > 254 {
+		req.InvalidUserMax < 0 || req.InvalidUserMax > 1000 || req.ScanThreshold < 2 || req.ScanThreshold > 10000 || req.ScanDistinct < 1 || req.ScanDistinct > 100 || req.PortscanPorts < 2 || req.PortscanPorts > 1000 || req.AutoBlockMinutes < 0 || req.AutoBlockMinutes > 43200 || req.SubnetIPs < 0 || req.SubnetIPs > 254 {
 		s.writeErr(w, http.StatusBadRequest, "Werte außerhalb des erlaubten Bereichs")
 		return
 	}
@@ -153,7 +155,7 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecNewIPAlert: b2s(req.NewIPAlert), store.SettingSecNewIPIgnorePriv: b2s(req.NewIPIgnorePriv),
 		store.SettingSecLearnDays: strconv.Itoa(req.LearnDays), store.SettingSecNeverBlock: strings.Join(cidrs, ","),
 		store.SettingSecResponseCooldown: strconv.Itoa(req.ResponseCooldown),
-		store.SettingSecInvalidUserMax:   strconv.Itoa(req.InvalidUserMax), store.SettingSecScanThreshold: strconv.Itoa(req.ScanThreshold),
+		store.SettingSecInvalidUserMax:   strconv.Itoa(req.InvalidUserMax), store.SettingSecScanThreshold: strconv.Itoa(req.ScanThreshold), store.SettingSecScanDistinct: strconv.Itoa(req.ScanDistinct),
 		store.SettingSecAutoBlock: b2s(req.AutoBlock), store.SettingSecAutoBlockMinutes: strconv.Itoa(req.AutoBlockMinutes),
 		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
 		store.SettingSecBlockPrivate: b2s(req.BlockPrivate), store.SettingSecPortscanPorts: strconv.Itoa(req.PortscanPorts),
@@ -219,7 +221,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	dcfg := secdetect.DefaultConfig()
 	dcfg.BFThreshold, dcfg.BFWindow = cfg.BFThreshold, time.Duration(cfg.BFWindowMin)*time.Minute
 	dcfg.NewIPAlert, dcfg.IgnorePrivateIP, dcfg.LearnDays = cfg.NewIPAlert, cfg.NewIPIgnorePriv, cfg.LearnDays
-	dcfg.InvalidUserMax, dcfg.ScanThreshold = cfg.InvalidUserMax, cfg.ScanThreshold
+	dcfg.InvalidUserMax, dcfg.ScanThreshold, dcfg.ScanDistinctPaths = cfg.InvalidUserMax, cfg.ScanThreshold, cfg.ScanDistinct
 	dcfg.ThreatAlert = cfg.ThreatEnabled && threat.Active()
 	dcfg.PortscanPorts = cfg.PortscanPorts
 	now := time.Now()
@@ -246,6 +248,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	prior, _ := s.store.FailedLoginsSince(ctx, device.ID, now.Add(-time.Hour))
 	priorInvalid, _ := s.store.InvalidUserSince(ctx, device.ID, now.Add(-secdetect.InvalidUserWindow))
 	priorProbes, _ := s.store.ProbesSince(ctx, device.ID, now.Add(-time.Hour))
+	priorPaths, _ := s.store.ProbePathsSince(ctx, device.ID, now.Add(-time.Hour))
 	recentBF, _ := s.store.RecentIncidentIPs(ctx, device.ID, "brute_force", now.Add(-time.Hour))
 	recentScan, _ := s.store.RecentIncidentIPs(ctx, device.ID, "scan", now.Add(-time.Hour))
 	recentThreat, _ := s.store.RecentIncidentIPs(ctx, device.ID, "threat_listed", time.Now().Add(-24*time.Hour))
@@ -269,7 +272,7 @@ func (s *Server) processAuthEvents(ctx context.Context, device *model.Device, ev
 	}
 	known, _ := s.store.KnownIPs(ctx, device.ID)
 	incidents := secdetect.Detect(secdetect.Input{
-		Now: now, Events: fresh, PriorFails: older(prior), PriorInvalid: older(priorInvalid), PriorProbes: older(priorProbes), RecentBF: recentBF, RecentScan: recentScan,
+		Now: now, Events: fresh, PriorFails: older(prior), PriorInvalid: older(priorInvalid), PriorProbes: older(priorProbes), PriorProbePaths: priorPaths, RecentBF: recentBF, RecentScan: recentScan,
 		KnownIP:         func(u, ip string) bool { return known[u+"@"+ip] },
 		MonitoringSince: s.store.AuthMonitorSince(ctx, device.ID),
 		ThreatLookup:    threat.Lookup,

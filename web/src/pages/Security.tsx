@@ -242,8 +242,21 @@ function BlocksTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ip-blocks"] }),
   });
   const unblockAll = useMutation({
-    mutationFn: (ip: string) => api.post<{ devices: number }>(`/security/unblock-ip`, { ip }),
+    mutationFn: (ip: string) => api.post<{ devices: number; nets?: string[] }>(`/security/unblock-ip`, { ip }),
     onSuccess: (r) => { setBMsg(t("Auf {n} Geräten aufgehoben", { n: r.devices })); qc.invalidateQueries({ queryKey: ["ip-blocks"] }); },
+  });
+  // Freigeben ohne passenden Eintrag: unblock_ip an alle überwachten Geräte.
+  const [uIP, setUIP] = useState("");
+  const [uMsg, setUMsg] = useState("");
+  const [uNets, setUNets] = useState<string[]>([]);
+  const releaseEverywhere = useMutation({
+    mutationFn: (ip: string) => api.post<{ devices: number; nets?: string[] }>(`/security/unblock-ip`, { ip, all_devices: true }),
+    onSuccess: (r, ip) => {
+      setUMsg(t("Freigabe von {ip} auf {n} Geräten eingereiht", { ip, n: r.devices }));
+      setUNets(r.nets ?? []);
+      qc.invalidateQueries({ queryKey: ["ip-blocks"] });
+    },
+    onError: (e) => setUMsg(e instanceof ApiError ? e.message : t("Fehler")),
   });
   const cls: Record<string, string> = { pending: "badge-unknown", active: "badge-offline", expired: "badge-unknown", released: "badge-online", failed: "badge-warn" };
   const label: Record<string, string> = { pending: "eingereiht", active: "aktiv", expired: "abgelaufen", released: "aufgehoben", failed: "fehlgeschlagen" };
@@ -277,6 +290,20 @@ function BlocksTab() {
           <button className="btn sm" type="submit" disabled={addBlock.isPending || !bDev || !bIP.trim()}>🚫 {t("IP sperren")}</button>
           {bMsg && <span className="muted small">{bMsg}</span>}
           <span className="muted small">{t("Eine bereits gesperrte IP wird nicht doppelt angelegt, sondern mit der neuen Dauer erneuert.")}</span>
+        </form>
+      )}
+      {canOperate && (
+        <form className="row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); if (uIP.trim()) releaseEverywhere.mutate(uIP.trim()); }}>
+          <input className="mono" placeholder={t("IP oder Netz freigeben")} value={uIP} onChange={(e) => setUIP(e.target.value)} style={{ width: 200 }} required />
+          <button className="btn sm" type="submit" disabled={releaseEverywhere.isPending || !uIP.trim()}>✓ {t("IP überall freigeben")}</button>
+          <span className="muted small">{t("Schickt die Freigabe an alle überwachten Geräte – auch ohne Eintrag in dieser Liste. Damit die IP nicht erneut gesperrt wird: Einstellungen → Sicherheitsüberwachung → Nie sperren.")}</span>
+          {uMsg && <span className="muted small">{uMsg}</span>}
+          {uNets.map((n) => (
+            <span key={n} className="small" style={{ color: "var(--warn, #b7791f)" }}>
+              {t("Teil der Netzsperre {net} – eine einzelne IP lässt sich daraus nicht lösen.", { net: n })}{" "}
+              <button type="button" className="btn ghost sm" onClick={() => { releaseEverywhere.mutate(n); }}>{t("ganzes Netz freigeben")}</button>
+            </span>
+          ))}
         </form>
       )}
       <div className="page-head" style={{ marginBottom: 10 }}>

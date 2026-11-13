@@ -6,6 +6,13 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **False "attack pattern" from mail clients:** setting up mailboxes makes Outlook, Apple Mail and Thunderbird request `/autodiscover/autodiscover.xml`, `/.well-known/autoconfig/…` etc. dozens of times; on a web server without Autodiscover every 404 counted as a suspicious request, and the customer's IP got blocked fleet-wide. Such client probes (Autodiscover/Autoconfig, `/.well-known/…`, `sitemap.xml`, `wpad.dat`, `browserconfig.xml` …) no longer count (agent update needed per device).
+
+### Changed
+- Attack-pattern incidents now require **path diversity**: at least 5 distinct paths (new setting "… of which distinct paths") among the suspicious requests – a scanner tries many paths, a misbehaving client repeats the same ones. Works server-side immediately, also for older agents.
+- Security → Blocks: searching for an IP also finds network blocks (`…/24`) containing it; new field **Release IP everywhere** sends the release to all monitored devices even without a list entry and points out containing network blocks.
+
 ## [0.31.0] - 2026-11-12
 
 ### Security

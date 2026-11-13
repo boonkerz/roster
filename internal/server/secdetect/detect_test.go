@@ -320,3 +320,36 @@ func TestRootkitMalware(t *testing.T) {
 		t.Fatalf("dedupe: %+v", got)
 	}
 }
+
+// TestScanNeedsDistinctPaths: viele Treffer auf immer dieselben Pfade (Mail-Client sucht
+// Autodiscover) sind kein Scan; Pfade aus der Datenbank zählen zur Vielfalt mit; Anfragen
+// ohne Pfad zählen wie eigene Pfade.
+func TestScanNeedsDistinctPaths(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ScanThreshold = 5
+	base := time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)
+	mk := func(ip string, ps []string) []shared.AuthEvent {
+		var ev []shared.AuthEvent
+		for i, p := range ps {
+			ev = append(ev, shared.AuthEvent{Time: base.Add(time.Duration(i) * time.Second), Kind: "probe", SourceIP: ip, Service: "nginx", Detail: p})
+		}
+		return ev
+	}
+	same := mk("203.0.113.1", []string{"/a.xml", "/b.xml", "/a.xml", "/b.xml", "/a.xml", "/b.xml", "/a.xml", "/b.xml"})
+	if inc := Detect(Input{Now: base.Add(time.Minute), Events: same}, cfg); len(inc) != 0 {
+		t.Fatalf("zwei Pfade dürfen kein Scan sein: %+v", inc)
+	}
+	// Mit drei weiteren Pfaden aus der Datenbank sind es fünf verschiedene → Scan.
+	prior := map[string]map[string]bool{"203.0.113.1": {"/c": true, "/d": true, "/e": true}}
+	if inc := Detect(Input{Now: base.Add(time.Minute), Events: same, PriorProbePaths: prior}, cfg); len(inc) != 1 || inc[0].Kind != "scan" {
+		t.Fatalf("mit DB-Pfaden erwartet: %+v", inc)
+	}
+	// Ohne Pfad (z. B. Fehlerprotokoll-Muster): altes Verhalten.
+	if inc := Detect(Input{Now: base.Add(time.Minute), Events: mk("203.0.113.2", []string{"", "", "", "", "", ""})}, cfg); len(inc) != 1 {
+		t.Fatalf("ohne Pfade erwartet: %+v", inc)
+	}
+	cfg.ScanDistinctPaths = 1
+	if inc := Detect(Input{Now: base.Add(time.Minute), Events: same}, cfg); len(inc) != 1 {
+		t.Fatalf("ScanDistinctPaths=1 = altes Verhalten: %+v", inc)
+	}
+}

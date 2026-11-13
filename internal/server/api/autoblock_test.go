@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -135,7 +136,8 @@ func TestAutoBlockFleetSubnet(t *testing.T) {
 	must(st.SaveResponse(ctx, &model.PolicyResponse{PolicyID: pAuth.ID, Trigger: "scan", Action: "run_script", ScriptID: "missing", Platforms: []string{}, Enabled: true}))
 	var probes []shared.AuthEvent
 	for i := 0; i < 25; i++ {
-		probes = append(probes, shared.AuthEvent{Time: base.Add(time.Duration(i) * time.Second), Kind: "probe", SourceIP: "192.0.2.77", Service: "nginx-proxy", Detail: "/wp-login.php", RecordID: "p" + string(rune('a'+i))})
+		// verschiedene Pfade: ein Scan braucht Pfad-Vielfalt (sonst wäre es ein hakender Client)
+		probes = append(probes, shared.AuthEvent{Time: base.Add(time.Duration(i) * time.Second), Kind: "probe", SourceIP: "192.0.2.77", Service: "nginx-proxy", Detail: fmt.Sprintf("/scan%d.php", i), RecordID: "p" + string(rune('a'+i))})
 	}
 	incs = s.processAuthEvents(ctx, web, probes)
 	if len(incs) != 1 || incs[0].Kind != "scan" {

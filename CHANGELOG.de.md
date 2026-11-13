@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- **Fehlalarm „Angriffsmuster“ durch Mail-Clients:** Beim Einrichten von Postfächern fragen Outlook, Apple Mail und Thunderbird dutzendfach `/autodiscover/autodiscover.xml`, `/.well-known/autoconfig/…` usw. ab; auf einem Webserver ohne Autodiscover zählte jeder 404 als verdächtige Anfrage, und die Kunden-IP wurde flottenweit gesperrt. Solche Client-Sonden (Autodiscover/Autoconfig, `/.well-known/…`, `sitemap.xml`, `wpad.dat`, `browserconfig.xml` …) zählen nicht mehr (Agent-Update je Gerät nötig).
+
+### Geändert
+- Der Vorfall „Angriffsmuster“ verlangt jetzt **Pfad-Vielfalt**: mindestens 5 verschiedene Pfade (neue Einstellung „… davon verschiedene Pfade“) unter den verdächtigen Anfragen – ein Scanner probiert viele Pfade, ein hakender Client wiederholt dieselben. Wirkt serverseitig sofort, auch für ältere Agents.
+- Sicherheit → Sperren: Die Suche nach einer IP findet auch Netzsperren (`…/24`), die sie enthalten; neues Feld **IP überall freigeben** schickt die Freigabe an alle überwachten Geräte, auch ohne Eintrag in der Liste, und weist auf enthaltende Netzsperren hin.
+
 ## [0.31.0] - 2026-11-12
 
 ### Sicherheit
