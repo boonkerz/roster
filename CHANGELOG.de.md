@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-11-13
+
 ### Behoben
 - **Fehlalarm „Angriffsmuster“ durch Mail-Clients:** Beim Einrichten von Postfächern fragen Outlook, Apple Mail und Thunderbird dutzendfach `/autodiscover/autodiscover.xml`, `/.well-known/autoconfig/…` usw. ab; auf einem Webserver ohne Autodiscover zählte jeder 404 als verdächtige Anfrage, und die Kunden-IP wurde flottenweit gesperrt. Solche Client-Sonden (Autodiscover/Autoconfig, `/.well-known/…`, `sitemap.xml`, `wpad.dat`, `browserconfig.xml` …) zählen nicht mehr (Agent-Update je Gerät nötig).
 
@@ -508,7 +510,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.1...HEAD
+[0.31.1]: https://github.com/boonkerz/roster/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/boonkerz/roster/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/boonkerz/roster/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/boonkerz/roster/compare/v0.30.0...v0.30.1
