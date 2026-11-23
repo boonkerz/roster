@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-11-23
+
 ### Fixed
 - **Slow dashboard and security overview (8–13 s), slow check-ins:** the `ip_blocks` table had grown to 2.6 million rows (2 GB with indexes). Expired fleet blocks were never marked as expired, so they stayed "active" for 14 days before cleanup, and every overview read 30 days of blocks. Now: expired blocks are marked hourly and deleted after 2 days (in batches, without blocking check-ins), overviews read 7 days, and the security overview and dashboard figures are precomputed in the background so the UI never waits.
 
@@ -516,7 +518,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.2...HEAD
+[0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/boonkerz/roster/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/boonkerz/roster/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/boonkerz/roster/compare/v0.30.1...v0.30.2

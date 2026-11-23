@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-11-23
+
 ### Behoben
 - **Langsames Dashboard und Sicherheitsübersicht (8–13 s), langsame Checkins:** Die Tabelle `ip_blocks` war auf 2,6 Millionen Zeilen gewachsen (2 GB mit Indizes). Abgelaufene Flottensperren wurden nie als abgelaufen markiert, galten 14 Tage als „wirksam“ und jede Übersicht las 30 Tage Sperren. Jetzt: Abgelaufene Sperren werden stündlich nachgetragen und nach 2 Tagen gelöscht (häppchenweise, ohne Checkins zu blockieren), Übersichten lesen 7 Tage, und Sicherheitsübersicht sowie Dashboard-Kennzahlen werden im Hintergrund vorberechnet, sodass die Oberfläche nie wartet.
 
@@ -516,7 +518,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.2...HEAD
+[0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/boonkerz/roster/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/boonkerz/roster/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/boonkerz/roster/compare/v0.30.1...v0.30.2
