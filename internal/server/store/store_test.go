@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -1498,6 +1499,39 @@ func TestCheckHistory(t *testing.T) {
 	}
 }
 
+// TestBlockMaintenanceRounds: maxRows begrenzt einen Aufruf auf ganze Häppchen (5.000) und
+// meldet done=false, solange noch Zeilen offen sind.
+func TestBlockMaintenanceRounds(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pc", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatal(err)
+	}
+	past := time.Now().Add(-3 * 24 * time.Hour)
+	tx, err := st.DB().BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5001; i++ {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO ip_blocks (id, device_id, ip, status, until_at, created_by, created_at) VALUES (?, ?, ?, 'active', ?, 'system', ?)",
+			store.NewID(), dev.ID, fmt.Sprintf("198.51.%d.%d", i/256, i%256), past, past); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	n, done, err := st.ExpireBlocks(ctx, time.Now(), 1)
+	if err != nil || n != 5000 || done {
+		t.Fatalf("runde 1: n=%d done=%v err=%v", n, done, err)
+	}
+	n, done, err = st.ExpireBlocks(ctx, time.Now(), 1)
+	if err != nil || n != 1 || !done {
+		t.Fatalf("runde 2: n=%d done=%v err=%v", n, done, err)
+	}
+}
+
 // TestBlockMaintenance: abgelaufene wirksame Sperren werden als abgelaufen nachgetragen,
 // beendete Sperren älter als der Stichtag gelöscht – laufende und junge bleiben.
 func TestBlockMaintenance(t *testing.T) {
@@ -1520,8 +1554,8 @@ func TestBlockMaintenance(t *testing.T) {
 	running := mk("198.51.100.2", "active", &future)   // läuft → bleibt
 	permanent := mk("198.51.100.3", "active", nil)     // dauerhaft → bleibt
 	failedOld := mk("198.51.100.4", "failed", &future) // beendet, aber created_at = jetzt → bleibt (Stichtag)
-	n, err := st.ExpireBlocks(ctx, time.Now())
-	if err != nil || n != 1 {
+	n, done, err := st.ExpireBlocks(ctx, time.Now(), 0)
+	if err != nil || n != 1 || !done {
 		t.Fatalf("expire: %d %v", n, err)
 	}
 	if b, _ := st.GetIPBlock(ctx, oldExpired.ID); b == nil || b.Status != "expired" {
@@ -1531,8 +1565,8 @@ func TestBlockMaintenance(t *testing.T) {
 	if _, err := st.DB().ExecContext(ctx, "UPDATE ip_blocks SET created_at = ? WHERE id = ?", past, oldExpired.ID); err != nil {
 		t.Fatal(err)
 	}
-	d, err := st.PruneEndedBlocks(ctx, time.Now().AddDate(0, 0, -2))
-	if err != nil || d != 1 {
+	d, done, err := st.PruneEndedBlocks(ctx, time.Now().AddDate(0, 0, -2), 0)
+	if err != nil || d != 1 || !done {
 		t.Fatalf("prune: %d %v", d, err)
 	}
 	if _, _, err := st.CheckpointWAL(ctx); err != nil {

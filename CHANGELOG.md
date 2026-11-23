@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Block maintenance filled the write-ahead log:** Every updated row costs ~20 KB in the WAL (row plus four indexes); with 2.3 million stale rows the disk would have filled up because SQLite never resets the log under constant load. Maintenance now works in rounds of 25,000 rows and truncates the WAL after each round.
+
 ## [0.31.3] - 2026-11-23
 
 ### Fixed

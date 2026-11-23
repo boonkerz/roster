@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- **Sperren-Pflege füllte das Write-Ahead-Log:** Jede nachgetragene Zeile kostet im WAL ~20 KB (Zeile plus vier Indizes); bei 2,3 Millionen Altlasten wäre die Platte vollgelaufen, weil SQLite das Log unter Dauerlast nie zurücksetzt. Der Pflegelauf arbeitet jetzt in Runden zu 25.000 Zeilen und kürzt das WAL nach jeder Runde.
+
 ## [0.31.3] - 2026-11-23
 
 ### Behoben

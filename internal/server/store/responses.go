@@ -351,17 +351,21 @@ func blockMatchesIP(b model.IPBlock, qs string, ip net.IP) bool {
 // Häppchen, damit Checkins zwischendurch schreiben können. Der Agent hebt die Sperre
 // selbst auf; der Server trug den Zustand bisher nie nach, wodurch Millionen Zeilen als
 // „wirksam“ geführt und von der Aufräumung übersehen wurden.
-func (s *Store) ExpireBlocks(ctx context.Context, now time.Time) (int64, error) {
+//
+// maxRows begrenzt die Zeilen je Aufruf (0 = unbegrenzt); done=false heißt, es ist noch
+// mehr zu tun. Der Aufrufer kürzt dazwischen das WAL – jede geänderte Zeile kostet dort
+// ~20 KB (Zeile + vier Indizes), ohne Zwischen-Checkpoint wuchs das Log unbegrenzt.
+func (s *Store) ExpireBlocks(ctx context.Context, now time.Time, maxRows int64) (n int64, done bool, err error) {
 	// SQLite: den Teilindex auf until_at erzwingen. Der Planer wählte sonst den Status-Index
 	// und las je Häppchen alle wirksamen Zeilen (2 GB, ~45 s Schreibsperre auf dem Live-System).
-	return s.batched(ctx, `UPDATE ip_blocks SET status='expired' WHERE id IN (
+	return s.batched(ctx, maxRows, `UPDATE ip_blocks SET status='expired' WHERE id IN (
 		SELECT id FROM ip_blocks `+s.indexedBy("idx_ip_blocks_until")+` WHERE status='active' AND until_at IS NOT NULL AND until_at < ? LIMIT ?)`, now.UTC())
 }
 
 // PruneEndedBlocks löscht beendete Sperren (aufgehoben, abgelaufen, fehlgeschlagen), die
 // vor cutoff angelegt wurden – ebenfalls in Häppchen.
-func (s *Store) PruneEndedBlocks(ctx context.Context, cutoff time.Time) (int64, error) {
-	return s.batched(ctx, `DELETE FROM ip_blocks WHERE id IN (
+func (s *Store) PruneEndedBlocks(ctx context.Context, cutoff time.Time, maxRows int64) (n int64, done bool, err error) {
+	return s.batched(ctx, maxRows, `DELETE FROM ip_blocks WHERE id IN (
 		SELECT id FROM ip_blocks `+s.indexedBy("idx_ip_blocks_created")+` WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?)) LIMIT ?)`,
 		cutoff.UTC(), cutoff.UTC())
 }
@@ -391,23 +395,27 @@ func (s *Store) CheckpointWAL(ctx context.Context) (frames int64, busy bool, err
 }
 
 // batched führt eine ändernde Anweisung mit LIMIT-Platzhalter am Ende wiederholt aus, bis
-// nichts mehr betroffen ist. Zwischen den Häppchen kommen andere Schreiber zum Zug.
-func (s *Store) batched(ctx context.Context, q string, args ...any) (int64, error) {
+// nichts mehr betroffen ist (done=true) oder maxRows erreicht sind (done=false; 0 =
+// unbegrenzt). Zwischen den Häppchen kommen andere Schreiber zum Zug.
+func (s *Store) batched(ctx context.Context, maxRows int64, q string, args ...any) (int64, bool, error) {
 	// Klein genug, dass eine Schreibsperre auch auf langsamer Platte nur Sekundenbruchteile hält.
 	const batch = 5000
 	var total int64
 	for {
 		if err := ctx.Err(); err != nil {
-			return total, err
+			return total, false, err
 		}
 		res, err := s.db.ExecContext(ctx, s.rebind(q), append(append([]any{}, args...), batch)...)
 		if err != nil {
-			return total, err
+			return total, false, err
 		}
 		n, _ := res.RowsAffected()
 		total += n
 		if n < batch {
-			return total, nil
+			return total, true, nil
+		}
+		if maxRows > 0 && total >= maxRows {
+			return total, false, nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

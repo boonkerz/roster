@@ -14,18 +14,38 @@ func (s *Server) RunBlockMaintenanceLoop(ctx context.Context) {
 		mctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()
 		started := time.Now()
-		expired, err := s.store.ExpireBlocks(mctx, time.Now())
-		if err != nil {
-			s.log.Warn("sperren: ablauf nachtragen", "err", err, "bisher", expired)
+		var expired, deleted int64
+		// Runden zu 25.000 Zeilen (~500 MB WAL), dazwischen WAL kürzen: ohne das wuchs das
+		// Log beim ersten Lauf auf dem Live-System um ~400 MB je 20.000 Zeilen und hätte
+		// bei 2,3 Millionen Altlasten die Platte gefüllt.
+		const round = 25000
+		for {
+			n, done, err := s.store.ExpireBlocks(mctx, time.Now(), round)
+			expired += n
+			if err != nil {
+				s.log.Warn("sperren: ablauf nachtragen", "err", err, "bisher", expired)
+				break
+			}
+			s.checkpoint(mctx)
+			if done {
+				break
+			}
 		}
-		deleted, err := s.store.PruneEndedBlocks(mctx, time.Now().AddDate(0, 0, -2))
-		if err != nil {
-			s.log.Warn("sperren: aufräumen", "err", err, "bisher", deleted)
+		for mctx.Err() == nil {
+			n, done, err := s.store.PruneEndedBlocks(mctx, time.Now().AddDate(0, 0, -2), round)
+			deleted += n
+			if err != nil {
+				s.log.Warn("sperren: aufräumen", "err", err, "bisher", deleted)
+				break
+			}
+			s.checkpoint(mctx)
+			if done {
+				break
+			}
 		}
 		if expired > 0 || deleted > 0 {
 			s.log.Info("sperren gepflegt", "abgelaufen", expired, "gelöscht", deleted, "dauer", time.Since(started).Round(time.Second))
 		}
-		s.checkpoint(ctx)
 	}
 	select {
 	case <-time.After(time.Minute):
