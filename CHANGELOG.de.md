@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.31.3] - 2026-11-23
+
 ### Behoben
 - **Sperren-Pflege (0.31.2) blockierte Checkins:** Der erste Pflegelauf nutzte den neuen Index nicht – SQLite wählte den Status-Index und las je Häppchen alle 2,4 Millionen „wirksamen“ Zeilen (2 GB), wodurch jede Schreibsperre ~45 s hielt und Checkins mit „database is locked“ scheiterten. Der Index wird jetzt erzwungen, die Häppchen sind kleiner (5.000 statt 20.000 Zeilen).
 - **Write-Ahead-Log wuchs unbegrenzt:** Unter Dauerlast (immer ein Leser aktiv) setzte SQLite das WAL nie zurück – live 2,8 GB, jede Seitensuche lief durch das ganze Log. Der Server kürzt das WAL jetzt alle 10 Minuten und nach jedem Pflegelauf.
@@ -522,7 +524,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.2...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.3...HEAD
+[0.31.3]: https://github.com/boonkerz/roster/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/boonkerz/roster/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/boonkerz/roster/compare/v0.30.2...v0.31.0
