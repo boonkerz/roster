@@ -347,6 +347,45 @@ func blockMatchesIP(b model.IPBlock, qs string, ip net.IP) bool {
 	return false
 }
 
+// ExpireBlocks setzt wirksame Sperren, deren Ablauf vorbei ist, auf „expired“ – in
+// Häppchen, damit Checkins zwischendurch schreiben können. Der Agent hebt die Sperre
+// selbst auf; der Server trug den Zustand bisher nie nach, wodurch Millionen Zeilen als
+// „wirksam“ geführt und von der Aufräumung übersehen wurden.
+func (s *Store) ExpireBlocks(ctx context.Context, now time.Time) (int64, error) {
+	return s.batched(ctx, `UPDATE ip_blocks SET status='expired' WHERE id IN (
+		SELECT id FROM ip_blocks WHERE status='active' AND until_at IS NOT NULL AND until_at < ? LIMIT ?)`, now.UTC())
+}
+
+// PruneEndedBlocks löscht beendete Sperren (aufgehoben, abgelaufen, fehlgeschlagen), die
+// vor cutoff angelegt wurden – ebenfalls in Häppchen.
+func (s *Store) PruneEndedBlocks(ctx context.Context, cutoff time.Time) (int64, error) {
+	return s.batched(ctx, `DELETE FROM ip_blocks WHERE id IN (
+		SELECT id FROM ip_blocks WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?)) LIMIT ?)`,
+		cutoff.UTC(), cutoff.UTC())
+}
+
+// batched führt eine ändernde Anweisung mit LIMIT-Platzhalter am Ende wiederholt aus, bis
+// nichts mehr betroffen ist. Zwischen den Häppchen kommen andere Schreiber zum Zug.
+func (s *Store) batched(ctx context.Context, q string, args ...any) (int64, error) {
+	const batch = 20000
+	var total int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+		res, err := s.db.ExecContext(ctx, s.rebind(q), append(append([]any{}, args...), batch)...)
+		if err != nil {
+			return total, err
+		}
+		n, _ := res.RowsAffected()
+		total += n
+		if n < batch {
+			return total, nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 // GetIPBlock liest eine Sperre.
 func (s *Store) GetIPBlock(ctx context.Context, id string) (*model.IPBlock, error) {
 	rows, err := s.db.QueryContext(ctx, s.rebind(`SELECT `+ipBlockCols+` FROM ip_blocks b JOIN devices d ON d.id=b.device_id WHERE b.id=?`), id)

@@ -218,7 +218,7 @@ func (s *Server) runResponses(ctx context.Context, device *model.Device, inciden
 			// wenn die allgemeine Flottensperre aus ist. Never-Block/Privat-Prüfung wie üblich.
 			fleet := cfg
 			fleet.FleetBlock = true
-			s.executeResponse(ctx, device, inc, model.PolicyResponse{Trigger: inc.Kind, Action: "block_ip", Minutes: cfg.AutoBlockMinutes}, fleet, "system")
+			s.executeResponse(ctx, device, inc, model.PolicyResponse{Trigger: inc.Kind, Action: "block_ip", Minutes: cfg.ThreatBlockMinutes}, fleet, "system")
 			continue
 		}
 		if !handled && cfg.AutoBlock && autoBlockTriggers[inc.Kind] && inc.SourceIP != "" {

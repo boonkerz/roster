@@ -125,7 +125,7 @@ function SecurityMonitoring() {
   const [draft, setDraft] = useState<SecuritySettings | null>(null);
   const [err, setErr] = useState("");
   const cur: SecuritySettings = draft ?? data ?? { bf_threshold: 10, bf_window_min: 10, new_ip_alert: true, new_ip_ignore_private: false, learn_days: 7, never_block: [], response_cooldown_min: 30,
-    invalid_user_max: 5, scan_threshold: 20, scan_distinct: 5, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {}, threat_enabled: true, threat_block: true, threat_feeds: [], portscan_ports: 10 };
+    invalid_user_max: 5, scan_threshold: 20, scan_distinct: 5, auto_block: false, auto_block_minutes: 10080, fleet_block: false, subnet_ips: 0, block_private: false, severity: {}, threat_enabled: true, threat_block: true, threat_feeds: [], threat_block_minutes: 10080, portscan_ports: 10 };
   const { data: threatStatus } = useQuery<ThreatStatus>({ queryKey: ["threat-status"], queryFn: () => api.get("/security/threat") });
   const { data: kinds } = useQuery<IncidentKindInfo[]>({ queryKey: ["incident-kinds"], queryFn: () => api.get("/security/kinds"), staleTime: 600000 });
   const save = useMutation({
@@ -173,6 +173,7 @@ function SecurityMonitoring() {
         <div className="inline-form">
           <label className="chip"><input type="checkbox" checked={cur.threat_enabled} onChange={(e) => upd({ threat_enabled: e.target.checked })} /> {t("Blocklisten abgleichen")}</label>
           <label className="chip" title={t("Unabhängig von Schwellwerten und von der allgemeinen Flottensperre; Nie-sperren-Liste und private Adressen bleiben ausgenommen.")}><input type="checkbox" checked={cur.threat_block} disabled={!cur.threat_enabled} onChange={(e) => upd({ threat_block: e.target.checked })} /> {t("gelistete IPs beim ersten Ereignis auf allen überwachten Geräten sperren")}</label>
+          <label className="num" style={{ display: "inline-flex", alignItems: "center", gap: 6 }} title={t("Bekannte Angriffsquellen dürfen länger gesperrt bleiben: jede erneute Sperre nach Ablauf kostet je Gerät einen Befehl und einen Eintrag – bei 24 Stunden sind das sechsstellige Zeilenzahlen am Tag.")}>{t("Sperrdauer gelisteter IPs")}<BlockDurationSelect value={cur.threat_block_minutes ?? 10080} onChange={(m) => upd({ threat_block_minutes: m })} /></label>
         </div>
         <div className="inline-form">
           {(threatStatus?.feeds ?? []).map((f) => {

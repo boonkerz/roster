@@ -144,6 +144,13 @@ AMSI/Defender tampering, mimikatz/procdump/psexec, `vssadmin delete shadows`, `w
 
 ## Threat intelligence
 
+!!! tip "Block duration for listed IPs"
+    Listed addresses have their own block duration (default 7 days, Settings → Security
+    monitoring). Short durations are expensive here: after expiry the same address is blocked
+    again on all monitored devices at its next contact – one command and one entry per device.
+    With 24 hours a fleet of 65 devices produced about 180,000 entries per day; with 7 days a
+    seventh of that.
+
 The server fetches five public block lists daily – **Spamhaus DROP**, **blocklist.de**, **Feodo
 Tracker**, **CINS Army** and the **Tor exit node list** – caches them in the database and keeps
 them as an in-memory index. Source IPs of incidents, login events and blocks are flagged with the
@@ -348,4 +355,5 @@ made permanent in place.
     With fleet blocking every blocked address creates one block row and one command **per device**. A short
     block duration (e.g. 60 min) re-blocks the same attackers every hour – with thousands of incidents a day
     that is hundreds of thousands of rows. Recommendation: 24 h or longer. Retention: raw login/log events
-    30 days, finished blocks 14 days, finished block commands 2 days, incidents one year.
+    30 days, finished blocks 2 days (expired ones are marked expired hourly), finished block
+    commands 2 days, incidents one year.

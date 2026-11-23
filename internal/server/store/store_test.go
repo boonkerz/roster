@@ -1497,3 +1497,50 @@ func TestCheckHistory(t *testing.T) {
 		t.Fatalf("erwartete leeren Verlauf nach Prune, bekam %+v", pts)
 	}
 }
+
+// TestBlockMaintenance: abgelaufene wirksame Sperren werden als abgelaufen nachgetragen,
+// beendete Sperren älter als der Stichtag gelöscht – laufende und junge bleiben.
+func TestBlockMaintenance(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	dev := &model.Device{ID: store.NewID(), Hostname: "pc", OS: "linux"}
+	if err := st.CreateDevice(ctx, dev, auth.HashToken("t")); err != nil {
+		t.Fatal(err)
+	}
+	past := time.Now().Add(-3 * 24 * time.Hour)
+	future := time.Now().Add(24 * time.Hour)
+	mk := func(ip, status string, until *time.Time) *model.IPBlock {
+		b := &model.IPBlock{DeviceID: dev.ID, IP: ip, Status: status, Until: until, CreatedBy: "system"}
+		if err := st.InsertIPBlock(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	oldExpired := mk("198.51.100.1", "active", &past)  // abgelaufen, alt → expired → gelöscht
+	running := mk("198.51.100.2", "active", &future)   // läuft → bleibt
+	permanent := mk("198.51.100.3", "active", nil)     // dauerhaft → bleibt
+	failedOld := mk("198.51.100.4", "failed", &future) // beendet, aber created_at = jetzt → bleibt (Stichtag)
+	n, err := st.ExpireBlocks(ctx, time.Now())
+	if err != nil || n != 1 {
+		t.Fatalf("expire: %d %v", n, err)
+	}
+	if b, _ := st.GetIPBlock(ctx, oldExpired.ID); b == nil || b.Status != "expired" {
+		t.Fatalf("nicht als abgelaufen markiert: %+v", b)
+	}
+	// created_at zurückdatieren, damit der Stichtag greift.
+	if _, err := st.DB().ExecContext(ctx, "UPDATE ip_blocks SET created_at = ? WHERE id = ?", past, oldExpired.ID); err != nil {
+		t.Fatal(err)
+	}
+	d, err := st.PruneEndedBlocks(ctx, time.Now().AddDate(0, 0, -2))
+	if err != nil || d != 1 {
+		t.Fatalf("prune: %d %v", d, err)
+	}
+	for _, b := range []*model.IPBlock{running, permanent, failedOld} {
+		if got, _ := st.GetIPBlock(ctx, b.ID); got == nil {
+			t.Fatalf("%s fälschlich gelöscht", b.IP)
+		}
+	}
+	if got, _ := st.GetIPBlock(ctx, oldExpired.ID); got != nil {
+		t.Fatal("abgelaufene alte Sperre nicht gelöscht")
+	}
+}

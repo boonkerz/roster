@@ -150,6 +150,13 @@ die Shells starten. Vorfälle: **Persistenz** (Dienst/Aufgabe, Warnung), **Proto
 
 ## Bedrohungsdaten
 
+!!! tip "Sperrdauer gelisteter IPs"
+    Gelistete Adressen bekommen eine eigene Sperrdauer (Standard 7 Tage, Einstellungen →
+    Sicherheitsüberwachung). Kurze Dauern sind hier teuer: Nach Ablauf wird dieselbe Adresse beim
+    nächsten Kontakt erneut auf allen überwachten Geräten gesperrt – je Gerät ein Befehl und ein
+    Eintrag. Mit 24 Stunden kamen auf einer Flotte von 65 Geräten rund 180.000 Einträge am Tag
+    zusammen, mit 7 Tagen ein Siebtel davon.
+
 Der Server lädt täglich fünf öffentliche Blocklisten – **Spamhaus DROP**, **blocklist.de**,
 **Feodo Tracker**, **CINS Army** und die **Tor-Exit-Node-Liste** –, speichert sie in der Datenbank
 zwischen und hält sie als Index im Speicher. Quell-IPs von Vorfällen, Anmeldungen und Sperren werden
@@ -363,4 +370,5 @@ und Stelle dauerhaft machen.
     Mit Flottensperre entsteht je gesperrter Adresse ein Sperreintrag und ein Befehl **pro Gerät**. Bei kurzer
     Sperrdauer (z. B. 60 min) werden dieselben Angreifer stündlich neu gesperrt – bei tausenden Vorfällen am Tag
     sind das hunderttausende Zeilen. Empfehlung: Sperrdauer 24 h oder länger. Aufbewahrung: rohe Anmelde-/
-    Log-Ereignisse 30 Tage, beendete Sperren 14 Tage, erledigte Sperrbefehle 2 Tage, Vorfälle ein Jahr.
+    Log-Ereignisse 30 Tage, beendete Sperren 2 Tage (abgelaufene werden stündlich als
+    abgelaufen nachgetragen), erledigte Sperrbefehle 2 Tage, Vorfälle ein Jahr.

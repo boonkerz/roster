@@ -6,6 +6,12 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Slow dashboard and security overview (8–13 s), slow check-ins:** the `ip_blocks` table had grown to 2.6 million rows (2 GB with indexes). Expired fleet blocks were never marked as expired, so they stayed "active" for 14 days before cleanup, and every overview read 30 days of blocks. Now: expired blocks are marked hourly and deleted after 2 days (in batches, without blocking check-ins), overviews read 7 days, and the security overview and dashboard figures are precomputed in the background so the UI never waits.
+
+### Added
+- Settings → Security monitoring: **separate block duration for listed IPs** (default 7 days). A short duration re-blocks the same known attack sources on every device daily – at 24 hours that was ~180,000 entries and commands per day on a 65-device fleet.
+
 ## [0.31.1] - 2026-11-13
 
 ### Fixed

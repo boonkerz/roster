@@ -754,11 +754,8 @@ func (s *Store) LatestTaskResultsFor(ctx context.Context, deviceID string) ([]mo
 func (s *Store) PruneHistory(ctx context.Context, cutoff, auditCutoff time.Time) (int64, int64, error) {
 	_ = s.PruneFIMEvents(ctx, cutoff) // Datei-Änderungen wie die übrige Historie aufräumen
 	// Rohe Anmelde-/Log-Ereignisse 30 Tage (bei Web-Scannern über 100.000 Zeilen am Tag),
-	// erledigte Vorfälle ein Jahr, beendete IP-Sperren 14 Tage (die Flottensperre legt je
-	// Adresse einen Eintrag pro Gerät an).
+	// erledigte Vorfälle ein Jahr. Beendete IP-Sperren räumt MaintainBlocks (stündlich) auf.
 	_ = s.PruneSecurityEvents(ctx, time.Now().AddDate(0, 0, -30), time.Now().AddDate(-1, 0, 0))
-	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM ip_blocks WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?))`),
-		time.Now().AddDate(0, 0, -14).UTC(), time.Now().AddDate(0, 0, -14).UTC())
 	// Erledigte Sperrbefehle sind Massenware (Flottensperre: ein Befehl je Gerät und
 	// Adresse) und nach zwei Tagen ohne Wert – unabhängig von der übrigen Aufbewahrung.
 	_, _ = s.db.ExecContext(ctx, s.rebind(`DELETE FROM commands WHERE type IN ('block_ip','unblock_ip') AND status IN ('done','failed') AND created_at < ?`),

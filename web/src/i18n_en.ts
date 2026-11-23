@@ -346,6 +346,8 @@ export const EN: Record<string, string> = {
   "Freigabe von {ip} auf {n} Geräten eingereiht": "Release of {ip} queued on {n} devices",
   "Teil der Netzsperre {net} – eine einzelne IP lässt sich daraus nicht lösen.": "Part of the network block {net} – a single IP cannot be carved out of it.",
   "ganzes Netz freigeben": "release whole network",
+  "Sperrdauer gelisteter IPs": "Block duration for listed IPs",
+  "Bekannte Angriffsquellen dürfen länger gesperrt bleiben: jede erneute Sperre nach Ablauf kostet je Gerät einen Befehl und einen Eintrag – bei 24 Stunden sind das sechsstellige Zeilenzahlen am Tag.": "Known attack sources may stay blocked longer: every re-block after expiry costs one command and one entry per device – at 24 hours that is six-figure row counts per day.",
   "Datei zu groß (max 4 GB)": "File too large (max 4 GB)",
   "Virenschutz": "Antivirus",
   "BitLocker": "BitLocker",

@@ -609,6 +609,7 @@ export interface SecuritySettings {
   invalid_user_max: number;
   scan_threshold: number;
   scan_distinct: number;
+  threat_block_minutes: number;
   auto_block: boolean;
   auto_block_minutes: number;
   fleet_block: boolean;

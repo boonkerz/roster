@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- **Langsames Dashboard und Sicherheitsübersicht (8–13 s), langsame Checkins:** Die Tabelle `ip_blocks` war auf 2,6 Millionen Zeilen gewachsen (2 GB mit Indizes). Abgelaufene Flottensperren wurden nie als abgelaufen markiert, galten 14 Tage als „wirksam“ und jede Übersicht las 30 Tage Sperren. Jetzt: Abgelaufene Sperren werden stündlich nachgetragen und nach 2 Tagen gelöscht (häppchenweise, ohne Checkins zu blockieren), Übersichten lesen 7 Tage, und Sicherheitsübersicht sowie Dashboard-Kennzahlen werden im Hintergrund vorberechnet, sodass die Oberfläche nie wartet.
+
+### Hinzugefügt
+- Einstellungen → Sicherheitsüberwachung: **eigene Sperrdauer für gelistete IPs** (Standard 7 Tage). Eine kurze Dauer sperrt dieselben bekannten Angriffsquellen täglich neu auf jedem Gerät – bei 24 Stunden waren das rund 180.000 Einträge und Befehle am Tag auf 65 Geräten.
+
 ## [0.31.1] - 2026-11-13
 
 ### Behoben

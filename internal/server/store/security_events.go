@@ -16,26 +16,27 @@ import (
 
 // Einstellungs-Schlüssel der Anmeldungs-Überwachung (app_settings).
 const (
-	SettingSecBFThreshold      = "sec_bf_threshold"       // Fehlversuche je IP (Standard 10)
-	SettingSecBFWindowMin      = "sec_bf_window_min"      // Fenster in Minuten (Standard 10)
-	SettingSecNewIPAlert       = "sec_new_ip_alert"       // "0" = aus
-	SettingSecNewIPIgnorePriv  = "sec_new_ip_ignore_priv" // "1" = private IPs ignorieren
-	SettingSecLearnDays        = "sec_learn_days"         // Lernphase (Standard 7)
-	SettingSecNeverBlock       = "sec_never_block"        // CIDRs, nie sperren (Phase 8)
-	SettingSecResponseCooldown = "sec_response_cooldown_min"
-	SettingSecInvalidUserMax   = "sec_invalid_user_max"   // Fehlversuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
-	SettingSecScanThreshold    = "sec_scan_threshold"     // verdächtige Anfragen je IP im Fenster (Standard 20)
-	SettingSecScanDistinct     = "sec_scan_distinct"      // davon verschiedene Pfade mindestens (Standard 5)
-	SettingSecAutoBlock        = "sec_auto_block"         // "1" = Brute-Force/Scan automatisch sperren (ohne Richtlinien-Regel)
-	SettingSecAutoBlockMinutes = "sec_auto_block_minutes" // Dauer der automatischen Sperre (0 = dauerhaft)
-	SettingSecFleetBlock       = "sec_fleet_block"        // "1" = automatische Sperren auf allen überwachten Geräten
-	SettingSecSubnetIPs        = "sec_subnet_ips"         // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
-	SettingSecSeverityPrefix   = "sec_severity_"          // + Vorfallsart: Schweregrad-Override (info|warning|critical)
-	SettingSecThreatEnabled    = "sec_threat_enabled"     // "0" = Bedrohungsdaten aus (Standard an)
-	SettingSecThreatBlock      = "sec_threat_block"       // "0" = gelistete IPs nicht automatisch sperren (Standard an)
-	SettingSecThreatFeeds      = "sec_threat_feeds"       // Feed-IDs kommagetrennt, leer = alle
-	SettingSecPortscanPorts    = "sec_portscan_ports"     // verschiedene Zielports je IP im Fenster bis zum Vorfall „portscan“
-	SettingSecBlockPrivate     = "sec_block_private"      // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
+	SettingSecBFThreshold        = "sec_bf_threshold"       // Fehlversuche je IP (Standard 10)
+	SettingSecBFWindowMin        = "sec_bf_window_min"      // Fenster in Minuten (Standard 10)
+	SettingSecNewIPAlert         = "sec_new_ip_alert"       // "0" = aus
+	SettingSecNewIPIgnorePriv    = "sec_new_ip_ignore_priv" // "1" = private IPs ignorieren
+	SettingSecLearnDays          = "sec_learn_days"         // Lernphase (Standard 7)
+	SettingSecNeverBlock         = "sec_never_block"        // CIDRs, nie sperren (Phase 8)
+	SettingSecResponseCooldown   = "sec_response_cooldown_min"
+	SettingSecInvalidUserMax     = "sec_invalid_user_max"     // Fehlversuche mit unbekanntem Benutzer je IP in 24 h (0 = aus)
+	SettingSecScanThreshold      = "sec_scan_threshold"       // verdächtige Anfragen je IP im Fenster (Standard 20)
+	SettingSecScanDistinct       = "sec_scan_distinct"        // davon verschiedene Pfade mindestens (Standard 5)
+	SettingSecThreatBlockMinutes = "sec_threat_block_minutes" // Sperrdauer gelisteter IPs (Standard 7 Tage)
+	SettingSecAutoBlock          = "sec_auto_block"           // "1" = Brute-Force/Scan automatisch sperren (ohne Richtlinien-Regel)
+	SettingSecAutoBlockMinutes   = "sec_auto_block_minutes"   // Dauer der automatischen Sperre (0 = dauerhaft)
+	SettingSecFleetBlock         = "sec_fleet_block"          // "1" = automatische Sperren auf allen überwachten Geräten
+	SettingSecSubnetIPs          = "sec_subnet_ips"           // ab so vielen IPs aus einem /24 das ganze Netz sperren (0 = aus)
+	SettingSecSeverityPrefix     = "sec_severity_"            // + Vorfallsart: Schweregrad-Override (info|warning|critical)
+	SettingSecThreatEnabled      = "sec_threat_enabled"       // "0" = Bedrohungsdaten aus (Standard an)
+	SettingSecThreatBlock        = "sec_threat_block"         // "0" = gelistete IPs nicht automatisch sperren (Standard an)
+	SettingSecThreatFeeds        = "sec_threat_feeds"         // Feed-IDs kommagetrennt, leer = alle
+	SettingSecPortscanPorts      = "sec_portscan_ports"       // verschiedene Zielports je IP im Fenster bis zum Vorfall „portscan“
+	SettingSecBlockPrivate       = "sec_block_private"        // "1" = auch private/interne Adressen (RFC 1918, Docker-Netze) automatisch sperren
 )
 
 // InsertAuthEvents speichert Anmeldeereignisse; Duplikate (gleiche record_id …) werden
@@ -596,7 +597,7 @@ func (s *Store) SecuritySummary(ctx context.Context, allowed map[string]bool) (m
 	}
 	sum.TopCountries = CountriesOf(countsToList(attackByIP))
 	blockedByIP := map[string]int{}
-	err = s.blockRows(ctx, time.Now().Add(-30*24*time.Hour), func(deviceID, ip string) {
+	err = s.blockRows(ctx, time.Now().Add(-7*24*time.Hour), func(deviceID, ip string) {
 		if _, ok := sites[deviceID]; ok {
 			blockedByIP[ip]++
 		}
@@ -631,6 +632,8 @@ func (s *Store) deviceSites(ctx context.Context, allowed map[string]bool) (map[s
 	return out, rows.Err()
 }
 
+// blockRows liest nur die letzten 7 Tage: die Flottensperre erzeugt je Adresse einen
+// Eintrag pro Gerät (sechsstellige Zeilenzahlen am Tag) – 30 Tage kosteten über 10 s.
 // attackEvents ruft fn für jedes Fehlversuchs-/Probe-Ereignis seit since auf (nur Spalten
 // des abdeckenden Index idx_auth_events_ts_kind).
 func (s *Store) attackEvents(ctx context.Context, since time.Time, fn func(deviceID, kind, ip string)) error {
@@ -728,7 +731,7 @@ func (s *Store) SiteIPs(ctx context.Context, allowed map[string]bool, kind strin
 	}
 	switch kind {
 	case "blocked":
-		err = s.blockRows(ctx, time.Now().Add(-30*24*time.Hour), add)
+		err = s.blockRows(ctx, time.Now().Add(-7*24*time.Hour), add)
 	default:
 		err = s.attackEvents(ctx, time.Now().Add(-7*24*time.Hour), func(deviceID, _, ip string) { add(deviceID, ip) })
 	}

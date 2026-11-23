@@ -42,13 +42,17 @@ type securitySettings struct {
 	// Bedrohungsdaten: Blocklisten abgleichen, gelistete IPs beim ersten Ereignis flottenweit sperren.
 	ThreatEnabled bool     `json:"threat_enabled"`
 	ThreatBlock   bool     `json:"threat_block"`
-	ThreatFeeds   []string `json:"threat_feeds"`   // leer = alle Feeds
-	PortscanPorts int      `json:"portscan_ports"` // verschiedene Zielports (Firewall-Drops) je IP im Fenster
+	ThreatFeeds   []string `json:"threat_feeds"` // leer = alle Feeds
+	// ThreatBlockMinutes: Sperrdauer für gelistete IPs (0 = dauerhaft). Eigener Wert, weil
+	// bekannte Angriffsquellen länger gesperrt bleiben dürfen als ein einzelner Brute-Force-
+	// Treffer – jede erneute Sperre kostet je Gerät einen Befehl und einen Eintrag.
+	ThreatBlockMinutes int `json:"threat_block_minutes"`
+	PortscanPorts      int `json:"portscan_ports"` // verschiedene Zielports (Firewall-Drops) je IP im Fenster
 }
 
 func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	cfg := securitySettings{BFThreshold: 10, BFWindowMin: 10, NewIPAlert: true, LearnDays: 7, NeverBlock: []string{}, ResponseCooldown: 30,
-		InvalidUserMax: 5, ScanThreshold: 20, ScanDistinct: 5, AutoBlockMinutes: 7 * 24 * 60, PortscanPorts: 10}
+		InvalidUserMax: 5, ScanThreshold: 20, ScanDistinct: 5, AutoBlockMinutes: 7 * 24 * 60, ThreatBlockMinutes: 7 * 24 * 60, PortscanPorts: 10}
 	geti := func(key string, dst *int) {
 		if v, _ := s.store.GetSetting(ctx, key); v != "" {
 			if n, err := strconv.Atoi(v); err == nil {
@@ -65,6 +69,7 @@ func (s *Server) securitySettings(ctx context.Context) securitySettings {
 	geti(store.SettingSecScanDistinct, &cfg.ScanDistinct)
 	geti(store.SettingSecPortscanPorts, &cfg.PortscanPorts)
 	geti(store.SettingSecAutoBlockMinutes, &cfg.AutoBlockMinutes)
+	geti(store.SettingSecThreatBlockMinutes, &cfg.ThreatBlockMinutes)
 	geti(store.SettingSecSubnetIPs, &cfg.SubnetIPs)
 	cfg.ThreatEnabled, cfg.ThreatBlock, cfg.ThreatFeeds = true, true, []string{}
 	if v, _ := s.store.GetSetting(ctx, store.SettingSecThreatEnabled); v == "0" {
@@ -121,7 +126,7 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if req.BFThreshold < 2 || req.BFThreshold > 1000 || req.BFWindowMin < 1 || req.BFWindowMin > 1440 || req.LearnDays < 0 || req.LearnDays > 365 || req.ResponseCooldown < 0 || req.ResponseCooldown > 10080 ||
-		req.InvalidUserMax < 0 || req.InvalidUserMax > 1000 || req.ScanThreshold < 2 || req.ScanThreshold > 10000 || req.ScanDistinct < 1 || req.ScanDistinct > 100 || req.PortscanPorts < 2 || req.PortscanPorts > 1000 || req.AutoBlockMinutes < 0 || req.AutoBlockMinutes > 43200 || req.SubnetIPs < 0 || req.SubnetIPs > 254 {
+		req.InvalidUserMax < 0 || req.InvalidUserMax > 1000 || req.ScanThreshold < 2 || req.ScanThreshold > 10000 || req.ScanDistinct < 1 || req.ScanDistinct > 100 || req.PortscanPorts < 2 || req.PortscanPorts > 1000 || req.AutoBlockMinutes < 0 || req.AutoBlockMinutes > 43200 || req.ThreatBlockMinutes < 0 || req.ThreatBlockMinutes > 43200 || req.SubnetIPs < 0 || req.SubnetIPs > 254 {
 		s.writeErr(w, http.StatusBadRequest, "Werte außerhalb des erlaubten Bereichs")
 		return
 	}
@@ -156,7 +161,7 @@ func (s *Server) handleSetSecuritySettings(w http.ResponseWriter, r *http.Reques
 		store.SettingSecLearnDays: strconv.Itoa(req.LearnDays), store.SettingSecNeverBlock: strings.Join(cidrs, ","),
 		store.SettingSecResponseCooldown: strconv.Itoa(req.ResponseCooldown),
 		store.SettingSecInvalidUserMax:   strconv.Itoa(req.InvalidUserMax), store.SettingSecScanThreshold: strconv.Itoa(req.ScanThreshold), store.SettingSecScanDistinct: strconv.Itoa(req.ScanDistinct),
-		store.SettingSecAutoBlock: b2s(req.AutoBlock), store.SettingSecAutoBlockMinutes: strconv.Itoa(req.AutoBlockMinutes),
+		store.SettingSecAutoBlock: b2s(req.AutoBlock), store.SettingSecAutoBlockMinutes: strconv.Itoa(req.AutoBlockMinutes), store.SettingSecThreatBlockMinutes: strconv.Itoa(req.ThreatBlockMinutes),
 		store.SettingSecFleetBlock: b2s(req.FleetBlock), store.SettingSecSubnetIPs: strconv.Itoa(req.SubnetIPs),
 		store.SettingSecBlockPrivate: b2s(req.BlockPrivate), store.SettingSecPortscanPorts: strconv.Itoa(req.PortscanPorts),
 	}
