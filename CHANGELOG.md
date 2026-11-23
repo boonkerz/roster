@@ -6,6 +6,10 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Block maintenance (0.31.2) stalled check-ins:** The first maintenance run did not use the new index – SQLite picked the status index and read all 2.4 million "active" rows (2 GB) per batch, so each write lock lasted ~45 s and check-ins failed with "database is locked". The index is now forced and batches are smaller (5,000 instead of 20,000 rows).
+- **Write-ahead log grew without bound:** Under constant load (always a reader active) SQLite never reset the WAL – 2.8 GB on the live system, every page lookup walked the whole log. The server now truncates the WAL every 10 minutes and after each maintenance run.
+
 ## [0.31.2] - 2026-11-23
 
 ### Fixed

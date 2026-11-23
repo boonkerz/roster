@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Behoben
+- **Sperren-Pflege (0.31.2) blockierte Checkins:** Der erste Pflegelauf nutzte den neuen Index nicht – SQLite wählte den Status-Index und las je Häppchen alle 2,4 Millionen „wirksamen“ Zeilen (2 GB), wodurch jede Schreibsperre ~45 s hielt und Checkins mit „database is locked“ scheiterten. Der Index wird jetzt erzwungen, die Häppchen sind kleiner (5.000 statt 20.000 Zeilen).
+- **Write-Ahead-Log wuchs unbegrenzt:** Unter Dauerlast (immer ein Leser aktiv) setzte SQLite das WAL nie zurück – live 2,8 GB, jede Seitensuche lief durch das ganze Log. Der Server kürzt das WAL jetzt alle 10 Minuten und nach jedem Pflegelauf.
+
 ## [0.31.2] - 2026-11-23
 
 ### Behoben

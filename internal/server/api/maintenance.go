@@ -25,6 +25,7 @@ func (s *Server) RunBlockMaintenanceLoop(ctx context.Context) {
 		if expired > 0 || deleted > 0 {
 			s.log.Info("sperren gepflegt", "abgelaufen", expired, "gelöscht", deleted, "dauer", time.Since(started).Round(time.Second))
 		}
+		s.checkpoint(ctx)
 	}
 	select {
 	case <-time.After(time.Minute):
@@ -34,13 +35,32 @@ func (s *Server) RunBlockMaintenanceLoop(ctx context.Context) {
 	run()
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
+	ck := time.NewTicker(10 * time.Minute)
+	defer ck.Stop()
 	for {
 		select {
 		case <-t.C:
 			run()
+		case <-ck.C:
+			s.checkpoint(ctx)
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+// checkpoint schreibt das SQLite-WAL zurück und kürzt es. Der automatische Checkpoint kann
+// das Log unter Dauerlast nie zurücksetzen (immer ein Leser aktiv) – live wuchs es auf
+// 2,8 GB, und jede Seitensuche musste durch das ganze Log.
+func (s *Server) checkpoint(ctx context.Context) {
+	cctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	frames, busy, err := s.store.CheckpointWAL(cctx)
+	switch {
+	case err != nil:
+		s.log.Warn("wal-checkpoint", "err", err)
+	case frames > 25000 || busy: // > 100 MB Log oder nicht vollständig
+		s.log.Info("wal-checkpoint", "frames", frames, "busy", busy)
 	}
 }
 

@@ -352,22 +352,49 @@ func blockMatchesIP(b model.IPBlock, qs string, ip net.IP) bool {
 // selbst auf; der Server trug den Zustand bisher nie nach, wodurch Millionen Zeilen als
 // „wirksam“ geführt und von der Aufräumung übersehen wurden.
 func (s *Store) ExpireBlocks(ctx context.Context, now time.Time) (int64, error) {
+	// SQLite: den Teilindex auf until_at erzwingen. Der Planer wählte sonst den Status-Index
+	// und las je Häppchen alle wirksamen Zeilen (2 GB, ~45 s Schreibsperre auf dem Live-System).
 	return s.batched(ctx, `UPDATE ip_blocks SET status='expired' WHERE id IN (
-		SELECT id FROM ip_blocks WHERE status='active' AND until_at IS NOT NULL AND until_at < ? LIMIT ?)`, now.UTC())
+		SELECT id FROM ip_blocks `+s.indexedBy("idx_ip_blocks_until")+` WHERE status='active' AND until_at IS NOT NULL AND until_at < ? LIMIT ?)`, now.UTC())
 }
 
 // PruneEndedBlocks löscht beendete Sperren (aufgehoben, abgelaufen, fehlgeschlagen), die
 // vor cutoff angelegt wurden – ebenfalls in Häppchen.
 func (s *Store) PruneEndedBlocks(ctx context.Context, cutoff time.Time) (int64, error) {
 	return s.batched(ctx, `DELETE FROM ip_blocks WHERE id IN (
-		SELECT id FROM ip_blocks WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?)) LIMIT ?)`,
+		SELECT id FROM ip_blocks `+s.indexedBy("idx_ip_blocks_created")+` WHERE created_at < ? AND (status IN ('released','expired','failed') OR (until_at IS NOT NULL AND until_at < ?)) LIMIT ?)`,
 		cutoff.UTC(), cutoff.UTC())
+}
+
+// indexedBy liefert für SQLite eine INDEXED-BY-Klausel, für PostgreSQL nichts (dessen
+// Planer hat verlässliche Statistiken).
+func (s *Store) indexedBy(index string) string {
+	if s.dialect == DialectSQLite {
+		return "INDEXED BY " + index
+	}
+	return ""
+}
+
+// CheckpointWAL schreibt bei SQLite das Write-Ahead-Log in die Datenbankdatei zurück und
+// kürzt es. Unter Dauerlast (ständig offene Lesesnapshots) setzt der automatische
+// Checkpoint das Log nie zurück – live wuchs es auf 2,8 GB. Rückgabe: Frames im Log vor dem
+// Checkpoint; busy=true heißt, Leser hielten den vollständigen Checkpoint auf.
+func (s *Store) CheckpointWAL(ctx context.Context) (frames int64, busy bool, err error) {
+	if s.dialect != DialectSQLite {
+		return 0, false, nil
+	}
+	var b, logFrames, ckpt int64
+	if err := s.db.QueryRowContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&b, &logFrames, &ckpt); err != nil {
+		return 0, false, err
+	}
+	return logFrames, b != 0, nil
 }
 
 // batched führt eine ändernde Anweisung mit LIMIT-Platzhalter am Ende wiederholt aus, bis
 // nichts mehr betroffen ist. Zwischen den Häppchen kommen andere Schreiber zum Zug.
 func (s *Store) batched(ctx context.Context, q string, args ...any) (int64, error) {
-	const batch = 20000
+	// Klein genug, dass eine Schreibsperre auch auf langsamer Platte nur Sekundenbruchteile hält.
+	const batch = 5000
 	var total int64
 	for {
 		if err := ctx.Err(); err != nil {
@@ -382,7 +409,7 @@ func (s *Store) batched(ctx context.Context, q string, args ...any) (int64, erro
 		if n < batch {
 			return total, nil
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

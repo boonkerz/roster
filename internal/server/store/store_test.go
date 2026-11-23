@@ -1535,6 +1535,9 @@ func TestBlockMaintenance(t *testing.T) {
 	if err != nil || d != 1 {
 		t.Fatalf("prune: %d %v", d, err)
 	}
+	if _, _, err := st.CheckpointWAL(ctx); err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
 	for _, b := range []*model.IPBlock{running, permanent, failedOld} {
 		if got, _ := st.GetIPBlock(ctx, b.ID); got == nil {
 			t.Fatalf("%s fälschlich gelöscht", b.IP)
