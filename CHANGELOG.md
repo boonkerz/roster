@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.4] - 2026-11-23
+
 ### Fixed
 - **Block maintenance filled the write-ahead log:** Every updated row costs ~20 KB in the WAL (row plus four indexes); with 2.3 million stale rows the disk would have filled up because SQLite never resets the log under constant load. Maintenance now works in rounds of 25,000 rows and truncates the WAL after each round.
 
@@ -527,7 +529,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.3...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.4...HEAD
+[0.31.4]: https://github.com/boonkerz/roster/compare/v0.31.3...v0.31.4
 [0.31.3]: https://github.com/boonkerz/roster/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/boonkerz/roster/compare/v0.31.0...v0.31.1
