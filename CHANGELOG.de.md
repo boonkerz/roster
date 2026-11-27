@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **Gestufter Rollout von Abläufen:** Beim Ausrollen lässt sich wählen, wie viele Geräte den Ablauf gleichzeitig ausführen (alle, 1 = nacheinander, 3, 5, 10) – etwa damit nicht 50 Server auf einmal Images von der eigenen Registry ziehen. Wartende Geräte rücken nach, sobald ein Gerät sein Ergebnis meldet (Offline-Geräte geben ihren Platz nach 30 Minuten frei). Option **Bei Fehler anhalten** stoppt den Rollout nach einem Fehler oder Rollback („Trotzdem fortsetzen“ hebt den Halt auf), **Wartende abbrechen** streicht die noch nicht gestarteten Geräte. Der Rollout läuft serverseitig weiter, auch bei geschlossenem Browser.
+
 ## [0.31.4] - 2026-11-23
 
 ### Behoben

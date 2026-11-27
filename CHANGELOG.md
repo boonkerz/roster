@@ -6,6 +6,9 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Staged flow rollout:** When rolling out, choose how many devices run the flow concurrently (all, 1 = one after another, 3, 5, 10) – so that, say, 50 servers do not pull images from your own registry at once. Waiting devices start as soon as a device reports its result (offline devices free their slot after 30 minutes). The **Stop on failure** option halts the rollout after a failure or rollback ("Continue anyway" lifts the halt), **Cancel waiting** drops the devices not yet started. The rollout continues server-side even with the browser closed.
+
 ## [0.31.4] - 2026-11-23
 
 ### Fixed

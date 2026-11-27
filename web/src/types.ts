@@ -1129,7 +1129,7 @@ export interface FlowRunDevice {
   hostname: string;
   stage: "preview" | "test" | "rollout";
   command_id: string;
-  status: "queued" | "ok" | "fail" | "rolled_back" | "dry" | "nothing";
+  status: "pending" | "queued" | "ok" | "fail" | "rolled_back" | "dry" | "nothing" | "cancelled";
   result?: FlowResult;
   updated_at: string;
 }
@@ -1141,6 +1141,10 @@ export interface FlowRun {
   test_device_id: string;
   started_by?: string;
   created_at: string;
+  parallel: number;        // gestufter Rollout: höchstens so viele gleichzeitig, 0 = alle
+  stop_on_fail: boolean;
+  resumed_at?: string;
+  halted?: boolean;        // nach Fehler angehalten, Wartende werden nicht gestartet
   devices: FlowRunDevice[];
 }
 export interface FlowRunSummary { id: string; flow_name: string; started_by?: string; created_at: string; devices: number; ok: number; failed: number; pending: number }

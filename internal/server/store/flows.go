@@ -123,6 +123,86 @@ func (s *Store) AddFlowRunDevice(ctx context.Context, runID, deviceID, stage, co
 	return err
 }
 
+// AddPendingFlowRunDevices legt Rollout-Ziele als wartend an (gestufter Rollout); der
+// Verteiler reiht sie später über AddFlowRunDevice ein.
+func (s *Store) AddPendingFlowRunDevices(ctx context.Context, runID string, deviceIDs []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	for _, id := range deviceIDs {
+		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM flow_run_devices WHERE run_id=? AND device_id=? AND stage='rollout'`), runID, id); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, s.rebind(`INSERT INTO flow_run_devices (run_id, device_id, stage, command_id, status, result, updated_at)
+			VALUES (?, ?, 'rollout', '', 'pending', '', ?)`), runID, id, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// SetFlowRunRollout speichert die Rollout-Vorgaben eines Laufs.
+func (s *Store) SetFlowRunRollout(ctx context.Context, runID string, parallel int, stopOnFail bool) error {
+	_, err := s.db.ExecContext(ctx, s.rebind(`UPDATE flow_runs SET parallel=?, stop_on_fail=? WHERE id=?`), parallel, stopOnFail, runID)
+	return err
+}
+
+// ResumeFlowRun hebt einen Halt nach Fehler auf: Fehler vor diesem Zeitpunkt halten den
+// Rollout nicht mehr an.
+func (s *Store) ResumeFlowRun(ctx context.Context, runID string) error {
+	_, err := s.db.ExecContext(ctx, s.rebind(`UPDATE flow_runs SET resumed_at=? WHERE id=?`), time.Now().UTC(), runID)
+	return err
+}
+
+// SetFlowRunDeviceStatus setzt Status und Ergebnis eines Geräts ohne Befehl (z. B. wenn der
+// Graph für das Gerät nicht vorbereitet werden konnte).
+func (s *Store) SetFlowRunDeviceStatus(ctx context.Context, runID, deviceID, stage, status, result string) error {
+	_, err := s.db.ExecContext(ctx, s.rebind(`UPDATE flow_run_devices SET status=?, result=?, updated_at=? WHERE run_id=? AND device_id=? AND stage=?`),
+		status, result, time.Now().UTC(), runID, deviceID, stage)
+	return err
+}
+
+// CancelFlowRun streicht alle wartenden Geräte eines Laufs. Laufende bleiben unberührt.
+func (s *Store) CancelFlowRun(ctx context.Context, runID string) (int64, error) {
+	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE flow_run_devices SET status='cancelled', updated_at=? WHERE run_id=? AND status='pending'`), time.Now().UTC(), runID)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+// FlowRunsWithPending liefert die Läufe, die noch wartende Rollout-Geräte haben.
+func (s *Store) FlowRunsWithPending(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT run_id FROM flow_run_devices WHERE status='pending'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// FlowRunIDByCommand liefert den Lauf zu einem run_flow-Befehl ("" wenn keiner).
+func (s *Store) FlowRunIDByCommand(ctx context.Context, commandID string) (string, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT run_id FROM flow_run_devices WHERE command_id=?`), commandID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
 // CompleteFlowCommand übernimmt das Agent-Ergebnis eines run_flow-Befehls. Liefert false,
 // wenn der Befehl zu keinem Lauf gehört.
 func (s *Store) CompleteFlowCommand(ctx context.Context, commandID, status, result string) (bool, error) {
@@ -139,13 +219,18 @@ func (s *Store) CompleteFlowCommand(ctx context.Context, commandID, status, resu
 func (s *Store) GetFlowRun(ctx context.Context, id string) (*model.FlowRun, error) {
 	var run model.FlowRun
 	var g, p string
-	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id, flow_id, flow_name, graph, params, test_device_id, started_by, created_at FROM flow_runs WHERE id=?`), id).
-		Scan(&run.ID, &run.FlowID, &run.FlowName, &g, &p, &run.TestDeviceID, &run.StartedBy, &run.CreatedAt)
+	var resumed sql.NullTime
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id, flow_id, flow_name, graph, params, test_device_id, started_by, created_at, parallel, stop_on_fail, resumed_at FROM flow_runs WHERE id=?`), id).
+		Scan(&run.ID, &run.FlowID, &run.FlowName, &g, &p, &run.TestDeviceID, &run.StartedBy, &run.CreatedAt, &run.Parallel, &run.StopOnFail, &resumed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if resumed.Valid {
+		t := resumed.Time
+		run.ResumedAt = &t
 	}
 	_ = json.Unmarshal([]byte(g), &run.Graph)
 	_ = json.Unmarshal([]byte(p), &run.Params)
@@ -171,7 +256,31 @@ func (s *Store) GetFlowRun(ctx context.Context, id string) (*model.FlowRun, erro
 		}
 		run.Devices = append(run.Devices, d)
 	}
+	run.Halted = flowRunHalted(&run)
 	return &run, rows.Err()
+}
+
+// flowRunHalted: bei „Bei Fehler anhalten“ stoppt ein Fehler oder Rollback im Rollout die
+// wartenden Geräte – bis zum nächsten „Trotzdem fortsetzen“ (ResumedAt).
+func flowRunHalted(run *model.FlowRun) bool {
+	if !run.StopOnFail {
+		return false
+	}
+	pending, failed := false, false
+	for _, d := range run.Devices {
+		if d.Stage != "rollout" {
+			continue
+		}
+		switch d.Status {
+		case "pending":
+			pending = true
+		case "fail", "rolled_back":
+			if run.ResumedAt == nil || d.UpdatedAt.After(*run.ResumedAt) {
+				failed = true
+			}
+		}
+	}
+	return pending && failed
 }
 
 // ListFlowRuns liefert die letzten Läufe eines Ablaufs (ohne Ergebnisse, mit Zählern).
@@ -180,7 +289,7 @@ func (s *Store) ListFlowRuns(ctx context.Context, flowID string, limit int) ([]m
 		(SELECT COUNT(*) FROM flow_run_devices x WHERE x.run_id=r.id AND x.stage<>'preview'),
 		(SELECT COUNT(*) FROM flow_run_devices x WHERE x.run_id=r.id AND x.stage<>'preview' AND x.status='ok'),
 		(SELECT COUNT(*) FROM flow_run_devices x WHERE x.run_id=r.id AND x.stage<>'preview' AND x.status IN ('fail','rolled_back')),
-		(SELECT COUNT(*) FROM flow_run_devices x WHERE x.run_id=r.id AND x.stage<>'preview' AND x.status='queued')
+		(SELECT COUNT(*) FROM flow_run_devices x WHERE x.run_id=r.id AND x.stage<>'preview' AND x.status IN ('queued','pending'))
 		FROM flow_runs r WHERE r.flow_id=? ORDER BY r.created_at DESC LIMIT ?`), flowID, limit)
 	if err != nil {
 		return nil, err

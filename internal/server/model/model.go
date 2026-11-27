@@ -1193,7 +1193,14 @@ type FlowRun struct {
 	TestDeviceID string            `json:"test_device_id"`
 	StartedBy    string            `json:"started_by,omitempty"`
 	CreatedAt    time.Time         `json:"created_at"`
-	Devices      []FlowRunDevice   `json:"devices"`
+	// Gestufter Rollout: höchstens Parallel Geräte gleichzeitig (0 = alle sofort); bei
+	// StopOnFail werden nach einem Fehler keine wartenden Geräte mehr gestartet (Halted),
+	// bis „Trotzdem fortsetzen“ ResumedAt setzt.
+	Parallel   int             `json:"parallel"`
+	StopOnFail bool            `json:"stop_on_fail"`
+	ResumedAt  *time.Time      `json:"resumed_at,omitempty"`
+	Halted     bool            `json:"halted,omitempty"`
+	Devices    []FlowRunDevice `json:"devices"`
 }
 
 // FlowRunDevice ist das Ergebnis eines Geräts in einer Stufe.
@@ -1202,7 +1209,7 @@ type FlowRunDevice struct {
 	Hostname  string             `json:"hostname"`
 	Stage     string             `json:"stage"` // preview | test | rollout
 	CommandID string             `json:"command_id"`
-	Status    string             `json:"status"` // queued | ok | fail | rolled_back | dry | nothing
+	Status    string             `json:"status"` // pending | queued | ok | fail | rolled_back | dry | nothing | cancelled
 	Result    *shared.FlowResult `json:"result,omitempty"`
 	UpdatedAt time.Time          `json:"updated_at"`
 }

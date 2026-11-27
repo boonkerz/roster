@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -260,31 +261,162 @@ func (s *Server) handleFlowRunTest(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]int{"queued": 1})
 }
 
-// handleFlowRunRollout führt den Lauf auf allen Zielen aus (ohne den Testserver).
+// flowRolloutRequest: Ziel wie bei Massenaktionen plus gestufter Rollout.
+type flowRolloutRequest struct {
+	bulkRequest
+	Parallel   int  `json:"parallel"`     // höchstens so viele Geräte gleichzeitig, 0 = alle sofort
+	StopOnFail bool `json:"stop_on_fail"` // nach Fehler/Rollback keine wartenden mehr starten
+}
+
+// flowSlotTimeout: ein eingereihtes Gerät ohne Ergebnis (offline, Agent hängt) belegt einen
+// Platz höchstens so lange; der Befehl bleibt für das Gerät trotzdem eingereiht.
+const flowSlotTimeout = 30 * time.Minute
+
+// handleFlowRunRollout führt den Lauf auf allen Zielen aus (ohne den Testserver) – sofort
+// oder gestuft über den Verteiler.
 func (s *Server) handleFlowRunRollout(w http.ResponseWriter, r *http.Request) {
 	run, err := s.store.GetFlowRun(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
 		s.mapStoreErr(w, err)
 		return
 	}
-	var req bulkRequest
+	var req flowRolloutRequest
 	if !s.decodeJSON(w, r, &req) {
 		return
 	}
-	ids, ok := s.resolveBulkDevices(w, r, req)
+	if req.Parallel < 0 || req.Parallel > 1000 {
+		s.writeErr(w, http.StatusBadRequest, "Gleichzeitig: 0 (alle) bis 1000")
+		return
+	}
+	all, ok := s.resolveBulkDevices(w, r, req.bulkRequest)
 	if !ok {
 		return
 	}
-	queued := 0
-	for _, id := range ids {
-		if id == run.TestDeviceID {
-			continue
-		}
-		if err := s.queueFlow(r.Context(), run, id, "rollout"); err == nil {
-			queued++
+	var ids []string
+	for _, id := range all {
+		if id != run.TestDeviceID {
+			ids = append(ids, id)
 		}
 	}
-	s.writeJSON(w, http.StatusOK, map[string]int{"queued": queued})
+	if err := s.store.SetFlowRunRollout(r.Context(), run.ID, req.Parallel, req.StopOnFail); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	run.Parallel, run.StopOnFail = req.Parallel, req.StopOnFail
+	queued := 0
+	if req.Parallel == 0 {
+		for _, id := range ids {
+			if err := s.queueFlow(r.Context(), run, id, "rollout"); err == nil {
+				queued++
+			}
+		}
+		s.writeJSON(w, http.StatusOK, map[string]int{"queued": queued, "pending": 0})
+		return
+	}
+	if err := s.store.AddPendingFlowRunDevices(r.Context(), run.ID, ids); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	queued, err = s.dispatchFlowRun(r.Context(), run.ID)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int{"queued": queued, "pending": len(ids) - queued})
+}
+
+// handleCancelFlowRun streicht die wartenden Geräte eines gestuften Rollouts.
+func (s *Server) handleCancelFlowRun(w http.ResponseWriter, r *http.Request) {
+	n, err := s.store.CancelFlowRun(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int64{"cancelled": n})
+}
+
+// handleResumeFlowRun setzt einen nach Fehler angehaltenen Rollout fort.
+func (s *Server) handleResumeFlowRun(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := s.store.ResumeFlowRun(r.Context(), id); err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	n, err := s.dispatchFlowRun(r.Context(), id)
+	if err != nil {
+		s.mapStoreErr(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int{"queued": n})
+}
+
+// dispatchFlowRun füllt die freien Plätze eines gestuften Rollouts mit wartenden Geräten
+// (alphabetisch nach Hostname). Ein Platz ist belegt, solange ein eingereihtes Gerät noch
+// kein Ergebnis hat und seit höchstens flowSlotTimeout wartet. Bei Halt (StopOnFail nach
+// Fehler) wird nichts gestartet. Liefert die Zahl der neu eingereihten Geräte.
+func (s *Server) dispatchFlowRun(ctx context.Context, runID string) (int, error) {
+	s.flowMu.Lock()
+	defer s.flowMu.Unlock()
+	run, err := s.store.GetFlowRun(ctx, runID)
+	if err != nil {
+		return 0, err
+	}
+	if run.Parallel <= 0 || run.Halted {
+		return 0, nil
+	}
+	running := 0
+	var pending []string
+	cut := time.Now().Add(-flowSlotTimeout)
+	for _, d := range run.Devices {
+		if d.Stage != "rollout" {
+			continue
+		}
+		switch d.Status {
+		case "queued":
+			if d.UpdatedAt.After(cut) {
+				running++
+			}
+		case "pending":
+			pending = append(pending, d.DeviceID)
+		}
+	}
+	started := 0
+	for _, id := range pending {
+		if running+started >= run.Parallel {
+			break
+		}
+		if err := s.queueFlow(ctx, run, id, "rollout"); err != nil {
+			b, _ := json.Marshal(shared.FlowResult{Status: "fail", Error: err.Error()})
+			_ = s.store.SetFlowRunDeviceStatus(ctx, run.ID, id, "rollout", "fail", string(b))
+			s.log.Warn("ablauf-rollout: gerät nicht eingereiht", "run", run.ID, "device", id, "err", err)
+			continue
+		}
+		started++
+	}
+	return started, nil
+}
+
+// RunFlowDispatchLoop rückt jede Minute wartende Geräte gestufter Rollouts nach – fängt
+// Server-Neustarts und Geräte ab, die nie ein Ergebnis melden (Platz nach flowSlotTimeout frei).
+func (s *Server) RunFlowDispatchLoop(ctx context.Context) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			runs, err := s.store.FlowRunsWithPending(ctx)
+			if err != nil {
+				continue
+			}
+			for _, id := range runs {
+				if _, err := s.dispatchFlowRun(ctx, id); err != nil {
+					s.log.Warn("ablauf-rollout nachrücken", "run", id, "err", err)
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *Server) handleGetFlowRun(w http.ResponseWriter, r *http.Request) {
@@ -381,6 +513,14 @@ func (s *Server) completeFlowRuns(ctx context.Context, results []shared.CommandR
 		}
 		if found && len(fr.Notifications) > 0 && status != "dry" {
 			s.sendFlowNotifications(ctx, res.CommandID, fr.Notifications)
+		}
+		if found {
+			// Gestufter Rollout: Platz frei → nächstes wartendes Gerät einreihen.
+			if runID, err := s.store.FlowRunIDByCommand(ctx, res.CommandID); err == nil && runID != "" {
+				if _, err := s.dispatchFlowRun(ctx, runID); err != nil {
+					s.log.Warn("ablauf-rollout nachrücken", "run", runID, "err", err)
+				}
+			}
 		}
 	}
 }

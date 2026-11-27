@@ -64,6 +64,15 @@ with a message per operation. It uses the same code as the agent; nothing is sav
 3. **Roll out** to a company, a site, a tag, all devices or – from the Containers tab – the affected
    devices. The table shows the state per device; devices without matches appear as *not affected*.
 
+**Staged rollout.** *Concurrently* limits how many devices run the flow at the same time (all,
+1 = one after another, 3, 5, 10) – so that, say, 50 servers do not pull images from your own
+registry all at once. The remaining devices show as *waiting* in the table; as soon as a device
+reports its result, the next one starts (alphabetically by hostname). A device that reports
+nothing for 30 minutes (offline) frees its slot; the command stays queued for it. With **Stop on
+failure** no further device starts after a failed or rolled-back one – the wizard shows *Halted*
+with **Continue anyway**. **Cancel waiting** drops the devices not yet started; running ones
+finish normally. The rollout continues server-side even with the browser closed.
+
 **Flows → Runs** lists earlier runs with their results; single runs can be deleted. **Copy** (in the
 list or in the editor) creates a flow as the starting point for a variant – in the editor including
 unsaved changes.

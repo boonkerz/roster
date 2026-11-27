@@ -28,6 +28,8 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
   const [target, setTarget] = useState("");
   const [targetIds, setTargetIds] = useState<string[]>(initialTargets ?? []);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [parallel, setParallel] = useState(0);        // 0 = alle sofort
+  const [stopOnFail, setStopOnFail] = useState(false);
 
   const { data: devices } = useQuery({ queryKey: ["devices"], queryFn: () => api.get<Device[]>("/devices") });
   const { data: tree } = useQuery({ queryKey: ["clients"], queryFn: () => api.get<ClientTree>("/clients") });
@@ -35,7 +37,7 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
   const { data: run } = useQuery({
     queryKey: ["flow-run", runId], enabled: !!runId,
     queryFn: () => api.get<FlowRun>(`/flow-runs/${runId}`),
-    refetchInterval: (q) => ((q.state.data?.devices ?? []).some((d) => d.status === "queued") ? 2000 : false),
+    refetchInterval: (q) => ((q.state.data?.devices ?? []).some((d) => d.status === "queued" || d.status === "pending") ? 2000 : false),
   });
   // Gespeicherten Lauf öffnen: Parameter und Server dieses Laufs anzeigen (nicht die Standardwerte).
   const [synced, setSynced] = useState(false);
@@ -59,9 +61,14 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
   });
   const runTest = useMutation({ mutationFn: () => api.post(`/flow-runs/${runId}/test`, {}), onSuccess: () => setErr(""), onError: onErr });
   const runRollout = useMutation({
-    mutationFn: () => api.post<{ queued: number }>(`/flow-runs/${runId}/rollout`, { target_type: tType, target_id: tType === "all" || tType === "devices" ? "" : target, device_ids: tType === "devices" ? targetIds : [] }),
+    mutationFn: () => api.post<{ queued: number; pending: number }>(`/flow-runs/${runId}/rollout`, {
+      target_type: tType, target_id: tType === "all" || tType === "devices" ? "" : target, device_ids: tType === "devices" ? targetIds : [],
+      parallel, stop_on_fail: stopOnFail,
+    }),
     onSuccess: () => setErr(""), onError: onErr,
   });
+  const cancelRun = useMutation({ mutationFn: () => api.post(`/flow-runs/${runId}/cancel`, {}), onSuccess: () => setErr(""), onError: onErr });
+  const resumeRun = useMutation({ mutationFn: () => api.post(`/flow-runs/${runId}/resume`, {}), onSuccess: () => setErr(""), onError: onErr });
 
   const devList = useMemo(() => (devices ?? []).filter((d) => !devFilter || d.hostname.toLowerCase().includes(devFilter.toLowerCase())).slice(0, 200), [devices, devFilter]);
   const targets = tType === "client" ? (tree?.clients ?? []).map((c) => ({ id: c.id, name: c.name }))
@@ -69,6 +76,7 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
     : tType === "group" ? (groups ?? []).map((g) => ({ id: g.id, name: g.name })) : [];
   const done = (d?: FlowRunDevice) => !!d && d.status !== "queued";
   const counts = rollout.reduce((m, d) => { m[d.status] = (m[d.status] ?? 0) + 1; return m; }, {} as Record<string, number>);
+  const waiting = counts["pending"] ?? 0;
 
   return (
     <div className="flow-wizard">
@@ -138,15 +146,30 @@ export function FlowRunWizard({ flow, initialParams, initialDevice, initialTarge
               </select>
             )}
             {tType === "devices" && <span className="muted small">{targetIds.filter((id) => id !== testDevice).map(host).join(", ")}</span>}
+            <label className="small" title={t("Schont z. B. die eigene Registry, wenn viele Server gleichzeitig Images ziehen würden.")}>{t("Gleichzeitig")}{" "}
+              <select value={parallel} onChange={(e) => setParallel(Number(e.target.value))}>
+                <option value={0}>{t("alle")}</option>
+                <option value={1}>{t("1 (nacheinander)")}</option>
+                <option value={3}>3</option>
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+              </select>
+            </label>
+            <label className="small"><input type="checkbox" checked={stopOnFail} onChange={(e) => setStopOnFail(e.target.checked)} /> {t("Bei Fehler anhalten")}</label>
             <ConfirmButton className="btn primary" disabled={runRollout.isPending || (tType !== "all" && tType !== "devices" && !target)}
               confirmLabel={t("Auf allen Geräten des Ziels ausführen? Nochmal klicken")} onConfirm={() => runRollout.mutate()}>{t("Ausrollen")}</ConfirmButton>
             {tType === "devices" && <button className="btn ghost sm" onClick={() => setTargetIds([])}>{t("Liste leeren")}</button>}
           </div>
-          {runRollout.data && <p className="form-ok small">{t("Auf {n} Gerät(en) eingereiht.", { n: runRollout.data.queued })}</p>}
+          {runRollout.data && (runRollout.data.pending > 0
+            ? <p className="form-ok small">{t("Auf {n} Gerät(en) gestartet, {m} warten.", { n: runRollout.data.queued, m: runRollout.data.pending })}</p>
+            : <p className="form-ok small">{t("Auf {n} Gerät(en) eingereiht.", { n: runRollout.data.queued })}</p>)}
           {rollout.length > 0 && (
             <>
-              <div className="inline-form" style={{ gap: 6, margin: "10px 0" }}>
+              <div className="inline-form" style={{ gap: 6, margin: "10px 0", flexWrap: "wrap" }}>
                 {Object.entries(counts).map(([k, n]) => <span key={k}><FlowStatusBadge status={k} /> {n}</span>)}
+                {run?.halted && <span className="error small">{t("Angehalten: ein Gerät ist fehlgeschlagen. Wartende Geräte werden nicht gestartet.")}</span>}
+                {run?.halted && <button className="btn sm" disabled={resumeRun.isPending} onClick={() => resumeRun.mutate()}>{t("Trotzdem fortsetzen")}</button>}
+                {waiting > 0 && <ConfirmButton className="btn ghost sm" disabled={cancelRun.isPending} confirmLabel={t("Wartende Geräte streichen? Nochmal klicken")} onConfirm={() => cancelRun.mutate()}>{t("Wartende abbrechen")}</ConfirmButton>}
               </div>
               <table className="table">
                 <thead><tr><th>{t("Gerät")}</th><th>{t("Status")}</th><th>{t("Meldung")}</th></tr></thead>

@@ -28,6 +28,7 @@ type Server struct {
 	version  string          // Version der eingebetteten Agent-Binaries (für Auto-Update)
 	term     *termHub        // flüchtiger Zustand für Remote-Terminal-Sessions
 	files    *fileHub        // flüchtige Datei-Übertragungen
+	flowMu   sync.Mutex      // gestufter Ablauf-Rollout: nur ein Verteiler gleichzeitig
 	filePool *filePool       // direkte Datei-Sitzungen zu Agents (Web-Dateibrowser)
 	limiter  *attemptLimiter // Fehlversuche bei Anmeldung/Enrollment
 	pwSem    chan struct{}   // gleichzeitige argon2-Prüfungen
@@ -333,6 +334,8 @@ func (s *Server) routes() http.Handler {
 						r.Post("/flows/{id}/runs", s.handleStartFlowRun)
 						r.Post("/flow-runs/{id}/test", s.handleFlowRunTest)
 						r.Post("/flow-runs/{id}/rollout", s.handleFlowRunRollout)
+						r.Post("/flow-runs/{id}/cancel", s.handleCancelFlowRun)
+						r.Post("/flow-runs/{id}/resume", s.handleResumeFlowRun)
 					})
 
 					// --- Skripte verwalten (page.scripts) ---

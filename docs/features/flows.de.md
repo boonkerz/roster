@@ -66,6 +66,17 @@ nichts wird gespeichert oder ausgeführt.
    aus – die betroffenen Geräte. Die Tabelle zeigt den Stand je Gerät; Geräte ohne Treffer
    erscheinen als *nicht betroffen*.
 
+**Gestufter Rollout.** *Gleichzeitig* begrenzt, wie viele Geräte den Ablauf parallel ausführen
+(alle, 1 = nacheinander, 3, 5, 10) – etwa damit nicht 50 Server auf einmal Images von der
+eigenen Registry ziehen. Die übrigen Geräte stehen als *wartet* in der Tabelle; sobald ein Gerät
+sein Ergebnis meldet, rückt das nächste nach (alphabetisch nach Hostname). Ein Gerät, das
+30 Minuten lang kein Ergebnis liefert (offline), gibt seinen Platz frei; der Befehl bleibt für
+es eingereiht. Mit **Bei Fehler anhalten** startet nach einem fehlgeschlagenen oder
+zurückgerollten Gerät kein weiteres – der Assistent zeigt *Angehalten* mit **Trotzdem
+fortsetzen**. **Wartende abbrechen** streicht die noch nicht gestarteten Geräte; laufende
+beenden ihren Ablauf normal. Der Rollout läuft serverseitig weiter, auch wenn der Browser
+geschlossen ist.
+
 Unter **Abläufe → Läufe** stehen frühere Läufe mit ihren Ergebnissen; einzelne Läufe lassen sich
 löschen. **Kopieren** (in der Liste oder im Editor) legt einen Ablauf als Ausgangspunkt für eine
 Variante an – im Editor auch mit noch ungespeicherten Änderungen.

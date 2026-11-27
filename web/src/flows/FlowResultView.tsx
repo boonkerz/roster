@@ -4,11 +4,11 @@ import { NODE_TYPE } from "./nodeTypes";
 
 const STATUS_CLASS: Record<string, string> = {
   ok: "badge-online", dry: "badge-unknown", nothing: "badge-unknown", empty: "badge-unknown", skipped: "badge-unknown",
-  fail: "badge-offline", rolled_back: "badge-warn", queued: "badge-unknown",
+  fail: "badge-offline", rolled_back: "badge-warn", queued: "badge-unknown", pending: "badge-unknown", cancelled: "badge-unknown",
 };
 export const FLOW_STATUS: Record<string, string> = {
   ok: "erfolgreich", dry: "Vorschau", nothing: "nicht betroffen", empty: "keine Treffer", skipped: "übersprungen",
-  fail: "fehlgeschlagen", rolled_back: "zurückgerollt", queued: "wartet auf Agent",
+  fail: "fehlgeschlagen", rolled_back: "zurückgerollt", queued: "wartet auf Agent", pending: "wartet", cancelled: "abgebrochen",
 };
 
 export function FlowStatusBadge({ status }: { status: string }) {
