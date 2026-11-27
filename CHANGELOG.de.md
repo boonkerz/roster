@@ -6,6 +6,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-27
+
 ### Hinzugefügt
 - **Gestufter Rollout von Abläufen:** Beim Ausrollen lässt sich wählen, wie viele Geräte den Ablauf gleichzeitig ausführen (alle, 1 = nacheinander, 3, 5, 10) – etwa damit nicht 50 Server auf einmal Images von der eigenen Registry ziehen. Wartende Geräte rücken nach, sobald ein Gerät sein Ergebnis meldet (Offline-Geräte geben ihren Platz nach 30 Minuten frei). Option **Bei Fehler anhalten** stoppt den Rollout nach einem Fehler oder Rollback („Trotzdem fortsetzen“ hebt den Halt auf), **Wartende abbrechen** streicht die noch nicht gestarteten Geräte. Der Rollout läuft serverseitig weiter, auch bei geschlossenem Browser.
 
@@ -532,7 +534,8 @@ Alle nennenswerten Änderungen an Roster stehen hier. Das Format folgt
 - Proxmox-Gäste über den Agent auf dem PVE-Host (Start/Stop, Backup-Status).
 - Temperatursensoren mit Verlauf und Check `temperature`.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.4...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/boonkerz/roster/compare/v0.31.4...v0.32.0
 [0.31.4]: https://github.com/boonkerz/roster/compare/v0.31.3...v0.31.4
 [0.31.3]: https://github.com/boonkerz/roster/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2

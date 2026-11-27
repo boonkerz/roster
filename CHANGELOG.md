@@ -6,6 +6,8 @@ All notable changes to Roster are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-27
+
 ### Added
 - **Staged flow rollout:** When rolling out, choose how many devices run the flow concurrently (all, 1 = one after another, 3, 5, 10) – so that, say, 50 servers do not pull images from your own registry at once. Waiting devices start as soon as a device reports its result (offline devices free their slot after 30 minutes). The **Stop on failure** option halts the rollout after a failure or rollback ("Continue anyway" lifts the halt), **Cancel waiting** drops the devices not yet started. The rollout continues server-side even with the browser closed.
 
@@ -532,7 +534,8 @@ All notable changes to Roster are documented here. The format follows
 - Proxmox guests via the agent on the PVE host (start/stop, backup status).
 - Temperature sensors with history and `temperature` check.
 
-[Unreleased]: https://github.com/boonkerz/roster/compare/v0.31.4...HEAD
+[Unreleased]: https://github.com/boonkerz/roster/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/boonkerz/roster/compare/v0.31.4...v0.32.0
 [0.31.4]: https://github.com/boonkerz/roster/compare/v0.31.3...v0.31.4
 [0.31.3]: https://github.com/boonkerz/roster/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/boonkerz/roster/compare/v0.31.1...v0.31.2
